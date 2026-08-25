@@ -1,3 +1,21 @@
+## 2026-08-25 23:05
+
+### Foerste udgivelse, v0.1.0
+Signeringsnoeglen ligger nu som hemmelighed paa GitHub, og GitHub bygger
+og signerer selv naar der saettes et versionsmaerke. Efterproevet: filen
+der ligger i udgivelsen er hentet ned igen og underskriften er tjekket
+mod noeglen. Den holder.
+
+Skaermene koerer 0.1.0 og udgivelsen er 0.1.0, saa de henter ingenting.
+Det er meningen: der opdateres kun opad.
+
+### Omdirigering ved hentning stod ikke i koden
+GitHubs hentelink svarer 302 og sender videre til en anden vaert, hvor
+filen ligger bag en tidsbegraenset underskrift i adressen. Koden lænede
+sig paa ESP-IDF's standard uden at skrive det. Det er det eneste sted
+hvor en aendret standard ville betyde at ingen skaerm nogensinde fik en
+opdatering, og fejlen ville ligne at GitHub var nede. Nu staar det der.
+
 ## 2026-08-25 22:53
 
 ### Repoet er offentligt

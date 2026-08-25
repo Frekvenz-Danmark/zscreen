@@ -232,15 +232,24 @@ bool zs_ota_check_and_install(zs_ota_status_t *ud)
         .url = url,
         .timeout_ms = OTA_TIMEOUT_MS,
         .crt_bundle_attach = esp_crt_bundle_attach,
-        /* GitHub sender filen videre til et andet vaertsnavn, saa
-         * omdirigering SKAL foelges her. */
+        /*
+         * GitHub sender filen videre til et andet vaertsnavn.
+         * Hentelinket svarer 302 med en Location paa
+         * release-assets.githubusercontent.com, hvor selve filen ligger
+         * bag en tidsbegraenset underskrift i adressen.
+         *
+         * Begge linjer herunder er ESP-IDF's standard i forvejen. De
+         * staar der alligevel, fordi det her er det eneste sted hvor en
+         * aendret standard ville betyde at ingen skaerm nogensinde fik
+         * en opdatering, og fejlen ville se ud som om GitHub var nede.
+         * To er nok: ét hop til filserveren, og ét i reserve.
+         */
+        .disable_auto_redirect = false,
+        .max_redirection_count = 2,
         .keep_alive_enable = true,
     };
     esp_https_ota_config_t ota = {
         .http_config = &http,
-        /* Headeren skal saettes paa hver omdirigering, ellers afviser
-         * GitHubs filserver os. */
-        .http_client_init_cb = NULL,
     };
 
     esp_https_ota_handle_t h = NULL;
