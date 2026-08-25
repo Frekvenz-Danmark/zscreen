@@ -148,6 +148,21 @@ bool zs_nvs_save(const zs_settings_t *s)
     }
 
     bool ok = true;
+
+    /*
+     * Er skaermen IKKE sat op, ryddes flaget FOERST og forpligtes for
+     * sig. Saa kan en stroemafbrydelse midt i resten ikke efterlade et
+     * flag der siger "sat op" oven paa halvt skrevne vaerdier.
+     *
+     * I dag saetter ingen sti flaget tilbage til false, men den dag
+     * nogen tilfoejer "skift inverter", skal det virke uden at nogen
+     * skal huske det her.
+     */
+    if (!s->configured) {
+        ok &= nvs_set_u8(h, K_CONF, 0) == ESP_OK;
+        ok &= nvs_commit(h) == ESP_OK;
+    }
+
     ok &= nvs_set_str(h, K_SSID, s->wifi_ssid) == ESP_OK;
     ok &= nvs_set_str(h, K_PASS, s->wifi_pass) == ESP_OK;
     ok &= nvs_set_str(h, K_IP,   s->inverter_ip) == ESP_OK;

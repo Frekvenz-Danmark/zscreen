@@ -609,6 +609,21 @@ static void app_task(void *arg)
     zs_display_set_night_dimming(s_cfg.night_dimming);
     s_fr.meter_import_positive = s_cfg.meter_import_positive;
 
+    /*
+     * Skriv hvad der rent faktisk blev taget i brug, ikke bare hvad der
+     * stod i lageret. Ellers kan man ikke se forskel paa en indstilling
+     * der blev laest og en der blev laest og derefter ignoreret, og det
+     * er praecis den slags der forsvinder i stilhed.
+     */
+    ESP_LOGI(TAG, "i brug: lys %u %%, natdæmpning %s, prisområde %s, "
+                  "elmåler %s, inverter %s:%u enhed %u",
+             s_cfg.brightness,
+             s_cfg.night_dimming ? "til" : "fra",
+             s_cfg.price_zone[0] != '\0' ? s_cfg.price_zone : "ikke valgt",
+             s_cfg.meter_import_positive ? "import positiv" : "import negativ",
+             s_cfg.inverter_ip[0] != '\0' ? s_cfg.inverter_ip : "ingen",
+             s_cfg.inverter_port, s_cfg.inverter_unit);
+
     if (!zs_wifi_init()) {
         ESP_LOGE(TAG, "wifi kunne ikke startes: %s", zs_wifi_last_error());
     }

@@ -54,18 +54,27 @@ static const char *dcst_name(int32_t s)
     }
 }
 
-/* Skriver "4,2 kW" eller "-" i et fast bredt felt. */
+/*
+ * Skriver "4,2 kW" eller "-" hoejrestillet i en kolonne paa KOL tegn.
+ *
+ * Baade bredde og praecision er sat til KOL. Bredden alene er kun et
+ * mindstemaal, saa en lang vaerdi ville skubbe resten af raekken ud af
+ * flugt uden at nogen opdagede det. Med praecisionen med bliver feltet
+ * praecis lige bredt hver gang.
+ */
+#define KOL     10
+
 static void put_power(char *dst, size_t n, zs_val_t v)
 {
     if (!v.ok) {
-        snprintf(dst, n, "%9s", "-");
+        snprintf(dst, n, "%*.*s", KOL, KOL, "-");
         return;
     }
     zs_num_t f;
     zs_fmt_power(v.v, &f);
     char tmp[24];
     snprintf(tmp, sizeof(tmp), "%s %s", f.value, f.unit);
-    snprintf(dst, n, "%9s", tmp);
+    snprintf(dst, n, "%*.*s", KOL, KOL, tmp);
 }
 
 static void print_info(const zs_fr_t *fr)
@@ -106,7 +115,8 @@ static void print_live(const zs_fr_t *fr, const zs_fr_live_t *lv, bool header)
 {
     if (header) {
         printf("\n  Det skaermen ville vise:\n\n");
-        printf("    %-10s %-10s %-10s %-10s\n", "SOLCELLER", "FORBRUG", "BATTERI", "NETTET");
+        printf("    %-*s %-*s %-*s %-*s\n",
+               KOL, "SOLCELLER", KOL, "FORBRUG", KOL, "BATTERI", KOL, "NETTET");
     }
     char sol[16], hus[16], bat[16], net[16];
     put_power(sol, sizeof(sol), lv->solar_w);
@@ -132,7 +142,7 @@ static void print_live(const zs_fr_t *fr, const zs_fr_live_t *lv, bool header)
              : (lv->grid_w.v >  20.0f) ? "koeber" : "i balance";
     }
 
-    printf("    %s  %s  %s  %s\n", sol, hus, bat, net);
+    printf("    %s %s %s %s\n", sol, hus, bat, net);
     printf("    %-10s %-10s %-9s%-2s %s\n", "", "", soc, "", "");
     printf("    %-10s %-10s %-11s %s\n", "", "", bdir, gdir);
 }
@@ -161,8 +171,28 @@ static void print_channels(const zs_fr_live_t *lv)
 
 static int do_scan(const char *subnet_base)
 {
-    /* subnet_base er fx "192.168.1.0". Vi proever .1 til .254. */
-    char base[46];
+    /*
+     * subnet_base er fx "192.168.1.0". Vi proever .1 til .254.
+     *
+     * Argumentet kommer fra kommandolinjen, saa det kan vaere hvad som
+     * helst. Vi afviser det der ikke ligner en IPv4-adresse i stedet
+     * for at klippe det af i stilhed: en afklippet adresse ville faa
+     * vaerktoejet til at scanne et helt andet netvaerk end det brugeren
+     * skrev, og det er svaert at gennemskue bagefter.
+     */
+    char base[16];      /* "255.255.255.255" plus afslutning */
+    if (subnet_base == NULL || strlen(subnet_base) >= sizeof(base)) {
+        fprintf(stderr, "Det ligner ikke en adresse. Skriv fx: "
+                        "--scan 192.168.1.0\n");
+        return 1;
+    }
+    for (const char *c = subnet_base; *c != '\0'; c++) {
+        if ((*c < '0' || *c > '9') && *c != '.') {
+            fprintf(stderr, "Adressen må kun indeholde tal og punktummer. "
+                            "Skriv fx: --scan 192.168.1.0\n");
+            return 1;
+        }
+    }
     snprintf(base, sizeof(base), "%s", subnet_base);
     char *last = strrchr(base, '.');
     if (last == NULL) {
@@ -174,7 +204,7 @@ static int do_scan(const char *subnet_base)
     printf("\n  Scanner %s.1 til %s.254 paa port 502 ...\n\n", base, base);
     int found = 0;
     for (int host = 1; host <= 254; host++) {
-        char ip[46];
+        char ip[24];    /* base op til 15, punktum, tre cifre */
         snprintf(ip, sizeof(ip), "%s.%d", base, host);
         if (!zs_mb_probe_port(ip, ZS_MB_DEFAULT_PORT, 200)) {
             continue;
