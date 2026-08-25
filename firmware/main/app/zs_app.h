@@ -31,7 +31,8 @@ extern "C" {
 #endif
 
 typedef enum {
-    ZS_CMD_WIFI_SCAN = 0,     /* søg efter netværk                  */
+    ZS_CMD_SETUP_CONTINUE = 0, /* "Kom i gang": brug gemt wifi hvis der er */
+    ZS_CMD_WIFI_SCAN,         /* søg efter netværk                  */
     ZS_CMD_WIFI_CONNECT,      /* ssid og pass er udfyldt            */
     ZS_CMD_INVERTER_SCAN,     /* gennemgå undernettet               */
     ZS_CMD_INVERTER_SELECT,   /* ip er udfyldt                      */
@@ -39,6 +40,8 @@ typedef enum {
     ZS_CMD_SET_BRIGHTNESS,    /* u8 er 5 til 100                    */
     ZS_CMD_SET_NIGHT_DIM,     /* flag                               */
     ZS_CMD_SET_METER_SIGN,    /* flag: positiv betyder køb          */
+    ZS_CMD_DEMO_START,        /* vis hovedskærmen med opdigtede tal */
+    ZS_CMD_DEMO_STOP,         /* tilbage til opsætning eller drift   */
     ZS_CMD_FACTORY_RESET,
     ZS_CMD_REBOOT,
 } zs_cmd_type_t;

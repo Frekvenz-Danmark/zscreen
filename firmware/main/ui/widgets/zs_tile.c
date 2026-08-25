@@ -29,9 +29,12 @@ void zs_tile_create(zs_tile_t *t, lv_obj_t *parent, int col, int row,
 
     t->card = zs_card_create(parent);
     lv_obj_set_size(t->card, ZS_CARD_WIDTH, ZS_CARD_HEIGHT);
+    /* Placeringen er i forhold til SIDEN, ikke til skaermen. Siden
+     * ligger allerede under statuslinjen, saa den maa ikke laegges til
+     * her ogsaa. */
     lv_obj_set_pos(t->card,
                    ZS_EDGE + col * (ZS_CARD_WIDTH + ZS_GRID_GAP),
-                   ZS_BAR_HEIGHT + ZS_EDGE + row * (ZS_CARD_HEIGHT + ZS_GRID_GAP));
+                   ZS_EDGE + row * (ZS_CARD_HEIGHT + ZS_GRID_GAP));
 
     /* ── overskrift ── */
     t->head_label = zs_label_create(t->card, label);

@@ -3,6 +3,7 @@
 #include "zs_theme.h"
 #include "zs_keyboard.h"
 #include "zs_app.h"
+#include "zs_config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -70,9 +71,24 @@ static void clear_list(lv_obj_t *list)
 static void on_welcome_start(lv_event_t *e)
 {
     (void)e;
-    zs_ui_show(ZS_SCREEN_WIFI_LIST);
-    send_cmd(ZS_CMD_WIFI_SCAN);
+    /*
+     * Vi beder appen fortsaette, i stedet for at gaa direkte til
+     * listen over netvaerk.
+     *
+     * Er der gemt et netvaerk fra sidst, skal brugeren ikke taste
+     * kodeordet igen. Det sker naar man er kommet gennem wifi-trinnet
+     * men ikke fandt en inverter, og saa slukker for stroemmen.
+     */
+    send_cmd(ZS_CMD_SETUP_CONTINUE);
 }
+
+#if ZS_DEMO_ENABLED
+static void on_welcome_demo(lv_event_t *e)
+{
+    (void)e;
+    send_cmd(ZS_CMD_DEMO_START);
+}
+#endif
 
 static void build_welcome(void)
 {
@@ -99,6 +115,26 @@ static void build_welcome(void)
     lv_obj_set_style_text_align(s, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(s, ZS_SCR_WIDTH - 4 * ZS_EDGE);
     lv_obj_align(s, LV_ALIGN_TOP_MID, 0, 210);
+
+#if ZS_DEMO_ENABLED
+    /*
+     * To knapper: den primaere fylder mest, demoen staar under som en
+     * rolig kant-knap. Foden er 76 px hoej, saa der er plads til en
+     * 52 px knap. Demo-knappen laegges derfor i indholdet lige over
+     * foden, hvor der er luft.
+     */
+    lv_obj_t *demo = zs_btn_secondary_create(c, "Se demo");
+    lv_obj_set_width(demo, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_align(demo, LV_ALIGN_TOP_MID, 0, 300);
+    lv_obj_add_event_cb(demo, on_welcome_demo, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *dh = lv_label_create(c);
+    lv_label_set_text(dh, "Se hvordan skærmen ser ud, uden et anlæg");
+    zs_style_text(dh, &zs_font_16, ZS_C_LABEL);
+    lv_obj_set_style_text_align(dh, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_width(dh, ZS_SCR_WIDTH - 4 * ZS_EDGE);
+    lv_obj_align(dh, LV_ALIGN_TOP_MID, 0, 358);
+#endif
 
     lv_obj_t *btn = zs_btn_primary_create(s_welcome.footer, "Kom i gang");
     lv_obj_set_width(btn, ZS_SCR_WIDTH - 2 * ZS_EDGE);
@@ -318,7 +354,7 @@ static void build_scan(void)
 
     s_scan_text = lv_label_create(s_scan.content);
     lv_label_set_text(s_scan_text,
-        "Skærmen gennemgår netværket. Det tager få sekunder.");
+        "Enheden gennemgår netværket. Det tager få sekunder.");
     zs_style_text(s_scan_text, &zs_font_16, ZS_C_LABEL);
     lv_obj_set_style_text_align(s_scan_text, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(s_scan_text, ZS_SCR_WIDTH - 4 * ZS_EDGE);

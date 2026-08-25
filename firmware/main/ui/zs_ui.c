@@ -183,6 +183,14 @@ void zs_ui_set_settings(const zs_settings_t *s, const char *ip)
     lv_port_sem_give();
 }
 
+void zs_ui_set_demo(bool demo)
+{
+    if (!s_ready) { return; }
+    lv_port_sem_take();
+    zs_settings_set_demo(demo);
+    lv_port_sem_give();
+}
+
 void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi)
 {
     if (!s_ready) { return; }

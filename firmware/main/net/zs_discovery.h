@@ -66,6 +66,16 @@ int zs_discovery_scan(const char *subnet, const char *prefer,
  * tilbage, saa skaermen ikke skal vente paa at den bliver faerdig. */
 void zs_discovery_abort(void);
 
+/*
+ * Blev den sidste soegning afbrudt?
+ *
+ * Kalderen SKAL spoerge om det foer den viser resultatet. Ellers
+ * bliver brugeren revet tilbage til listen over invertere et halvt
+ * sekund efter at have trykket paa tilbage, fordi soegningen foerst
+ * naaede at blive faerdig bagefter.
+ */
+bool zs_discovery_was_aborted(void);
+
 #ifdef __cplusplus
 }
 #endif

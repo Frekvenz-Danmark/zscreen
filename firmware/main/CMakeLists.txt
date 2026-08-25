@@ -19,6 +19,7 @@ idf_component_register(
 
         "app/zs_format.c"
         "app/zs_app.c"
+        "app/zs_demo.c"
 
         "storage/zs_nvs.c"
 
@@ -30,6 +31,7 @@ idf_component_register(
         "ui/zs_screen_setup.c"
         "ui/zs_screen_settings.c"
         "ui/widgets/zs_tile.c"
+        "ui/widgets/zs_flow.c"
         "ui/widgets/zs_statusbar.c"
         "ui/widgets/zs_keyboard.c"
 

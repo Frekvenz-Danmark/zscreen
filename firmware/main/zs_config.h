@@ -89,4 +89,17 @@
 #define ZS_NIGHT_START_HOUR     22
 #define ZS_NIGHT_END_HOUR       6
 
+/* ── Demo ─────────────────────────────────────────────────────────── */
+/*
+ * Demo-tilstand: hovedskaermen med opdigtede tal, saa man kan se
+ * hvordan skaermen opfoerer sig uden et anlaeg i naerheden.
+ *
+ * Saettes den til 0, findes hverken knappen "Se demo" eller koden bag
+ * den i den byggede fil. Det er hovedafbryderen til produktionsenheder.
+ *
+ * Uanset hvad gemmes demo ALDRIG. En genstart slaar den altid fra, saa
+ * en enhed hos en kunde kan ikke starte op i demo.
+ */
+#define ZS_DEMO_ENABLED   1
+
 #endif /* ZS_CONFIG_H */

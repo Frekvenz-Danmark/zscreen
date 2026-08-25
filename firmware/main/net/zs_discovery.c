@@ -16,10 +16,16 @@
 static const char *TAG = "discovery";
 
 static volatile bool s_abort = false;
+static volatile bool s_was_aborted = false;
 
 void zs_discovery_abort(void)
 {
     s_abort = true;
+}
+
+bool zs_discovery_was_aborted(void)
+{
+    return s_was_aborted;
 }
 
 /*
@@ -41,12 +47,23 @@ void zs_discovery_abort(void)
 static int probe_batch(const char base[static 12], int first, int count,
                        bool *alive)
 {
+    /*
+     * Begge felter nulstilles FOERST.
+     *
+     * Loekken nedenfor har to betingelser, og hvis den anden stopper
+     * den tidligt, ville de resterende pladser aldrig blive udfyldt.
+     * Loekken laengere nede laeser dem alligevel. I dag kan det ikke
+     * ske, fordi count aldrig er stoerre end ZS_SCAN_PARALLEL, men det
+     * er en fejl der venter paa at nogen aendrer den ene af de to.
+     */
     int fds[ZS_SCAN_PARALLEL];
+    for (int i = 0; i < ZS_SCAN_PARALLEL; i++) {
+        fds[i] = -1;
+        alive[i] = false;
+    }
     int n = 0;
 
     for (int i = 0; i < count && n < ZS_SCAN_PARALLEL; i++) {
-        alive[i] = false;
-
         char ip[16];
         snprintf(ip, sizeof(ip), "%s.%d", base, first + i);
 
@@ -177,6 +194,7 @@ int zs_discovery_scan(const char *subnet, const char *prefer,
     }
 
     s_abort = false;
+    s_was_aborted = false;
     size_t found = 0;
     const int total = 254;
     int done = 0;
@@ -201,6 +219,7 @@ int zs_discovery_scan(const char *subnet, const char *prefer,
     for (int first = 1; first <= 254 && found < max; first += ZS_SCAN_PARALLEL) {
         if (s_abort) {
             ZS_LOGI(TAG, "søgningen blev afbrudt");
+            s_was_aborted = true;
             break;
         }
         int count = ZS_SCAN_PARALLEL;

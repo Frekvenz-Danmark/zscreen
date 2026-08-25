@@ -40,6 +40,7 @@ typedef struct {
     zs_link_state_t link;
     int             rssi;
     const char     *time_text;      /* NULL naar uret ikke er sat         */
+    bool            demo;           /* opdigtede tal, vises tydeligt      */
 } zs_home_data_t;
 
 /* Bygger skaermen paa den aktive LVGL-skaerm. Kaldes én gang. */

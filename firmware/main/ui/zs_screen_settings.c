@@ -4,6 +4,7 @@
 #include "zs_app.h"
 #include "zs_config.h"
 #include "zs_format.h"
+#include "zs_config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -17,6 +18,7 @@ static lv_obj_t *s_slider_val;
 static lv_obj_t *s_sw_night;
 static lv_obj_t *s_sw_meter;
 static lv_obj_t *s_det_col;
+static zs_row_t  s_row_demo;
 
 /* ------------------------------------------------------------------ */
 /* Smaa byggeklodser                                                   */
@@ -195,6 +197,14 @@ static void on_reset(lv_event_t *e)
     lv_obj_add_event_cb(box, on_reset_confirmed, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
+#if ZS_DEMO_ENABLED
+static void on_demo_stop(lv_event_t *e)
+{
+    (void)e;
+    send_simple(ZS_CMD_DEMO_STOP);
+}
+#endif
+
 static void on_reboot(lv_event_t *e)
 {
     (void)e;
@@ -269,6 +279,18 @@ static void build_settings(void)
                     on_meter_sign, &s_sw_meter);
 
     detail_heading(col, "SKÆRMEN");
+
+#if ZS_DEMO_ENABLED
+    /* Kun synlig mens demoen koerer. Se zs_settings_set_demo. */
+    zs_row_create(&s_row_demo, col, ZS_ICON_CLOSE, "Afslut demo", NULL, true);
+    lv_obj_set_width(s_row_demo.row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_add_flag(s_row_demo.row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_row_demo.row, on_demo_stop, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_flag(s_row_demo.row, LV_OBJ_FLAG_HIDDEN);
+    if (s_row_demo.title != NULL) {
+        lv_obj_set_style_text_color(s_row_demo.title, lv_color_hex(ZS_C_ACCENT), 0);
+    }
+#endif
 
     zs_row_t rb;
     zs_row_create(&rb, col, ZS_ICON_REFRESH, "Genstart", NULL, true);
@@ -347,6 +369,22 @@ void zs_settings_update(const zs_settings_t *s, const char *ip)
         lv_obj_clear_state(s_sw_meter, LV_STATE_CHECKED);
     }
     (void)ip;
+}
+
+void zs_settings_set_demo(bool demo)
+{
+#if ZS_DEMO_ENABLED
+    if (s_row_demo.row == NULL) {
+        return;
+    }
+    if (demo) {
+        lv_obj_clear_flag(s_row_demo.row, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(s_row_demo.row, LV_OBJ_FLAG_HIDDEN);
+    }
+#else
+    (void)demo;
+#endif
 }
 
 void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)

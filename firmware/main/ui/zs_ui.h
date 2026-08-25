@@ -58,6 +58,7 @@ void zs_ui_set_home(const zs_home_data_t *d);
 
 /* Fylder Indstillinger og Detaljer. */
 void zs_ui_set_settings(const zs_settings_t *s, const char *ip);
+void zs_ui_set_demo(bool demo);
 void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi);
 
 #ifdef __cplusplus

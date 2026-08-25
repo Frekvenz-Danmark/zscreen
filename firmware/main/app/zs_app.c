@@ -22,6 +22,7 @@
 #include "zs_fronius.h"
 #include "zs_nvs.h"
 #include "zs_display.h"
+#include "zs_demo.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -41,6 +42,7 @@ typedef enum {
     ST_SETUP = 0,
     ST_CONNECTING,
     ST_RUNNING,
+    ST_DEMO,        /* opdigtede tal, ingen wifi og ingen Modbus */
 } app_state_t;
 
 static QueueHandle_t   s_queue;
@@ -55,6 +57,17 @@ static bool            s_clock_ok;
 
 /* Hvornaar vi sidst fik et helt sæt tal, i millisekunder siden start. */
 static int64_t s_last_good_ms;
+
+/*
+ * Demo gemmes ALDRIG.
+ *
+ * Flaget lever kun i hukommelsen, saa en genstart altid slaar det fra.
+ * En enhed hos en kunde kan derfor ikke komme til at starte op med
+ * opdigtede tal, uanset hvad der er trykket paa foer.
+ */
+static bool s_demo;
+static bool s_demo_restart;
+static zs_fr_info_t s_demo_info;
 
 /* Ventetid foer naeste forsoeg, vokser for hvert fejlslagent. */
 static uint32_t s_backoff_ms = ZS_RECONNECT_MIN_MS;
@@ -106,6 +119,26 @@ static void clock_update(void)
 
 static void publish_home(void)
 {
+    if (s_demo) {
+        /*
+         * Demoen gaar gennem PRAECIS den samme vej som rigtige tal.
+         * Brugerfladen har ikke én eneste demo-gren: den faar en
+         * zs_home_data_t og tegner den. Det er hele pointen med at
+         * samle det her ét sted.
+         */
+        s_home.have_data   = true;
+        s_home.stale       = false;
+        s_home.has_meter   = true;
+        s_home.has_battery = true;
+        s_home.link        = ZS_LINK_OK;
+        s_home.rssi        = -55;
+        s_home.time_text   = zs_demo_clock();
+        s_home.demo        = true;
+        zs_ui_set_home(&s_home);
+        return;
+    }
+    s_home.demo = false;
+
     int64_t age = now_ms() - s_last_good_ms;
 
     s_home.stale = (s_last_good_ms == 0) || (age > ZS_STALE_AFTER_MS);
@@ -196,6 +229,13 @@ static void do_inverter_scan(void)
     const char *prefer = s_cfg.inverter_ip[0] ? s_cfg.inverter_ip : NULL;
     int n = zs_discovery_scan(subnet, prefer, s_found, ZS_DISCOVERY_MAX,
                               scan_progress, NULL);
+    if (zs_discovery_was_aborted()) {
+        /* Brugeren trykkede tilbage mens vi soegte. Vi viser IKKE
+         * resultatet: saa ville skaermen rive dem tilbage til listen
+         * over invertere et halvt sekund efter de gik derfra. */
+        ESP_LOGI(TAG, "søgningen blev afbrudt, viser ikke resultatet");
+        return;
+    }
     if (n < 0) {
         n = 0;
     }
@@ -206,6 +246,46 @@ static void do_inverter_scan(void)
 static void handle_cmd(const zs_cmd_t *c)
 {
     switch (c->type) {
+
+    case ZS_CMD_SETUP_CONTINUE: {
+        /*
+         * "Kom i gang" er trykket.
+         *
+         * Har vi et netvaerk og et kodeord fra sidst, proever vi det
+         * foerst. Ellers, og hvis det ikke lykkes, viser vi listen.
+         * Det sparer brugeren for at taste et kodeord de allerede har
+         * tastet én gang.
+         */
+        if (s_cfg.wifi_ssid[0] != '\0' &&
+            zs_wifi_state() != ZS_WIFI_CONNECTED) {
+            char t[96];
+            snprintf(t, sizeof(t), "Forbinder til %s ...", s_cfg.wifi_ssid);
+            zs_ui_set_connect_status(t, false, false);
+            zs_ui_show(ZS_SCREEN_CONNECTING);
+
+            if (zs_wifi_connect(s_cfg.wifi_ssid, s_cfg.wifi_pass,
+                                ZS_WIFI_CONNECT_TIMEOUT_MS)) {
+                clock_start();
+                do_inverter_scan();
+                break;
+            }
+            ESP_LOGW(TAG, "det gemte netværk svarede ikke: %s",
+                     zs_wifi_last_error());
+        }
+        if (zs_wifi_state() == ZS_WIFI_CONNECTED) {
+            do_inverter_scan();
+            break;
+        }
+        /* Ingen gemte oplysninger, eller de virkede ikke. Vis listen. */
+        zs_ui_show(ZS_SCREEN_WIFI_LIST);
+        zs_ui_set_wifi_scanning(true);
+        {
+            int n = zs_wifi_scan(s_aps, ZS_WIFI_MAX_APS);
+            zs_ui_set_wifi_scanning(false);
+            zs_ui_set_wifi_list(s_aps, n < 0 ? 0 : n);
+        }
+        break;
+    }
 
     case ZS_CMD_WIFI_SCAN: {
         zs_ui_set_wifi_scanning(true);
@@ -226,6 +306,16 @@ static void handle_cmd(const zs_cmd_t *c)
          * opstart uden nogensinde at komme videre. */
         snprintf(s_cfg.wifi_ssid, sizeof(s_cfg.wifi_ssid), "%s", c->ssid);
         snprintf(s_cfg.wifi_pass, sizeof(s_cfg.wifi_pass), "%s", c->pass);
+        /*
+         * Gem med det samme, ogsaa selvom der endnu ikke er valgt en
+         * inverter. "Sat op"-flaget bliver foerst sat naar der ER én,
+         * saa skaermen starter stadig i opsaetningen. Men kodeordet
+         * skal ikke tastes igen bare fordi stroemmen gik mens man
+         * ledte efter inverteren.
+         */
+        if (!zs_nvs_save(&s_cfg)) {
+            ESP_LOGW(TAG, "netværket kunne ikke gemmes");
+        }
 
         clock_start();
         zs_ui_set_connect_status("Forbundet", false, false);
@@ -290,6 +380,44 @@ static void handle_cmd(const zs_cmd_t *c)
         zs_nvs_save(&s_cfg);
         break;
 
+#if ZS_DEMO_ENABLED
+    case ZS_CMD_DEMO_START:
+        ESP_LOGI(TAG, "demo startet");
+        /* Slip inverteren og wifi. Demoen skal kunne koere paa et bord
+         * uden netvaerk overhovedet. */
+        zs_fr_disconnect(&s_fr);
+        zs_demo_reset();
+        zs_demo_info(&s_demo_info);
+        s_demo = true;
+        s_state = ST_DEMO;
+        s_demo_restart = true;
+        zs_ui_set_demo(true);
+        zs_ui_show(ZS_SCREEN_HOME);
+        break;
+
+    case ZS_CMD_DEMO_STOP:
+        ESP_LOGI(TAG, "demo afsluttet");
+        s_demo = false;
+        zs_ui_set_demo(false);
+        memset(&s_home, 0, sizeof(s_home));
+        s_last_good_ms = 0;
+        /* Tilbage til det skaermen ellers ville have lavet: drift hvis
+         * den er sat op, ellers opsaetningen forfra. */
+        if (s_cfg.configured) {
+            s_state = ST_CONNECTING;
+            zs_ui_show(ZS_SCREEN_HOME);
+        } else {
+            s_state = ST_SETUP;
+            zs_ui_show(ZS_SCREEN_WELCOME);
+        }
+        break;
+#else
+    case ZS_CMD_DEMO_START:
+    case ZS_CMD_DEMO_STOP:
+        /* Demoen er slaaet fra i denne udgave. Se ZS_DEMO_ENABLED. */
+        break;
+#endif
+
     case ZS_CMD_FACTORY_RESET:
         ESP_LOGW(TAG, "fabriksnulstilling");
         zs_nvs_factory_reset();
@@ -337,6 +465,8 @@ static void app_task(void *arg)
     int64_t next_retry = 0;
     int64_t next_tick = 0;
     int64_t next_detail = 0;
+    int64_t next_demo_step = 0;
+    int64_t last_demo_ms = 0;
     /* Vi starter med en vaerdi der ikke er en rigtig skaerm, saa den
      * foerste gennemgang altid taeller som "siden blev skiftet". */
     zs_screen_id_t last_screen = (zs_screen_id_t)-1;
@@ -363,6 +493,57 @@ static void app_task(void *arg)
             next_tick = t + 1000;
             clock_update();
             zs_display_tick();
+        }
+
+        if (s_state == ST_DEMO) {
+            if (s_demo_restart) {
+                /* Foerste skridt med det samme, saa skaermen ikke staar
+                 * tom i to sekunder efter tryk paa "Se demo". */
+                s_demo_restart = false;
+                next_demo_step = 0;
+                last_demo_ms = 0;
+            }
+            /* Demoen har sin egen takt. Den roerer hverken wifi eller
+             * Modbus, saa resten af loekken springes over. */
+            if (t >= next_demo_step) {
+                /*
+                 * Vi maaler tiden siden sidste skridt direkte i stedet
+                 * for at regne den ud af den planlagte tid. Skifter man
+                 * til demo mens en anden takt allerede var i gang, ville
+                 * den udregning give et spring paa flere minutter i
+                 * demoens ur.
+                 *
+                 * Foerste skridt efter start faar den normale takt, og
+                 * et langt ophold klippes til ét sekund: skaermen har
+                 * vaeret optaget af noget andet, ikke rejst i tiden.
+                 */
+                uint32_t dt = (last_demo_ms == 0) ? ZS_POLL_INTERVAL_MS
+                                                  : (uint32_t)(t - last_demo_ms);
+                if (dt > 5000u) {
+                    dt = 1000u;
+                }
+                last_demo_ms = t;
+                next_demo_step = t + ZS_POLL_INTERVAL_MS;
+                zs_demo_step(&s_home.live, dt);
+                publish_home();
+            }
+            if (zs_ui_current() == ZS_SCREEN_DETAILS && t >= next_detail) {
+                next_detail = t + 1000;
+                /* Detaljer viser demoens opdigtede anlaeg, saa siden
+                 * ogsaa kan ses uden en inverter.
+                 *
+                 * static, ikke paa stakken: zs_fr_t fylder omkring
+                 * 850 bytes, og opgaven har 8 KB. Det ville virke, men
+                 * det er unoedvendigt at laegge det pres paa stakken
+                 * én gang i sekundet. */
+                static zs_fr_t vis;
+                zs_fr_init(&vis);
+                vis.info = s_demo_info;
+                snprintf(vis.host, sizeof(vis.host), "demo");
+                vis.port = 502;
+                zs_ui_set_details(&vis, "demo", -55);
+            }
+            continue;
         }
 
         if (s_state == ST_SETUP) {

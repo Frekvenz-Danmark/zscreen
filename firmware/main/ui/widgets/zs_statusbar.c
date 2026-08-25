@@ -29,6 +29,19 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
     lv_img_set_src(sb->logo, &zs_img_zmark);
     lv_obj_set_pos(sb->logo, 14, (ZS_BAR_HEIGHT - 26) / 2);
 
+    /* DEMO-maerket lige efter logoet. Skjult som udgangspunkt. */
+    sb->demo = lv_label_create(sb->bar);
+    lv_label_set_text(sb->demo, "DEMO");
+    zs_style_text(sb->demo, &zs_font_13, ZS_C_BG);
+    lv_obj_set_style_text_letter_space(sb->demo, 1, 0);
+    lv_obj_set_style_bg_color(sb->demo, lv_color_hex(ZS_C_ACCENT), 0);
+    lv_obj_set_style_bg_opa(sb->demo, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(sb->demo, 6, 0);
+    lv_obj_set_style_pad_hor(sb->demo, 7, 0);
+    lv_obj_set_style_pad_ver(sb->demo, 3, 0);
+    lv_obj_set_pos(sb->demo, 14 + 26 + 10, (ZS_BAR_HEIGHT - 22) / 2);
+    lv_obj_add_flag(sb->demo, LV_OBJ_FLAG_HIDDEN);
+
     sb->time = lv_label_create(sb->bar);
     lv_label_set_text(sb->time, "");
     zs_style_text(sb->time, &zs_font_20, ZS_C_TEXT_DIM);
@@ -58,6 +71,18 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
     }
 
     sb->state = ZS_LINK_NO_WIFI;
+}
+
+void zs_statusbar_set_demo(zs_statusbar_t *sb, bool demo)
+{
+    if (sb == NULL || sb->demo == NULL) {
+        return;
+    }
+    if (demo) {
+        lv_obj_clear_flag(sb->demo, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(sb->demo, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 void zs_statusbar_set_time(zs_statusbar_t *sb, const char *hhmm)

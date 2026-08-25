@@ -35,6 +35,7 @@ typedef enum {
 typedef struct {
     lv_obj_t *bar;
     lv_obj_t *logo;
+    lv_obj_t *demo;
     lv_obj_t *time;
     lv_obj_t *status_icon;
     lv_obj_t *gear;
@@ -51,6 +52,14 @@ void zs_statusbar_set_time(zs_statusbar_t *sb, const char *hhmm);
 
 /* rssi er wifi-signalet i dBm. Bruges kun naar tilstanden er ZS_LINK_OK. */
 void zs_statusbar_set_link(zs_statusbar_t *sb, zs_link_state_t state, int rssi);
+
+/*
+ * Viser eller skjuler DEMO-maerket ved siden af logoet.
+ *
+ * Det staar med orange og fylder. Meningen er at ingen skal kunne
+ * komme til at tro at tallene paa skaermen er rigtige maalinger.
+ */
+void zs_statusbar_set_demo(zs_statusbar_t *sb, bool demo);
 
 #ifdef __cplusplus
 }

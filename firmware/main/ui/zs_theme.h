@@ -80,16 +80,16 @@ LV_IMG_DECLARE(zs_img_wordmark)   /* hele logoet, 260 px, til velkomst  */
 
 /* ── Maal ─────────────────────────────────────────────────────────── */
 /*
- * Hele layoutet er regnet ud, ikke skudt efter. Skaermen er 480 x 480,
- * og hvert tal nedenfor kan foelges tilbage til den regning.
+ * Hele layoutet er regnet ud, ikke skudt efter. Skaermen er 480 x 480.
  *
- *   STATUSLINJE      0 .. 44          44 px
- *   KORTOMRAADE     44 .. 480        436 px
+ *   STATUSLINJE      0 ..  44     44 px, staar fast
+ *   SIDER           44 .. 452    408 px, kan trykkes til side
+ *   PRIKKER        452 .. 480     28 px, staar fast
  *
- * Vandret:
+ * Vandret paa side 1:
  *     kant 12 + kort 222 + mellemrum 12 + kort 222 + kant 12 = 480
- * Lodret:
- *     44 + kant 12 + kort 200 + mellemrum 12 + kort 200 + kant 12 = 480
+ * Lodret paa side 1:
+ *     kant 12 + kort 186 + mellemrum 12 + kort 186 + kant 12 = 408
  *
  * Alle vaerdier er lige tal, saa intet kan ende paa en halv pixel naar
  * noget bliver centreret.
@@ -97,12 +97,16 @@ LV_IMG_DECLARE(zs_img_wordmark)   /* hele logoet, 260 px, til velkomst  */
 #define ZS_SCR_WIDTH            480
 #define ZS_SCR_HEIGHT            480
 
-#define ZS_BAR_HEIGHT            44    /* statuslinjen foroven             */
+#define ZS_BAR_HEIGHT       44    /* statuslinjen foroven             */
+#define ZS_DOTS_HEIGHT      28    /* prikkerne der viser hvilken side */
+/* Hoejden af én side. Statuslinjen og prikkerne staar fast, kun det
+ * imellem kan trykkes til side. */
+#define ZS_PAGE_HEIGHT      (ZS_SCR_HEIGHT - ZS_BAR_HEIGHT - ZS_DOTS_HEIGHT)
 #define ZS_EDGE             12    /* luft ud til skaermkanten         */
 #define ZS_GRID_GAP         12    /* mellemrum mellem to kort         */
 
 #define ZS_CARD_WIDTH           222   /* (480 - 12 - 12 - 12) / 2         */
-#define ZS_CARD_HEIGHT           200   /* (480 - 44 - 12 - 12 - 12) / 2    */
+#define ZS_CARD_HEIGHT      186   /* (408 - 12 - 12 - 12) / 2         */
 #define ZS_CARD_RADIUS      18
 #define ZS_CARD_PAD         14    /* luft inde i kortet               */
 
@@ -113,21 +117,22 @@ LV_IMG_DECLARE(zs_img_wordmark)   /* hele logoet, 260 px, til velkomst  */
 
 /*
  * Kortets tre baand, maalt fra kortets indvendige overkant.
+ * Indvendigt er kortet 194 x 158 (222 og 186 minus 14 luft i hver side).
  *
  *     overskrift    y =   0, hoejde 20   (ikon 20 px og etiket 13 px)
- *     stort tal     y =  60, hoejde 54   (skrifttypens linjehoejde)
- *     undertekst    y = 154, hoejde 18
+ *     stort tal     y =  53, hoejde 54   (skrifttypens linjehoejde)
+ *     undertekst    y = 140, hoejde 18   slutter praecis paa 158
  *
  * Tallet staar optisk midt imellem de to andre:
- *     ledig plads mellem 20 og 154 er 134 px
- *     134 - 54 = 80, halvdelen er 40, saa y = 20 + 40 = 60
+ *     ledig plads mellem 20 og 140 er 120 px
+ *     120 - 54 = 66, halvdelen er 33, saa y = 20 + 33 = 53
  */
 #define ZS_CARD_HEAD_Y      0
-#define ZS_CARD_HEAD_HEIGHT      20
-#define ZS_CARD_VALUE_Y     60
-#define ZS_CARD_VALUE_HEIGHT     54
-#define ZS_CARD_SUB_Y       154
-#define ZS_CARD_SUB_HEIGHT       18
+#define ZS_CARD_HEAD_HEIGHT 20
+#define ZS_CARD_VALUE_Y     53
+#define ZS_CARD_VALUE_HEIGHT 54
+#define ZS_CARD_SUB_Y       140
+#define ZS_CARD_SUB_HEIGHT  18
 
 /*
  * Enheden skal staa paa SAMME GRUNDLINJE som tallet.

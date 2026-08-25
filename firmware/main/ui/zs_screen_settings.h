@@ -24,6 +24,9 @@ lv_obj_t *zs_settings_root(void);
 lv_obj_t *zs_details_root(void);
 
 void zs_settings_update(const zs_settings_t *s, const char *ip);
+
+/* Viser eller skjuler raden "Afslut demo". */
+void zs_settings_set_demo(bool demo);
 void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi);
 
 #ifdef __cplusplus
