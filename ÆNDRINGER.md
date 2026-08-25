@@ -1,3 +1,25 @@
+## 2026-08-25 23:40
+
+### Demoen er slaaet fra
+ZS_DEMO_ENABLED staar paa 0. Knappen "Se demo" findes ikke laengere paa
+velkomstsiden, og "Afslut demo" er vaek fra Indstillinger.
+
+Kontakten holdt ikke helt hvad headeren lovede. Selve demo-modulet blev
+stadig oversat og linket med, saa 1,8 KB kode og teksten DEMO laa i
+flashen paa en kundeenhed uden at kunne naas fra noget. Nu ligger hele
+zs_demo.c, maerket i toplinjen og demo-grenen i hovedloekken inde i
+kontakten.
+
+Efterproevet paa den byggede fil: ingen af teksterne "Se demo", "Afslut
+demo", "DEMO" eller "demo startet" findes i den, og der er nul symboler
+med zs_demo. Koden er 7932 bytes mindre, dataene 1096 bytes.
+
+Velkomstsiden er maalt igen uden knappen: indholdet fylder y=90 til 250 i
+et felt paa 348, altsaa 90 px luft over og 98 under. Balanceret som den
+er, ingen flytning noedvendig.
+
+Slaas den til igen, er det ét tal i zs_config.h.
+
 ## 2026-08-25 23:29
 
 ### Kun de kasser anlaegget faktisk har

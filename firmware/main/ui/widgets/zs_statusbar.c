@@ -1,4 +1,5 @@
 #include "zs_statusbar.h"
+#include "zs_config.h"
 #include "zs_theme.h"
 
 #include <string.h>
@@ -102,7 +103,13 @@ static badge_t badge_for(zs_link_state_t state, bool demo)
     if (demo) {
         /* Demo overtrumfer alt. Ingen maa kunne komme til at tro at
          * opdigtede tal er rigtige maalinger. */
+#if ZS_DEMO_ENABLED
         return (badge_t){ "DEMO", ZS_C_ACCENT };
+#else
+        /* Kan ikke naas naar demoen er slaaet fra. Grenen staar her saa
+         * teksten ikke ligger i flashen paa en kundeenhed. */
+        (void)demo;
+#endif
     }
     switch (state) {
     case ZS_LINK_OK:           return (badge_t){ "FORBUNDET",      ZS_C_GOOD };

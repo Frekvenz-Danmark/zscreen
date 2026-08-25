@@ -1,6 +1,16 @@
 #include "zs_demo.h"
 #include "zs_config.h"
 
+/*
+ * Hele filen ligger inde i kontakten.
+ *
+ * Uden det bliver demoens kode oversat og linket med, ogsaa naar
+ * ZS_DEMO_ENABLED er nul. Den kan saa ikke naas fra noget, men den
+ * fylder i flashen og staar i den byggede fil, og headeren lover
+ * noget andet. En hovedafbryder der ikke afbryder er vaerre end ingen.
+ */
+#if ZS_DEMO_ENABLED
+
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -259,3 +269,5 @@ const char *zs_demo_clock(void)
 {
     return s_clock;
 }
+
+#endif /* ZS_DEMO_ENABLED */

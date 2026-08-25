@@ -144,6 +144,6 @@
  * Uanset hvad gemmes demo ALDRIG. En genstart slaar den altid fra, saa
  * en enhed hos en kunde kan ikke starte op i demo.
  */
-#define ZS_DEMO_ENABLED   1
+#define ZS_DEMO_ENABLED   0
 
 #endif /* ZS_CONFIG_H */

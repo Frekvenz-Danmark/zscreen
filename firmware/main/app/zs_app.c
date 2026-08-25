@@ -908,6 +908,7 @@ static void app_task(void *arg)
             }
         }
 
+#if ZS_DEMO_ENABLED
         if (s_state == ST_DEMO) {
             if (s_demo_restart) {
                 /* Foerste skridt med det samme, saa skaermen ikke staar
@@ -951,6 +952,7 @@ static void app_task(void *arg)
             }
             continue;
         }
+#endif /* ZS_DEMO_ENABLED */
 
         if (s_state == ST_SETUP) {
             continue;
