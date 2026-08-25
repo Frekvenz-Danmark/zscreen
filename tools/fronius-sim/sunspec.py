@@ -189,8 +189,19 @@ def make_inverter(has_battery: bool = True,
     m120.sf(24, 0)
 
     # --- Model 124, Storage (smdx_00124) ---
+    #
+    # Modellen udgives ALTID, ogsaa naar der ikke er et batteri. Det er
+    # ikke en forenkling, det er hvad en rigtig GEN24 goer. Fronius
+    # skriver selv i dokumentationen af model 124: "Wenn kein
+    # Energiespeicher verfuegbar ist liefert das Register den Wert 0
+    # zurueck". Altsaa er WChaMax paa nul svaret paa om der er et
+    # batteri, ikke om modellen findes.
+    #
+    # Simulerede vi det ved bare at udelade modellen, ville vi teste
+    # noget der ikke sker i virkeligheden, og den rigtige fejl ville
+    # slippe igennem.
+    m124 = d.add(Model(124, 24))
     if has_battery:
-        m124 = d.add(Model(124, 24))
         m124.u16(0, 5000)     # WChaMax
         m124.u16(3, 0)        # StorCtl_Mod
         m124.u16(5, 500)      # MinRsvPct, 5,00 %
@@ -202,6 +213,12 @@ def make_inverter(has_battery: bool = True,
         m124.sf(21, 0)        # StorAval_SF
         m124.sf(22, -1)       # InBatV_SF
         m124.sf(23, -2)       # InOutWRte_SF
+    else:
+        m124.u16(0, 0)        # WChaMax = 0: intet energilager
+        m124.u16(6, NA_U16)   # ChaState er ikke udfyldt
+        m124.enum16(9, NA_U16)
+        m124.sf(16, 0)
+        m124.sf(20, 0)
 
     # --- Model 160, MPPT (smdx_00160) ---
     n_ch = pv_strings + (2 if has_battery else 0)

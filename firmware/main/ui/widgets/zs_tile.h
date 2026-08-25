@@ -45,8 +45,20 @@ typedef struct {
  * col og row er 0 eller 1. Placeringen regnes ud af maalene i
  * zs_theme.h, saa der ikke staar pixelvaerdier spredt ud i koden.
  */
-void zs_tile_create(zs_tile_t *t, lv_obj_t *parent, int col, int row,
+void zs_tile_create(zs_tile_t *t, lv_obj_t *parent,
                     const char *label, const char *icon);
+
+/*
+ * Giver kassen sin plads og sin stoerrelse.
+ *
+ * Skilt fra zs_tile_create fordi antallet af kasser afhaenger af
+ * anlaegget. Uden batteri er der tre og den sidste fylder hele bredden.
+ * Se zs_tilegrid.h for opsaetningerne.
+ */
+void zs_tile_place(zs_tile_t *t, int x, int y, int w, int h);
+
+/* Skjuler eller viser kassen. */
+void zs_tile_set_visible(zs_tile_t *t, bool vis);
 
 /* Effekt i watt. Tallet vises som stoerrelse, retningen siges med ord
  * i underteksten. active bestemmer om tallet staar i accentfarven. */

@@ -1,4 +1,5 @@
 #include "zs_screen_home.h"
+#include "zs_tilegrid.h"
 #include "zs_theme.h"
 #include "zs_tile.h"
 #include "zs_flow.h"
@@ -43,6 +44,8 @@
  * De roerer hinanden og overlapper ikke.
  */
 
+static void laeg_kasserne(bool har_maaler, bool har_batteri);
+
 static lv_obj_t      *s_root;
 static lv_obj_t      *s_pager;
 static lv_obj_t      *s_page[PAGE_COUNT];
@@ -57,6 +60,10 @@ static zs_status_page_t s_status;
 static zs_price_page_t s_price;
 static int            s_page_now;
 static bool           s_created;
+
+/* Hvad kasserne sidst blev lagt ud efter. -1 betyder "endnu ikke",
+ * saa foerste maaling altid faar dem lagt rigtigt. */
+static int            s_sidste_saet = -1;
 
 lv_obj_t *zs_screen_home_root(void)
 {
@@ -160,10 +167,15 @@ void zs_screen_home_create(lv_event_cb_t gear_cb, void *user_data)
     }
 
     /* Side 1: de fire kasser */
-    zs_tile_create(&s_solar,   s_page[0], 0, 0, "SOLCELLER", ZS_ICON_SUN);
-    zs_tile_create(&s_house,   s_page[0], 1, 0, "FORBRUG",   ZS_ICON_HOUSE);
-    zs_tile_create(&s_battery, s_page[0], 0, 1, "BATTERI",   ZS_ICON_BATTERY);
-    zs_tile_create(&s_grid,    s_page[0], 1, 1, "NETTET",    ZS_ICON_ZAP);
+    zs_tile_create(&s_solar,   s_page[0], "SOLCELLER", ZS_ICON_SUN);
+    zs_tile_create(&s_house,   s_page[0], "FORBRUG",   ZS_ICON_HOUSE);
+    zs_tile_create(&s_battery, s_page[0], "BATTERI",   ZS_ICON_BATTERY);
+    zs_tile_create(&s_grid,    s_page[0], "NETTET",    ZS_ICON_ZAP);
+
+    /* Med fire kasser indtil vi har hoert fra inverteren. Saa staar de
+     * rigtigt fra foerste tegning i det almindelige tilfaelde, og
+     * flytter sig kun hvis anlaegget viser sig at vaere anderledes. */
+    laeg_kasserne(true, true);
 
     /* Side 2: energiflow */
     zs_flow_create(&s_flow, s_page[1]);
@@ -222,11 +234,51 @@ static void update_solar(const zs_home_data_t *d)
                     ZS_C_LABEL);
 }
 
+/*
+ * Laegger kasserne ud efter hvad anlaegget har.
+ *
+ *   elmaaler   giver FORBRUG og NETTET
+ *   batteri    giver BATTERI
+ *
+ * SOLCELLER er der altid: har vi kontakt til en inverter, er der
+ * solceller paa den.
+ *
+ * Vi viser IKKE en tom kasse der siger "intet batteri". Kunden har
+ * ikke et batteri, og skal ikke mindes om det hver eneste gang han
+ * gaar forbi skaermen.
+ *
+ * Raekkefoelgen er den samme uanset hvor mange der er, saa oejet finder
+ * det samme sted hver gang: sol, forbrug, batteri, net.
+ */
+static void laeg_kasserne(bool har_maaler, bool har_batteri)
+{
+    zs_tile_t *vis[ZS_TILES_MAX];
+    int n = 0;
+
+    vis[n++] = &s_solar;
+    if (har_maaler)  { vis[n++] = &s_house; }
+    if (har_batteri) { vis[n++] = &s_battery; }
+    if (har_maaler)  { vis[n++] = &s_grid; }
+
+    zs_tile_set_visible(&s_solar,   true);
+    zs_tile_set_visible(&s_house,   har_maaler);
+    zs_tile_set_visible(&s_battery, har_batteri);
+    zs_tile_set_visible(&s_grid,    har_maaler);
+
+    zs_rect_t r[ZS_TILES_MAX];
+    if (zs_tilegrid(n, r) != n) {
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        zs_tile_place(vis[i], r[i].x, r[i].y, r[i].w, r[i].h);
+    }
+}
+
 static void update_house(const zs_home_data_t *d)
 {
     if (!d->has_meter) {
-        /* Uden elmaaler kan forbruget ikke udledes. Vi siger det, i
-         * stedet for at vise et nul der ligner en maaling. */
+        /* Kassen er skjult uden elmaaler. Teksten er en sikkerhedssele,
+         * som ved batteriet. */
         zs_tile_set_none(&s_house, "Ingen elmåler");
         return;
     }
@@ -242,6 +294,9 @@ static void update_house(const zs_home_data_t *d)
 static void update_battery(const zs_home_data_t *d)
 {
     if (!d->has_battery) {
+        /* Kassen er skjult i det her tilfaelde, saa der er intet at
+         * skrive i den. Teksten staar her som en sikkerhedssele: bliver
+         * den nogensinde vist alligevel, staar der noget rigtigt. */
         zs_tile_set_none(&s_battery, "Intet batteri");
         return;
     }
@@ -317,6 +372,20 @@ void zs_screen_home_update(const zs_home_data_t *d)
         return;
     }
 
+    /*
+     * Laeg kasserne om HVIS anlaegget viser sig at vaere et andet.
+     *
+     * Vi gemmer hvad de sidst blev lagt ud efter, saa det kun sker naar
+     * der faktisk er sket noget. Uden det ville alle fire kasser blive
+     * flyttet og skaleret fem gange i sekundet, og LVGL ville tegne
+     * hele siden om hver gang.
+     */
+    int saet = (d->has_meter ? 1 : 0) | (d->has_battery ? 2 : 0);
+    if (saet != s_sidste_saet) {
+        s_sidste_saet = saet;
+        laeg_kasserne(d->has_meter, d->has_battery);
+    }
+
     zs_statusbar_set_time(&s_bar, d->time_text);
     /* Ét kald saetter baade maerket og ikonet, saa de ikke kan komme
      * til at sige hver sit. */
@@ -383,4 +452,5 @@ void zs_screen_home_destroy(void)
     memset(&s_status,  0, sizeof(s_status));
     memset(&s_price,   0, sizeof(s_price));
     s_created = false;
+    s_sidste_saet = -1;
 }

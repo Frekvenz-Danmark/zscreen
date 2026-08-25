@@ -84,7 +84,11 @@ ok "Lucide ($(wc -c < "${CACHE}/lucide.ttf" | tr -d ' ') bytes)"
 # eller naar det koerer, bare et hul midt i en saetning.
 # tools/check-text.py holder oeje med at hvert tegn vi skriver, ogsaa
 # findes i alle skrifttyperne.
-DANSK="0x20-0x7E,0xB7,0xC5,0xC6,0xD8,0xE5,0xE6,0xF8,0x2022"
+# 0xC9 og 0xE9 er É og é. Dansk klarer sig uden dem i de fleste ord,
+# men ikke i alle: "én" med accent betyder tallet ét og adskiller sig
+# fra artiklen "en", og det er forskellen paa "kun én kasse" og "kun en
+# kasse". To glyffer koster under 200 bytes i alt.
+DANSK="0x20-0x7E,0xB7,0xC5,0xC6,0xC9,0xD8,0xE5,0xE6,0xE9,0xF8,0x2022"
 
 # Til de store tal bruger vi kun cifre og skilletegn. Et fuldt tegnsaet
 # i 64 pixels ville fylde over 200 KB uden at én af bogstaverne blev

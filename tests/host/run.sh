@@ -53,10 +53,12 @@ SRC=(
     test_format.c
     test_fronius.c
     test_version.c
+    test_tilegrid.c
     ../../firmware/main/net/zs_modbus_tcp.c
     ../../firmware/main/net/zs_sunspec.c
     ../../firmware/main/app/zs_format.c
     ../../firmware/main/net/zs_version.c
+    ../../firmware/main/ui/zs_tilegrid.c
 )
 
 # Headerne tjekkes foerst. Et navnesammenstoed mellem en konstant og en

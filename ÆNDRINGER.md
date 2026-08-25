@@ -1,3 +1,51 @@
+## 2026-08-25 23:29
+
+### Kun de kasser anlaegget faktisk har
+Hovedskaermen viste fire kasser uanset hvad. Havde kunden ikke batteri,
+stod der en tom kasse med "Intet batteri" og mindede ham om det hver gang
+han gik forbi. Nu bestemmer anlaegget antallet:
+
+    fire   inverter, elmaaler og batteri
+    tre    inverter og elmaaler, den sidste fylder hele bredden
+    to     inverter og batteri, to raekker i fuld bredde
+    en     kun inverter, midtstillet
+
+Raekkehoejden er den samme i alle fire, saa det store tal fylder lige
+meget uanset hvor mange kasser der er.
+
+Udregningen ligger i zs_tilegrid.c uden LVGL, saa maalene kan efterproeves
+af tests i stedet for af oejet. 105 nye tjek: intet stikker ud over
+kanten, ingen to kasser overlapper, alt flugter til begge sider, og der er
+lige meget luft foroven og forneden. Paa enheden: 24 skift mellem
+opsaetningerne, 932 bytes forskel i alt, altsaa engangsudgift til LVGL's
+bufre og ikke et hul.
+
+### Batteriet blev fundet forkert
+Vi regnede med at der var et batteri hvis SunSpec-model 124 fandtes. Det
+holder ikke. Fronius' egen Modbus-manual skriver om WChaMax i den model:
+"If energy storage is not available, the register feeds back a value of
+0". Modellen udgives altsaa ogsaa paa en inverter uden batteri.
+
+En almindelig solcelleinverter ville derfor have faaet vist en
+batterikasse der aldrig kom til at staa andet end tom. Nu spoerger vi om
+maks ladeeffekt, og er den nul eller uudfyldt, er der intet batteri.
+
+Fundet ved at laese Zbox-flaadens kode, som har koert paa rigtige anlaeg
+siden 2026, og bekraeftet i Fronius' manual bagefter.
+
+Simulatoren udgav heller ikke model 124 uden batteri, saa E2E-testen kunne
+ikke se fejlen. Den opfoerer sig nu som en rigtig GEN24. Med den gamle
+detektion faejler testen, med den nye bestaar den.
+
+### Elmaaleren soeges i den raekkefoelge den faktisk findes
+Fronius' manual siger 200 for den foerste maaler. Zbox-flaaden finder den
+paa 201. Vi proever begge, men 201 foerst, saa opsaetningen ikke staar og
+leder unoedigt paa det almindelige anlaeg.
+
+### é og É er med i skrifttyperne
+"én" med accent betyder tallet ét og er noget andet end artiklen "en".
+To glyffer, under 200 bytes.
+
 ## 2026-08-25 23:05
 
 ### Foerste udgivelse, v0.1.0

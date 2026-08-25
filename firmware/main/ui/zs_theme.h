@@ -28,6 +28,7 @@
 #define ZS_THEME_H
 
 #include "lvgl.h"
+#include "zs_layout.h"
 
 /* Ikonerne hoerer med til designsystemet, saa den der bruger temaet
  * faar dem uden at skulle huske en include mere. */
@@ -166,6 +167,13 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
 
 /* ── Maal ─────────────────────────────────────────────────────────── */
 /*
+ * Tallene herunder staar i zs_layout.h, ikke her.
+ *
+ * De bliver brugt af udregninger der skal kunne testes uden LVGL, fx
+ * hvor kasserne paa hovedskaermen ligger. Stod de to steder, kunne de
+ * komme ud af trit, og en skaerm der ser rigtig ud i en test og forkert
+ * paa vaeggen er vaerre end ingen test.
+ *
  * Hele layoutet er regnet ud, ikke skudt efter. Skaermen er 480 x 480.
  *
  *   STATUSLINJE      0 ..  44     44 px, staar fast
@@ -180,15 +188,15 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
  * Alle vaerdier er lige tal, saa intet kan ende paa en halv pixel naar
  * noget bliver centreret.
  */
-#define ZS_SCR_WIDTH            480
-#define ZS_SCR_HEIGHT            480
+#define ZS_SCR_WIDTH            ZS_G_SCR_WIDTH
+#define ZS_SCR_HEIGHT            ZS_G_SCR_HEIGHT
 
-#define ZS_BAR_HEIGHT       44    /* statuslinjen foroven             */
-#define ZS_DOTS_HEIGHT      28    /* prikkerne der viser hvilken side */
+#define ZS_BAR_HEIGHT       ZS_G_BAR_HEIGHT    /* statuslinjen foroven             */
+#define ZS_DOTS_HEIGHT      ZS_G_DOTS_HEIGHT    /* prikkerne der viser hvilken side */
 /* Hoejden af én side. Statuslinjen og prikkerne staar fast, kun det
  * imellem kan trykkes til side. */
 #define ZS_PAGE_HEIGHT      (ZS_SCR_HEIGHT - ZS_BAR_HEIGHT - ZS_DOTS_HEIGHT)
-#define ZS_EDGE             12    /* luft ud til skaermkanten         */
+#define ZS_EDGE             ZS_G_EDGE    /* luft ud til skaermkanten         */
 /*
  * Bredden af alt der fylder en side ud: 480 - 12 - 12 = 456.
  *
@@ -200,10 +208,10 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
  * samtidig 12 px ud over kanten.
  */
 #define ZS_CONTENT_WIDTH    (ZS_SCR_WIDTH - 2 * ZS_EDGE)
-#define ZS_GRID_GAP         12    /* mellemrum mellem to kort         */
+#define ZS_GRID_GAP         ZS_G_GRID_GAP    /* mellemrum mellem to kort         */
 
 #define ZS_CARD_WIDTH           222   /* (480 - 12 - 12 - 12) / 2         */
-#define ZS_CARD_HEIGHT      186   /* (408 - 12 - 12 - 12) / 2         */
+#define ZS_CARD_HEIGHT      ZS_G_CARD_HEIGHT   /* (408 - 12 - 12 - 12) / 2         */
 #define ZS_CARD_RADIUS      18
 #define ZS_CARD_PAD         14    /* luft inde i kortet               */
 

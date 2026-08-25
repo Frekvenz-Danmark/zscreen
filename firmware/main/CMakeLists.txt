@@ -31,6 +31,7 @@ idf_component_register(
         # Skaermen
         "ui/zs_display.c"
         "ui/zs_theme.c"
+        "ui/zs_tilegrid.c"
         "ui/zs_ui.c"
         "ui/zs_screen_home.c"
         "ui/zs_screen_setup.c"

@@ -184,6 +184,51 @@ static bool map_has_meter(const zs_ss_map_t *map, uint16_t *out_id)
  * Ellers proever vi kandidat-unit'erne én for én paa den forbindelse
  * vi allerede har.
  */
+/*
+ * Er der faktisk et batteri?
+ *
+ * Det er IKKE nok at model 124 findes. Fronius udgiver den ogsaa paa en
+ * GEN24 uden energilager, og skriver selv i dokumentationen af model
+ * 124: "Wenn kein Energiespeicher verfuegbar ist liefert das Register
+ * den Wert 0 zurueck". Altsaa: WChaMax paa nul betyder intet batteri.
+ *
+ * Uden det her tjek ville en almindelig solcelleinverter faa vist en
+ * batterikasse der aldrig kom til at staa andet end tom. Fundet ved at
+ * laese Zbox-flaadens kode, som har koert paa rigtige anlaeg siden 2026.
+ *
+ * Vi kraever ogsaa at maalingen kan laeses. Er WChaMax en
+ * not-implemented-vaerdi, ved vi ikke noget, og saa siger vi nej: en
+ * kasse der mangler er bedre end en kasse der altid er tom.
+ */
+static bool storage_has_battery(zs_fr_t *fr)
+{
+    const zs_ss_model_t *m = zs_ss_find(&fr->inv_map, ZS_SS_STORAGE);
+    if (m == NULL) {
+        return false;
+    }
+    uint16_t n = read_model(&fr->mb, fr->inverter_unit, m, fr->block,
+                            ZS_FR_MAX_MODEL_REGS, TMO_PROBE_MS);
+    if (n < ZS_M124_MIN_LEN) {
+        ZS_LOGW(TAG, "model 124 findes, men kunne ikke laeses. "
+                     "Regner med at der ikke er noget batteri.");
+        return false;
+    }
+    zs_val_t maks = zs_ss_dec_u16_sf(fr->block, n,
+                                     ZS_M124_WCHA_MAX, ZS_M124_WCHA_MAX_SF);
+    if (!maks.ok) {
+        ZS_LOGI(TAG, "model 124 findes, men maks ladeeffekt er ikke "
+                     "udfyldt. Intet batteri.");
+        return false;
+    }
+    if (maks.v <= 0.0f) {
+        ZS_LOGI(TAG, "model 124 findes, men maks ladeeffekt er nul. "
+                     "Fronius siger dermed at der ikke er et batteri.");
+        return false;
+    }
+    ZS_LOGI(TAG, "batteri fundet, maks ladeeffekt %.0f W", (double)maks.v);
+    return true;
+}
+
 static void discover_meter(zs_fr_t *fr)
 {
     fr->info.has_meter = false;
@@ -311,7 +356,7 @@ bool zs_fr_connect(zs_fr_t *fr, const char *host, uint16_t port, uint8_t unit)
     fr->info.has_inverter = (inv != NULL);
     fr->info.inverter_model_id = inv ? inv->id : 0;
 
-    fr->info.has_battery = (zs_ss_find(&fr->inv_map, ZS_SS_STORAGE) != NULL);
+    fr->info.has_battery = storage_has_battery(fr);
 
     const zs_ss_model_t *mppt = zs_ss_find(&fr->inv_map, ZS_SS_MPPT);
     fr->info.has_mppt = (mppt != NULL);

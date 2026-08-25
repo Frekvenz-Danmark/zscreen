@@ -32,6 +32,7 @@ int main(int argc, char **argv)
     test_format();
     test_fronius();
     test_version();
+    test_tilegrid();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

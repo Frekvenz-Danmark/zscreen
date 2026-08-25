@@ -38,7 +38,24 @@ extern "C" {
  * offset 200 + RTU-adresse 1 = 201. Aeldre Datamanager-opsaetninger
  * bruger 240 og 241. De sidste faa daekker anlaeg hvor nogen har sat
  * adressen manuelt uden offset. */
-#define ZS_FR_METER_CANDIDATES { 200, 201, 202, 203, 204, 240, 241, 2, 3, 100, 247 }
+/*
+ * To kilder, og de peger hvert sit sted:
+ *
+ *   Fronius' Modbus-manual (42,0410,2649) siger at maalerne ligger paa
+ *   200 for den foerste, 201 for den anden, og saa fremdeles til 204.
+ *
+ *   Zbox-flaaden finder den i praksis paa 201, fordi maaleradressen
+ *   laegges oven i offsettet: offset 200 + RTU-adresse 1.
+ *
+ * Vi proever begge, og 201 foerst fordi det er den vi har set paa et
+ * rigtigt anlaeg. Raekkefoelgen aendrer ikke hvad vi finder, kun hvor
+ * laenge opsaetningen staar og leder: hvert forsoeg er en hel
+ * SunSpec-vandring med sin egen timeout.
+ *
+ * 240 og 241 er aeldre Datamanager-opsaetninger. De sidste faa daekker
+ * anlaeg hvor nogen har sat adressen manuelt uden offset.
+ */
+#define ZS_FR_METER_CANDIDATES { 201, 200, 202, 203, 204, 241, 240, 2, 3, 100, 247 }
 
 typedef struct {
     char     manufacturer[33];   /* "Fronius"                    */

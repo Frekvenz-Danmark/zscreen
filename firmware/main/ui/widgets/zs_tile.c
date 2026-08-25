@@ -22,20 +22,21 @@ static lv_coord_t baseline_offset(const lv_font_t *big, const lv_font_t *small)
     return d > 0 ? d : 0;
 }
 
-void zs_tile_create(zs_tile_t *t, lv_obj_t *parent, int col, int row,
+void zs_tile_create(zs_tile_t *t, lv_obj_t *parent,
                     const char *label, const char *icon)
 {
     memset(t, 0, sizeof(*t));
 
-    /* false: de fire kasser er til at LAESE, ikke til at trykke paa. */
+    /* false: kasserne er til at LAESE, ikke til at trykke paa. */
     t->card = zs_card_create(parent, false);
-    lv_obj_set_size(t->card, ZS_CARD_WIDTH, ZS_CARD_HEIGHT);
-    /* Placeringen er i forhold til SIDEN, ikke til skaermen. Siden
-     * ligger allerede under statuslinjen, saa den maa ikke laegges til
-     * her ogsaa. */
-    lv_obj_set_pos(t->card,
-                   ZS_EDGE + col * (ZS_CARD_WIDTH + ZS_GRID_GAP),
-                   ZS_EDGE + row * (ZS_CARD_HEIGHT + ZS_GRID_GAP));
+    /*
+     * Stoerrelse og plads saettes ikke her, men i zs_tile_place.
+     *
+     * Antallet af kasser afhaenger af anlaegget: uden batteri er der
+     * tre, uden elmaaler faerre endnu. Blev pladsen laast fast her,
+     * skulle hver opsaetning kende alle de andres maal, og saa er det
+     * kun et spoergsmaal om tid foer én af dem bliver glemt.
+     */
 
     /* ── overskrift ── */
     t->head_label = zs_label_create(t->card, label);
@@ -82,6 +83,45 @@ void zs_tile_create(zs_tile_t *t, lv_obj_t *parent, int col, int row,
     lv_label_set_long_mode(t->sub_text, LV_LABEL_LONG_DOT);
     lv_obj_align(t->sub_text, LV_ALIGN_TOP_LEFT, 0, ZS_CARD_SUB_Y);
     lv_obj_set_width(t->sub_text, ZS_CARD_IN_WIDTH);
+}
+
+void zs_tile_place(zs_tile_t *t, int x, int y, int w, int h)
+{
+    if (t == NULL || t->card == NULL) {
+        return;
+    }
+    lv_obj_set_size(t->card, w, h);
+    /* Pladsen er i forhold til SIDEN, ikke til skaermen. Siden ligger
+     * allerede under statuslinjen, saa den maa ikke laegges til igen. */
+    lv_obj_set_pos(t->card, x, y);
+
+    /*
+     * De tre ting der afhaenger af bredden.
+     *
+     * Overskriften og ikonet er stillet op mod hver sin kant og
+     * flytter sig selv. Tallet og underteksten har en bredde, og den
+     * skal foelge med, ellers bliver en bred kasses undertekst afkortet
+     * midt i som om den var for lang.
+     */
+    lv_coord_t inde = (lv_coord_t)w - 2 * ZS_CARD_PAD;
+    if (t->value_box != NULL) {
+        lv_obj_set_width(t->value_box, inde);
+    }
+    if (t->sub_text != NULL) {
+        lv_obj_set_width(t->sub_text, inde);
+    }
+}
+
+void zs_tile_set_visible(zs_tile_t *t, bool vis)
+{
+    if (t == NULL || t->card == NULL) {
+        return;
+    }
+    if (vis) {
+        lv_obj_clear_flag(t->card, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(t->card, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 /* Faelles for de to saettere: skriv tal og enhed, og vaelg farven. */
