@@ -183,6 +183,30 @@ void test_modbus(void)
                   zs_mb_parse_read_response(frame, 16, 1, 1, 0, out, NULL), ZS_MB_ERR_ARG);
     }
 
-    CHECK_STR("fejltekst er dansk og ikke tom",
-              zs_mb_strerror(ZS_MB_ERR_TIMEOUT), "timeout");
+    /*
+     * Fejlteksterne staar paa Detaljer-siden og bliver laest af den
+     * der skal finde ud af hvorfor en skaerm ikke virker. De skal
+     * derfor vaere paa dansk, begynde med stort, og aldrig vaere
+     * tomme. Vi tjekker det for HVER kode, ogsaa en der ikke findes,
+     * saa en ny fejltype ikke kan slippe igennem uden tekst.
+     */
+    {
+        const zs_mb_err_t alle[] = {
+            ZS_MB_OK, ZS_MB_ERR_ARG, ZS_MB_ERR_NOT_OPEN, ZS_MB_ERR_CONNECT,
+            ZS_MB_ERR_SEND, ZS_MB_ERR_TIMEOUT, ZS_MB_ERR_CLOSED,
+            ZS_MB_ERR_FRAME, ZS_MB_ERR_EXCEPTION, (zs_mb_err_t)99,
+        };
+        int alle_ok = 1;
+        for (size_t i = 0; i < sizeof(alle) / sizeof(alle[0]); i++) {
+            const char *t = zs_mb_strerror(alle[i]);
+            if (t == NULL || t[0] == '\0') { alle_ok = 0; break; }
+            /* Stort begyndelsesbogstav. Teksten staar som en linje for
+             * sig selv paa skaermen, ikke midt i en saetning. */
+            if (t[0] >= 'a' && t[0] <= 'z') { alle_ok = 0; break; }
+        }
+        CHECK("hver fejlkode har en tekst der begynder med stort", alle_ok);
+        CHECK_STR("timeout siger hvad der skete, ikke hvad koden hedder",
+                  zs_mb_strerror(ZS_MB_ERR_TIMEOUT),
+                  "Inverteren svarede ikke i tide");
+    }
 }

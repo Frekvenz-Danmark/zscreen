@@ -111,6 +111,28 @@ build_font zs_font_20     "${CACHE}/funnel-500.ttf" 20 "${DANSK}"
 build_font zs_font_16     "${CACHE}/funnel-500.ttf" 16 "${DANSK}"
 build_font zs_font_13     "${CACHE}/funnel-600.ttf" 13 "${DANSK}"
 
+# Tastaturets skrifttype er en blanding.
+#
+# En knap i et LVGL-knapgitter kan kun have ÉN skrifttype, og
+# tastaturet har baade bogstaver og tre ikoner: skift, slet og faerdig.
+# Derfor flettes Funnel Sans og de tre Lucide-glyffer sammen til én
+# skrifttype. lv_font_conv kan tage flere kilder, og et --range gaelder
+# for den --font der staar lige foer.
+#
+#   0xE04A  arrow-up   skift mellem store og smaa bogstaver
+#   0xE0AE  delete     slet et tegn
+#   0xE06C  check      faerdig
+KB_ICONS="0xe04a,0xe0ae,0xe06c"
+if [ ! -s "${OUT}/zs_font_kb_24.c" ] || [ "${FORCE}" = "--force" ]; then
+    ${LVFC} --size 24 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h \
+            --font "${CACHE}/funnel-500.ttf" --range "${DANSK}" \
+            --font "${CACHE}/lucide.ttf"     --range "${KB_ICONS}" \
+            -o "${OUT}/zs_font_kb_24.c" >/dev/null
+    ok "zs_font_kb_24 ($(wc -c < "${OUT}/zs_font_kb_24.c" | tr -d ' ') bytes C-kode)"
+else
+    ok "zs_font_kb_24 findes"
+fi
+
 # ---------------------------------------------------------------------
 # Ikoner
 # ---------------------------------------------------------------------

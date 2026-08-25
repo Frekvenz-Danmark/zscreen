@@ -14,15 +14,24 @@ idf_component_register(
         "net/zs_modbus_tcp.c"
         "net/zs_sunspec.c"
         "net/zs_fronius.c"
+        "net/zs_wifi.c"
+        "net/zs_discovery.c"
 
         "app/zs_format.c"
+        "app/zs_app.c"
+
+        "storage/zs_nvs.c"
 
         # Skaermen
         "ui/zs_display.c"
         "ui/zs_theme.c"
+        "ui/zs_ui.c"
         "ui/zs_screen_home.c"
+        "ui/zs_screen_setup.c"
+        "ui/zs_screen_settings.c"
         "ui/widgets/zs_tile.c"
         "ui/widgets/zs_statusbar.c"
+        "ui/widgets/zs_keyboard.c"
 
         # Genererede skrifttyper, ikoner og logoer.
         # Bygges af tools/build-assets.sh.
@@ -31,6 +40,7 @@ idf_component_register(
         "ui/assets/zs_font_20.c"
         "ui/assets/zs_font_16.c"
         "ui/assets/zs_font_13.c"
+        "ui/assets/zs_font_kb_24.c"
         "ui/assets/zs_icons_20.c"
         "ui/assets/zs_icons_28.c"
         "ui/assets/zs_img_zmark.c"
@@ -40,6 +50,7 @@ idf_component_register(
         "."
         "net"
         "app"
+        "storage"
         "ui"
         "ui/widgets"
 
@@ -53,4 +64,5 @@ idf_component_register(
         lwip
         esp_timer
         driver
+        esp_hw_support
 )

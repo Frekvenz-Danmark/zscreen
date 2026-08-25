@@ -151,7 +151,10 @@ LV_IMG_DECLARE(zs_img_wordmark)   /* hele logoet, 260 px, til velkomst  */
 #define ZS_UNIT_GAP         8     /* mellem tallet og enheden         */
 
 /* ── Andet ────────────────────────────────────────────────────────── */
-#define ZS_ROW_HEIGHT            56    /* hoejde paa en listerad           */
+#define ZS_ROW_HEIGHT       56    /* hoejde paa en listerad           */
+/* Ikonet plus luften efter det. Bruges baade naar raden bygges og naar
+ * en kalder skal saette noget ind paa samme lodrette linje som titlen. */
+#define ZS_ROW_ICON_W       34
 #define ZS_BTN_HEIGHT            52    /* hoejde paa en knap               */
 #define ZS_PAD_SCREEN       ZS_EDGE
 
@@ -187,11 +190,34 @@ lv_obj_t *zs_btn_primary_create(lv_obj_t *parent, const char *text);
 /* En sekundaer knap: gennemsigtig med kant. Til alt det andet. */
 lv_obj_t *zs_btn_secondary_create(lv_obj_t *parent, const char *text);
 
-/* En rad i en liste, fx et wifi-netvaerk eller en indstilling.
- * Returnerer selve raden. icon og value maa vaere NULL. */
-lv_obj_t *zs_row_create(lv_obj_t *parent, const char *icon,
-                        const char *title, const char *value,
-                        bool chevron);
+/*
+ * En rad i en liste, fx et wifi-netvaerk eller en indstilling.
+ *
+ * Delene afleveres i en struct i stedet for at kalderen skal finde dem
+ * med lv_obj_get_child(row, 1). Det er ikke pynt: raekkefoelgen af
+ * boern afhaenger af om der er et ikon og en vaerdi, saa et fast
+ * indeks peger paa noget forskelligt fra rad til rad. Tilfoejer man en
+ * dag noget nyt til raden, ville alle de indekser stille og roligt
+ * begynde at pege forkert, uden en eneste advarsel.
+ */
+typedef struct {
+    lv_obj_t *row;
+    lv_obj_t *icon;      /* NULL naar der ikke er et ikon    */
+    lv_obj_t *title;
+    lv_obj_t *value;     /* NULL naar der ikke er en vaerdi  */
+    lv_obj_t *chevron;   /* NULL naar der ikke er en pil     */
+} zs_row_t;
+
+/* icon og value maa vaere NULL. out maa ikke. */
+void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
+                   const char *title, const char *value, bool chevron);
+
+/*
+ * En beholder der stabler sine boern lodret med lige meget luft
+ * imellem. Alle lister bruger den, saa afstanden er den samme paa
+ * tvaers af skaermene i stedet for at hver side vaelger sin egen.
+ */
+lv_obj_t *zs_column_create(lv_obj_t *parent, lv_coord_t gap);
 
 /* Hjaelper: saet skrifttype og farve paa ét kald. */
 void zs_style_text(lv_obj_t *obj, const lv_font_t *font, uint32_t color);
@@ -201,3 +227,43 @@ void zs_style_text(lv_obj_t *obj, const lv_font_t *font, uint32_t color);
 #endif
 
 #endif /* ZS_THEME_H */
+
+/* ── Sider ────────────────────────────────────────────────────────── */
+/*
+ * Alle sider ud over hovedskaermen er bygget over den samme ramme, saa
+ * tilbageknappen og overskriften staar det samme sted hver gang. En
+ * bruger skal ikke lede efter vejen tilbage.
+ *
+ *     ┌────────────────────────────────────────┐
+ *     │ ←   Vælg netværk                       │  56 px
+ *     ├────────────────────────────────────────┤
+ *     │                                        │
+ *     │   indhold, kan rulles                  │  424 px, eller 348
+ *     │                                        │  naar der er en fod
+ *     ├────────────────────────────────────────┤
+ *     │        [ knap ]                        │  76 px, valgfri
+ *     └────────────────────────────────────────┘
+ */
+#define ZS_PAGE_HEAD_HEIGHT   56
+#define ZS_PAGE_FOOT_HEIGHT   76
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *head;
+    lv_obj_t *title;
+    lv_obj_t *back;      /* NULL naar der ikke er en vej tilbage */
+    lv_obj_t *content;   /* her laegges sidens indhold           */
+    lv_obj_t *footer;    /* NULL naar with_footer er false       */
+} zs_page_t;
+
+/*
+ * Bygger rammen. back_cb maa vaere NULL, og saa tegnes tilbageknappen
+ * ikke: det er meningen paa den foerste side i en opsaetning, hvor der
+ * ikke er noget at gaa tilbage til.
+ */
+void zs_page_create(zs_page_t *p, const char *title,
+                    lv_event_cb_t back_cb, void *user_data,
+                    bool with_footer);
+
+/* Skjuler eller viser hele siden. */
+void zs_page_set_hidden(zs_page_t *p, bool hidden);

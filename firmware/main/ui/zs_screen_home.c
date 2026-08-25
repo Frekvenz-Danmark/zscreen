@@ -58,7 +58,7 @@ static void update_solar(const zs_home_data_t *d)
     zs_val_t w = d->live.solar_w;
 
     if (!w.ok) {
-        zs_tile_set_none(&s_solar, "Ingen maaling");
+        zs_tile_set_none(&s_solar, "Ingen måling");
         return;
     }
     bool active = w.v > IDLE_W;
@@ -73,12 +73,12 @@ static void update_house(const zs_home_data_t *d)
     if (!d->has_meter) {
         /* Uden elmaaler kan forbruget ikke udledes. Vi siger det, i
          * stedet for at vise et nul der ligner en maaling. */
-        zs_tile_set_none(&s_house, "Ingen elmaaler");
+        zs_tile_set_none(&s_house, "Ingen elmåler");
         return;
     }
     zs_val_t w = d->live.house_w;
     if (!w.ok) {
-        zs_tile_set_none(&s_house, "Ingen maaling");
+        zs_tile_set_none(&s_house, "Ingen måling");
         return;
     }
     zs_tile_set_power(&s_house, w, w.v > IDLE_W);
@@ -132,12 +132,12 @@ static void update_battery(const zs_home_data_t *d)
 static void update_grid(const zs_home_data_t *d)
 {
     if (!d->has_meter) {
-        zs_tile_set_none(&s_grid, "Ingen elmaaler");
+        zs_tile_set_none(&s_grid, "Ingen elmåler");
         return;
     }
     zs_val_t w = d->live.grid_w;
     if (!w.ok) {
-        zs_tile_set_none(&s_grid, "Ingen maaling");
+        zs_tile_set_none(&s_grid, "Ingen måling");
         return;
     }
 
@@ -147,11 +147,11 @@ static void update_grid(const zs_home_data_t *d)
     zs_tile_set_power(&s_grid, w, buying || selling);
 
     if (buying) {
-        zs_tile_set_sub(&s_grid, ZS_ICON_ARROW_DOWN, "Koeber fra nettet", ZS_C_BAD);
+        zs_tile_set_sub(&s_grid, ZS_ICON_ARROW_DOWN, "Køber fra nettet", ZS_C_BAD);
     } else if (selling) {
-        zs_tile_set_sub(&s_grid, ZS_ICON_ARROW_UP, "Saelger til nettet", ZS_C_GOOD);
+        zs_tile_set_sub(&s_grid, ZS_ICON_ARROW_UP, "Sælger til nettet", ZS_C_GOOD);
     } else {
-        zs_tile_set_sub(&s_grid, NULL, "Hverken koeb eller salg", ZS_C_LABEL);
+        zs_tile_set_sub(&s_grid, NULL, "Hverken køb eller salg", ZS_C_LABEL);
     }
 }
 

@@ -100,6 +100,96 @@ cd firmware && idf.py build
 idf.py -p /dev/cu.usbmodemXXXX flash monitor
 ```
 
+## 2026-08-25 16:43 · Hele flowet: wifi, opsætning, indstillinger og detaljer
+
+**Hvad der blev lavet**
+
+Skærmen kan nu sættes op fra ende til anden på sig selv. 1,17 MB
+firmware, 63 % af partitionen ledig, nul advarsler i vores egen kode.
+
+| Fil | Hvad den laver |
+|---|---|
+| `firmware/main/storage/zs_nvs.c` | Gemte indstillinger |
+| `firmware/main/net/zs_wifi.c` | Wifi: søg, forbind, fejlbeskeder på dansk |
+| `firmware/main/net/zs_discovery.c` | Finder inverteren på netværket selv |
+| `firmware/main/app/zs_app.c` | Den ene opgave der styrer det hele |
+| `firmware/main/ui/zs_ui.c` | Skifter mellem skærme, tager LVGL-låsen |
+| `firmware/main/ui/zs_screen_setup.c` | De seks opsætningstrin |
+| `firmware/main/ui/zs_screen_settings.c` | Indstillinger og Detaljer |
+| `firmware/main/ui/widgets/zs_keyboard.c` | Dansk touchtastatur med æ, ø og å |
+| `docs/` | Registerkort, designsystem, hardware, testplan |
+
+**Hvorfor det virker**
+
+Opsætningen: velkomst, vælg netværk, kodeord, forbinder, søger efter
+inverter, vælg inverter. Ingen telefon, ingen computer, ingen QR-kode.
+
+Netværksscanningen prøver 12 adresser ad gangen med et fjerdedels
+sekunds tålmodighed, så hele undernettet er gennemgået på under ti
+sekunder. En ad gangen ville tage over et minut.
+
+Arbejdsdelingen er stram: én opgave laver alt det der tager tid, og
+brugerfladen tegner. Trykker man på en knap mens en wifi-søgning kører,
+lægges beskeden i en kø og skærmen kører videre. Alle funktioner i
+`zs_ui` tager selv LVGL-låsen, så ingen kalder skal huske det.
+
+**Fejl der blev fanget**
+
+1. **Skrøbelige opslag på børn efter indeks.**
+   Seks steder blev en etiket hentet med `lv_obj_get_child(row, 1)`.
+   Rækkefølgen af børn afhænger af om der er et ikon og en værdi, så et
+   fast indeks peger på noget forskelligt fra række til række.
+   Tilføjede man en dag noget nyt til rækken, ville alle de indekser
+   stille og roligt begynde at pege forkert, uden en eneste advarsel.
+   `zs_row_create` afleverer nu sine dele i en struct.
+
+2. **Lysstyrke-skyderen ville kæmpe mod fingeren.**
+   Indstillingssiden blev fyldt fem gange i sekundet, også mens
+   brugeren trak i skyderen, så den ville hoppe tilbage. Nu fyldes den
+   én gang, når man kommer ind på siden.
+
+3. **Detaljesiden blev bygget helt om fem gange i sekundet.**
+   Tredive etiketter slettet og lavet igen, hver 200 ms. Det ville både
+   flimre og spilde tid på noget ingen når at læse. Nu én gang i
+   sekundet.
+
+4. **Fire steder hvor en tekst kunne løbe over sin buffer.**
+   Fanget af oversætteren, fordi vores egen kode bygger med alle
+   advarsler som fejl. Modelnavn plus fabrikat er 67 tegn i en buffer
+   på 64. Rettet med præcision i formatet (`%.32s`), som både er en
+   tydelig grænse for den der læser koden og bevislig for oversætteren.
+
+5. **`%u` på en `uint32_t`.**
+   På ESP32 er `uint32_t` en `unsigned long`, ikke en `unsigned int`.
+   Fem steder på Detaljer-siden. Rettet med eksplicit cast.
+
+6. **Redundans:** `make_column` stod to steder, og `zs_app_get_settings`
+   var både ubrugt og trådusikker. Begge fjernet.
+
+**Gennemgået for evige løkker**
+
+Der er tre løkker uden fast øvre grænse i hele koden. Alle tre er
+opgaveløkker der blokerer på noget indeni:
+
+- `main.c`: venter 10 sekunder ad gangen, har ikke andet at lave
+- `lv_port.c`: LVGL's egen tegneløkke, fra Seeeds SDK
+- `zs_app.c`: venter på beskedkøen, højst 200 ms ad gangen
+
+Alt andet er tælleløkker med en fast grænse. Model-vandringen stopper
+efter 64 skridt uanset hvad, netværksscanningen efter 254 adresser, og
+genforsøg fordobler ventetiden op til et minut i stedet for at hamre
+løs.
+
+**Sådan prøver du det**
+
+```
+./tests/host/run.sh                                218 tests
+cd tools/fronius-sim && sudo python3 serve.py      simuleret Fronius
+cd firmware && idf.py -p /dev/cu.usbmodemXXXX flash monitor
+```
+
+`docs/test-plan.md` har hele tjeklisten.
+
 ---
 
 ## 2026-08-25 15:43 · Datalaget står færdigt og er testet

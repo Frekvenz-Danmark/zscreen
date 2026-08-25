@@ -27,20 +27,10 @@
 #include "zs_config.h"
 #include "zs_display.h"
 #include "zs_theme.h"
-#include "zs_screen_home.h"
+#include "zs_ui.h"
+#include "zs_app.h"
 
 static const char *TAG = "zscreen";
-
-/* Skaermens tilstand som UI'et tegner ud fra. Ét sted, saa der ikke er
- * tvivl om hvad der er sandt lige nu. */
-static zs_home_data_t s_home;
-
-static void on_gear_clicked(lv_event_t *e)
-{
-    (void)e;
-    /* Indstillinger kommer i naeste skridt. */
-    ESP_LOGI(TAG, "tandhjul trykket");
-}
 
 static void nvs_init_once(void)
 {
@@ -68,30 +58,24 @@ void app_main(void)
     lv_port_init();
     zs_display_init();
 
+    /* Brugerfladen bygges under laasen. Derefter tager hver funktion i
+     * zs_ui selv laasen, saa ingen kalder skal huske det. */
     lv_port_sem_take();
-    zs_theme_init();
-    zs_screen_home_create(on_gear_clicked, NULL);
+    zs_ui_init();
     lv_port_sem_give();
 
-    /* Foer der er en forbindelse: ingen tal, ingen wifi. Det er den
-     * aerlige starttilstand, ikke en fejl. */
-    s_home.have_data = false;
-    s_home.stale = true;
-    s_home.link = ZS_LINK_NO_WIFI;
-    s_home.time_text = NULL;
-
-    lv_port_sem_take();
-    zs_screen_home_update(&s_home);
-    lv_port_sem_give();
+    if (!zs_app_start()) {
+        ESP_LOGE(TAG, "kunne ikke starte hovedopgaven");
+    }
 
     ESP_LOGI(TAG, "intern hukommelse ledig: %u KB, PSRAM ledig: %u KB",
              (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),
              (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
 
-    /* Hovedloekken holder styr paa lysstyrken. Alt andet sker i sine
-     * egne opgaver og gennem LVGL's tidsstyring. */
+    /* Herfra sker alting i zs_app-opgaven og i LVGL's egen. Den her
+     * opgave har ikke mere at lave, men den maa ikke slutte: FreeRTOS
+     * rydder stakken op naar app_main returnerer. */
     while (1) {
-        zs_display_tick();
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(10000));
     }
 }

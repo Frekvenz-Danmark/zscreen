@@ -153,9 +153,24 @@ lv_obj_t *zs_btn_secondary_create(lv_obj_t *parent, const char *text)
     return make_button(parent, text, &s_btn_secondary, &s_btn_secondary_pressed);
 }
 
-lv_obj_t *zs_row_create(lv_obj_t *parent, const char *icon,
-                        const char *title, const char *value, bool chevron)
+lv_obj_t *zs_column_create(lv_obj_t *parent, lv_coord_t gap)
 {
+    lv_obj_t *col = lv_obj_create(parent);
+    lv_obj_remove_style_all(col);
+    lv_obj_set_width(col, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_height(col, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(col, gap, 0);
+    lv_obj_set_style_pad_ver(col, ZS_EDGE, 0);
+    lv_obj_clear_flag(col, LV_OBJ_FLAG_SCROLLABLE);
+    return col;
+}
+
+void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
+                   const char *title, const char *value, bool chevron)
+{
+    memset(out, 0, sizeof(*out));
+
     lv_obj_t *row = lv_obj_create(parent);
     lv_obj_remove_style_all(row);
     lv_obj_add_style(row, &s_row, 0);
@@ -163,53 +178,150 @@ lv_obj_t *zs_row_create(lv_obj_t *parent, const char *icon,
     lv_obj_set_height(row, ZS_ROW_HEIGHT);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scrollbar_mode(row, LV_SCROLLBAR_MODE_OFF);
+    out->row = row;
 
     lv_coord_t x = 0;
 
     if (icon != NULL) {
-        lv_obj_t *ic = lv_label_create(row);
-        lv_label_set_text(ic, icon);
-        lv_obj_set_style_text_font(ic, &zs_icons_20, 0);
-        lv_obj_set_style_text_color(ic, lv_color_hex(ZS_C_LABEL), 0);
-        lv_obj_align(ic, LV_ALIGN_LEFT_MID, 0, 0);
-        x = 20 + 14;   /* ikonets bredde plus luft */
+        out->icon = lv_label_create(row);
+        lv_label_set_text(out->icon, icon);
+        lv_obj_set_style_text_font(out->icon, &zs_icons_20, 0);
+        lv_obj_set_style_text_color(out->icon, lv_color_hex(ZS_C_LABEL), 0);
+        lv_obj_align(out->icon, LV_ALIGN_LEFT_MID, 0, 0);
+        x = ZS_ROW_ICON_W;
     }
 
     if (title != NULL) {
-        lv_obj_t *tl = lv_label_create(row);
-        lv_label_set_text(tl, title);
-        zs_style_text(tl, &zs_font_20, ZS_C_TEXT);
-        lv_label_set_long_mode(tl, LV_LABEL_LONG_DOT);
-        lv_obj_align(tl, LV_ALIGN_LEFT_MID, x, 0);
+        out->title = lv_label_create(row);
+        lv_label_set_text(out->title, title);
+        zs_style_text(out->title, &zs_font_20, ZS_C_TEXT);
+        lv_label_set_long_mode(out->title, LV_LABEL_LONG_DOT);
+        lv_obj_align(out->title, LV_ALIGN_LEFT_MID, x, 0);
 
         /*
-         * Bredden skal saettes, ellers vokser etiketten ud over raden og
-         * en lang netvaerksnavn skriver hen over vaerdien til hoejre.
-         * Vi trraekker fra hvad der er optaget: ikon til venstre, samt
-         * vaerdi og pil til hoejre.
+         * Bredden skal saettes, ellers vokser etiketten ud over raden
+         * og et langt netvaerksnavn skriver hen over vaerdien til
+         * hoejre. Vi traekker fra hvad der er optaget: ikonet til
+         * venstre, og vaerdien og pilen til hoejre.
          */
         lv_coord_t right = 0;
-        if (chevron)      { right += 20 + 10; }
-        if (value != NULL) { right += 90 + 10; }
-        lv_obj_set_width(tl, ZS_SCR_WIDTH - 2 * ZS_EDGE - 2 * 16 - x - right);
+        if (chevron)       { right += 30; }
+        if (value != NULL) { right += 100; }
+        lv_obj_set_width(out->title,
+                         ZS_SCR_WIDTH - 2 * ZS_EDGE - 2 * 16 - x - right);
     }
 
     lv_coord_t rx = 0;
     if (chevron) {
-        lv_obj_t *ch = lv_label_create(row);
-        lv_label_set_text(ch, ZS_ICON_CHEVRON_RIGHT);
-        lv_obj_set_style_text_font(ch, &zs_icons_20, 0);
-        lv_obj_set_style_text_color(ch, lv_color_hex(ZS_C_LABEL), 0);
-        lv_obj_align(ch, LV_ALIGN_RIGHT_MID, 0, 0);
-        rx = -(20 + 10);
+        out->chevron = lv_label_create(row);
+        lv_label_set_text(out->chevron, ZS_ICON_CHEVRON_RIGHT);
+        lv_obj_set_style_text_font(out->chevron, &zs_icons_20, 0);
+        lv_obj_set_style_text_color(out->chevron, lv_color_hex(ZS_C_LABEL), 0);
+        lv_obj_align(out->chevron, LV_ALIGN_RIGHT_MID, 0, 0);
+        rx = -30;
     }
 
     if (value != NULL) {
-        lv_obj_t *vl = lv_label_create(row);
-        lv_label_set_text(vl, value);
-        zs_style_text(vl, &zs_font_16, ZS_C_LABEL);
-        lv_obj_align(vl, LV_ALIGN_RIGHT_MID, rx, 0);
+        out->value = lv_label_create(row);
+        lv_label_set_text(out->value, value);
+        zs_style_text(out->value, &zs_font_16, ZS_C_LABEL);
+        lv_obj_align(out->value, LV_ALIGN_RIGHT_MID, rx, 0);
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Sidens ramme                                                        */
+/* ------------------------------------------------------------------ */
+
+void zs_page_create(zs_page_t *p, const char *title,
+                    lv_event_cb_t back_cb, void *user_data,
+                    bool with_footer)
+{
+    memset(p, 0, sizeof(*p));
+
+    p->root = lv_obj_create(lv_scr_act());
+    lv_obj_remove_style_all(p->root);
+    lv_obj_set_size(p->root, ZS_SCR_WIDTH, ZS_SCR_HEIGHT);
+    lv_obj_set_pos(p->root, 0, 0);
+    lv_obj_clear_flag(p->root, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollbar_mode(p->root, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_style_bg_color(p->root, lv_color_hex(ZS_C_BG), 0);
+    lv_obj_set_style_bg_opa(p->root, LV_OPA_COVER, 0);
+
+    /* ── hoved ── */
+    p->head = lv_obj_create(p->root);
+    lv_obj_remove_style_all(p->head);
+    lv_obj_set_size(p->head, ZS_SCR_WIDTH, ZS_PAGE_HEAD_HEIGHT);
+    lv_obj_set_pos(p->head, 0, 0);
+    lv_obj_clear_flag(p->head, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_coord_t title_x = ZS_EDGE + 4;
+
+    if (back_cb != NULL) {
+        /* Hele knappen er 44 x 44 selvom pilen er 20 px. Se noten om
+         * fingerflader i zs_theme.h. */
+        p->back = lv_btn_create(p->head);
+        lv_obj_remove_style_all(p->back);
+        lv_obj_set_size(p->back, ZS_TOUCH_MIN, ZS_TOUCH_MIN);
+        lv_obj_set_pos(p->back, 4, (ZS_PAGE_HEAD_HEIGHT - ZS_TOUCH_MIN) / 2);
+        lv_obj_add_event_cb(p->back, back_cb, LV_EVENT_CLICKED, user_data);
+
+        lv_obj_t *ic = lv_label_create(p->back);
+        lv_label_set_text(ic, ZS_ICON_ARROW_LEFT);
+        lv_obj_set_style_text_font(ic, &zs_icons_20, 0);
+        lv_obj_set_style_text_color(ic, lv_color_hex(ZS_C_TEXT), 0);
+        lv_obj_center(ic);
+
+        title_x = 4 + ZS_TOUCH_MIN + 8;
     }
 
-    return row;
+    p->title = lv_label_create(p->head);
+    lv_label_set_text(p->title, title != NULL ? title : "");
+    zs_style_text(p->title, &zs_font_28, ZS_C_TEXT);
+    lv_label_set_long_mode(p->title, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(p->title, ZS_SCR_WIDTH - title_x - ZS_EDGE);
+    lv_obj_align(p->title, LV_ALIGN_LEFT_MID, title_x, 0);
+
+    /* ── fod ── */
+    lv_coord_t foot_h = with_footer ? ZS_PAGE_FOOT_HEIGHT : 0;
+    if (with_footer) {
+        p->footer = lv_obj_create(p->root);
+        lv_obj_remove_style_all(p->footer);
+        lv_obj_set_size(p->footer, ZS_SCR_WIDTH, ZS_PAGE_FOOT_HEIGHT);
+        lv_obj_set_pos(p->footer, 0, ZS_SCR_HEIGHT - ZS_PAGE_FOOT_HEIGHT);
+        lv_obj_clear_flag(p->footer, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_style_pad_all(p->footer, ZS_EDGE, 0);
+    }
+
+    /* ── indhold ── */
+    p->content = lv_obj_create(p->root);
+    lv_obj_remove_style_all(p->content);
+    lv_obj_set_size(p->content, ZS_SCR_WIDTH,
+                    ZS_SCR_HEIGHT - ZS_PAGE_HEAD_HEIGHT - foot_h);
+    lv_obj_set_pos(p->content, 0, ZS_PAGE_HEAD_HEIGHT);
+    lv_obj_set_style_pad_hor(p->content, ZS_EDGE, 0);
+    lv_obj_set_style_pad_ver(p->content, 0, 0);
+    /* Kun lodret rulning. Vandret ville betyde at et uheldigt strejf
+     * kunne skubbe hele indholdet ud til siden. */
+    lv_obj_set_scroll_dir(p->content, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(p->content, LV_SCROLLBAR_MODE_AUTO);
+    lv_obj_set_style_bg_opa(p->content, LV_OPA_TRANSP, 0);
+
+    /* Rullebjaelken skal kunne ses paa den moerke bund uden at fylde. */
+    lv_obj_set_style_bg_color(p->content, lv_color_hex(ZS_C_BORDER), LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_opa(p->content, LV_OPA_60, LV_PART_SCROLLBAR);
+    lv_obj_set_style_width(p->content, 4, LV_PART_SCROLLBAR);
+    lv_obj_set_style_radius(p->content, 2, LV_PART_SCROLLBAR);
+}
+
+void zs_page_set_hidden(zs_page_t *p, bool hidden)
+{
+    if (p == NULL || p->root == NULL) {
+        return;
+    }
+    if (hidden) {
+        lv_obj_add_flag(p->root, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_clear_flag(p->root, LV_OBJ_FLAG_HIDDEN);
+    }
 }

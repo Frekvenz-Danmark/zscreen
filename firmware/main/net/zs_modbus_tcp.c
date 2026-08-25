@@ -45,17 +45,17 @@ static inline void wr_u16(uint8_t *p, uint16_t v)
 const char *zs_mb_strerror(zs_mb_err_t err)
 {
     switch (err) {
-    case ZS_MB_OK:            return "ok";
-    case ZS_MB_ERR_ARG:       return "ugyldigt argument";
-    case ZS_MB_ERR_NOT_OPEN:  return "ingen forbindelse";
-    case ZS_MB_ERR_CONNECT:   return "kunne ikke forbinde";
-    case ZS_MB_ERR_SEND:      return "kunne ikke sende";
-    case ZS_MB_ERR_TIMEOUT:   return "timeout";
-    case ZS_MB_ERR_CLOSED:    return "forbindelsen blev lukket";
-    case ZS_MB_ERR_FRAME:     return "ugyldigt svar";
-    case ZS_MB_ERR_EXCEPTION: return "inverteren afviste forespoergslen";
+    case ZS_MB_OK:            return "OK";
+    case ZS_MB_ERR_ARG:       return "Ugyldig forespørgsel";
+    case ZS_MB_ERR_NOT_OPEN:  return "Ingen forbindelse";
+    case ZS_MB_ERR_CONNECT:   return "Kunne ikke forbinde";
+    case ZS_MB_ERR_SEND:      return "Kunne ikke sende";
+    case ZS_MB_ERR_TIMEOUT:   return "Inverteren svarede ikke i tide";
+    case ZS_MB_ERR_CLOSED:    return "Forbindelsen blev lukket";
+    case ZS_MB_ERR_FRAME:     return "Ugyldigt svar fra inverteren";
+    case ZS_MB_ERR_EXCEPTION: return "Inverteren afviste forespørgslen";
     }
-    return "ukendt fejl";
+    return "Ukendt fejl";
 }
 
 /* ------------------------------------------------------------------ */
