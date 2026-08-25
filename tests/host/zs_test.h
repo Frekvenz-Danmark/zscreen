@@ -69,5 +69,6 @@ void test_modbus(void);
 void test_sunspec(void);
 void test_format(void);
 void test_fronius(void);
+void test_version(void);
 
 #endif /* ZS_TEST_H */

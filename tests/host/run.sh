@@ -52,9 +52,11 @@ SRC=(
     test_sunspec.c
     test_format.c
     test_fronius.c
+    test_version.c
     ../../firmware/main/net/zs_modbus_tcp.c
     ../../firmware/main/net/zs_sunspec.c
     ../../firmware/main/app/zs_format.c
+    ../../firmware/main/net/zs_version.c
 )
 
 # Headerne tjekkes foerst. Et navnesammenstoed mellem en konstant og en

@@ -18,6 +18,7 @@ idf_component_register(
         "net/zs_discovery.c"
         "net/zs_price.c"
         "net/zs_ota.c"
+        "net/zs_version.c"
 
         "app/zs_format.c"
         "app/zs_app.c"

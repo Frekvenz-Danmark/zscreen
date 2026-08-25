@@ -1,3 +1,22 @@
+## 2026-08-25 22:53
+
+### Repoet er offentligt
+Skaermene henter opdateringer fra GitHubs API uden noegle. Paa et privat
+repo gav det 404, altsaa ingen opdateringer nogensinde. Historikken er
+gennemgaaet foerst: hverken signeringsnoeglen eller brand-mappen har
+vaeret i den paa noget tidspunkt.
+
+### Versionssammenligning kunne narres
+Den brugte sscanf med %u, som baade tager mellemrum foran og et fortegn.
+Maerket "-1.0.0" blev laest som 4294967295.0.0 og saa nyere ud end alt
+andet. "1.2.3-rc1" blev laest som 1.2.3, saa en forhaandsudgave ville gaa
+ud til alle skaerme.
+
+Sammenligningen ligger nu i zs_version.c uden afhaengigheder, med en
+streng parser der kun tager cifre og praecis to punktummer. 42 nye tests
+daekker den, blandt andet at 0.10.0 er nyere end 0.9.0, hvilket den ikke
+ville vaere hvis man sammenlignede teksterne.
+
 ## 2026-08-25 22:41
 
 ### Lyst tema

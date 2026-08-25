@@ -31,6 +31,7 @@ int main(int argc, char **argv)
     test_sunspec();
     test_format();
     test_fronius();
+    test_version();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

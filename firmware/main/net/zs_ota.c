@@ -1,4 +1,5 @@
 #include "zs_ota.h"
+#include "zs_version.h"
 
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
@@ -54,39 +55,6 @@ static esp_err_t on_api_event(esp_http_client_event_t *e)
     h->len += (size_t)e->data_len;
     h->buf[h->len] = '\0';
     return ESP_OK;
-}
-
-/* "v0.2.0" og "0.2.0" er det samme. */
-static const char *strip_v(const char *s)
-{
-    return (s != NULL && (s[0] == 'v' || s[0] == 'V')) ? s + 1 : s;
-}
-
-/*
- * Sammenligner to versioner som tal, ikke som tekst.
- *
- * "0.10.0" er nyere end "0.9.0", men staar FOER den alfabetisk. Ville
- * vi bare have sammenlignet strengene, ville skaermen have staaet paa
- * 0.9.0 for evigt.
- *
- * Returnerer 1 hvis a er nyere end b, 0 hvis de er ens, -1 hvis a er
- * aeldre. Kan et af tallene ikke laeses, returneres -1: vi opdaterer
- * hellere ikke end at opdatere til noget vi ikke forstaar.
- */
-static int version_cmp(const char *a, const char *b)
-{
-    unsigned av[3] = {0}, bv[3] = {0};
-    if (sscanf(strip_v(a), "%u.%u.%u", &av[0], &av[1], &av[2]) != 3) {
-        return -1;
-    }
-    if (sscanf(strip_v(b), "%u.%u.%u", &bv[0], &bv[1], &bv[2]) != 3) {
-        return -1;
-    }
-    for (int i = 0; i < 3; i++) {
-        if (av[i] > bv[i]) { return 1; }
-        if (av[i] < bv[i]) { return -1; }
-    }
-    return 0;
 }
 
 /*
@@ -160,7 +128,7 @@ static bool hent_udgivelse(zs_ota_status_t *ud, char *url, size_t url_len)
 
             if (cJSON_IsString(tag) && tag->valuestring != NULL) {
                 snprintf(ud->nyeste, sizeof(ud->nyeste), "%.23s",
-                         strip_v(tag->valuestring));
+                         zs_version_strip_v(tag->valuestring));
             }
             url[0] = '\0';
             if (cJSON_IsArray(aktiver)) {
@@ -241,7 +209,7 @@ bool zs_ota_check_and_install(zs_ota_status_t *ud)
         return false;
     }
 
-    int c = version_cmp(ud->nyeste, ud->koerende);
+    int c = zs_version_cmp(ud->nyeste, ud->koerende);
     if (c <= 0) {
         /*
          * Vi opdaterer KUN opad.
