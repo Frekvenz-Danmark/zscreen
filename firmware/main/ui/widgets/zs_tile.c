@@ -27,7 +27,8 @@ void zs_tile_create(zs_tile_t *t, lv_obj_t *parent, int col, int row,
 {
     memset(t, 0, sizeof(*t));
 
-    t->card = zs_card_create(parent);
+    /* false: de fire kasser er til at LAESE, ikke til at trykke paa. */
+    t->card = zs_card_create(parent, false);
     lv_obj_set_size(t->card, ZS_CARD_WIDTH, ZS_CARD_HEIGHT);
     /* Placeringen er i forhold til SIDEN, ikke til skaermen. Siden
      * ligger allerede under statuslinjen, saa den maa ikke laegges til

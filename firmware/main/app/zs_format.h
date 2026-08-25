@@ -45,6 +45,18 @@ void zs_fmt_power(float watts, zs_num_t *out);
 /* Procent uden decimaler, klippet til 0-100. */
 void zs_fmt_percent(float pct, zs_num_t *out);
 
+/*
+ * Kroner med to decimaler, fx "1,58" eller "-0,05".
+ *
+ * Fortegnet haandteres for sig. Regner man bare oere/100, forsvinder
+ * minusset for alt mellem -1 og 0, fordi heltalsdivisionen giver nul,
+ * og -0,05 kr bliver vist som "0,05". Negative timepriser er ikke
+ * teoretiske: de forekommer flere gange om aaret naar det blaeser.
+ *
+ * Uden enhed. Kalderen saetter selv "kr" eller "kr/kWh" efter.
+ */
+void zs_fmt_kroner(float kr, char *ud, size_t n);
+
 /* Energi i kWh med ét decimal, MWh over 1000. */
 void zs_fmt_energy_wh(double wh, zs_num_t *out);
 

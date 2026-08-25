@@ -29,18 +29,21 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
     lv_img_set_src(sb->logo, &zs_img_zmark);
     lv_obj_set_pos(sb->logo, 14, (ZS_BAR_HEIGHT - 26) / 2);
 
-    /* DEMO-maerket lige efter logoet. Skjult som udgangspunkt. */
-    sb->demo = lv_label_create(sb->bar);
-    lv_label_set_text(sb->demo, "DEMO");
-    zs_style_text(sb->demo, &zs_font_13, ZS_C_BG);
-    lv_obj_set_style_text_letter_space(sb->demo, 1, 0);
-    lv_obj_set_style_bg_color(sb->demo, lv_color_hex(ZS_C_ACCENT), 0);
-    lv_obj_set_style_bg_opa(sb->demo, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(sb->demo, 6, 0);
-    lv_obj_set_style_pad_hor(sb->demo, 7, 0);
-    lv_obj_set_style_pad_ver(sb->demo, 3, 0);
-    lv_obj_set_pos(sb->demo, 14 + 26 + 10, (ZS_BAR_HEIGHT - 22) / 2);
-    lv_obj_add_flag(sb->demo, LV_OBJ_FLAG_HIDDEN);
+    /*
+     * Maerket lige efter logoet.
+     *
+     * Hoejden er 22: 13 px skrift giver 16 px linje, plus 3 px luft
+     * over og under. Det staar lodret midt i den 44 px hoeje linje.
+     */
+    sb->badge = lv_label_create(sb->bar);
+    lv_label_set_text(sb->badge, "");
+    zs_style_text(sb->badge, &zs_font_13, ZS_C_BG);
+    lv_obj_set_style_text_letter_space(sb->badge, 1, 0);
+    lv_obj_set_style_bg_opa(sb->badge, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(sb->badge, 6, 0);
+    lv_obj_set_style_pad_hor(sb->badge, 8, 0);
+    lv_obj_set_style_pad_ver(sb->badge, 3, 0);
+    lv_obj_set_pos(sb->badge, 14 + 26 + 10, (ZS_BAR_HEIGHT - 22) / 2);
 
     sb->time = lv_label_create(sb->bar);
     lv_label_set_text(sb->time, "");
@@ -73,18 +76,6 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
     sb->state = ZS_LINK_NO_WIFI;
 }
 
-void zs_statusbar_set_demo(zs_statusbar_t *sb, bool demo)
-{
-    if (sb == NULL || sb->demo == NULL) {
-        return;
-    }
-    if (demo) {
-        lv_obj_clear_flag(sb->demo, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(sb->demo, LV_OBJ_FLAG_HIDDEN);
-    }
-}
-
 void zs_statusbar_set_time(zs_statusbar_t *sb, const char *hhmm)
 {
     if (sb == NULL || sb->time == NULL) {
@@ -93,50 +84,69 @@ void zs_statusbar_set_time(zs_statusbar_t *sb, const char *hhmm)
     lv_label_set_text(sb->time, hhmm != NULL ? hhmm : "");
 }
 
-void zs_statusbar_set_link(zs_statusbar_t *sb, zs_link_state_t state, int rssi)
+/*
+ * Hvad hver tilstand hedder og hvilken farve den har. ÉN tabel.
+ *
+ * Teksten er den kunden laeser, saa den er paa dansk og siger hvad der
+ * ER, ikke hvad der mangler i koden. Farven paa maerket er baggrunden,
+ * og teksten staar altid i sidens moerke bund, saa den kan laeses paa
+ * baade groen, gul og roed.
+ */
+typedef struct {
+    const char *tekst;
+    uint32_t    farve;
+} badge_t;
+
+static badge_t badge_for(zs_link_state_t state, bool demo)
 {
-    if (sb == NULL || sb->status_icon == NULL) {
+    if (demo) {
+        /* Demo overtrumfer alt. Ingen maa kunne komme til at tro at
+         * opdigtede tal er rigtige maalinger. */
+        return (badge_t){ "DEMO", ZS_C_ACCENT };
+    }
+    switch (state) {
+    case ZS_LINK_OK:           return (badge_t){ "FORBUNDET",      ZS_C_GOOD };
+    case ZS_LINK_CONNECTING:   return (badge_t){ "FORBINDER",      ZS_C_LABEL };
+    case ZS_LINK_NO_INVERTER:  return (badge_t){ "INGEN INVERTER", ZS_C_WARN };
+    case ZS_LINK_NO_WIFI:
+    default:                   return (badge_t){ "INTET NETVÆRK",  ZS_C_BAD };
+    }
+}
+
+void zs_statusbar_set_link(zs_statusbar_t *sb, zs_link_state_t state,
+                           int rssi, bool demo)
+{
+    if (sb == NULL || sb->badge == NULL || sb->status_icon == NULL) {
         return;
     }
     sb->state = state;
 
-    const char *icon;
-    uint32_t    color;
+    badge_t b = badge_for(state, demo);
+    lv_label_set_text(sb->badge, b.tekst);
+    lv_obj_set_style_bg_color(sb->badge, lv_color_hex(b.farve), 0);
 
-    switch (state) {
-    case ZS_LINK_OK:
-        /*
-         * Signalstyrke i tre trin. Graenserne er de samme som resten af
-         * branchen bruger:
-         *   over -60 dBm  godt
-         *   -60 til -75   brugbart
-         *   under -75     svagt, her begynder forbindelsen at hakke
-         */
-        if (rssi >= -60)      { icon = ZS_ICON_WIFI; }
-        else if (rssi >= -75) { icon = ZS_ICON_WIFI_HIGH; }
-        else                  { icon = ZS_ICON_WIFI_LOW; }
-        color = ZS_C_LABEL;
-        break;
-
-    case ZS_LINK_CONNECTING:
-        icon = ZS_ICON_SPINNER;
-        color = ZS_C_LABEL;
-        break;
-
-    case ZS_LINK_NO_INVERTER:
-        /* Wifi er der, men inverteren svarer ikke. Gul, ikke roed:
-         * det er som regel noget der retter sig selv. */
-        icon = ZS_ICON_ALERT;
-        color = ZS_C_WARN;
-        break;
-
-    case ZS_LINK_NO_WIFI:
-    default:
-        icon = ZS_ICON_WIFI_OFF;
-        color = ZS_C_BAD;
-        break;
+    /*
+     * Ikonet viser KUN signalstyrken, og kun naar der er en
+     * forbindelse. Er der ingen, siger maerket det allerede med ord,
+     * og et ikon der gentager det ville bare fylde.
+     *
+     * Graenserne er de samme som resten af branchen bruger:
+     *   over -60 dBm  godt
+     *   -60 til -75   brugbart
+     *   under -75     svagt, her begynder forbindelsen at hakke
+     */
+    if (demo || state == ZS_LINK_NO_WIFI) {
+        lv_obj_add_flag(sb->status_icon, LV_OBJ_FLAG_HIDDEN);
+        return;
     }
+    lv_obj_clear_flag(sb->status_icon, LV_OBJ_FLAG_HIDDEN);
+
+    const char *icon;
+    if (rssi == 0)        { icon = ZS_ICON_WIFI_OFF; }
+    else if (rssi >= -60) { icon = ZS_ICON_WIFI; }
+    else if (rssi >= -75) { icon = ZS_ICON_WIFI_HIGH; }
+    else                  { icon = ZS_ICON_WIFI_LOW; }
 
     lv_label_set_text(sb->status_icon, icon);
-    lv_obj_set_style_text_color(sb->status_icon, lv_color_hex(color), 0);
+    lv_obj_set_style_text_color(sb->status_icon, lv_color_hex(ZS_C_LABEL), 0);
 }

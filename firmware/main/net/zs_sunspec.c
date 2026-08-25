@@ -133,6 +133,15 @@ bool zs_ss_dec_acc32(const uint16_t *regs, size_t n, size_t off, uint32_t *out)
     return true;
 }
 
+bool zs_ss_dec_bitfield32(const uint16_t *regs, size_t n, size_t off, uint32_t *out)
+{
+    if (regs == NULL || out == NULL || off + 1 >= n) {
+        return false;
+    }
+    *out = ((uint32_t)regs[off] << 16) | (uint32_t)regs[off + 1];
+    return true;
+}
+
 int32_t zs_ss_dec_enum16(const uint16_t *regs, size_t n, size_t off)
 {
     if (regs == NULL || off >= n) {

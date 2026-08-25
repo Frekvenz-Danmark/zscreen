@@ -2,6 +2,8 @@
 #include "zs_theme.h"
 #include "zs_tile.h"
 #include "zs_flow.h"
+#include "zs_status_page.h"
+#include "zs_price_page.h"
 #include "zs_format.h"
 
 #include <stdio.h>
@@ -13,7 +15,7 @@
  * fordi tallet vipper omkring nul, er bare uroligt at kigge paa. */
 #define IDLE_W   25.0f
 
-#define PAGE_COUNT   2
+#define PAGE_COUNT   4
 #define DOT_SIZE     10
 /*
  * Afstanden mellem prikkerne er ikke pynt.
@@ -33,6 +35,14 @@
 #define DOT_GAP      30
 #define DOT_HIT_W    38
 
+/*
+ * Kontrolregning med fire prikker:
+ *   bredde i alt   4 * 10 + 3 * 30 = 130
+ *   foerste starter paa (480 - 130) / 2 = 175
+ *   fingerflader   161..199, 201..239, 241..279, 281..319
+ * De roerer hinanden og overlapper ikke.
+ */
+
 static lv_obj_t      *s_root;
 static lv_obj_t      *s_pager;
 static lv_obj_t      *s_page[PAGE_COUNT];
@@ -43,12 +53,22 @@ static zs_tile_t      s_house;
 static zs_tile_t      s_battery;
 static zs_tile_t      s_grid;
 static zs_flow_t      s_flow;
+static zs_status_page_t s_status;
+static zs_price_page_t s_price;
 static int            s_page_now;
 static bool           s_created;
 
 lv_obj_t *zs_screen_home_root(void)
 {
     return s_root;
+}
+
+void zs_screen_home_set_price(const struct zs_price_day *d)
+{
+    if (!s_created) {
+        return;
+    }
+    zs_price_page_update(&s_price, (const zs_price_day_t *)d);
 }
 
 /* Maler prikkerne om, saa den man staar paa er orange og bredere. */
@@ -147,6 +167,12 @@ void zs_screen_home_create(lv_event_cb_t gear_cb, void *user_data)
 
     /* Side 2: energiflow */
     zs_flow_create(&s_flow, s_page[1]);
+
+    /* Side 3: spotprisen i dag */
+    zs_price_page_create(&s_price, s_page[2]);
+
+    /* Side 4: inverterens tilstand og fejl */
+    zs_status_page_create(&s_status, s_page[3]);
 
     /* Prikkerne nederst, midt paa:
      *   10 + 30 + 10 = 50, saa den foerste starter paa 240 - 25 = 215. */
@@ -292,8 +318,9 @@ void zs_screen_home_update(const zs_home_data_t *d)
     }
 
     zs_statusbar_set_time(&s_bar, d->time_text);
-    zs_statusbar_set_link(&s_bar, d->link, d->rssi);
-    zs_statusbar_set_demo(&s_bar, d->demo);
+    /* Ét kald saetter baade maerket og ikonet, saa de ikke kan komme
+     * til at sige hver sit. */
+    zs_statusbar_set_link(&s_bar, d->link, d->rssi, d->demo);
 
     /* Daempningen saettes FOER tallene skrives, saa farvevalget inde i
      * kortene ser den rigtige tilstand med det samme. Goer man det
@@ -312,6 +339,7 @@ void zs_screen_home_update(const zs_home_data_t *d)
         zs_tile_set_none(&s_battery, "Henter ...");
         zs_tile_set_none(&s_grid,    "Henter ...");
         zs_flow_update(&s_flow, d);
+        zs_status_page_update(&s_status, d);
         return;
     }
 
@@ -320,7 +348,9 @@ void zs_screen_home_update(const zs_home_data_t *d)
     update_battery(d);
     update_grid(d);
 
-    /* Side 2 faar PRAECIS de samme data. To sider, ét sandhedsbegreb:
-     * de kan ikke komme til at sige hver sit om samme maaling. */
+    /* Side 2 og 3 faar PRAECIS de samme data. Tre sider, ét
+     * sandhedsbegreb: de kan ikke komme til at sige hver sit om samme
+     * maaling. */
     zs_flow_update(&s_flow, d);
+    zs_status_page_update(&s_status, d);
 }

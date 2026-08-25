@@ -147,9 +147,25 @@ class ThreadedServer(socketserver.ThreadingTCPServer):
 # Simulering
 # ----------------------------------------------------------------------
 
+def parse_fejl(tekst: str) -> dict:
+    """\"evt1=0x80,st=7\" bliver til {\"evt1\": 128, \"st\": 7}."""
+    ud = {}
+    for del_ in tekst.split(","):
+        del_ = del_.strip()
+        if not del_ or "=" not in del_:
+            continue
+        n, v = del_.split("=", 1)
+        try:
+            ud[n.strip().lower()] = int(v.strip(), 0)
+        except ValueError:
+            pass
+    return ud
+
+
 def update_registers(inv_dev, meter_dev, p: Plant, has_meter: bool,
-                     float_models: bool):
+                     float_models: bool, fejl: dict = None):
     """Skriver anlaeggets nuvaerende tilstand ind i registerkortet."""
+    fejl = fejl or {}
 
     # --- inverter ---
     if float_models:
@@ -157,13 +173,27 @@ def update_registers(inv_dev, meter_dev, p: Plant, has_meter: bool,
         m.f32(20, p.inverter_ac_w)          # W
         m.f32(22, 50.0)                     # Hz
         m.f32(30, p.total_wh)               # WH
-        m.enum16(46, 4)                     # St = MPPT
+        m.enum16(46, fejl.get("st", 4))     # St
+        m.enum16(47, fejl.get("stvnd", 0))  # StVnd
+        m.acc32(48, fejl.get("evt1", 0))
+        m.acc32(50, fejl.get("evt2", 0))
+        m.acc32(52, fejl.get("evtvnd1", 0))
+        m.acc32(54, fejl.get("evtvnd2", 0))
+        m.acc32(56, fejl.get("evtvnd3", 0))
+        m.acc32(58, fejl.get("evtvnd4", 0))
     else:
         m = inv_dev.find(103)
         m.i16(12, round(p.inverter_ac_w))   # W, W_SF = 0
         m.u16(14, 5000)                     # Hz, Hz_SF = -2 -> 50,00
         m.acc32(22, int(p.total_wh))        # WH
-        m.enum16(36, 4)                     # St = MPPT
+        m.enum16(36, fejl.get("st", 4))     # St, 4 = MPPT
+        m.enum16(37, fejl.get("stvnd", 0))  # StVnd, Fronius' egen kode
+        m.acc32(38, fejl.get("evt1", 0))    # Evt1
+        m.acc32(40, fejl.get("evt2", 0))    # Evt2
+        m.acc32(42, fejl.get("evtvnd1", 0))
+        m.acc32(44, fejl.get("evtvnd2", 0))
+        m.acc32(46, fejl.get("evtvnd3", 0))
+        m.acc32(48, fejl.get("evtvnd4", 0))
 
     # --- batteri ---
     m124 = inv_dev.find(124)
@@ -203,7 +233,8 @@ def update_registers(inv_dev, meter_dev, p: Plant, has_meter: bool,
             mm.i16(16, round(p.grid_w))     # W, positiv = koeb
 
 
-def ticker(inv_dev, meter_dev, p: Plant, args, inv_unit: int, meter_unit: int):
+def ticker(inv_dev, meter_dev, p: Plant, args, inv_unit: int, meter_unit: int,
+           fejl: dict = None):
     """Driver uret og opdaterer registrene."""
     sim_seconds = args.start_hour * 3600.0
     last = time.monotonic()
@@ -226,7 +257,7 @@ def ticker(inv_dev, meter_dev, p: Plant, args, inv_unit: int, meter_unit: int):
 
         with STATE["lock"]:
             update_registers(inv_dev, meter_dev, p, meter_dev is not None,
-                             args.profile == "float")
+                             args.profile == "float", fejl)
             STATE["units"][inv_unit] = inv_dev.build_registers()
             if meter_dev is not None:
                 STATE["units"][meter_unit] = meter_dev.build_registers()
@@ -269,6 +300,10 @@ def main():
                     help="foelg maskinens rigtige ur i stedet")
     ap.add_argument("--start-hour", type=float, default=11.0)
     ap.add_argument("--print-every", type=float, default=5.0)
+    ap.add_argument("--fejl", default="",
+                    help="meld fejl fra inverteren, fx "
+                         "\"evt1=0x80,evtvnd2=0x80,st=7\". Bruges til at "
+                         "proeve fejlsiden af uden et rigtigt anlaeg")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
 
@@ -293,8 +328,9 @@ def main():
 
     p = Plant(has_battery=has_battery, pv_strings=strings)
 
+    fejl = parse_fejl(args.fejl)
     with STATE["lock"]:
-        update_registers(inv_dev, meter_dev, p, has_meter, floats)
+        update_registers(inv_dev, meter_dev, p, has_meter, floats, fejl)
         STATE["units"][args.inverter_unit] = inv_dev.build_registers()
         if meter_dev is not None:
             STATE["units"][args.meter_unit] = meter_dev.build_registers()
@@ -302,7 +338,7 @@ def main():
 
     t = threading.Thread(target=ticker,
                          args=(inv_dev, meter_dev, p, args,
-                               args.inverter_unit, args.meter_unit),
+                               args.inverter_unit, args.meter_unit, fejl),
                          daemon=True)
     t.start()
 
@@ -335,6 +371,8 @@ def main():
     print(f"  Batteri         {'10,24 kWh' if has_battery else 'ingen'}")
     print(f"  Kanalnavne      {'ja' if labels else 'nej'}")
     print(f"  SunSpec-base    {args.base}")
+    if fejl:
+        print(f"  Melder fejl     {fejl}")
     if args.realtime:
         print("  Tid             foelger maskinens ur")
     else:

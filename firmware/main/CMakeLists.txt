@@ -16,10 +16,12 @@ idf_component_register(
         "net/zs_fronius.c"
         "net/zs_wifi.c"
         "net/zs_discovery.c"
+        "net/zs_price.c"
 
         "app/zs_format.c"
         "app/zs_app.c"
         "app/zs_demo.c"
+        "app/zs_status.c"
 
         "storage/zs_nvs.c"
 
@@ -32,6 +34,8 @@ idf_component_register(
         "ui/zs_screen_settings.c"
         "ui/widgets/zs_tile.c"
         "ui/widgets/zs_flow.c"
+        "ui/widgets/zs_status_page.c"
+        "ui/widgets/zs_price_page.c"
         "ui/widgets/zs_statusbar.c"
         "ui/widgets/zs_keyboard.c"
 
@@ -66,5 +70,9 @@ idf_component_register(
         lwip
         esp_timer
         driver
+        esp_http_client
+        esp-tls
+        json
+        mbedtls
         esp_hw_support
 )

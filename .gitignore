@@ -15,6 +15,13 @@ tests/host/build/
 tests/host/*.o
 tests/host/run
 
+# ── Byggede vaerktoejer ────────────────────────────────────────────
+# zs-probe bygges af tools/zs-probe/build.sh. Den binaere fil hoerer
+# ikke i git: den er 60 KB, aendrer sig ved hver oversaettelse, og kan
+# bygges paa et sekund.
+tools/zs-probe/zs-probe
+tools/zs-probe/*.dSYM/
+
 # ── Genererede assets (bygges af tools/build-assets.sh) ────────────
 # Fontene og ikonerne genereres fra TTF. Vi comitter dem alligevel,
 # fordi de skal kunne bygges uden node installeret. Mellemfilerne

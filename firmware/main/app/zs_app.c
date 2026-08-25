@@ -23,6 +23,8 @@
 #include "zs_nvs.h"
 #include "zs_display.h"
 #include "zs_demo.h"
+#include "zs_price.h"
+#include "zs_screen_setup.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -65,6 +67,31 @@ static int64_t s_last_good_ms;
  * En enhed hos en kunde kan derfor ikke komme til at starte op med
  * opdigtede tal, uanset hvad der er trykket paa foer.
  */
+/*
+ * Priserne hentes i sin EGEN opgave.
+ *
+ * En hentning tager op til otte sekunder, og med en TLS-forbindelse
+ * bruger den ogsaa flere kilobyte stak. Laa den i hovedopgaven, ville
+ * baade tryk paa skaermen og aflaesningen fra inverteren staa stille
+ * imens, én gang i doegnet. Og hovedopgavens stak skulle vaere stor
+ * nok til mbedTLS' haandtryk, hvilket ville koste hukommelse hele
+ * tiden for noget der sker én gang om dagen.
+ *
+ * s_price er den der vises. s_price_hentet skrives kun af
+ * hente-opgaven. Der er én skriver og én laeser af hvert flag, og
+ * flagene skiftes i den rigtige raekkefoelge, saa der er ikke brug
+ * for en laas.
+ */
+static zs_price_day_t s_price;          /* det skaermen viser        */
+static zs_price_day_t s_price_hentet;   /* hente-opgavens resultat   */
+static char           s_price_zone[4];  /* kopi, saa opgaven har sin egen */
+static volatile bool  s_price_igang;
+static volatile bool  s_price_klar;
+
+/* Naar vi tidligst proever igen. Et mislykket forsoeg maa ikke
+ * gentages hvert sekund. */
+static int64_t s_price_next_try;
+
 static bool s_demo;
 static bool s_demo_restart;
 static zs_fr_info_t s_demo_info;
@@ -75,6 +102,44 @@ static uint32_t s_backoff_ms = ZS_RECONNECT_MIN_MS;
 static int64_t now_ms(void)
 {
     return esp_timer_get_time() / 1000;
+}
+
+/* ------------------------------------------------------------------ */
+/* Elprisen                                                            */
+/* ------------------------------------------------------------------ */
+
+static void price_task(void *arg)
+{
+    (void)arg;
+    zs_price_fetch(s_price_zone, &s_price_hentet);
+    /* Raekkefoelgen er vigtig: resultatet skal vaere skrevet FOER
+     * flaget saettes, ellers kan hovedopgaven naa at laese en halv
+     * struct. */
+    s_price_klar = true;
+    s_price_igang = false;
+    vTaskDelete(NULL);
+}
+
+static void price_start(const char *zone)
+{
+    if (s_price_igang || zone == NULL || zone[0] == '\0') {
+        return;
+    }
+    snprintf(s_price_zone, sizeof(s_price_zone), "%.3s", zone);
+    s_price_klar = false;
+    s_price_igang = true;
+
+    /*
+     * 10 KB stak. mbedTLS' haandtryk med certifikatbundtet er den
+     * tungeste ting hele programmet laver, og en for lille stak giver
+     * et nedbrud der er svaert at spore tilbage.
+     * Prioritet 4, altsaa under hovedopgaven: en langsom prisserver maa
+     * aldrig forsinke aflaesningen fra inverteren.
+     */
+    if (xTaskCreate(price_task, "zs_price", 10240, NULL, 4, NULL) != pdPASS) {
+        ESP_LOGW(TAG, "kunne ikke starte hentning af priser");
+        s_price_igang = false;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -343,7 +408,16 @@ static void handle_cmd(const zs_cmd_t *c)
         s_last_good_ms = 0;
         s_home.have_data = false;
         s_state = ST_CONNECTING;
-        zs_ui_show(ZS_SCREEN_HOME);
+        /*
+         * ÉT sted bestemmer hvor brugeren skal hen. Mangler der et
+         * prisomraade, er opsaetningen ikke faerdig endnu.
+         */
+        if (s_cfg.price_zone[0] == '\0') {
+            zs_setup_zone_set_return(ZS_SCREEN_INVERTER_LIST);
+            zs_ui_show(ZS_SCREEN_PRICE_ZONE);
+        } else {
+            zs_ui_show(ZS_SCREEN_HOME);
+        }
         break;
     }
 
@@ -391,6 +465,14 @@ static void handle_cmd(const zs_cmd_t *c)
         s_demo = true;
         s_state = ST_DEMO;
         s_demo_restart = true;
+        /* Er der ikke valgt et prisomraade, viser vi opdigtede priser
+         * saa siden ogsaa kan ses. Er der ét, bruger vi de rigtige:
+         * priserne kommer fra internettet og har intet med inverteren
+         * at goere, saa de er lige saa rigtige i demo. */
+        if (s_cfg.price_zone[0] == '\0') {
+            zs_demo_price(&s_price);
+            zs_ui_set_price(&s_price);
+        }
         zs_ui_set_demo(true);
         zs_ui_show(ZS_SCREEN_HOME);
         break;
@@ -401,6 +483,20 @@ static void handle_cmd(const zs_cmd_t *c)
         zs_ui_set_demo(false);
         memset(&s_home, 0, sizeof(s_home));
         s_last_good_ms = 0;
+        /*
+         * Ryd ogsaa de opdigtede priser.
+         *
+         * Uden det ville demoens prisekurve blive staaende og se ud
+         * som rigtige priser, for der er intet der overskriver den
+         * naar der ikke er valgt et prisomraade.
+         */
+        memset(&s_price, 0, sizeof(s_price));
+        s_price_next_try = 0;
+        if (s_cfg.price_zone[0] == '\0') {
+            snprintf(s_price.fejl, sizeof(s_price.fejl),
+                     "Vælg dit prisområde under Indstillinger");
+        }
+        zs_ui_set_price(&s_price);
         /* Tilbage til det skaermen ellers ville have lavet: drift hvis
          * den er sat op, ellers opsaetningen forfra. */
         if (s_cfg.configured) {
@@ -417,6 +513,30 @@ static void handle_cmd(const zs_cmd_t *c)
         /* Demoen er slaaet fra i denne udgave. Se ZS_DEMO_ENABLED. */
         break;
 #endif
+
+    case ZS_CMD_SET_PRICE_ZONE: {
+        const char *z = c->ssid;
+        if (strcmp(z, "DK1") != 0 && strcmp(z, "DK2") != 0) {
+            break;
+        }
+        /* Praecis tre tegn. Feltet er 4 bytes, og z kommer fra en
+         * besked hvor strengen kan vaere op til 32. */
+        snprintf(s_cfg.price_zone, sizeof(s_cfg.price_zone), "%.3s", z);
+        if (!zs_nvs_save(&s_cfg)) {
+            ESP_LOGW(TAG, "prisområdet kunne ikke gemmes");
+        }
+        ESP_LOGI(TAG, "prisområde sat til %s", z);
+        /* Hent med det samme, saa siden ikke staar tom mens kunden
+         * kigger paa den. */
+        s_price_next_try = 0;
+        memset(&s_price, 0, sizeof(s_price));
+        zs_ui_set_price(&s_price);
+        /* Opsaetningen er faerdig naar der ogsaa er en inverter. */
+        if (s_cfg.configured) {
+            zs_ui_show(ZS_SCREEN_HOME);
+        }
+        break;
+    }
 
     case ZS_CMD_FACTORY_RESET:
         ESP_LOGW(TAG, "fabriksnulstilling");
@@ -453,6 +573,20 @@ static void app_task(void *arg)
         ESP_LOGE(TAG, "wifi kunne ikke startes: %s", zs_wifi_last_error());
     }
 
+    /*
+     * Prissiden skal have besked fra starten, ogsaa naar der ikke er
+     * noget at vise. Ellers staar den med de tomme pladsholdere fra
+     * da den blev bygget, og brugeren faar ingen forklaring paa
+     * hvorfor der ikke er priser.
+     */
+    if (s_cfg.price_zone[0] == '\0') {
+        snprintf(s_price.fejl, sizeof(s_price.fejl),
+                 "Vælg dit prisområde under Indstillinger");
+    } else {
+        snprintf(s_price.fejl, sizeof(s_price.fejl), "Henter priser ...");
+    }
+    zs_ui_set_price(&s_price);
+
     if (configured) {
         s_state = ST_CONNECTING;
         zs_ui_show(ZS_SCREEN_HOME);
@@ -488,11 +622,95 @@ static void app_task(void *arg)
 
         int64_t t = now_ms();
 
+        /*
+         * Indstillinger og Detaljer fyldes uanset hvilken tilstand vi
+         * er i.
+         *
+         * Det stod tidligere NEDERST i loekken, efter de steder hvor vi
+         * springer videre. I demo og under opsaetning naaede vi aldrig
+         * derned, og saa stod lysstyrke-skyderen paa nul selvom
+         * skaermen lyste. Den kom foerst til at passe naar man rykkede
+         * i den.
+         *
+         * Indstillinger fyldes ÉN gang, naar man kommer ind paa siden.
+         * Gjorde vi det bliver ved, ville skyderen faa sat sin vaerdi
+         * fem gange i sekundet mens brugeren traekker i den, og saa
+         * ville den hoppe tilbage under fingeren.
+         *
+         * Detaljer bygges helt om hver gang, saa den faar én gang i
+         * sekundet.
+         */
+        {
+            zs_screen_id_t scr = zs_ui_current();
+            char ip[16];
+
+            if (scr != last_screen) {
+                last_screen = scr;
+                next_detail = 0;
+                if (scr == ZS_SCREEN_SETTINGS) {
+                    zs_wifi_get_ip(ip, sizeof(ip));
+                    zs_ui_set_settings(&s_cfg, ip);
+                }
+            }
+            if (scr == ZS_SCREEN_DETAILS && t >= next_detail) {
+                next_detail = t + 1000;
+                if (s_demo) {
+                    static zs_fr_t vis;
+                    zs_fr_init(&vis);
+                    vis.info = s_demo_info;
+                    snprintf(vis.host, sizeof(vis.host), "demo");
+                    vis.port = 502;
+                    zs_ui_set_details(&vis, "demo", -55);
+                } else {
+                    zs_wifi_get_ip(ip, sizeof(ip));
+                    zs_ui_set_details(&s_fr, ip, zs_wifi_rssi());
+                }
+            }
+        }
+
         /* Uret og lysstyrken, ét sekund ad gangen. */
         if (t >= next_tick) {
             next_tick = t + 1000;
             clock_update();
             zs_display_tick();
+
+            /*
+             * Elprisen.
+             *
+             * Den staar for sig selv: den kommer fra internettet og
+             * ikke fra inverteren, den skifter én gang i doegnet, og
+             * den skal virke ogsaa selvom inverteren er nede.
+             *
+             * Vi henter naar der er et prisomraade, et ur og wifi, og
+             * enten ikke har priser eller har priser fra i gaar. Ved
+             * fejl venter vi ti minutter foer naeste forsoeg, saa en
+             * server der er nede ikke bliver spurgt hvert sekund.
+             */
+            /* Er hente-opgaven blevet faerdig? */
+            if (s_price_klar) {
+                s_price_klar = false;
+                s_price = s_price_hentet;
+                s_price_next_try = s_price.ok ? 0 : (now_ms() + 10 * 60 * 1000);
+                zs_ui_set_price(&s_price);
+            }
+
+            bool demo_priser = s_demo && s_cfg.price_zone[0] == '\0';
+
+            if (!demo_priser && s_cfg.price_zone[0] != '\0' && s_clock_ok &&
+                zs_wifi_state() == ZS_WIFI_CONNECTED &&
+                !s_price_igang && t >= s_price_next_try &&
+                (!s_price.ok || zs_price_is_stale(&s_price))) {
+
+                price_start(s_cfg.price_zone);
+            } else if (!demo_priser && s_price.ok) {
+                /* Flyt den fremhaevede soejle naar klokken skifter
+                 * time. Koster ingen netvaerkstrafik. */
+                int8_t foer = s_price.nu;
+                zs_price_update_now(&s_price);
+                if (s_price.nu != foer) {
+                    zs_ui_set_price(&s_price);
+                }
+            }
         }
 
         if (s_state == ST_DEMO) {
@@ -526,22 +744,15 @@ static void app_task(void *arg)
                 next_demo_step = t + ZS_POLL_INTERVAL_MS;
                 zs_demo_step(&s_home.live, dt);
                 publish_home();
-            }
-            if (zs_ui_current() == ZS_SCREEN_DETAILS && t >= next_detail) {
-                next_detail = t + 1000;
-                /* Detaljer viser demoens opdigtede anlaeg, saa siden
-                 * ogsaa kan ses uden en inverter.
-                 *
-                 * static, ikke paa stakken: zs_fr_t fylder omkring
-                 * 850 bytes, og opgaven har 8 KB. Det ville virke, men
-                 * det er unoedvendigt at laegge det pres paa stakken
-                 * én gang i sekundet. */
-                static zs_fr_t vis;
-                zs_fr_init(&vis);
-                vis.info = s_demo_info;
-                snprintf(vis.host, sizeof(vis.host), "demo");
-                vis.port = 502;
-                zs_ui_set_details(&vis, "demo", -55);
+
+                /* Flyt den fremhaevede prissoejle med demoens ur. */
+                if (s_cfg.price_zone[0] == '\0') {
+                    int8_t foer = s_price.nu;
+                    zs_demo_price(&s_price);
+                    if (s_price.nu != foer) {
+                        zs_ui_set_price(&s_price);
+                    }
+                }
             }
             continue;
         }
@@ -616,35 +827,6 @@ static void app_task(void *arg)
             }
         }
 
-        /*
-         * Indstillinger og Detaljer opdateres kun naar de er fremme,
-         * og med maade.
-         *
-         * Indstillinger fyldes ÉN gang, naar man kommer ind paa siden.
-         * Gjorde vi det bliver ved, ville lysstyrke-skyderen faa sat
-         * sin vaerdi fem gange i sekundet mens brugeren traekker i
-         * den, og saa ville den hoppe tilbage under fingeren.
-         *
-         * Detaljer bygges helt om hver gang, saa den faar én gang i
-         * sekundet. Fem gange i sekundet ville baade flimre og bruge
-         * tid paa noget ingen naar at laese.
-         */
-        zs_screen_id_t scr = zs_ui_current();
-        char ip[16];
-
-        if (scr != last_screen) {
-            last_screen = scr;
-            next_detail = 0;
-            if (scr == ZS_SCREEN_SETTINGS) {
-                zs_wifi_get_ip(ip, sizeof(ip));
-                zs_ui_set_settings(&s_cfg, ip);
-            }
-        }
-        if (scr == ZS_SCREEN_DETAILS && t >= next_detail) {
-            next_detail = t + 1000;
-            zs_wifi_get_ip(ip, sizeof(ip));
-            zs_ui_set_details(&s_fr, ip, zs_wifi_rssi());
-        }
     }
 }
 

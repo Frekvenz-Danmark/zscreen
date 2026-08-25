@@ -92,6 +92,24 @@ void zs_fmt_percent(float pct, zs_num_t *out)
     snprintf(out->unit, sizeof(out->unit), "%%");
 }
 
+void zs_fmt_kroner(float kr, char *ud, size_t n)
+{
+    if (ud == NULL || n == 0) {
+        return;
+    }
+    if (isnan(kr) || isinf(kr)) {
+        snprintf(ud, n, "-");
+        return;
+    }
+    long oere = lroundf(kr * 100.0f);
+    const char *fortegn = "";
+    if (oere < 0) {
+        fortegn = "-";
+        oere = -oere;
+    }
+    snprintf(ud, n, "%s%ld,%02ld", fortegn, oere / 100, oere % 100);
+}
+
 void zs_fmt_energy_wh(double wh, zs_num_t *out)
 {
     if (out == NULL) {

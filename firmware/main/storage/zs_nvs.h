@@ -44,6 +44,10 @@ typedef struct {
      * det er en indstilling og ikke en konstant. */
     bool     meter_import_positive;
 
+    /* Prisområde: "DK1" vest for Storebælt, "DK2" øst for. Tomt
+     * betyder at kunden ikke har valgt, og så vises prissiden ikke. */
+    char     price_zone[4];
+
     uint8_t  brightness;        /* 5 til 100                          */
     bool     night_dimming;
 

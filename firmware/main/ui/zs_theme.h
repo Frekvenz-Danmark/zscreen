@@ -103,6 +103,17 @@ LV_IMG_DECLARE(zs_img_wordmark)   /* hele logoet, 260 px, til velkomst  */
  * imellem kan trykkes til side. */
 #define ZS_PAGE_HEIGHT      (ZS_SCR_HEIGHT - ZS_BAR_HEIGHT - ZS_DOTS_HEIGHT)
 #define ZS_EDGE             12    /* luft ud til skaermkanten         */
+/*
+ * Bredden af alt der fylder en side ud: 480 - 12 - 12 = 456.
+ *
+ * ALT paa en side placeres i skaermens egne koordinater, ogsaa inde i
+ * en sides indholdsomraade. Det omraade har derfor INGEN luft i
+ * siderne: havde det det, ville x = 0 betyde 12 ét sted og 0 et andet,
+ * og saa flugter tingene ikke. Det skete: knapperne til prisomraade
+ * laa 12 px laengere til hoejre end overskriften over dem, og stak
+ * samtidig 12 px ud over kanten.
+ */
+#define ZS_CONTENT_WIDTH    (ZS_SCR_WIDTH - 2 * ZS_EDGE)
 #define ZS_GRID_GAP         12    /* mellemrum mellem to kort         */
 
 #define ZS_CARD_WIDTH           222   /* (480 - 12 - 12 - 12) / 2         */
@@ -181,8 +192,15 @@ LV_IMG_DECLARE(zs_img_wordmark)   /* hele logoet, 260 px, til velkomst  */
  * Skal kaldes én gang, efter lv_port_init() og med LVGL-laasen taget. */
 void zs_theme_init(void);
 
-/* Et kort: afrundet, med kant, uden skygge og uden forloeb. */
-lv_obj_t *zs_card_create(lv_obj_t *parent);
+/*
+ * Et kort: afrundet, med kant, uden skygge og uden forloeb.
+ *
+ * pressable bestemmer om kortet lyser op naar man roerer det. Kort man
+ * IKKE kan trykke paa skal have false: ellers lyser de fire kasser paa
+ * forsiden op naar man traekker siden til side, og det ligner at man
+ * har trykket paa noget der sker noget ved.
+ */
+lv_obj_t *zs_card_create(lv_obj_t *parent, bool pressable);
 
 /* En etiket med versaler i 13 px og lidt luft mellem bogstaverne.
  * Bruges til overskriften i et kort og over et indtastningsfelt. */

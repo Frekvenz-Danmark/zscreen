@@ -12,7 +12,7 @@
 /* Tilstand                                                            */
 /* ------------------------------------------------------------------ */
 
-static zs_page_t s_welcome, s_wifi, s_pass, s_connect, s_scan, s_inv;
+static zs_page_t s_welcome, s_wifi, s_pass, s_connect, s_scan, s_inv, s_zone;
 
 static lv_obj_t      *s_wifi_list;
 static lv_obj_t      *s_wifi_hint;
@@ -124,7 +124,7 @@ static void build_welcome(void)
      * foden, hvor der er luft.
      */
     lv_obj_t *demo = zs_btn_secondary_create(c, "Se demo");
-    lv_obj_set_width(demo, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(demo, ZS_CONTENT_WIDTH);
     lv_obj_align(demo, LV_ALIGN_TOP_MID, 0, 300);
     lv_obj_add_event_cb(demo, on_welcome_demo, LV_EVENT_CLICKED, NULL);
 
@@ -137,7 +137,7 @@ static void build_welcome(void)
 #endif
 
     lv_obj_t *btn = zs_btn_primary_create(s_welcome.footer, "Kom i gang");
-    lv_obj_set_width(btn, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(btn, ZS_CONTENT_WIDTH);
     lv_obj_center(btn);
     lv_obj_add_event_cb(btn, on_welcome_start, LV_EVENT_CLICKED, NULL);
 }
@@ -191,13 +191,13 @@ static void build_wifi(void)
     s_wifi_hint = lv_label_create(s_wifi.content);
     lv_label_set_text(s_wifi_hint, "Søger efter netværk ...");
     zs_style_text(s_wifi_hint, &zs_font_16, ZS_C_LABEL);
-    lv_obj_align(s_wifi_hint, LV_ALIGN_TOP_LEFT, 0, ZS_EDGE);
+    lv_obj_align(s_wifi_hint, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_EDGE);
 
     s_wifi_list = zs_column_create(s_wifi.content, 8);
-    lv_obj_align(s_wifi_list, LV_ALIGN_TOP_LEFT, 0, 34);
+    lv_obj_align(s_wifi_list, LV_ALIGN_TOP_LEFT, ZS_EDGE, 34);
 
     s_wifi_rescan = zs_btn_secondary_create(s_wifi.footer, "Søg igen");
-    lv_obj_set_width(s_wifi_rescan, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(s_wifi_rescan, ZS_CONTENT_WIDTH);
     lv_obj_center(s_wifi_rescan);
     lv_obj_add_event_cb(s_wifi_rescan, on_wifi_rescan, LV_EVENT_CLICKED, NULL);
 }
@@ -250,14 +250,14 @@ static void build_password(void)
     zs_page_create(&s_pass, "Kodeord", on_pass_back, NULL, false);
 
     lv_obj_t *lbl = zs_label_create(s_pass.content, "KODEORD TIL NETVÆRKET");
-    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 0, 16);
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, 16);
 
     /* Indtastningsfeltet. En ramme med teksten i, og et oeje ved siden
      * af til at vise hvad der staar. */
     lv_obj_t *box = lv_obj_create(s_pass.content);
     lv_obj_remove_style_all(box);
-    lv_obj_set_size(box, ZS_SCR_WIDTH - 2 * ZS_EDGE - ZS_TOUCH_MIN - 8, 56);
-    lv_obj_align(box, LV_ALIGN_TOP_LEFT, 0, 42);
+    lv_obj_set_size(box, ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - 8, 56);
+    lv_obj_align(box, LV_ALIGN_TOP_LEFT, ZS_EDGE, 42);
     lv_obj_set_style_bg_color(box, lv_color_hex(ZS_C_CARD), 0);
     lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(box, 14, 0);
@@ -270,13 +270,13 @@ static void build_password(void)
     lv_label_set_text(s_pass_field, "");
     zs_style_text(s_pass_field, &zs_font_20, ZS_C_TEXT);
     lv_label_set_long_mode(s_pass_field, LV_LABEL_LONG_CLIP);
-    lv_obj_set_width(s_pass_field, ZS_SCR_WIDTH - 2 * ZS_EDGE - ZS_TOUCH_MIN - 8 - 32);
+    lv_obj_set_width(s_pass_field, ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - 8 - 32);
     lv_obj_align(s_pass_field, LV_ALIGN_LEFT_MID, 0, 0);
 
     s_pass_eye = lv_btn_create(s_pass.content);
     lv_obj_remove_style_all(s_pass_eye);
     lv_obj_set_size(s_pass_eye, ZS_TOUCH_MIN, ZS_TOUCH_MIN);
-    lv_obj_align(s_pass_eye, LV_ALIGN_TOP_RIGHT, 0, 48);
+    lv_obj_align(s_pass_eye, LV_ALIGN_TOP_RIGHT, -ZS_EDGE, 48);
     lv_obj_add_event_cb(s_pass_eye, on_pass_eye, LV_EVENT_CLICKED, NULL);
 
     s_pass_eye_icon = lv_label_create(s_pass_eye);
@@ -326,7 +326,7 @@ static void build_connecting(void)
     lv_obj_align(s_connect_text, LV_ALIGN_TOP_MID, 0, 160);
 
     s_connect_retry = zs_btn_primary_create(s_connect.footer, "Prøv igen");
-    lv_obj_set_width(s_connect_retry, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(s_connect_retry, ZS_CONTENT_WIDTH);
     lv_obj_center(s_connect_retry);
     lv_obj_add_event_cb(s_connect_retry, on_connect_retry, LV_EVENT_CLICKED, NULL);
     lv_obj_add_flag(s_connect_retry, LV_OBJ_FLAG_HIDDEN);
@@ -407,6 +407,15 @@ static void on_inv_pick(lv_event_t *e)
     c.type = ZS_CMD_INVERTER_SELECT;
     snprintf(c.ip, sizeof(c.ip), "%s", s_found[idx].ip);
     zs_app_send(&c);
+    /*
+     * Vi skifter IKKE side her.
+     *
+     * Appen bestemmer hvor brugeren skal hen, for den er den eneste
+     * der ved om der ogsaa mangler et prisomraade. Gjorde vi begge
+     * dele, ville de to kappes om det, og LVGL holder laasen gennem
+     * hele sin runde, saa appens valg altid vandt. Resultatet var at
+     * trinnet med prisomraade aldrig blev vist.
+     */
 }
 
 static void build_inverter(void)
@@ -417,16 +426,106 @@ static void build_inverter(void)
     lv_label_set_text(s_inv_hint, "");
     zs_style_text(s_inv_hint, &zs_font_16, ZS_C_LABEL);
     lv_label_set_long_mode(s_inv_hint, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(s_inv_hint, ZS_SCR_WIDTH - 2 * ZS_EDGE);
-    lv_obj_align(s_inv_hint, LV_ALIGN_TOP_LEFT, 0, ZS_EDGE);
+    lv_obj_set_width(s_inv_hint, ZS_CONTENT_WIDTH);
+    lv_obj_align(s_inv_hint, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_EDGE);
 
     s_inv_list = zs_column_create(s_inv.content, 8);
-    lv_obj_align(s_inv_list, LV_ALIGN_TOP_LEFT, 0, 56);
+    lv_obj_align(s_inv_list, LV_ALIGN_TOP_LEFT, ZS_EDGE, 56);
 
     lv_obj_t *btn = zs_btn_secondary_create(s_inv.footer, "Søg igen");
-    lv_obj_set_width(btn, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(btn, ZS_CONTENT_WIDTH);
     lv_obj_center(btn);
     lv_obj_add_event_cb(btn, on_inv_rescan, LV_EVENT_CLICKED, NULL);
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. Vælg prisområde                                                  */
+/* ------------------------------------------------------------------ */
+
+static void send_zone(const char *zone)
+{
+    zs_cmd_t c;
+    memset(&c, 0, sizeof(c));
+    c.type = ZS_CMD_SET_PRICE_ZONE;
+    /* ssid-feltet genbruges til teksten. Det er den eneste streng i
+     * beskeden, og at lave et felt mere kun til tre bogstaver ville
+     * bare goere beskeden stoerre for alle andre kommandoer. */
+    snprintf(c.ssid, sizeof(c.ssid), "%s", zone);
+    zs_app_send(&c);
+}
+
+static void on_zone_dk1(lv_event_t *e) { (void)e; send_zone("DK1"); }
+static void on_zone_dk2(lv_event_t *e) { (void)e; send_zone("DK2"); }
+
+/*
+ * Hvor "tilbage" foerer hen fra prisomraade.
+ *
+ * Siden naas to steder fra: som sidste trin i opsaetningen, og fra
+ * Indstillinger. Hardkodede vi det ene, ville den anden vej ende paa
+ * en side der ikke giver mening. Den der viser siden, siger hvor
+ * tilbage foerer hen.
+ */
+static zs_screen_id_t s_zone_tilbage = ZS_SCREEN_INVERTER_LIST;
+
+void zs_setup_zone_set_return(zs_screen_id_t hvorhen)
+{
+    s_zone_tilbage = hvorhen;
+}
+
+static void on_zone_back(lv_event_t *e)
+{
+    (void)e;
+    zs_ui_show(s_zone_tilbage);
+}
+
+/* Ét stort valg med forklaring under. To knapper der fylder halvdelen
+ * hver ville tvinge teksten ned i to smalle spalter. */
+static lv_obj_t *zone_button(lv_obj_t *parent, const char *titel,
+                             const char *forklaring, lv_coord_t y,
+                             lv_event_cb_t cb)
+{
+    lv_obj_t *b = lv_btn_create(parent);
+    lv_obj_remove_style_all(b);
+    lv_obj_set_size(b, ZS_CONTENT_WIDTH, 92);
+    lv_obj_set_pos(b, ZS_EDGE, y);   /* samme kant som alt andet */
+    lv_obj_set_style_bg_color(b, lv_color_hex(ZS_C_CARD), 0);
+    lv_obj_set_style_bg_opa(b, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(b, 16, 0);
+    lv_obj_set_style_border_width(b, 1, 0);
+    lv_obj_set_style_border_color(b, lv_color_hex(ZS_C_BORDER), 0);
+    lv_obj_set_style_bg_color(b, lv_color_hex(ZS_C_ACCENT), LV_STATE_PRESSED);
+    lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *t = lv_label_create(b);
+    lv_label_set_text(t, titel);
+    zs_style_text(t, &zs_font_28, ZS_C_TEXT);
+    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 16, 14);
+
+    lv_obj_t *f = lv_label_create(b);
+    lv_label_set_text(f, forklaring);
+    zs_style_text(f, &zs_font_16, ZS_C_LABEL);
+    lv_label_set_long_mode(f, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(f, ZS_CONTENT_WIDTH - 32);
+    lv_obj_align(f, LV_ALIGN_TOP_LEFT, 16, 50);
+    return b;
+}
+
+static void build_zone(void)
+{
+    zs_page_create(&s_zone, "Hvor bor du", on_zone_back, NULL, false);
+
+    lv_obj_t *h = lv_label_create(s_zone.content);
+    lv_label_set_text(h, "Elprisen er ikke den samme i hele landet.");
+    zs_style_text(h, &zs_font_16, ZS_C_LABEL);
+    lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(h, ZS_CONTENT_WIDTH);
+    lv_obj_set_pos(h, ZS_EDGE, 16);
+
+    zone_button(s_zone.content, "Vest for Storebælt",
+                "Jylland og Fyn. Kaldes DK1.", 56, on_zone_dk1);
+    zone_button(s_zone.content, "Øst for Storebælt",
+                "Sjælland, Lolland, Falster og Bornholm. Kaldes DK2.",
+                160, on_zone_dk2);
 }
 
 /* ------------------------------------------------------------------ */
@@ -435,6 +534,7 @@ static void build_inverter(void)
 
 void zs_setup_create(void)
 {
+    build_zone();
     build_welcome();
     build_wifi();
     build_password();
@@ -449,6 +549,7 @@ lv_obj_t *zs_setup_root_password(void)   { return s_pass.root; }
 lv_obj_t *zs_setup_root_connecting(void) { return s_connect.root; }
 lv_obj_t *zs_setup_root_scan(void)       { return s_scan.root; }
 lv_obj_t *zs_setup_root_inverter(void)   { return s_inv.root; }
+lv_obj_t *zs_setup_root_zone(void)       { return s_zone.root; }
 
 /* Netvaerkene skal overleve at listen tegnes om, fordi hver rad peger
  * paa sin egen post. Derfor en kopi her og ikke en pegepind udefra. */
@@ -482,7 +583,7 @@ void zs_setup_set_wifi_list(const zs_ap_t *aps, int n)
         zs_row_t r;
         zs_row_create(&r, s_wifi_list, icon, s_aps[i].ssid,
                       s_aps[i].secured ? NULL : "Åbent", true);
-        lv_obj_set_width(r.row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+        lv_obj_set_width(r.row, ZS_CONTENT_WIDTH);
         lv_obj_add_flag(r.row, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_event_cb(r.row, on_wifi_pick, LV_EVENT_CLICKED, &s_aps[i]);
     }
@@ -592,7 +693,7 @@ void zs_setup_set_inverter_list(const zs_found_t *list, int n)
 
         zs_row_t r;
         zs_row_create(&r, s_inv_list, ZS_ICON_PLUG, title, NULL, true);
-        lv_obj_set_width(r.row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+        lv_obj_set_width(r.row, ZS_CONTENT_WIDTH);
         lv_obj_set_height(r.row, 72);   /* to linjer: navn og detaljer */
         lv_obj_add_flag(r.row, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_event_cb(r.row, on_inv_pick, LV_EVENT_CLICKED,

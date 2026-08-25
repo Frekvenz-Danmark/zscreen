@@ -19,6 +19,7 @@
 
 #include "../../firmware/main/net/zs_fronius.h"
 #include "../../firmware/main/app/zs_format.h"
+#include "../../firmware/main/app/zs_status.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -257,6 +258,27 @@ int main(int argc, char **argv)
         print_live(&fr, &lv, first || !watch);
         if (first) {
             print_channels(&lv);
+
+            /* Inverterens tilstand og fejl, som side 3 ville vise dem. */
+            zs_status_list_t st;
+            zs_status_build(&st, &lv);
+            printf("\n  Tilstand og fejl:\n");
+            printf("    %-22s %s\n", "Sammenfatning:",
+                   zs_status_summary(&st, &lv));
+            printf("    %-22s %s\n", "Inverteren:",
+                   zs_status_state_text(lv.inverter_state));
+            if (!st.har_svar) {
+                printf("    (inverteren udfylder ikke statusfelterne)\n");
+            } else if (st.antal == 0) {
+                printf("    Ingen meldinger.\n");
+            } else {
+                for (uint8_t i = 0; i < st.antal; i++) {
+                    static const char *sev[] = { "ok", "info", "advarsel", "FEJL" };
+                    printf("    [%-8s] %-40s %s\n",
+                           sev[st.poster[i].sev],
+                           st.poster[i].tekst, st.poster[i].detalje);
+                }
+            }
             printf("\n  Batteriets tilstand: %s\n",
                    zs_fr_charge_status_text(lv.charge_status));
             if (lv.grid_hz.ok) {

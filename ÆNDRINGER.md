@@ -3,6 +3,58 @@
 Nyeste øverst. Dato, hvad der blev lavet, og hvilke fejl der blev
 fanget undervejs.
 
+## 2026-08-25 21:28
+
+Elprisen som side 3, fejlkoder rykket til side 4. Statusmærket i
+topbjælken viser nu forbindelsen. Ni fund fra en kodegennemgang rettet.
+
+Priserne hentes fra elprisenligenu.dk, én gang i døgnet. Søjler for hele
+døgnet, grønne under dagens gennemsnit og røde over, den aktuelle time i
+orange. Ordet spotpris står to steder, fordi det ikke er det kunden
+betaler. Prisområde vælges både som sidste trin i opsætningen og under
+Indstillinger, og der står "Vest for Storebælt" og "Øst for Storebælt",
+ikke DK1 og DK2.
+
+Statusmærket hed DEMO og var ellers tomt. Nu siger det FORBUNDET grøn,
+FORBINDER grå, INGEN INVERTER gul, INTET NETVÆRK rød, og DEMO orange når
+tallene er opdigtede. Ét kald sætter både mærket og wifi-ikonet, så de
+ikke kan sige hver sit. Ikonet viser kun signalstyrke, og kun når der er
+en forbindelse: er der ingen, siger mærket det allerede med ord.
+
+Fund fra gennemgangen:
+
+To steder bestemte hvor brugeren skulle hen efter valg af inverter.
+LVGL holder låsen gennem hele sin runde, så appens valg vandt altid, og
+trinnet med prisområde blev aldrig vist. Nu bestemmer appen alene.
+
+`fmt_kr` tabte minusset for alt mellem -1 og 0, fordi heltalsdivisionen
+giver nul. -0,05 kr blev vist som 0,05. Negative timepriser forekommer
+flere gange om året når det blæser. Funktionen er flyttet ned i
+`zs_format.c` hvor den kan testes, og der er ni tests på den nu.
+
+Demoens opdigtede priskurve blev stående efter demoen sluttede og så ud
+som rigtige priser.
+
+Demoens ur og maskinens ur sloges om hvilken søjle der var fremhævet, så
+den skiftede en gang i sekundet.
+
+Prissiden viste tomme pladsholdere når der ikke var valgt et område, i
+stedet for at sige hvad man skal gøre.
+
+Tilbage fra prisområde førte altid til opsætningens inverterliste, også
+når man kom fra Indstillinger.
+
+Hentningen af priser blokerede hovedopgaven i op til 12 sekunder, så
+både tryk på skærmen og aflæsning fra inverteren stod stille imens.
+Den kører nu i sin egen opgave med 10 KB stak, som mbedTLS' håndtryk har
+brug for, og prioritet under hovedopgaven.
+
+Ved en omdirigering blev svarets krop lagt foran priserne, så en
+hentning der lykkedes endte som en læsefejl. Bufferen ryddes nu ved ny
+forbindelse og ved en Location-header.
+
+Byggede binærfiler lå i git. Fjernet og tilføjet til .gitignore.
+
 ---
 
 ## 2026-08-25 20:37

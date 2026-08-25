@@ -99,6 +99,41 @@ void test_format(void)
         CHECK_STR("i MWh", n.unit, "MWh");
     }
 
+    ZS_SUITE("Tal på dansk: kroner");
+
+    {
+        char b[16];
+        struct { float kr; const char *vent; const char *hvad; } t[] = {
+            { 1.58f,   "1,58",  "almindelig pris" },
+            { 0.62f,   "0,62",  "under en krone" },
+            { 0.0f,    "0,00",  "nul" },
+            { 12.05f,  "12,05", "to cifre foran kommaet" },
+            { 1.005f,  "1,01",  "runder halve op" },
+            /*
+             * De fire vigtige. Negative timepriser forekommer flere
+             * gange om aaret naar det blaeser, og regner man bare
+             * oere/100 forsvinder minusset for alt mellem -1 og 0,
+             * fordi heltalsdivisionen giver nul.
+             */
+            { -0.05f,  "-0,05", "lille negativ pris beholder minus" },
+            { -0.99f,  "-0,99", "knap en krone negativ beholder minus" },
+            { -1.00f,  "-1,00", "praecis minus én krone" },
+            { -2.34f,  "-2,34", "stoerre negativ pris" },
+        };
+        for (size_t i = 0; i < sizeof(t) / sizeof(t[0]); i++) {
+            zs_fmt_kroner(t[i].kr, b, sizeof(b));
+            CHECK_STR(t[i].hvad, b, t[i].vent);
+        }
+        zs_fmt_kroner(NAN, b, sizeof(b));
+        CHECK_STR("NaN giver en streg", b, "-");
+
+        /* Maa ikke skrive uden for en lille buffer. */
+        char lille[4];
+        zs_fmt_kroner(-123.45f, lille, sizeof(lille));
+        CHECK("for lille buffer nul-afsluttes",
+              lille[sizeof(lille) - 1] == '\0');
+    }
+
     {
         zs_num_t n;
         zs_fmt_none(&n);

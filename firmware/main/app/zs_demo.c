@@ -141,6 +141,27 @@ void zs_demo_step(zs_fr_live_t *live, uint32_t dt_ms)
     live->inverter_ac_w = zs_val(inverter_ac);
     live->grid_hz       = zs_val(50.0f);
 
+    /*
+     * Tilstand og fejl, saa side 3 ogsaa kan ses uden et anlaeg.
+     *
+     * Om eftermiddagen mellem 13 og 15 melder demoen at effekten er
+     * saenket paa grund af varme. Det er ikke en opfundet fejl: det er
+     * EvtVnd2 bit 7 i Fronius' egen liste, og det er praecis den
+     * melding et anlaeg giver paa en varm sommerdag. Resten af doegnet
+     * er der ingen meldinger, saa begge tilstande kan ses.
+     */
+    live->status_ok = true;
+    live->inverter_state = (solar > 50.0f) ? 4 : 2;   /* producerer / sover */
+    live->vendor_state = 0;
+    live->evt1 = live->evt2 = 0;
+    live->evtvnd1 = live->evtvnd2 = live->evtvnd3 = live->evtvnd4 = 0;
+
+    if (hour >= 13.0f && hour < 15.0f) {
+        live->evtvnd2 |= (1u << 7);      /* effekt saenket paa grund af varme */
+        live->inverter_state = 5;        /* begraenset */
+        live->vendor_state = 307;        /* Fronius' egen kode i det omraade */
+    }
+
     if (s_soc >= 99.9f)                  { live->charge_status = ZS_CHAST_FULL; }
     else if (s_soc <= MIN_RESERVE_PCT)   { live->charge_status = ZS_CHAST_EMPTY; }
     else if (s_battery_w < -20.0f)       { live->charge_status = ZS_CHAST_CHARGING; }
@@ -187,6 +208,51 @@ void zs_demo_info(zs_fr_info_t *info)
     info->channel_count       = 4;
     info->battery_capacity_kwh = BATTERY_WH / 1000.0f;
     info->inverter_rated_kw   = 10.0f;
+}
+
+void zs_demo_price(zs_price_day_t *ud)
+{
+    if (ud == NULL) {
+        return;
+    }
+    memset(ud, 0, sizeof(*ud));
+    ud->ok = true;
+    snprintf(ud->zone, sizeof(ud->zone), "DK2");
+    snprintf(ud->dato, sizeof(ud->dato), "demo");
+    ud->antal = 24;
+
+    /*
+     * Doegnkurven. To toppe, morgen og aften, og en bund midt paa
+     * dagen hvor solen producerer mest. Tallene er i samme
+     * stoerrelsesorden som en almindelig dag paa spotmarkedet.
+     */
+    float sum = 0.0f;
+    for (uint8_t h = 0; h < 24; h++) {
+        float x = (float)h;
+        float m = x - 7.5f;
+        float a = x - 19.0f;
+        float d = x - 13.0f;
+        float pris = 1.05f
+                   + 0.45f * expf(-(m * m) / 6.0f)     /* morgenspids  */
+                   + 0.60f * expf(-(a * a) / 5.0f)     /* aftenspids   */
+                   - 0.50f * expf(-(d * d) / 14.0f);   /* midt paa dagen */
+        if (pris < 0.05f) {
+            pris = 0.05f;
+        }
+        ud->timer[h].hour = h;
+        ud->timer[h].dkk = pris;
+        sum += pris;
+    }
+    ud->gennemsnit = sum / 24.0f;
+    ud->billigst = 0;
+    ud->dyrest = 0;
+    for (uint8_t i = 1; i < 24; i++) {
+        if (ud->timer[i].dkk < ud->timer[ud->billigst].dkk) { ud->billigst = i; }
+        if (ud->timer[i].dkk > ud->timer[ud->dyrest].dkk)   { ud->dyrest = i; }
+    }
+    /* Den fremhaevede time foelger demoens eget ur, ikke maskinens. */
+    int h = (int)(s_day_s / 3600.0f);
+    ud->nu = (int8_t)((h >= 0 && h < 24) ? h : 0);
 }
 
 const char *zs_demo_clock(void)

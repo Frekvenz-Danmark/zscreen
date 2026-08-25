@@ -68,6 +68,7 @@ typedef struct {
     zs_ch_role_t role;
     zs_val_t     dcw;
     int32_t      dcst;
+    uint32_t     dcevt;      /* fejl paa netop denne kanal */
     bool         active;
 } zs_fr_channel_t;
 
@@ -81,6 +82,23 @@ typedef struct {
     zs_val_t grid_hz;
 
     int32_t  charge_status;  /* Model 124 ChaSt, -1 = ukendt        */
+
+    /*
+     * Inverterens tilstand og fejl.
+     *
+     * status_ok er false hvis inverteren ikke udfylder felterne. Saa
+     * viser skaermen "ingen oplysninger" i stedet for "ingen fejl",
+     * for det er to forskellige ting.
+     */
+    bool     status_ok;
+    int32_t  inverter_state;  /* St: 1 slukket ... 7 fejl            */
+    int32_t  vendor_state;    /* StVnd: Fronius' egen kode, -1 = ingen */
+    uint32_t evt1;            /* standard-SunSpec fejlflag           */
+    uint32_t evt2;
+    uint32_t evtvnd1;         /* Fronius' egne fejlflag              */
+    uint32_t evtvnd2;
+    uint32_t evtvnd3;
+    uint32_t evtvnd4;
 
     zs_fr_channel_t channels[ZS_M160_MAX_CH];
     uint8_t         channel_count;

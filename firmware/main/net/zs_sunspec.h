@@ -86,14 +86,31 @@ extern "C" {
 #define ZS_M103_WH              22    /* samlet produktion, acc32    */
 #define ZS_M103_WH_SF           24
 #define ZS_M103_ST              36    /* driftstilstand, enum16      */
+#define ZS_M103_STVND           37    /* Fronius' egen tilstand      */
+#define ZS_M103_EVT1            38    /* bitfield32, standard-fejl   */
+#define ZS_M103_EVT2            40    /* bitfield32, reserveret      */
+#define ZS_M103_EVTVND1         42    /* bitfield32, Fronius-fejl    */
+#define ZS_M103_EVTVND2         44
+#define ZS_M103_EVTVND3         46
+#define ZS_M103_EVTVND4         48
 #define ZS_M103_MIN_LEN         38
+/* Hele modellen, hvis inverteren udfylder statusfelterne. */
+#define ZS_M103_FULL_LEN        50
 
 /* Model 111/112/113, inverter med flydende tal. smdx_00113.xml */
 #define ZS_M113_W               20    /* AC-effekt, float32          */
 #define ZS_M113_HZ              22    /* netfrekvens, float32        */
 #define ZS_M113_WH              30    /* samlet produktion, float32  */
 #define ZS_M113_ST              46    /* driftstilstand, enum16      */
+#define ZS_M113_STVND           47
+#define ZS_M113_EVT1            48
+#define ZS_M113_EVT2            50
+#define ZS_M113_EVTVND1         52
+#define ZS_M113_EVTVND2         54
+#define ZS_M113_EVTVND3         56
+#define ZS_M113_EVTVND4         58
 #define ZS_M113_MIN_LEN         48
+#define ZS_M113_FULL_LEN        60
 
 /* Model 120, Nameplate. smdx_00120.xml */
 #define ZS_M120_WRTG            1     /* inverterens AC-maerkeeffekt */
@@ -288,6 +305,16 @@ zs_val_t zs_ss_dec_f32(const uint16_t *regs, size_t n, size_t off);
  * 0 betyder "ikke implementeret" per SunSpec.
  */
 bool zs_ss_dec_acc32(const uint16_t *regs, size_t n, size_t off, uint32_t *out);
+
+/*
+ * bitfield32: to registre, hoejeste halvord foerst.
+ *
+ * Der findes ingen "ikke implementeret" for en bitfield i SunSpec, saa
+ * alle bits nul betyder simpelthen at der ikke er noget at melde. Vi
+ * returnerer false hvis feltet ligger uden for blokken, saa kalderen
+ * kan se forskel paa "ingen fejl" og "kunne ikke laeses".
+ */
+bool zs_ss_dec_bitfield32(const uint16_t *regs, size_t n, size_t off, uint32_t *out);
 /* enum16. Returnerer -1 hvis udenfor blokken eller 0xFFFF. */
 int32_t  zs_ss_dec_enum16(const uint16_t *regs, size_t n, size_t off);
 

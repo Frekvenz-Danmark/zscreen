@@ -37,6 +37,7 @@ typedef enum {
     ZS_CMD_INVERTER_SCAN,     /* gennemgå undernettet               */
     ZS_CMD_INVERTER_SELECT,   /* ip er udfyldt                      */
     ZS_CMD_SETUP_RESTART,     /* gå tilbage til valg af netværk     */
+    ZS_CMD_SET_PRICE_ZONE,    /* ssid bruges til "DK1" eller "DK2"   */
     ZS_CMD_SET_BRIGHTNESS,    /* u8 er 5 til 100                    */
     ZS_CMD_SET_NIGHT_DIM,     /* flag                               */
     ZS_CMD_SET_METER_SIGN,    /* flag: positiv betyder køb          */

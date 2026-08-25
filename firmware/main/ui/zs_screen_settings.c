@@ -3,8 +3,10 @@
 #include "zs_theme.h"
 #include "zs_app.h"
 #include "zs_config.h"
+#include "zs_screen_setup.h"
 #include "zs_format.h"
 #include "zs_config.h"
+#include "zs_screen_setup.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -19,6 +21,7 @@ static lv_obj_t *s_sw_night;
 static lv_obj_t *s_sw_meter;
 static lv_obj_t *s_det_col;
 static zs_row_t  s_row_demo;
+static zs_row_t  s_row_zone;
 
 /* ------------------------------------------------------------------ */
 /* Smaa byggeklodser                                                   */
@@ -40,7 +43,7 @@ static void make_switch_row(lv_obj_t *parent, const char *icon,
     zs_row_t r;
     zs_row_create(&r, parent, icon, title, NULL, false);
     lv_obj_t *row = r.row;
-    lv_obj_set_width(row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(row, ZS_CONTENT_WIDTH);
     lv_obj_set_height(row, hint != NULL ? 76 : ZS_ROW_HEIGHT);
 
     lv_obj_t *sw = lv_switch_create(row);
@@ -64,7 +67,7 @@ static void make_switch_row(lv_obj_t *parent, const char *icon,
         zs_style_text(h, &zs_font_16, ZS_C_LABEL);
         lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
         /* Bredden er raden minus luft, ikonet og kontakten til hoejre. */
-        lv_obj_set_width(h, ZS_SCR_WIDTH - 2 * ZS_EDGE - 2 * 16
+        lv_obj_set_width(h, ZS_CONTENT_WIDTH - 2 * 16
                             - ZS_ROW_ICON_W - 62);
         lv_obj_align(h, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, 14);
     }
@@ -75,7 +78,7 @@ static void detail_line(lv_obj_t *parent, const char *label, const char *value)
 {
     lv_obj_t *row = lv_obj_create(parent);
     lv_obj_remove_style_all(row);
-    lv_obj_set_width(row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(row, ZS_CONTENT_WIDTH);
     lv_obj_set_height(row, LV_SIZE_CONTENT);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -89,7 +92,7 @@ static void detail_line(lv_obj_t *parent, const char *label, const char *value)
     lv_label_set_text(v, (value != NULL && value[0] != '\0') ? value : "-");
     zs_style_text(v, &zs_font_16, ZS_C_TEXT);
     lv_label_set_long_mode(v, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(v, ZS_SCR_WIDTH - 2 * ZS_EDGE - 178);
+    lv_obj_set_width(v, ZS_CONTENT_WIDTH - 178);
     lv_obj_align(v, LV_ALIGN_TOP_LEFT, 178, 0);
 }
 
@@ -112,6 +115,17 @@ static void on_change_wifi(lv_event_t *e)
 {
     (void)e;
     send_simple(ZS_CMD_SETUP_RESTART);
+}
+
+static void on_change_zone(lv_event_t *e)
+{
+    (void)e;
+    /* Samme side som i opsaetningen. Ét sted at rette hvis teksten
+     * skal aendres, og kunden ser noget de kender igen. Vi siger hvor
+     * tilbage foerer hen, saa den ikke ender paa opsaetningens
+     * inverterliste. */
+    zs_setup_zone_set_return(ZS_SCREEN_SETTINGS);
+    zs_ui_show(ZS_SCREEN_PRICE_ZONE);
 }
 
 static void on_change_inverter(lv_event_t *e)
@@ -215,22 +229,28 @@ static void build_settings(void)
 {
     zs_page_create(&s_set, "Indstillinger", on_set_back, NULL, false);
     lv_obj_t *col = zs_column_create(s_set.content, 8);
+    lv_obj_set_x(col, ZS_EDGE);
 
     detail_heading(col, "ANLÆG");
 
     zs_row_create(&s_row_wifi, col, ZS_ICON_WIFI, "Netværk", "", true);
-    lv_obj_set_width(s_row_wifi.row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(s_row_wifi.row, ZS_CONTENT_WIDTH);
     lv_obj_add_flag(s_row_wifi.row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(s_row_wifi.row, on_change_wifi, LV_EVENT_CLICKED, NULL);
 
     zs_row_create(&s_row_inv, col, ZS_ICON_PLUG, "Inverter", "", true);
-    lv_obj_set_width(s_row_inv.row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(s_row_inv.row, ZS_CONTENT_WIDTH);
     lv_obj_add_flag(s_row_inv.row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(s_row_inv.row, on_change_inverter, LV_EVENT_CLICKED, NULL);
 
+    zs_row_create(&s_row_zone, col, ZS_ICON_ZAP, "Prisområde", "", true);
+    lv_obj_set_width(s_row_zone.row, ZS_CONTENT_WIDTH);
+    lv_obj_add_flag(s_row_zone.row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_row_zone.row, on_change_zone, LV_EVENT_CLICKED, NULL);
+
     zs_row_t det;
     zs_row_create(&det, col, ZS_ICON_INFO, "Detaljer om anlægget", NULL, true);
-    lv_obj_set_width(det.row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(det.row, ZS_CONTENT_WIDTH);
     lv_obj_add_flag(det.row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(det.row, on_open_details, LV_EVENT_CLICKED, NULL);
 
@@ -240,7 +260,7 @@ static void build_settings(void)
      * rammes uden at sigte. */
     lv_obj_t *brow = lv_obj_create(col);
     lv_obj_remove_style_all(brow);
-    lv_obj_set_size(brow, ZS_SCR_WIDTH - 2 * ZS_EDGE, 90);
+    lv_obj_set_size(brow, ZS_CONTENT_WIDTH, 90);
     lv_obj_clear_flag(brow, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(brow, lv_color_hex(ZS_C_CARD), 0);
     lv_obj_set_style_bg_opa(brow, LV_OPA_COVER, 0);
@@ -260,7 +280,7 @@ static void build_settings(void)
     lv_obj_align(s_slider_val, LV_ALIGN_TOP_RIGHT, 0, 2);
 
     s_slider = lv_slider_create(brow);
-    lv_obj_set_size(s_slider, ZS_SCR_WIDTH - 2 * ZS_EDGE - 32, 10);
+    lv_obj_set_size(s_slider, ZS_CONTENT_WIDTH - 32, 10);
     lv_obj_align(s_slider, LV_ALIGN_BOTTOM_LEFT, 0, -6);
     lv_slider_set_range(s_slider, 5, 100);
     lv_obj_set_style_bg_color(s_slider, lv_color_hex(ZS_C_BG), LV_PART_MAIN);
@@ -283,7 +303,7 @@ static void build_settings(void)
 #if ZS_DEMO_ENABLED
     /* Kun synlig mens demoen koerer. Se zs_settings_set_demo. */
     zs_row_create(&s_row_demo, col, ZS_ICON_CLOSE, "Afslut demo", NULL, true);
-    lv_obj_set_width(s_row_demo.row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(s_row_demo.row, ZS_CONTENT_WIDTH);
     lv_obj_add_flag(s_row_demo.row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(s_row_demo.row, on_demo_stop, LV_EVENT_CLICKED, NULL);
     lv_obj_add_flag(s_row_demo.row, LV_OBJ_FLAG_HIDDEN);
@@ -294,14 +314,14 @@ static void build_settings(void)
 
     zs_row_t rb;
     zs_row_create(&rb, col, ZS_ICON_REFRESH, "Genstart", NULL, true);
-    lv_obj_set_width(rb.row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(rb.row, ZS_CONTENT_WIDTH);
     lv_obj_add_flag(rb.row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(rb.row, on_reboot, LV_EVENT_CLICKED, NULL);
 
     zs_row_t fr;
     zs_row_create(&fr, col, ZS_ICON_ROTATE,
                   "Nulstil til fabriksindstillinger", NULL, true);
-    lv_obj_set_width(fr.row, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(fr.row, ZS_CONTENT_WIDTH);
     lv_obj_add_flag(fr.row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(fr.row, on_reset, LV_EVENT_CLICKED, NULL);
     /* Den eneste røde tekst i hele fladen. Den skal skille sig ud. */
@@ -324,6 +344,7 @@ static void build_details(void)
 {
     zs_page_create(&s_det, "Detaljer", on_det_back, NULL, false);
     s_det_col = zs_column_create(s_det.content, 6);
+    lv_obj_set_x(s_det_col, ZS_EDGE);
 }
 
 /* ------------------------------------------------------------------ */
@@ -349,6 +370,17 @@ void zs_settings_update(const zs_settings_t *s, const char *ip)
     if (s_row_inv.value != NULL) {
         lv_label_set_text(s_row_inv.value,
                           s->inverter_ip[0] ? s->inverter_ip : "Ikke valgt");
+    }
+    if (s_row_zone.value != NULL) {
+        /* Vi skriver hvor det er, ikke kun koden. "DK2" siger ingen
+         * kunde noget. */
+        const char *tekst = "Ikke valgt";
+        if (strcmp(s->price_zone, "DK1") == 0) {
+            tekst = "Vest for Storebælt";
+        } else if (strcmp(s->price_zone, "DK2") == 0) {
+            tekst = "Øst for Storebælt";
+        }
+        lv_label_set_text(s_row_zone.value, tekst);
     }
 
     lv_slider_set_value(s_slider, s->brightness, LV_ANIM_OFF);
@@ -446,7 +478,7 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
                     "Prøv at slå \"Byt køb og salg\" til under Indstillinger.");
                 zs_style_text(w, &zs_font_16, ZS_C_WARN);
                 lv_label_set_long_mode(w, LV_LABEL_LONG_WRAP);
-                lv_obj_set_width(w, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+                lv_obj_set_width(w, ZS_CONTENT_WIDTH);
             }
         } else {
             detail_line(s_det_col, "Fundet", "Ingen");
@@ -456,7 +488,7 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
                 "Solceller og batteri virker som normalt.");
             zs_style_text(w, &zs_font_16, ZS_C_LABEL);
             lv_label_set_long_mode(w, LV_LABEL_LONG_WRAP);
-            lv_obj_set_width(w, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+            lv_obj_set_width(w, ZS_CONTENT_WIDTH);
         }
 
         detail_heading(s_det_col, "BATTERI");

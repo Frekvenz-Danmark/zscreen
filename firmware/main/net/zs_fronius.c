@@ -424,6 +424,7 @@ static void read_channels(zs_fr_t *fr, zs_fr_live_t *live)
 
         c->dcst   = zs_ss_dec_enum16(fr->block, n, base + ZS_M160_CH_DCST);
         c->active = zs_ss_channel_active(c->dcst);
+        (void)zs_ss_dec_bitfield32(fr->block, n, base + ZS_M160_CH_DCEVT, &c->dcevt);
         count++;
     }
     live->channel_count = count;
@@ -588,6 +589,9 @@ static void read_inverter(zs_fr_t *fr, zs_fr_live_t *live)
 {
     live->inverter_ac_w = ZS_VAL_NONE;
     live->grid_hz       = ZS_VAL_NONE;
+    live->status_ok     = false;
+    live->inverter_state = -1;
+    live->vendor_state   = -1;
 
     const zs_ss_model_t *m = zs_ss_find_any(&fr->inv_map, INV_MODELS,
                                             sizeof(INV_MODELS) / sizeof(INV_MODELS[0]));
@@ -597,15 +601,42 @@ static void read_inverter(zs_fr_t *fr, zs_fr_live_t *live)
     uint16_t n = read_model(&fr->mb, fr->inverter_unit, m, fr->block,
                             ZS_FR_MAX_MODEL_REGS, TMO_NORMAL_MS);
 
+    size_t o_st, o_stvnd, o_evt1, o_evt2, o_vnd1;
+
     if (model_is_float(m->id)) {
         if (n < ZS_M113_MIN_LEN) { return; }
         live->inverter_ac_w = zs_ss_dec_f32(fr->block, n, ZS_M113_W);
         live->grid_hz       = zs_ss_dec_f32(fr->block, n, ZS_M113_HZ);
+        o_st = ZS_M113_ST; o_stvnd = ZS_M113_STVND;
+        o_evt1 = ZS_M113_EVT1; o_evt2 = ZS_M113_EVT2; o_vnd1 = ZS_M113_EVTVND1;
     } else {
         if (n < ZS_M103_MIN_LEN) { return; }
         live->inverter_ac_w = zs_ss_dec_i16_sf(fr->block, n, ZS_M103_W, ZS_M103_W_SF);
         live->grid_hz       = zs_ss_dec_u16_sf(fr->block, n, ZS_M103_HZ, ZS_M103_HZ_SF);
+        o_st = ZS_M103_ST; o_stvnd = ZS_M103_STVND;
+        o_evt1 = ZS_M103_EVT1; o_evt2 = ZS_M103_EVT2; o_vnd1 = ZS_M103_EVTVND1;
     }
+
+    /*
+     * Tilstand og fejlflag.
+     *
+     * Hvert felt tjekkes for sig. En inverter behoever ikke udfylde de
+     * producentspecifikke felter, og saa skal vi vise "ingen
+     * oplysninger" i stedet for "ingen fejl". De to ting ligner
+     * hinanden paa en skaerm, men betyder noget helt forskelligt for
+     * den der staar og fejlsoeger.
+     */
+    live->inverter_state = zs_ss_dec_enum16(fr->block, n, o_st);
+    live->vendor_state   = zs_ss_dec_enum16(fr->block, n, o_stvnd);
+
+    bool fik_noget = (live->inverter_state >= 0);
+    fik_noget |= zs_ss_dec_bitfield32(fr->block, n, o_evt1,     &live->evt1);
+    (void)      zs_ss_dec_bitfield32(fr->block, n, o_evt2,     &live->evt2);
+    (void)      zs_ss_dec_bitfield32(fr->block, n, o_vnd1,     &live->evtvnd1);
+    (void)      zs_ss_dec_bitfield32(fr->block, n, o_vnd1 + 2, &live->evtvnd2);
+    (void)      zs_ss_dec_bitfield32(fr->block, n, o_vnd1 + 4, &live->evtvnd3);
+    (void)      zs_ss_dec_bitfield32(fr->block, n, o_vnd1 + 6, &live->evtvnd4);
+    live->status_ok = fik_noget;
 }
 
 static void read_storage(zs_fr_t *fr, zs_fr_live_t *live)

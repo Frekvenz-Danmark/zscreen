@@ -104,12 +104,19 @@ void zs_theme_init(void)
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 }
 
-lv_obj_t *zs_card_create(lv_obj_t *parent)
+lv_obj_t *zs_card_create(lv_obj_t *parent, bool pressable)
 {
     lv_obj_t *card = lv_obj_create(parent);
     lv_obj_remove_style_all(card);
     lv_obj_add_style(card, &s_card, 0);
-    lv_obj_add_style(card, &s_card_pressed, LV_STATE_PRESSED);
+    if (pressable) {
+        lv_obj_add_style(card, &s_card_pressed, LV_STATE_PRESSED);
+    } else {
+        /* Ikke bare uden tryk-stil: kortet maa heller ikke TAGE imod
+         * tryk. Ellers spiser det bevaegelsen fra fingeren, og siden
+         * kan ikke traekkes til side ovenpaa et kort. */
+        lv_obj_clear_flag(card, LV_OBJ_FLAG_CLICKABLE);
+    }
     /* Kortene skal ikke kunne rulles. Uden dette kan en finger der
      * glider en anelse under et tryk faa hele kortet til at vippe. */
     lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
@@ -157,7 +164,7 @@ lv_obj_t *zs_column_create(lv_obj_t *parent, lv_coord_t gap)
 {
     lv_obj_t *col = lv_obj_create(parent);
     lv_obj_remove_style_all(col);
-    lv_obj_set_width(col, ZS_SCR_WIDTH - 2 * ZS_EDGE);
+    lv_obj_set_width(col, ZS_CONTENT_WIDTH);
     lv_obj_set_height(col, LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(col, gap, 0);
@@ -208,7 +215,7 @@ void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
         if (chevron)       { right += 30; }
         if (value != NULL) { right += 100; }
         lv_obj_set_width(out->title,
-                         ZS_SCR_WIDTH - 2 * ZS_EDGE - 2 * 16 - x - right);
+                         ZS_CONTENT_WIDTH - 2 * 16 - x - right);
     }
 
     lv_coord_t rx = 0;
@@ -299,7 +306,10 @@ void zs_page_create(zs_page_t *p, const char *title,
     lv_obj_set_size(p->content, ZS_SCR_WIDTH,
                     ZS_SCR_HEIGHT - ZS_PAGE_HEAD_HEIGHT - foot_h);
     lv_obj_set_pos(p->content, 0, ZS_PAGE_HEAD_HEIGHT);
-    lv_obj_set_style_pad_hor(p->content, ZS_EDGE, 0);
+    /* Ingen luft i siderne. Se noten ved ZS_CONTENT_WIDTH: alt paa en
+     * side bruger skaermens egne koordinater, saa der kun er ét sted at
+     * regne fra. */
+    lv_obj_set_style_pad_hor(p->content, 0, 0);
     lv_obj_set_style_pad_ver(p->content, 0, 0);
     /* Kun lodret rulning. Vandret ville betyde at et uheldigt strejf
      * kunne skubbe hele indholdet ud til siden. */

@@ -18,6 +18,7 @@
 #include "lvgl.h"
 #include "zs_wifi.h"
 #include "zs_discovery.h"
+#include "zs_ui.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,12 +33,16 @@ lv_obj_t *zs_setup_root_password(void);
 lv_obj_t *zs_setup_root_connecting(void);
 lv_obj_t *zs_setup_root_scan(void);
 lv_obj_t *zs_setup_root_inverter(void);
+lv_obj_t *zs_setup_root_zone(void);
 
 void zs_setup_set_wifi_list(const zs_ap_t *aps, int n);
 void zs_setup_set_wifi_scanning(bool scanning);
 void zs_setup_set_connect_status(const char *text, bool is_error, bool can_retry);
 void zs_setup_set_scan_progress(int done, int total, int found);
 void zs_setup_set_inverter_list(const zs_found_t *list, int n);
+
+/* Siger hvor "tilbage" foerer hen fra siden med prisomraade. */
+void zs_setup_zone_set_return(zs_screen_id_t hvorhen);
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,7 @@
 #include "zs_discovery.h"
 #include "zs_screen_home.h"
 #include "zs_nvs.h"
+#include "zs_price.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,6 +30,7 @@ typedef enum {
     ZS_SCREEN_CONNECTING,    /* forbinder til netværket             */
     ZS_SCREEN_INVERTER_SCAN, /* søger efter inverteren              */
     ZS_SCREEN_INVERTER_LIST, /* vælg inverter                       */
+    ZS_SCREEN_PRICE_ZONE,    /* vælg prisområde                     */
     ZS_SCREEN_HOME,          /* de fire kort                        */
     ZS_SCREEN_SETTINGS,      /* indstillinger                       */
     ZS_SCREEN_DETAILS,       /* detaljer om anlægget                */
@@ -59,6 +61,7 @@ void zs_ui_set_home(const zs_home_data_t *d);
 /* Fylder Indstillinger og Detaljer. */
 void zs_ui_set_settings(const zs_settings_t *s, const char *ip);
 void zs_ui_set_demo(bool demo);
+void zs_ui_set_price(const zs_price_day_t *d);
 void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi);
 
 #ifdef __cplusplus

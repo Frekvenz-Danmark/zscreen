@@ -53,6 +53,17 @@ void zs_screen_home_update(const zs_home_data_t *d);
 /* Skaermens rod, saa den kan skjules naar en anden skaerm vises. */
 lv_obj_t *zs_screen_home_root(void);
 
+/*
+ * Prisskaermen fodres for sig.
+ *
+ * Priserne kommer fra et helt andet sted end maalingerne og skifter én
+ * gang i doegnet, ikke hvert andet sekund. At blande dem sammen i den
+ * samme struct ville betyde at en manglende inverter ogsaa slog
+ * priserne ud, og det er to uafhaengige ting.
+ */
+struct zs_price_day;
+void zs_screen_home_set_price(const struct zs_price_day *d);
+
 #ifdef __cplusplus
 }
 #endif

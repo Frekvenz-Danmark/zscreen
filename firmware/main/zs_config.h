@@ -89,6 +89,18 @@
 #define ZS_NIGHT_START_HOUR     22
 #define ZS_NIGHT_END_HOUR       6
 
+/* ── Hjælp ────────────────────────────────────────────────────────── */
+/*
+ * Hvem kunden skal ringe til.
+ *
+ * Staar ét sted, fordi det er den slags der bliver aendret en dag og
+ * saa skal findes igen. Bruges naar inverteren melder en fejlkode vi
+ * ikke kan saette ord paa: saa er den eneste rigtige besked at
+ * fortaelle hvem der kan.
+ */
+#define ZS_SUPPORT_NAME   "ZOL Energi"
+#define ZS_SUPPORT_PHONE  "+45 7060 3676"
+
 /* ── Demo ─────────────────────────────────────────────────────────── */
 /*
  * Demo-tilstand: hovedskaermen med opdigtede tal, saa man kan se

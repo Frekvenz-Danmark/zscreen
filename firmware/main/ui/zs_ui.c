@@ -72,6 +72,7 @@ static lv_obj_t *root_of(zs_screen_id_t id)
     case ZS_SCREEN_CONNECTING:    return zs_setup_root_connecting();
     case ZS_SCREEN_INVERTER_SCAN: return zs_setup_root_scan();
     case ZS_SCREEN_INVERTER_LIST: return zs_setup_root_inverter();
+    case ZS_SCREEN_PRICE_ZONE:    return zs_setup_root_zone();
     case ZS_SCREEN_HOME:          return zs_screen_home_root();
     case ZS_SCREEN_SETTINGS:      return zs_settings_root();
     case ZS_SCREEN_DETAILS:       return zs_details_root();
@@ -188,6 +189,14 @@ void zs_ui_set_demo(bool demo)
     if (!s_ready) { return; }
     lv_port_sem_take();
     zs_settings_set_demo(demo);
+    lv_port_sem_give();
+}
+
+void zs_ui_set_price(const zs_price_day_t *d)
+{
+    if (!s_ready) { return; }
+    lv_port_sem_take();
+    zs_screen_home_set_price((const struct zs_price_day *)d);
     lv_port_sem_give();
 }
 

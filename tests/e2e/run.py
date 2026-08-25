@@ -328,6 +328,75 @@ def test_sunspec_base_40001():
             fail("base 40001 findes og bruges", ud[:300])
 
 
+def test_fejlkoder():
+    suite("Fejlkoder fra inverteren")
+
+    # Kendte koder skal oversaettes til dansk
+    with Sim("battery", ["--fejl", "st=5,stvnd=307,evtvnd2=0x80,evt1=0x0080"]):
+        ud, err = probe()
+        if ud is None:
+            fail("kendte fejlkoder kunne læses", err)
+        else:
+            for hvad, tekst in (
+                ("driftstilstand 5 oversættes", "Produktionen er begrænset"),
+                ("SunSpec Evt1 bit 7 oversættes", "For høj temperatur"),
+                ("Fronius EvtVnd2 bit 7 oversættes", "Effekt sænket på grund af varme"),
+                ("Fronius-tilstand vises til opslag", "Fronius-tilstand 307"),
+            ):
+                if tekst in ud:
+                    ok(hvad)
+                else:
+                    fail(hvad, f"fandt ikke \"{tekst}\"")
+            if "Der er en fejl" in ud:
+                ok("sammenfatningen siger at der er en fejl")
+            else:
+                fail("sammenfatningen siger at der er en fejl")
+
+    # Ukendte koder skal give telefonnummeret, ikke et gæt
+    with Sim("battery", ["--fejl",
+                         "st=7,evtvnd3=0x00100000,evtvnd4=0xDEADBEEF,evt2=0x40"]):
+        ud, err = probe()
+        if ud is None:
+            fail("ukendte fejlkoder kunne læses", err)
+        else:
+            if "7060 3676" in ud:
+                ok("ukendt kode: telefonnummeret står der")
+            else:
+                fail("ukendt kode: telefonnummeret står der")
+            if "ZOL Energi" in ud:
+                ok("ukendt kode: hvem man skal ringe til står der")
+            else:
+                fail("ukendt kode: hvem man skal ringe til står der")
+            if "0xDEADBEEF" in ud:
+                ok("ukendt kode: den rå værdi vises så den kan slås op")
+            else:
+                fail("ukendt kode: den rå værdi vises")
+            if "EvtVnd3 bit 20" in ud:
+                ok("ukendt bit: feltet og bitnummeret vises")
+            else:
+                fail("ukendt bit: feltet og bitnummeret vises")
+            # Det vigtigste: en ukendt fejl maa ALDRIG blive til "alt virker"
+            if "Alt virker" not in ud:
+                ok("ukendt kode bliver ikke til \"alt virker\"")
+            else:
+                fail("ukendt kode bliver ikke til \"alt virker\"")
+
+    # Ingen fejl skal give ro
+    with Sim("battery"):
+        ud, err = probe()
+        if ud is None:
+            fail("uden fejl kunne læses", err)
+        else:
+            if "Ingen meldinger" in ud:
+                ok("uden fejl: ingen meldinger")
+            else:
+                fail("uden fejl: ingen meldinger", ud[-600:])
+            if "7060 3676" not in ud:
+                ok("uden fejl: telefonnummeret står der ikke")
+            else:
+                fail("uden fejl: telefonnummeret står der ikke")
+
+
 def test_naar_det_gaar_galt():
     suite("Når det går galt")
 
@@ -424,6 +493,7 @@ def main():
     test_almindeligt_anlaeg()
     test_manglende_dele()
     test_sunspec_base_40001()
+    test_fejlkoder()
     test_naar_det_gaar_galt()
 
     print("\n" + "─" * 40)

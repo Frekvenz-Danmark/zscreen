@@ -31,6 +31,7 @@
 #include <stdint.h>
 
 #include "zs_fronius.h"
+#include "zs_price.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +52,15 @@ void zs_demo_info(zs_fr_info_t *info);
 
 /* Klokkeslaet i demoens egen tid, fx "13:24". */
 const char *zs_demo_clock(void);
+
+/*
+ * Opdigtede elpriser med samme form som de rigtige.
+ *
+ * Kurven ligner et almindeligt doegn: dyrt morgen og aften, billigt
+ * midt paa dagen naar solen skinner og om natten. Timen der
+ * fremhaeves foelger demoens eget ur.
+ */
+void zs_demo_price(zs_price_day_t *ud);
 
 #ifdef __cplusplus
 }
