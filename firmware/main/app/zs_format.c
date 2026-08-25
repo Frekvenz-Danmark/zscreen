@@ -4,6 +4,46 @@
 #include <string.h>
 #include <math.h>
 
+/*
+ * Lofter for hvad der overhovedet kan vaere en maaling.
+ *
+ * De er der af to grunde. Den vigtigste er at lround og lroundf er
+ * UDEFINERET hvis resultatet ikke kan vaere i en long. Et forvansket
+ * register eller en float der er loebet loebsk giver altsaa ikke bare
+ * et grimt tal, den giver en fejl oversaetteren har lov til at goere
+ * hvad som helst med. Den anden er at et tal med for mange cifre
+ * bliver skaaret over midt i, og saa staar der noget der ligner en
+ * rigtig maaling men ikke er det.
+ *
+ * Tallene er sat hvor der ikke laengere er tvivl. Et hus bruger ikke
+ * en terawatt-time, og en inverter leverer ikke en gigawatt. Kommer vi
+ * over, viser vi ingen data i stedet for at gaette.
+ */
+#define MAKS_W      1.0e9      /* 1 GW  */
+#define MAKS_WH     1.0e12     /* 1 TWh */
+#define MAKS_KR     1.0e9      /* 1 mia. kr. */
+
+/* Sandt hvis tallet ikke er en maaling vi kan vise. */
+static bool udenfor(double v, double maks)
+{
+    return !isfinite(v) || fabs(v) > maks;
+}
+
+/*
+ * Klemmer et heltal ind i [0, maks].
+ *
+ * Lofterne ovenfor holder allerede tallene langt under det her, saa
+ * klemmen retter aldrig noget i praksis. Den er med fordi den giver
+ * oversaetteren et bevis for at strengen er plads i bufferen, og fordi
+ * en fremtidig aendring af et loft ellers stille kunne sprænge den.
+ */
+static long klem(long v, long maks)
+{
+    if (v < 0)    { return 0; }
+    if (v > maks) { return maks; }
+    return v;
+}
+
 char *zs_fmt_da_decimal(char *s)
 {
     if (s == NULL) {
@@ -33,7 +73,7 @@ void zs_fmt_power(float watts, zs_num_t *out)
     if (out == NULL) {
         return;
     }
-    if (isnan(watts) || isinf(watts)) {
+    if (udenfor(watts, MAKS_W)) {
         zs_fmt_none(out);
         return;
     }
@@ -49,7 +89,7 @@ void zs_fmt_power(float watts, zs_num_t *out)
      * Med 999,5 gaar den direkte fra "999 W" til "1,0 kW".
      */
     if (w < 999.5f) {
-        snprintf(out->value, sizeof(out->value), "%ld", lroundf(w));
+        snprintf(out->value, sizeof(out->value), "%ld", klem(lroundf(w), 999L));
         snprintf(out->unit, sizeof(out->unit), "W");
         return;
     }
@@ -64,7 +104,7 @@ void zs_fmt_power(float watts, zs_num_t *out)
      * regler, og et tal der ikke stemmer med SolarWeb. lroundf runder
      * altid halve vaerdier vaek fra nul, som folk forventer.
      */
-    long tenths = lroundf(w / 100.0f);   /* antal tiendedele kW */
+    long tenths = klem(lroundf(w / 100.0f), 99999999L);  /* tiendedele kW */
 
     if (tenths < 1000) {
         snprintf(out->value, sizeof(out->value), "%ld,%ld", tenths / 10, tenths % 10);
@@ -72,7 +112,8 @@ void zs_fmt_power(float watts, zs_num_t *out)
         /* Over 100 kW er decimalet stoej, og det er ogsaa den eneste
          * stoerrelse der ellers ville fylde fem tegn i et felt sat op
          * til fire. */
-        snprintf(out->value, sizeof(out->value), "%ld", lroundf(w / 1000.0f));
+        snprintf(out->value, sizeof(out->value), "%ld",
+                 klem(lroundf(w / 1000.0f), 9999999L));
     }
     snprintf(out->unit, sizeof(out->unit), "kW");
 }
@@ -97,7 +138,7 @@ void zs_fmt_kroner(float kr, char *ud, size_t n)
     if (ud == NULL || n == 0) {
         return;
     }
-    if (isnan(kr) || isinf(kr)) {
+    if (udenfor(kr, MAKS_KR)) {
         snprintf(ud, n, "-");
         return;
     }
@@ -115,19 +156,21 @@ void zs_fmt_energy_wh(double wh, zs_num_t *out)
     if (out == NULL) {
         return;
     }
-    if (isnan(wh) || isinf(wh)) {
+    if (udenfor(wh, MAKS_WH)) {
         zs_fmt_none(out);
         return;
     }
     /* Samme haandrulning som i zs_fmt_power, og af samme grund. */
     double a = fabs(wh);
+    long   tenths;
     if (a < 999950.0) {
-        long tenths = lround(a / 100.0);
-        snprintf(out->value, sizeof(out->value), "%ld,%ld", tenths / 10, tenths % 10);
+        tenths = lround(a / 100.0);
         snprintf(out->unit, sizeof(out->unit), "kWh");
     } else {
-        long tenths = lround(a / 100000.0);
-        snprintf(out->value, sizeof(out->value), "%ld,%ld", tenths / 10, tenths % 10);
+        tenths = lround(a / 100000.0);
         snprintf(out->unit, sizeof(out->unit), "MWh");
     }
+    /* Hoejst otte cifre, saa "1234567,8" er ni tegn i et felt paa 12. */
+    tenths = klem(tenths, 99999999L);
+    snprintf(out->value, sizeof(out->value), "%ld,%ld", tenths / 10, tenths % 10);
 }

@@ -13,6 +13,18 @@ underskrevet af os bliver afvist. Noeglen har aldrig ligget i repoet.
 Virker den nye version ikke, ruller enheden tilbage til den gamle af sig
 selv. Den nye bliver foerst godkendt naar den har koert i to minutter.
 
+### Tal der ikke er maalinger
+lround og lroundf er UDEFINERET hvis resultatet ikke kan vaere i en long.
+Et forvansket register kunne altsaa ikke bare give et grimt tal, men en
+fejl oversaetteren har lov til at goere hvad som helst med. Samtidig ville
+strengen blive skaaret over midt i, saa den lignede en rigtig maaling.
+
+Effekt, energi og pris har nu et loft for hvad der overhovedet kan vaere en
+maaling: 1 GW, 1 TWh og 1 mia. kr. Over det viser vi ingen data. Tallene er
+desuden klemt ned i den plads feltet har, saa oversaetteren kan bevise at
+der er plads. Fundet af GCC paa Linux, som er strengere end clang paa Mac.
+Ni nye tests.
+
 ### Wifi-ikonet manglede naar der ikke var wifi
 Toplinjen skjulte ikonet helt naar forbindelsen var vaek. En tom plads
 laeser man som at skaermen ikke har opdaget noget, hvilket er det modsatte

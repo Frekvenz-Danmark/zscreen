@@ -10,6 +10,7 @@
 #include "../../firmware/main/app/zs_format.h"
 
 #include <math.h>
+#include <string.h>
 
 static void chk_power(const char *what, float w, const char *val, const char *unit)
 {
@@ -97,6 +98,47 @@ void test_format(void)
         zs_fmt_energy_wh(2500000.0, &n);
         CHECK_STR("2,5 millioner Wh er 2,5", n.value, "2,5");
         CHECK_STR("i MWh", n.unit, "MWh");
+
+        zs_fmt_energy_wh(NAN, &n);
+        CHECK_STR("NaN giver en streg", n.value, "-");
+    }
+
+    ZS_SUITE("Tal på dansk: tal der ikke er maalinger");
+
+    /*
+     * Et forvansket register kan give et tal saa stort at lround ikke
+     * kan holde det i en long. Det er udefineret opfoersel, ikke bare
+     * et grimt tal, og strengen ville desuden blive skaaret over midt i
+     * saa den lignede en rigtig maaling. Vi viser ingen data i stedet.
+     *
+     * Vi tjekker ogsaa at der altid er plads i value[12]. Bliver et loft
+     * haevet uden omtanke, faejler den her test foer nogen ser et
+     * halvskrevet tal paa vaeggen.
+     */
+    {
+        zs_num_t n;
+
+        zs_fmt_power(1.0e30f, &n);
+        CHECK_STR("urealistisk effekt giver en streg", n.value, "-");
+
+        zs_fmt_energy_wh(1.0e30, &n);
+        CHECK_STR("urealistisk energi giver en streg", n.value, "-");
+
+        zs_fmt_energy_wh(-1.0e30, &n);
+        CHECK_STR("ogsaa negativ", n.value, "-");
+
+        char b[16];
+        zs_fmt_kroner(1.0e30f, b, sizeof(b));
+        CHECK_STR("urealistisk pris giver en streg", b, "-");
+
+        /* Lige under loftet skal stadig give et tal, ikke en streg. */
+        zs_fmt_power(9.0e8f, &n);
+        CHECK("lige under effektloftet er stadig et tal", n.value[0] != '-');
+        CHECK("og der er plads i feltet", strlen(n.value) < sizeof(n.value));
+
+        zs_fmt_energy_wh(9.0e11, &n);
+        CHECK("lige under energiloftet er stadig et tal", n.value[0] != '-');
+        CHECK("og der er plads i feltet", strlen(n.value) < sizeof(n.value));
     }
 
     ZS_SUITE("Tal på dansk: kroner");
