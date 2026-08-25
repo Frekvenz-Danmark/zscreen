@@ -25,6 +25,7 @@
 #include "zs_demo.h"
 #include "zs_price.h"
 #include "zs_screen_setup.h"
+#include "zs_ota.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -32,6 +33,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_system.h"
+#include "esp_app_desc.h"
 #include "esp_sntp.h"
 
 #include <string.h>
@@ -68,25 +70,38 @@ static int64_t s_last_good_ms;
  * opdigtede tal, uanset hvad der er trykket paa foer.
  */
 /*
- * Priserne hentes i sin EGEN opgave.
+ * ÉN opgave til alt hvad der bruger internettet.
  *
- * En hentning tager op til otte sekunder, og med en TLS-forbindelse
- * bruger den ogsaa flere kilobyte stak. Laa den i hovedopgaven, ville
- * baade tryk paa skaermen og aflaesningen fra inverteren staa stille
- * imens, én gang i doegnet. Og hovedopgavens stak skulle vaere stor
- * nok til mbedTLS' haandtryk, hvilket ville koste hukommelse hele
- * tiden for noget der sker én gang om dagen.
+ * Baade elpriser og firmwareopdatering bruger TLS, og et TLS-haandtryk
+ * med certifikatbundtet er den tungeste ting hele programmet laver.
+ * To opgaver ville betyde to store stakke der staar reserveret hele
+ * tiden for noget der sker én gang i doegnet, og de kunne ramme
+ * hinanden hvis de kom til at koere samtidig.
  *
- * s_price er den der vises. s_price_hentet skrives kun af
- * hente-opgaven. Der er én skriver og én laeser af hvert flag, og
- * flagene skiftes i den rigtige raekkefoelge, saa der er ikke brug
- * for en laas.
+ * Med én opgave og en koe koerer de efter hinanden, og der er kun ét
+ * sted der skal have plads nok.
+ *
+ * Opgaven roerer ALDRIG skaermen. Den skriver sit resultat i en
+ * struct og saetter et flag til sidst, og hovedopgaven samler det op.
  */
+typedef enum {
+    JOB_PRICE = 0,
+    JOB_OTA,
+} net_job_t;
+
+static QueueHandle_t  s_net_queue;
+
 static zs_price_day_t s_price;          /* det skaermen viser        */
-static zs_price_day_t s_price_hentet;   /* hente-opgavens resultat   */
-static char           s_price_zone[4];  /* kopi, saa opgaven har sin egen */
-static volatile bool  s_price_igang;
+static zs_price_day_t s_price_hentet;   /* netvaerksopgavens resultat */
+static char           s_price_zone[4];
 static volatile bool  s_price_klar;
+
+static zs_ota_status_t s_ota;           /* det skaermen viser        */
+static zs_ota_status_t s_ota_hentet;
+static volatile bool   s_ota_klar;
+static volatile bool   s_ota_genstart;  /* ny firmware er klar       */
+
+static volatile bool  s_net_igang;
 
 /* Naar vi tidligst proever igen. Et mislykket forsoeg maa ikke
  * gentages hvert sekund. */
@@ -99,6 +114,12 @@ static zs_fr_info_t s_demo_info;
 /* Ventetid foer naeste forsoeg, vokser for hvert fejlslagent. */
 static uint32_t s_backoff_ms = ZS_RECONNECT_MIN_MS;
 
+const char *zs_version(void)
+{
+    const esp_app_desc_t *d = esp_app_get_description();
+    return (d != NULL && d->version[0] != '\0') ? d->version : "ukendt";
+}
+
 static int64_t now_ms(void)
 {
     return esp_timer_get_time() / 1000;
@@ -108,38 +129,44 @@ static int64_t now_ms(void)
 /* Elprisen                                                            */
 /* ------------------------------------------------------------------ */
 
-static void price_task(void *arg)
+static void net_task(void *arg)
 {
     (void)arg;
-    zs_price_fetch(s_price_zone, &s_price_hentet);
-    /* Raekkefoelgen er vigtig: resultatet skal vaere skrevet FOER
-     * flaget saettes, ellers kan hovedopgaven naa at laese en halv
-     * struct. */
-    s_price_klar = true;
-    s_price_igang = false;
-    vTaskDelete(NULL);
+    for (;;) {
+        net_job_t job;
+        if (xQueueReceive(s_net_queue, &job, portMAX_DELAY) != pdTRUE) {
+            continue;
+        }
+        s_net_igang = true;
+
+        switch (job) {
+        case JOB_PRICE:
+            zs_price_fetch(s_price_zone, &s_price_hentet);
+            /* Resultatet skal vaere skrevet FOER flaget saettes,
+             * ellers kan hovedopgaven naa at laese en halv struct. */
+            s_price_klar = true;
+            break;
+
+        case JOB_OTA:
+            if (zs_ota_check_and_install(&s_ota_hentet)) {
+                s_ota_hentet.state = ZS_OTA_READY;
+                s_ota_genstart = true;
+            }
+            s_ota_klar = true;
+            break;
+        }
+        s_net_igang = false;
+    }
 }
 
-static void price_start(const char *zone)
+/* Laegger et stykke arbejde i koen. Er der allerede noget i gang eller
+ * i koe, sker der ingenting: begge dele maa gerne vente. */
+static void net_job(net_job_t job)
 {
-    if (s_price_igang || zone == NULL || zone[0] == '\0') {
+    if (s_net_queue == NULL || s_net_igang) {
         return;
     }
-    snprintf(s_price_zone, sizeof(s_price_zone), "%.3s", zone);
-    s_price_klar = false;
-    s_price_igang = true;
-
-    /*
-     * 10 KB stak. mbedTLS' haandtryk med certifikatbundtet er den
-     * tungeste ting hele programmet laver, og en for lille stak giver
-     * et nedbrud der er svaert at spore tilbage.
-     * Prioritet 4, altsaa under hovedopgaven: en langsom prisserver maa
-     * aldrig forsinke aflaesningen fra inverteren.
-     */
-    if (xTaskCreate(price_task, "zs_price", 10240, NULL, 4, NULL) != pdPASS) {
-        ESP_LOGW(TAG, "kunne ikke starte hentning af priser");
-        s_price_igang = false;
-    }
+    xQueueSend(s_net_queue, &job, 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -545,6 +572,19 @@ static void handle_cmd(const zs_cmd_t *c)
         esp_restart();
         break;
 
+    case ZS_CMD_CHECK_UPDATE:
+        if (zs_wifi_state() != ZS_WIFI_CONNECTED) {
+            s_ota.state = ZS_OTA_FAILED;
+            snprintf(s_ota.fejl, sizeof(s_ota.fejl), "Der er ingen netværksforbindelse");
+            zs_ui_set_ota(&s_ota);
+            break;
+        }
+        s_ota.state = ZS_OTA_CHECKING;
+        zs_ui_set_ota(&s_ota);
+        s_ota_klar = false;
+        net_job(JOB_OTA);
+        break;
+
     case ZS_CMD_REBOOT:
         ESP_LOGI(TAG, "genstarter");
         vTaskDelay(pdMS_TO_TICKS(300));
@@ -571,6 +611,16 @@ static void app_task(void *arg)
 
     if (!zs_wifi_init()) {
         ESP_LOGE(TAG, "wifi kunne ikke startes: %s", zs_wifi_last_error());
+    }
+
+    /* Netvaerksopgaven. Se noten ved net_task om hvorfor der kun er én.
+     * 10 KB stak: mbedTLS' haandtryk med certifikatbundtet er det
+     * tungeste vi laver. Prioritet 4, under hovedopgaven, saa en
+     * langsom server aldrig forsinker aflaesningen fra inverteren. */
+    s_net_queue = xQueueCreate(4, sizeof(net_job_t));
+    if (s_net_queue == NULL ||
+        xTaskCreate(net_task, "zs_net", 10240, NULL, 4, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "netværksopgaven kunne ikke startes");
     }
 
     /*
@@ -601,6 +651,23 @@ static void app_task(void *arg)
     int64_t next_detail = 0;
     int64_t next_demo_step = 0;
     int64_t last_demo_ms = 0;
+    /*
+     * Foerste tjek efter et halvt minut, saa wifi og ur naar at komme
+     * op foerst. Derefter hver halve time.
+     */
+    int64_t next_ota_check = now_ms() + 30 * 1000;
+    /*
+     * Naar den koerende firmware maa meldes i orden.
+     *
+     * To minutter uden nedbrud. Meldte vi den i orden med det samme,
+     * ville hele vaernet vaere vaek: en firmware der gaar ned efter et
+     * minut ville vaere godkendt paa det foerste sekund, og saa er der
+     * ingen vej tilbage for en skaerm paa en vaeg.
+     */
+    int64_t ota_ok_at = zs_ota_pending_verify() ? (now_ms() + 120 * 1000) : 0;
+    if (ota_ok_at != 0) {
+        ESP_LOGI(TAG, "ny firmware, meldes i orden om to minutter hvis alt går godt");
+    }
     /* Vi starter med en vaerdi der ikke er en rigtig skaerm, saa den
      * foerste gennemgang altid taeller som "siden blev skiftet". */
     zs_screen_id_t last_screen = (zs_screen_id_t)-1;
@@ -650,6 +717,7 @@ static void app_task(void *arg)
                 if (scr == ZS_SCREEN_SETTINGS) {
                     zs_wifi_get_ip(ip, sizeof(ip));
                     zs_ui_set_settings(&s_cfg, ip);
+                    zs_ui_set_ota(&s_ota);
                 }
             }
             if (scr == ZS_SCREEN_DETAILS && t >= next_detail) {
@@ -686,6 +754,48 @@ static void app_task(void *arg)
              * fejl venter vi ti minutter foer naeste forsoeg, saa en
              * server der er nede ikke bliver spurgt hvert sekund.
              */
+            /* Meld den nye firmware i orden naar den har koert et
+             * stykke tid uden at gaa ned. */
+            if (ota_ok_at != 0 && t >= ota_ok_at) {
+                ota_ok_at = 0;
+                zs_ota_mark_ok();
+            }
+
+            /* Vis hvor langt hentningen er naaet, mens den koerer. */
+            if (s_net_igang && s_ota_hentet.state == ZS_OTA_DOWNLOADING &&
+                zs_ui_current() == ZS_SCREEN_SETTINGS) {
+                zs_ui_set_ota(&s_ota_hentet);
+            }
+
+            /* Er der hentet en opdatering? */
+            if (s_ota_klar) {
+                s_ota_klar = false;
+                s_ota = s_ota_hentet;
+                zs_ui_set_ota(&s_ota);
+                if (s_ota_genstart) {
+                    ESP_LOGI(TAG, "genstarter for at tage %s i brug", s_ota.nyeste);
+                    /* Kort pause saa loggen naar ud af porten. */
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    esp_restart();
+                }
+            }
+
+            /*
+             * Se efter en opdatering.
+             *
+             * Kun naar der er netvaerk, og aldrig mens demoen koerer:
+             * en genstart midt i en fremvisning er ikke rart. Aldrig
+             * heller mens opsaetningen staar paa, hvor brugeren er i
+             * gang med at taste.
+             */
+            if (t >= next_ota_check && !s_net_igang && !s_demo &&
+                s_state != ST_SETUP &&
+                zs_wifi_state() == ZS_WIFI_CONNECTED) {
+                next_ota_check = t + ZS_OTA_CHECK_INTERVAL_MS;
+                s_ota_klar = false;
+                net_job(JOB_OTA);
+            }
+
             /* Er hente-opgaven blevet faerdig? */
             if (s_price_klar) {
                 s_price_klar = false;
@@ -698,10 +808,13 @@ static void app_task(void *arg)
 
             if (!demo_priser && s_cfg.price_zone[0] != '\0' && s_clock_ok &&
                 zs_wifi_state() == ZS_WIFI_CONNECTED &&
-                !s_price_igang && t >= s_price_next_try &&
+                !s_net_igang && t >= s_price_next_try &&
                 (!s_price.ok || zs_price_is_stale(&s_price))) {
 
-                price_start(s_cfg.price_zone);
+                snprintf(s_price_zone, sizeof(s_price_zone), "%.3s",
+                         s_cfg.price_zone);
+                s_price_klar = false;
+                net_job(JOB_PRICE);
             } else if (!demo_priser && s_price.ok) {
                 /* Flyt den fremhaevede soejle naar klokken skifter
                  * time. Koster ingen netvaerkstrafik. */

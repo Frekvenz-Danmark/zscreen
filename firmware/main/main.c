@@ -50,7 +50,7 @@ static void nvs_init_once(void)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "%s %s", ZS_PRODUCT_NAME, ZS_VERSION);
+    ESP_LOGI(TAG, "%s %s", ZS_PRODUCT_NAME, zs_version());
 
     nvs_init_once();
 

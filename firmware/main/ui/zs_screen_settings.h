@@ -13,6 +13,7 @@
 #include "lvgl.h"
 #include "zs_nvs.h"
 #include "zs_fronius.h"
+#include "zs_ota.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,6 +28,9 @@ void zs_settings_update(const zs_settings_t *s, const char *ip);
 
 /* Viser eller skjuler raden "Afslut demo". */
 void zs_settings_set_demo(bool demo);
+
+/* Opdaterer raden om software. */
+void zs_settings_set_ota(const zs_ota_status_t *o);
 void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi);
 
 #ifdef __cplusplus

@@ -18,6 +18,7 @@
 #include "zs_screen_home.h"
 #include "zs_nvs.h"
 #include "zs_price.h"
+#include "zs_ota.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,6 +63,7 @@ void zs_ui_set_home(const zs_home_data_t *d);
 void zs_ui_set_settings(const zs_settings_t *s, const char *ip);
 void zs_ui_set_demo(bool demo);
 void zs_ui_set_price(const zs_price_day_t *d);
+void zs_ui_set_ota(const zs_ota_status_t *o);
 void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi);
 
 #ifdef __cplusplus

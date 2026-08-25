@@ -84,6 +84,47 @@ CONFIG_ESP_TASK_WDT_INIT=y
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=30
 CONFIG_ESP_INT_WDT=y
 
+# ── Signeret firmware ─────────────────────────────────────────────────
+#
+# Skaermen naegter at installere en opdatering der ikke er underskrevet
+# med Frekvenz' egen noegle.
+#
+# Hvordan det virker uden at braende sikringer:
+#   Den koerende firmware baerer sin egen offentlige noegle i et
+#   signaturblok bagerst. Naar en opdatering kommer ind, tjekker
+#   esp_ota_ops at den er underskrevet med SAMME noegle. Er den ikke,
+#   bliver den afvist foer den bliver taget i brug.
+#
+#   Det betyder at en angriber paa netvaerket ikke kan skubbe sin egen
+#   firmware ind, heller ikke hvis de kan omdirigere trafikken eller
+#   overtage GitHub-kontoen uden at have noeglen.
+#
+#   Den der staar med enheden og et USB-kabel kan stadig flashe hvad
+#   som helst. Det er med vilje: at forhindre DET kraever sikker
+#   opstart, som braender sikringer i chippen der ikke kan braendes
+#   tilbage. Se docs/hardware.md om hvornaar det skal slaas til.
+#
+# Noeglen ligger i secure/zscreen-signing.pem og er IKKE i repoet.
+# Mistes den, kan ingen enhed nogensinde opdateres igen.
+CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
+CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
+CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y
+CONFIG_SECURE_BOOT_SIGNING_KEY="../secure/zscreen-signing.pem"
+
+# ── Opdatering over netvaerket ────────────────────────────────────────
+# Mozillas rodcertifikater, saa HTTPS mod GitHub kan kontrolleres uden
+# at vi selv skal vedligeholde et certifikat der udloeber.
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
+# Vi henter og installerer i mindre stykker, saa der ikke skal vaere
+# plads til hele firmwaren i hukommelsen paa én gang.
+CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
+# Ruller selv tilbage hvis en ny firmware ikke naar at melde sig i
+# orden. En skaerm paa en vaeg har ingen til at trykke reset, saa den
+# maa aldrig kunne blive ubrugelig af en daarlig opdatering.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
 # ── Log ───────────────────────────────────────────────────────────────
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_LOG_MAXIMUM_LEVEL_DEBUG=y

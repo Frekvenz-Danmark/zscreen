@@ -192,6 +192,14 @@ void zs_ui_set_demo(bool demo)
     lv_port_sem_give();
 }
 
+void zs_ui_set_ota(const zs_ota_status_t *o)
+{
+    if (!s_ready) { return; }
+    lv_port_sem_take();
+    zs_settings_set_ota(o);
+    lv_port_sem_give();
+}
+
 void zs_ui_set_price(const zs_price_day_t *d)
 {
     if (!s_ready) { return; }

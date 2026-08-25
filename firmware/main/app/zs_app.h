@@ -44,6 +44,7 @@ typedef enum {
     ZS_CMD_DEMO_START,        /* vis hovedskærmen med opdigtede tal */
     ZS_CMD_DEMO_STOP,         /* tilbage til opsætning eller drift   */
     ZS_CMD_FACTORY_RESET,
+    ZS_CMD_CHECK_UPDATE,      /* se efter ny firmware nu            */
     ZS_CMD_REBOOT,
 } zs_cmd_type_t;
 
@@ -58,6 +59,16 @@ typedef struct {
 
 /* Starter opgaven. Kaldes fra app_main efter at skaermen er klar. */
 bool zs_app_start(void);
+
+/*
+ * Firmwarens version, fx "0.1.0".
+ *
+ * Kommer fra firmware/version.txt gennem den byggede fils egen
+ * beskrivelse. Der er derfor kun ét sted at rette den, og det tal
+ * skaermen viser er med sikkerhed det samme som opdateringen
+ * sammenligner med.
+ */
+const char *zs_version(void);
 
 /*
  * Sender en besked fra brugerfladen.

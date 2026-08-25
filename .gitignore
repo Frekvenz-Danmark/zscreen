@@ -35,6 +35,24 @@ __pycache__/
 .venv/
 venv/
 
+# ── Signeringsnoeglen ──────────────────────────────────────────────
+# Den vigtigste fil i hele projektet.
+#
+#   Mistes den, kan ingen enhed nogensinde opdateres igen.
+#   Laekker den, kan enhver skubbe firmware ud til alle skaerme.
+#
+# Den ligger i secure/ og skal ALDRIG i git. Den samme noegle ligger
+# som hemmeligheden SIGNING_KEY paa GitHub, hvor kun udgivelses-
+# arbejdsgangen kan naa den. Tag ogsaa en kopi et sikkert sted udenfor
+# begge dele.
+secure/
+
+# ── Brandmateriale ─────────────────────────────────────────────────
+# Logofilerne i deres originale form bliver liggende lokalt. De
+# faerdige C-filer i firmware/main/ui/assets kommer med, saa enhver
+# kan bygge firmwaren, men de raa filer er ikke frit tilgaengelige.
+brand/
+
 # ── Hemmeligheder ──────────────────────────────────────────────────
 # Skaermen har ingen cloud og ingen noegler, men vi lukker doeren
 # alligevel saa et uheld ikke bliver til en lakage.

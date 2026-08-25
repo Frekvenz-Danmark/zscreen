@@ -17,6 +17,7 @@ idf_component_register(
         "net/zs_wifi.c"
         "net/zs_discovery.c"
         "net/zs_price.c"
+        "net/zs_ota.c"
 
         "app/zs_format.c"
         "app/zs_app.c"
@@ -74,5 +75,8 @@ idf_component_register(
         esp-tls
         json
         mbedtls
+        esp_app_format
+        app_update
+        esp_https_ota
         esp_hw_support
 )

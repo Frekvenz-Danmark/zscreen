@@ -1,0 +1,88 @@
+name: Udgiv
+
+# Koerer naar der saettes et versionsmaerke, fx v0.2.0.
+#
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# Den bygger, SIGNERER med Frekvenz' noegle fra GitHub-hemmelighederne,
+# og laegger firmwaren op som en udgivelse. Skaermene henter den selv.
+#
+# Noeglen ligger KUN i hemmeligheden SIGNING_KEY. Den er aldrig i
+# repoet, og en udgivelse kan derfor ikke laves fra en tilfaeldig
+# maskine.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.1.7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Tjek at mærket og version.txt passer sammen
+        shell: bash
+        run: |
+          MAERKE="${GITHUB_REF_NAME#v}"
+          FIL="$(cat firmware/version.txt | tr -d '[:space:]')"
+          if [ "$MAERKE" != "$FIL" ]; then
+            echo "Mærket er $MAERKE men firmware/version.txt siger $FIL."
+            echo "De to SKAL være ens: skærmen sammenligner mærket fra"
+            echo "GitHub med versionen i den byggede fil, og er de"
+            echo "forskellige, opdaterer den i ring."
+            exit 1
+          fi
+          echo "Version $FIL"
+
+      - name: Læg signeringsnøglen på plads
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: |
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "Hemmeligheden SIGNING_KEY mangler. Uden den kan"
+            echo "firmwaren ikke signeres, og ingen skærm vil tage"
+            echo "imod den."
+            exit 1
+          fi
+          mkdir -p secure
+          printf '%s' "$SIGNING_KEY" > secure/zscreen-signing.pem
+          chmod 600 secure/zscreen-signing.pem
+
+      - name: Byg og signer
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          cd firmware
+          idf.py build
+
+      - name: Kontrollér underskriften
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          espsecure.py verify_signature --version 2 \
+            --keyfile secure/zscreen-signing.pem \
+            firmware/build/zscreen.bin
+
+      - name: Navngiv filen efter versionen
+        shell: bash
+        run: |
+          cp firmware/build/zscreen.bin "zscreen-${GITHUB_REF_NAME}.bin"
+          ls -l "zscreen-${GITHUB_REF_NAME}.bin"
+
+      - name: Slet nøglen igen
+        if: always()
+        run: rm -f secure/zscreen-signing.pem
+
+      - name: Udgiv
+        uses: softprops/action-gh-release@v2
+        with:
+          files: zscreen-*.bin
+          generate_release_notes: true

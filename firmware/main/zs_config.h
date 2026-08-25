@@ -9,7 +9,17 @@
 #define ZS_CONFIG_H
 
 /* ── Version ───────────────────────────────────────────────────────── */
-#define ZS_VERSION           "0.1.0"
+/*
+ * Versionsnummeret staar KUN i firmware/version.txt.
+ *
+ * ESP-IDF laeser den fil og skriver tallet ind i den byggede fil, hvor
+ * esp_app_get_description() henter det. Stod det ogsaa her, ville de
+ * to komme ud af trit den dag nogen kun rettede det ene, og saa ville
+ * skaermen vise ét nummer mens opdateringen sammenlignede med et
+ * andet.
+ *
+ * Brug zs_version() fra zs_app.h.
+ */
 #define ZS_PRODUCT_NAME      "zScreen"
 
 /* ── Skaerm ────────────────────────────────────────────────────────── */
@@ -88,6 +98,17 @@
 #define ZS_BRIGHTNESS_NIGHT     25
 #define ZS_NIGHT_START_HOUR     22
 #define ZS_NIGHT_END_HOUR       6
+
+/* ── Opdatering ───────────────────────────────────────────────────── */
+/*
+ * Hvor tit skaermen ser efter ny firmware.
+ *
+ * En halv time. Det giver to forespoergsler i timen mod GitHub, som
+ * tillader tres i timen uden noegle, saa der er rigelig luft. Ved
+ * opstart tjekkes der efter et halvt minut, saa wifi og ur naar at
+ * komme op foerst.
+ */
+#define ZS_OTA_CHECK_INTERVAL_MS   (30 * 60 * 1000)
 
 /* ── Hjælp ────────────────────────────────────────────────────────── */
 /*

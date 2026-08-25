@@ -3,9 +3,11 @@
 #include "zs_theme.h"
 #include "zs_app.h"
 #include "zs_config.h"
+#include "zs_app.h"
 #include "zs_screen_setup.h"
 #include "zs_format.h"
 #include "zs_config.h"
+#include "zs_app.h"
 #include "zs_screen_setup.h"
 
 #include <stdio.h>
@@ -22,6 +24,7 @@ static lv_obj_t *s_sw_meter;
 static lv_obj_t *s_det_col;
 static zs_row_t  s_row_demo;
 static zs_row_t  s_row_zone;
+static zs_row_t  s_row_soft;
 
 /* ------------------------------------------------------------------ */
 /* Smaa byggeklodser                                                   */
@@ -219,6 +222,12 @@ static void on_demo_stop(lv_event_t *e)
 }
 #endif
 
+static void on_check_update(lv_event_t *e)
+{
+    (void)e;
+    send_simple(ZS_CMD_CHECK_UPDATE);
+}
+
 static void on_reboot(lv_event_t *e)
 {
     (void)e;
@@ -312,6 +321,11 @@ static void build_settings(void)
     }
 #endif
 
+    zs_row_create(&s_row_soft, col, ZS_ICON_INFO, "Software", "", true);
+    lv_obj_set_width(s_row_soft.row, ZS_CONTENT_WIDTH);
+    lv_obj_add_flag(s_row_soft.row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_row_soft.row, on_check_update, LV_EVENT_CLICKED, NULL);
+
     zs_row_t rb;
     zs_row_create(&rb, col, ZS_ICON_REFRESH, "Genstart", NULL, true);
     lv_obj_set_width(rb.row, ZS_CONTENT_WIDTH);
@@ -330,7 +344,9 @@ static void build_settings(void)
     }
 
     lv_obj_t *ver = lv_label_create(col);
-    lv_label_set_text(ver, ZS_PRODUCT_NAME " " ZS_VERSION);
+    char vtxt[32];
+    snprintf(vtxt, sizeof(vtxt), "%s %s", ZS_PRODUCT_NAME, zs_version());
+    lv_label_set_text(ver, vtxt);
     zs_style_text(ver, &zs_font_16, ZS_C_STALE);
     lv_obj_set_style_pad_top(ver, 16, 0);
     lv_obj_set_style_pad_bottom(ver, 16, 0);
@@ -401,6 +417,49 @@ void zs_settings_update(const zs_settings_t *s, const char *ip)
         lv_obj_clear_state(s_sw_meter, LV_STATE_CHECKED);
     }
     (void)ip;
+}
+
+void zs_settings_set_ota(const zs_ota_status_t *o)
+{
+    if (s_row_soft.value == NULL) {
+        return;
+    }
+    char t[64];
+    uint32_t farve = ZS_C_LABEL;
+
+    if (o == NULL) {
+        snprintf(t, sizeof(t), "%s", zs_version());
+    } else {
+        switch (o->state) {
+        case ZS_OTA_CHECKING:
+            snprintf(t, sizeof(t), "Søger ...");
+            break;
+        case ZS_OTA_DOWNLOADING:
+            snprintf(t, sizeof(t), "Henter %u %%", (unsigned)o->procent);
+            farve = ZS_C_ACCENT;
+            break;
+        case ZS_OTA_READY:
+            snprintf(t, sizeof(t), "Genstarter ...");
+            farve = ZS_C_ACCENT;
+            break;
+        case ZS_OTA_FAILED:
+            /* Kun teksten, ikke fejlkoden. Den staar under Detaljer
+             * for den der skal fejlsoege. */
+            snprintf(t, sizeof(t), "Kunne ikke søge");
+            farve = ZS_C_WARN;
+            break;
+        case ZS_OTA_UP_TO_DATE:
+            snprintf(t, sizeof(t), "%.20s, nyeste", o->koerende);
+            farve = ZS_C_GOOD;
+            break;
+        case ZS_OTA_IDLE:
+        default:
+            snprintf(t, sizeof(t), "%s", zs_version());
+            break;
+        }
+    }
+    lv_label_set_text(s_row_soft.value, t);
+    lv_obj_set_style_text_color(s_row_soft.value, lv_color_hex(farve), 0);
 }
 
 void zs_settings_set_demo(bool demo)
@@ -540,7 +599,8 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
         snprintf(buf, sizeof(buf), "%d dBm", rssi);
         detail_line(s_det_col, "Wifi-signal", buf);
     }
-    detail_line(s_det_col, "Version", ZS_PRODUCT_NAME " " ZS_VERSION);
+    snprintf(buf, sizeof(buf), "%s %s", ZS_PRODUCT_NAME, zs_version());
+    detail_line(s_det_col, "Version", buf);
 
     /* Lidt luft i bunden, saa den sidste linje ikke klistrer til kanten
      * naar man har rullet helt ned. */

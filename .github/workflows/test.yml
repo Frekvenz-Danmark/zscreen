@@ -1,0 +1,60 @@
+name: Test
+
+# Koerer ved hver aendring. Fanger fejl foer de naar en enhed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  host:
+    name: Enhedstest og hele datavejen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Byg zs-probe
+        run: ./tools/zs-probe/build.sh
+
+      - name: Headere og tegnsæt
+        run: |
+          ./tools/check-headers.sh
+          python3 tools/check-text.py
+
+      - name: Enhedstest
+        run: ./tests/host/run.sh
+
+      - name: Hele datavejen mod en simuleret Fronius
+        run: python3 tests/e2e/run.py
+
+  firmware:
+    name: Byg firmware
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.1.7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Uden en nøgle bygger vi usigneret. Det er nok til at fange
+      # oversætterfejl. Kun udgivelser bliver signeret, se release.yml.
+      - name: Byg
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          cd firmware
+          sed -i 's|^CONFIG_SECURE_.*||' sdkconfig.defaults
+          idf.py build
+
+      - name: Tjek at der ikke er advarsler i vores egen kode
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          cd firmware
+          rm -rf build
+          idf.py build 2>&1 | tee /tmp/byg.log
+          if grep -E "firmware/main/.*(warning|error):" /tmp/byg.log; then
+            echo "Der er advarsler i vores egen kode."
+            exit 1
+          fi
+          echo "Ingen advarsler."
