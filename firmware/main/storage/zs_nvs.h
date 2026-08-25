@@ -51,6 +51,10 @@ typedef struct {
     uint8_t  brightness;        /* 5 til 100                          */
     bool     night_dimming;
 
+    /* 0 er moerkt, 1 er lyst. Gemt som tal og ikke som zs_theme_mode_t,
+     * saa lageret ikke afhaenger af brugerfladens opregning. */
+    uint8_t  theme;
+
     /* Er skaermen sat op? Er den ikke, starter vi i opsaetningen i
      * stedet for at vise fire tomme kort. */
     bool     configured;

@@ -354,3 +354,33 @@ void zs_screen_home_update(const zs_home_data_t *d)
     zs_flow_update(&s_flow, d);
     zs_status_page_update(&s_status, d);
 }
+
+/*
+ * River hovedskaermen ned igen.
+ *
+ * Alt haenger under s_root, saa ét lv_obj_del tager hele traeet. Men
+ * modulets egne pegepinde peger stadig paa det slettede, og en af dem
+ * ville foer eller siden blive brugt. Derfor nulstiller vi dem alle.
+ *
+ * s_page_now bliver staaende med vilje: skifter man tema mens man ser
+ * paa prissiden, skal man lande paa prissiden bagefter.
+ */
+void zs_screen_home_destroy(void)
+{
+    if (s_root != NULL) {
+        lv_obj_del(s_root);
+    }
+    s_root  = NULL;
+    s_pager = NULL;
+    memset(s_page,     0, sizeof(s_page));
+    memset(s_dot,      0, sizeof(s_dot));
+    memset(&s_bar,     0, sizeof(s_bar));
+    memset(&s_solar,   0, sizeof(s_solar));
+    memset(&s_house,   0, sizeof(s_house));
+    memset(&s_battery, 0, sizeof(s_battery));
+    memset(&s_grid,    0, sizeof(s_grid));
+    memset(&s_flow,    0, sizeof(s_flow));
+    memset(&s_status,  0, sizeof(s_status));
+    memset(&s_price,   0, sizeof(s_price));
+    s_created = false;
+}

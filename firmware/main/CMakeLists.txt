@@ -21,6 +21,7 @@ idf_component_register(
 
         "app/zs_format.c"
         "app/zs_app.c"
+        "app/zs_selftest.c"
         "app/zs_demo.c"
         "app/zs_status.c"
 
@@ -51,7 +52,9 @@ idf_component_register(
         "ui/assets/zs_icons_20.c"
         "ui/assets/zs_icons_28.c"
         "ui/assets/zs_img_zmark.c"
+        "ui/assets/zs_img_zmark_pos.c"
         "ui/assets/zs_img_wordmark.c"
+        "ui/assets/zs_img_wordmark_pos.c"
 
     INCLUDE_DIRS
         "."

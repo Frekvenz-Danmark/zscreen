@@ -44,6 +44,10 @@ void zs_setup_set_inverter_list(const zs_found_t *list, int n);
 /* Siger hvor "tilbage" foerer hen fra siden med prisomraade. */
 void zs_setup_zone_set_return(zs_screen_id_t hvorhen);
 
+
+/* River opsaetningens sider ned. Se noten ved zs_screen_home_destroy. */
+void zs_setup_destroy(void);
+
 #ifdef __cplusplus
 }
 #endif

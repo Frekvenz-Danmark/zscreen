@@ -27,6 +27,90 @@ static lv_style_t s_row_pressed;
 
 static bool s_inited = false;
 
+/*
+ * De to paletter.
+ *
+ * Raekkefoelgen foelger zs_col_id_t. Der er en test der tjekker at
+ * begge raekker har lige saa mange farver som der er navne, saa en
+ * tilfoejet farve ikke kan blive glemt i den ene palet og give sort.
+ *
+ * Alle kombinationer er maalt mod WCAG. Se tests/host/test_theme.c for
+ * de faktiske tal, og for hvilke der er tekst og hvilke der er grafik.
+ */
+static const uint32_t PALET[ZS_THEME_COUNT][ZS_ID_COUNT] = {
+    [ZS_THEME_DARK] = {
+        [ZS_ID_BG]           = 0x0E2A29,
+        [ZS_ID_CARD]         = 0x16403E,
+        [ZS_ID_CARD_PRESSED] = 0x1D504D,
+        [ZS_ID_BORDER]       = 0x205A57,
+        [ZS_ID_TEXT]         = 0xFFFFFF,
+        [ZS_ID_TEXT_DIM]     = 0xB6D0CE,
+        [ZS_ID_LABEL]        = 0x8FB3B1,
+        /* Haevet fra 5C8280. Den gamle havde 2,70:1 mod kortet, og en
+         * gammel maaling skal vaere daempet, ikke ulaeselig. Samme
+         * kuloer, kun lysere. Se tools/check-colors.py. */
+        [ZS_ID_STALE]        = 0x628B88,
+        [ZS_ID_VALUE]        = ZS_BRAND_ORANGE,
+        [ZS_ID_ACCENT]       = ZS_BRAND_ORANGE,
+        [ZS_ID_GOOD]         = 0x4ADE80,
+        /* Haevet fra F87171: 4,13:1 mod kortet, under de 4,50 tekst
+         * kraever. Samme roede, kun lysere. */
+        [ZS_ID_BAD]          = 0xF97E7E,
+        [ZS_ID_WARN]         = 0xFBBF24,
+    },
+    [ZS_THEME_LIGHT] = {
+        [ZS_ID_BG]           = 0xF7FAF9,
+        [ZS_ID_CARD]         = 0xFFFFFF,
+        [ZS_ID_CARD_PRESSED] = 0xEAF1F0,
+        [ZS_ID_BORDER]       = 0xCFDEDB,
+        [ZS_ID_TEXT]         = 0x0E2A29,
+        [ZS_ID_TEXT_DIM]     = 0x3D5F5D,
+        [ZS_ID_LABEL]        = 0x4A6866,
+        [ZS_ID_STALE]        = 0x699997,
+        /* Tallene: brandets moerkegroenne, 9,95:1 mod hvid. */
+        [ZS_ID_VALUE]        = ZS_BRAND_GREEN,
+        /* Orangen toneret ned til 4,5:1. Brandets egen har 1,8:1 mod
+         * hvid og kan ikke laeses. */
+        [ZS_ID_ACCENT]       = 0x9E6803,
+        [ZS_ID_GOOD]         = 0x15803D,
+        [ZS_ID_BAD]          = 0xC02626,
+        [ZS_ID_WARN]         = 0xA16207,
+    },
+};
+
+static zs_theme_mode_t s_mode = ZS_THEME_DARK;
+
+uint32_t zs_col(zs_col_id_t id)
+{
+    if ((unsigned)id >= ZS_ID_COUNT) {
+        /* Kan ikke ske med opregningen, men en farve ud af det blaa er
+         * lettere at faa oeje paa end sort paa sort. */
+        return 0xFF00FF;
+    }
+    return PALET[s_mode][id];
+}
+
+zs_theme_mode_t zs_theme_mode(void)
+{
+    return s_mode;
+}
+
+const char *zs_theme_name(zs_theme_mode_t m)
+{
+    return (m == ZS_THEME_LIGHT) ? "Lyst" : "Mørkt";
+}
+
+const lv_img_dsc_t *zs_logo_zmark(void)
+{
+    return (s_mode == ZS_THEME_LIGHT) ? &zs_img_zmark_pos : &zs_img_zmark;
+}
+
+const lv_img_dsc_t *zs_logo_wordmark(void)
+{
+    return (s_mode == ZS_THEME_LIGHT) ? &zs_img_wordmark_pos
+                                      : &zs_img_wordmark;
+}
+
 void zs_style_text(lv_obj_t *obj, const lv_font_t *font, uint32_t color)
 {
     if (font != NULL) {
@@ -37,10 +121,25 @@ void zs_style_text(lv_obj_t *obj, const lv_font_t *font, uint32_t color)
 
 /* Faellestraek for alt der ligner et kort eller en knap: ingen skygge,
  * intet forloeb, ingen kant vi ikke selv har bedt om. */
+/*
+ * lv_style_init nulstiller stilen. Det maa kun ske FOERSTE gang: paa en
+ * stil der allerede er i brug ville den smide de vaerdier vaek som
+ * objekterne regner med, og efterlade dem uden baggrund. Anden gang
+ * skriver vi bare de nye farver oven i.
+ */
+static bool s_foerste = true;
+
+static void nulstil_foerste_gang(lv_style_t *st)
+{
+    if (s_foerste) {
+        lv_style_init(st);
+    }
+}
+
 static void base_surface(lv_style_t *st, uint32_t bg, uint32_t border,
                          lv_coord_t radius, lv_coord_t border_w)
 {
-    lv_style_init(st);
+    nulstil_foerste_gang(st);
     lv_style_set_bg_color(st, lv_color_hex(bg));
     lv_style_set_bg_opa(st, LV_OPA_COVER);
     lv_style_set_radius(st, radius);
@@ -57,17 +156,20 @@ static void base_surface(lv_style_t *st, uint32_t bg, uint32_t border,
     lv_style_set_outline_width(st, 0);
 }
 
-void zs_theme_init(void)
+/*
+ * Fylder farver i de delte stilarter.
+ *
+ * Kaldes baade ved opstart og hver gang temaet skifter. lv_style_set_*
+ * paa en stil der allerede er sat op skriver bare vaerdien om, saa der
+ * er ingen grund til at rive dem ned og bygge dem op igen. De objekter
+ * der peger paa dem beholder deres pegepind.
+ */
+static void fyld_stilarter(void)
 {
-    if (s_inited) {
-        return;
-    }
-    s_inited = true;
-
     base_surface(&s_card, ZS_C_CARD, ZS_C_BORDER, ZS_CARD_RADIUS, 1);
     lv_style_set_pad_all(&s_card, ZS_CARD_PAD);
 
-    lv_style_init(&s_card_pressed);
+    nulstil_foerste_gang(&s_card_pressed);
     lv_style_set_bg_color(&s_card_pressed, lv_color_hex(ZS_C_CARD_PRESSED));
 
     base_surface(&s_btn_primary, ZS_C_ACCENT, 0, 14, 0);
@@ -75,7 +177,7 @@ void zs_theme_init(void)
     lv_style_set_text_color(&s_btn_primary, lv_color_hex(ZS_C_BG));
     lv_style_set_text_font(&s_btn_primary, &zs_font_20);
 
-    lv_style_init(&s_btn_primary_pressed);
+    nulstil_foerste_gang(&s_btn_primary_pressed);
     /* Nedtonet i stedet for at skifte farve. Et tryk skal ses, ikke
      * fejres, og en knap der skifter kuloer virker som en anden knap. */
     lv_style_set_bg_opa(&s_btn_primary_pressed, LV_OPA_80);
@@ -86,7 +188,7 @@ void zs_theme_init(void)
     lv_style_set_text_color(&s_btn_secondary, lv_color_hex(ZS_C_TEXT));
     lv_style_set_text_font(&s_btn_secondary, &zs_font_20);
 
-    lv_style_init(&s_btn_secondary_pressed);
+    nulstil_foerste_gang(&s_btn_secondary_pressed);
     lv_style_set_bg_color(&s_btn_secondary_pressed, lv_color_hex(ZS_C_CARD));
     lv_style_set_bg_opa(&s_btn_secondary_pressed, LV_OPA_COVER);
 
@@ -94,7 +196,7 @@ void zs_theme_init(void)
     lv_style_set_pad_hor(&s_row, 16);
     lv_style_set_pad_ver(&s_row, 0);
 
-    lv_style_init(&s_row_pressed);
+    nulstil_foerste_gang(&s_row_pressed);
     lv_style_set_bg_color(&s_row_pressed, lv_color_hex(ZS_C_CARD_PRESSED));
 
     /* Skaermens bund. Saettes her saa ingen skaerm glemmer det og
@@ -102,6 +204,38 @@ void zs_theme_init(void)
     lv_obj_t *scr = lv_scr_act();
     lv_obj_set_style_bg_color(scr, lv_color_hex(ZS_C_BG), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+}
+
+void zs_theme_init(void)
+{
+    if (s_inited) {
+        return;
+    }
+    fyld_stilarter();
+    s_foerste = false;
+    s_inited  = true;
+}
+
+void zs_theme_set_mode(zs_theme_mode_t m)
+{
+    if (m != ZS_THEME_DARK && m != ZS_THEME_LIGHT) {
+        return;
+    }
+    if (m == s_mode) {
+        return;
+    }
+    s_mode = m;
+    if (!s_inited) {
+        /* Temaet blev valgt foer brugerfladen blev bygget. Saa er der
+         * ingen stilarter at rette, og den bygges rigtigt fra start. */
+        return;
+    }
+    fyld_stilarter();
+    /* Fortael LVGL at de delte stilarter har aendret sig, saa alt der
+     * bruger dem bliver tegnet om. Det daekker kort, knapper og rader.
+     * Farver der er sat direkte paa et enkelt objekt sidder fast, og
+     * dem tager zs_ui_set_theme() sig af ved at bygge siderne om. */
+    lv_obj_report_style_change(NULL);
 }
 
 lv_obj_t *zs_card_create(lv_obj_t *parent, bool pressable)

@@ -54,9 +54,14 @@ void app_main(void)
 
     nvs_init_once();
 
+    /* Indstillingerne foerst. Baade baglyset og brugerfladen skal vide
+     * hvad kunden har valgt inden de bygges, ellers taender skaermen i
+     * standardtilstand og retter sig selv et oejeblik senere. */
+    zs_app_load_settings();
+
     ESP_ERROR_CHECK(bsp_board_init());
     lv_port_init();
-    zs_display_init();
+    zs_display_init(zs_app_saved_brightness());
 
     /* Brugerfladen bygges under laasen. Derefter tager hver funktion i
      * zs_ui selv laasen, saa ingen kalder skal huske det. */

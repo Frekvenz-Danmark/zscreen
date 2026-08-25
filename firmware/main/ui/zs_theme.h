@@ -13,8 +13,11 @@
  *     #FBAC18  orange, accentfarven
  *     #FFFFFF  hvid
  *
- * Skaermen bruger en moerk udgave. Den haenger paa en vaeg i en stue og
- * skal kunne ses om dagen uden at lyse rummet op om aftenen.
+ * Der er to paletter. Moerk er standard: skaermen haenger paa en vaeg i
+ * en stue og skal kunne ses om dagen uden at lyse rummet op om aftenen.
+ * Lys kan vaelges under Indstillinger. Begge er maalt mod WCAG, og
+ * tests/host tjekker kontrasten hver gang der bygges, saa en nuance
+ * ikke kan skubbes til noget ulaeseligt uden at det opdages.
  *
  * Reglerne fra Zbox' DESIGN.txt gaelder ogsaa her:
  *   ingen forloeb, ingen matteret glas, ingen indgangsanimationer,
@@ -36,35 +39,99 @@ extern "C" {
 
 /* ── Farver ───────────────────────────────────────────────────────── */
 
-/* Brandets egne, som de staar i logofilen. */
+/* Brandets egne, som de staar i logofilen. De to skifter aldrig. */
 #define ZS_BRAND_GREEN      0x174A48
 #define ZS_BRAND_ORANGE     0xFBAC18
 
-/* Fladerne. Baggrunden er brandgroen trukket ned i lysstyrke, saa
- * skaermen stadig ser ud som Frekvenz og ikke som en tilfaeldig moerk
- * app. Kortene ligger et lille trin over baggrunden, saa de skiller
- * sig ud uden skygger. */
-#define ZS_C_BG             0x0E2A29
-#define ZS_C_CARD           0x16403E
-#define ZS_C_CARD_PRESSED   0x1D504D
-#define ZS_C_BORDER         0x205A57
+/*
+ * Farverne slaas op i den palet der er valgt lige nu.
+ *
+ * Navnene er de samme som da de var faste tal, saa hvert eneste sted i
+ * koden der bruger en farve laeser nu den aktive palet. Der findes ikke
+ * et sted der blev glemt ved skiftet, for der findes ikke et navn der
+ * gaar uden om opslaget.
+ *
+ * Prisen er at de ikke kan staa i en initialisering paa filniveau.
+ * tools/check-colors.sh haandhaever baade det, og at ingen skriver en
+ * raa farvekode ind i brugerfladen udenom paletten.
+ */
+typedef enum {
+    ZS_ID_BG = 0,
+    ZS_ID_CARD,
+    ZS_ID_CARD_PRESSED,
+    ZS_ID_BORDER,
+    ZS_ID_TEXT,
+    ZS_ID_TEXT_DIM,
+    ZS_ID_LABEL,
+    ZS_ID_STALE,
+    ZS_ID_VALUE,
+    ZS_ID_ACCENT,
+    ZS_ID_GOOD,
+    ZS_ID_BAD,
+    ZS_ID_WARN,
+    ZS_ID_COUNT
+} zs_col_id_t;
+
+/* Slaar en farve op i den aktive palet. */
+uint32_t zs_col(zs_col_id_t id);
+
+/* Fladerne. I moerkt tema er baggrunden brandgroen trukket ned i
+ * lysstyrke, saa skaermen ser ud som Frekvenz og ikke som en tilfaeldig
+ * moerk app. Kortene ligger et lille trin over, saa de skiller sig ud
+ * uden skygger. I lyst tema er det vendt om. */
+#define ZS_C_BG             zs_col(ZS_ID_BG)
+#define ZS_C_CARD           zs_col(ZS_ID_CARD)
+#define ZS_C_CARD_PRESSED   zs_col(ZS_ID_CARD_PRESSED)
+#define ZS_C_BORDER         zs_col(ZS_ID_BORDER)
 
 /* Teksten. Tre niveauer er nok: overskrift, brOEdtekst og etiket. */
-#define ZS_C_TEXT           0xFFFFFF
-#define ZS_C_TEXT_DIM       0xB6D0CE
-#define ZS_C_LABEL          0x8FB3B1
+#define ZS_C_TEXT           zs_col(ZS_ID_TEXT)
+#define ZS_C_TEXT_DIM       zs_col(ZS_ID_TEXT_DIM)
+#define ZS_C_LABEL          zs_col(ZS_ID_LABEL)
 
 /* Naar en maaling er gammel eller mangler. Tallet bliver staaende, men
  * daempet, saa man kan se hvad det sidst var uden at tro det er nu. */
-#define ZS_C_STALE          0x5C8280
+#define ZS_C_STALE          zs_col(ZS_ID_STALE)
 
-#define ZS_C_ACCENT         ZS_BRAND_ORANGE
+/*
+ * De store tal, og accenten, er to forskellige farver.
+ *
+ * I moerkt tema er begge Frekvenz-orange, som de altid har vaeret. I
+ * lyst tema kan de ikke vaere det: orangen har kun 1,8:1 mod hvid, og
+ * tekst skal have 4,5:1 for at kunne laeses. Derfor bliver tallene
+ * moerk brandgroen, og orangen bliver toneret ned til 4,5:1 og brugt
+ * hvor den fylder nok til at ses: prikker, streger og aktive knapper.
+ */
+#define ZS_C_VALUE          zs_col(ZS_ID_VALUE)
+#define ZS_C_ACCENT         zs_col(ZS_ID_ACCENT)
 
 /* Retning og tilstand. Groen naar der kommer noget ind i huset uden at
  * koste noget, roed naar der koebes. */
-#define ZS_C_GOOD           0x4ADE80
-#define ZS_C_BAD            0xF87171
-#define ZS_C_WARN           0xFBBF24
+#define ZS_C_GOOD           zs_col(ZS_ID_GOOD)
+#define ZS_C_BAD            zs_col(ZS_ID_BAD)
+#define ZS_C_WARN           zs_col(ZS_ID_WARN)
+
+/* ── Tema ─────────────────────────────────────────────────────────── */
+typedef enum {
+    ZS_THEME_DARK  = 0,     /* standard, og det skaermen starter i */
+    ZS_THEME_LIGHT = 1,
+    ZS_THEME_COUNT
+} zs_theme_mode_t;
+
+/*
+ * Skifter palet.
+ *
+ * De delte stilarter faar de nye farver med det samme. De farver der er
+ * sat direkte paa et enkelt objekt sidder fast, saa siderne skal bygges
+ * om bagefter. Det goer zs_ui_set_theme(), som er den man skal kalde.
+ * Denne her er kun til laget under.
+ */
+void zs_theme_set_mode(zs_theme_mode_t m);
+
+zs_theme_mode_t zs_theme_mode(void);
+
+/* Navnet til brugerfladen: "Mørkt" eller "Lyst". */
+const char *zs_theme_name(zs_theme_mode_t m);
 
 /* ── Skrifttyper ──────────────────────────────────────────────────── */
 /* Funnel Sans, den samme som frekvenz.nu og Zbox-webfladen. */
@@ -75,8 +142,27 @@ LV_FONT_DECLARE(zs_font_16)       /* undertekst og brOEdtekst       */
 LV_FONT_DECLARE(zs_font_13)       /* etiketter med versaler         */
 
 /* ── Logoer ───────────────────────────────────────────────────────── */
-LV_IMG_DECLARE(zs_img_zmark)      /* Z-maerket, 26 px, til statuslinjen */
-LV_IMG_DECLARE(zs_img_wordmark)   /* hele logoet, 260 px, til velkomst  */
+/*
+ * Logoerne findes i to udgaver, og de har praecis samme maal, saa der
+ * ikke flytter sig noget paa skaermen naar temaet skifter.
+ *
+ *   neg  hvidt logo, til moerkt tema
+ *   pos  moerkegroent logo, til lyst tema
+ *
+ * Brug zs_logo_zmark() og zs_logo_wordmark() i stedet for at pege paa
+ * en af dem direkte. Saa er der ét sted der ved hvilken der hoerer til
+ * hvilket tema.
+ */
+LV_IMG_DECLARE(zs_img_zmark)          /* Z-maerket, 26 px, negativ  */
+LV_IMG_DECLARE(zs_img_zmark_pos)      /* Z-maerket, 26 px, positiv  */
+LV_IMG_DECLARE(zs_img_wordmark)       /* hele logoet, 260 px, neg.  */
+LV_IMG_DECLARE(zs_img_wordmark_pos)   /* hele logoet, 260 px, pos.  */
+
+/* Det Z-maerke der passer til det tema der er valgt nu. */
+const lv_img_dsc_t *zs_logo_zmark(void);
+
+/* Hele logoet med payoff, i den udgave der passer til temaet. */
+const lv_img_dsc_t *zs_logo_wordmark(void);
 
 /* ── Maal ─────────────────────────────────────────────────────────── */
 /*
@@ -245,11 +331,6 @@ lv_obj_t *zs_column_create(lv_obj_t *parent, lv_coord_t gap);
 /* Hjaelper: saet skrifttype og farve paa ét kald. */
 void zs_style_text(lv_obj_t *obj, const lv_font_t *font, uint32_t color);
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* ZS_THEME_H */
 
 /* ── Sider ────────────────────────────────────────────────────────── */
 /*
@@ -290,3 +371,9 @@ void zs_page_create(zs_page_t *p, const char *title,
 
 /* Skjuler eller viser hele siden. */
 void zs_page_set_hidden(zs_page_t *p, bool hidden);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* ZS_THEME_H */

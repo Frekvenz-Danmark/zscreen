@@ -17,6 +17,7 @@
 #include "zs_discovery.h"
 #include "zs_screen_home.h"
 #include "zs_nvs.h"
+#include "zs_theme.h"
 #include "zs_price.h"
 #include "zs_ota.h"
 
@@ -44,6 +45,15 @@ void zs_ui_init(void);
 /* Skifter side. Tager selv laasen. */
 void zs_ui_show(zs_screen_id_t id);
 zs_screen_id_t zs_ui_current(void);
+
+/*
+ * Skifter mellem moerkt og lyst.
+ *
+ * Bygger alle sider om, og lander paa den samme side som foer. Data
+ * skrives ind igen af zs_app med det samme, saa felterne ikke staar
+ * tomme et oejeblik.
+ */
+void zs_ui_set_theme(zs_theme_mode_t m);
 
 /* ── data ind i skaermene ──────────────────────────────────────────
  * Alle tager selv laasen og maa kaldes fra app-opgaven.            */

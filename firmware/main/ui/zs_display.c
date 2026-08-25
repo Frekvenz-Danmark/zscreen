@@ -48,8 +48,12 @@ static void apply_duty(uint8_t pct)
     s_applied = pct;
 }
 
-void zs_display_init(void)
+void zs_display_init(uint8_t start_pct)
 {
+    if (start_pct < BRIGHTNESS_MIN) { start_pct = BRIGHTNESS_MIN; }
+    if (start_pct > 100)            { start_pct = 100; }
+    s_brightness = start_pct;
+
     ledc_timer_config_t timer = {
         .speed_mode      = BL_MODE,
         .timer_num       = BL_TIMER,
@@ -68,7 +72,7 @@ void zs_display_init(void)
         .timer_sel  = BL_TIMER,
         .intr_type  = LEDC_INTR_DISABLE,
         .gpio_num   = BL_GPIO,
-        .duty       = (uint32_t)BL_MAX_DUTY * ZS_BRIGHTNESS_DEFAULT / 100u,
+        .duty       = (uint32_t)BL_MAX_DUTY * start_pct / 100u,
         .hpoint     = 0,
     };
     if (ledc_channel_config(&ch) != ESP_OK) {
@@ -77,7 +81,7 @@ void zs_display_init(void)
     }
 
     s_ready   = true;
-    s_applied = ZS_BRIGHTNESS_DEFAULT;
+    s_applied = start_pct;
     s_last_touch_us = esp_timer_get_time();
     ESP_LOGI(TAG, "baglys klar paa GPIO %d, %u %%", BL_GPIO, s_brightness);
 }

@@ -68,6 +68,25 @@ for f in $(find "${SRC}" -name "*.h" | grep -v "/assets/"); do
     fi
 done
 
+# Regel 4: intet maa staa efter guardens afsluttende #endif.
+#
+# En header kan sagtens have en korrekt guard OG alligevel blive laest
+# to gange, hvis nogen har skrevet videre efter den sidste #endif. Saa
+# ligger den nye kode udenfor vagten, og foerst den dag headeren bliver
+# inkluderet to gange i samme fil, faejler oversaettelsen med
+# "conflicting types". Det skete for zs_theme.h.
+for f in $(find "${SRC}" -name "*.h" | grep -v "/assets/"); do
+    # Sidste linje der er en #endif, og sidste linje med indhold.
+    sidste_endif=$(grep -n "^#endif" "${f}" | tail -1 | cut -d: -f1)
+    sidste_kode=$(grep -n "[^[:space:]]" "${f}" | tail -1 | cut -d: -f1)
+    if [ -n "${sidste_endif}" ] && [ "${sidste_kode}" -gt "${sidste_endif}" ]; then
+        echo "  FEJL: ${f} har kode efter den afsluttende #endif (linje ${sidste_endif})."
+        echo "        Den kode ligger udenfor include-guarden og bliver laest"
+        echo "        én gang for hver include. Flyt #endif ned i bunden."
+        FAIL=1
+    fi
+done
+
 if [ "${FAIL}" -eq 0 ]; then
     NG=$(echo "${GUARDS}" | wc -w | tr -d ' ')
     ND=$(echo "${DEFINES}" | wc -w | tr -d ' ')

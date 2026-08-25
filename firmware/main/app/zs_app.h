@@ -41,6 +41,7 @@ typedef enum {
     ZS_CMD_SET_BRIGHTNESS,    /* u8 er 5 til 100                    */
     ZS_CMD_SET_NIGHT_DIM,     /* flag                               */
     ZS_CMD_SET_METER_SIGN,    /* flag: positiv betyder køb          */
+    ZS_CMD_SET_THEME,         /* u8 er zs_theme_mode_t              */
     ZS_CMD_DEMO_START,        /* vis hovedskærmen med opdigtede tal */
     ZS_CMD_DEMO_STOP,         /* tilbage til opsætning eller drift   */
     ZS_CMD_FACTORY_RESET,
@@ -56,6 +57,17 @@ typedef struct {
     uint8_t       u8;
     bool          flag;
 } zs_cmd_t;
+
+/*
+ * Laeser de gemte indstillinger og saetter temaet.
+ *
+ * Skal kaldes FOER zs_display_init og zs_ui_init, saa skaermen taender
+ * med kundens lysstyrke og tema med det samme.
+ */
+void zs_app_load_settings(void);
+
+/* Den gemte lysstyrke. Kun rigtig efter zs_app_load_settings. */
+uint8_t zs_app_saved_brightness(void);
 
 /* Starter opgaven. Kaldes fra app_main efter at skaermen er klar. */
 bool zs_app_start(void);

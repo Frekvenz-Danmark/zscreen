@@ -124,6 +124,42 @@ zs_screen_id_t zs_ui_current(void)
     return s_current;
 }
 
+void zs_ui_set_theme(zs_theme_mode_t m)
+{
+    if (!s_ready || m == zs_theme_mode()) {
+        return;
+    }
+    lv_port_sem_take();
+
+    /* Hvor stod vi. Vi skal tilbage til samme side bagefter, ellers
+     * hopper skaermen til velkomstsiden midt i en indstilling. */
+    zs_screen_id_t hvor = s_current;
+
+    /*
+     * Siderne bygges helt om.
+     *
+     * De delte stilarter kunne godt bare faa nye farver, men langt de
+     * fleste farver er sat direkte paa hvert objekt da det blev lavet,
+     * og de sidder fast. At bygge om er den eneste maade der ikke
+     * efterlader noget i det gamle tema, og det er vigtigere end de faa
+     * hundrede millisekunder det tager.
+     */
+    zs_screen_home_destroy();
+    zs_setup_destroy();
+    zs_settings_destroy();
+
+    zs_theme_set_mode(m);
+
+    zs_screen_home_create(on_gear, NULL);
+    zs_setup_create();
+    zs_settings_create();
+
+    show_locked(hvor);
+    lv_port_sem_give();
+
+    ESP_LOGI(TAG, "tema skiftet til %s", zs_theme_name(m));
+}
+
 /* ------------------------------------------------------------------ */
 /* Data ind i skaermene                                                */
 /* ------------------------------------------------------------------ */

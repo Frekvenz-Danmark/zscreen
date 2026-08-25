@@ -90,8 +90,11 @@ static void apply_value(zs_tile_t *t, const zs_num_t *n, bool active)
     lv_label_set_text(t->value, n->value);
     lv_label_set_text(t->unit, n->unit);
 
+    /* ZS_C_VALUE, ikke ZS_C_ACCENT. I moerkt tema er de den samme
+     * orange. I lyst tema er tallet moerkegroent og accenten orange,
+     * fordi orangen ikke kan laeses mod hvid. */
     uint32_t col = t->stale ? ZS_C_STALE
-                 : active   ? ZS_C_ACCENT
+                 : active   ? ZS_C_VALUE
                             : ZS_C_TEXT;
     lv_obj_set_style_text_color(t->value, lv_color_hex(col), 0);
     lv_obj_set_style_text_color(t->unit,

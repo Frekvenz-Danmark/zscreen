@@ -182,13 +182,21 @@ python3 icons.py --header "../firmware/main/ui/zs_icons.h" \
 # kun den der har brand-mappen kan lave logoerne om.
 if [ -d "../brand" ]; then
     info "Bygger logoer"
+    # To saet: negativ til moerkt tema, positiv til lyst. Samme maal, saa
+    # de kan byttes ud uden at noget flytter sig paa skaermen.
     python3 png2lvgl.py "../brand/Z-logo-neg.png" "${OUT}/zs_img_zmark.c" \
         --name zs_img_zmark --height 26
+    python3 png2lvgl.py "../brand/Z-logo.png" "${OUT}/zs_img_zmark_pos.c" \
+        --name zs_img_zmark_pos --height 26
     python3 png2lvgl.py "../brand/Frekvenz - logo payoff-neg.png" \
         "${OUT}/zs_img_wordmark.c" --name zs_img_wordmark --width 260
+    python3 png2lvgl.py "../brand/Frekvenz - logo payoff.png" \
+        "${OUT}/zs_img_wordmark_pos.c" --name zs_img_wordmark_pos --width 260
 else
     info "Springer logoer over"
-    if [ -s "${OUT}/zs_img_zmark.c" ] && [ -s "${OUT}/zs_img_wordmark.c" ]; then
+    if [ -s "${OUT}/zs_img_zmark.c" ] && [ -s "${OUT}/zs_img_wordmark.c" ] \
+       && [ -s "${OUT}/zs_img_zmark_pos.c" ] \
+       && [ -s "${OUT}/zs_img_wordmark_pos.c" ]; then
         ok "brand-mappen er ikke her, men de faerdige logoer findes"
     else
         fail "brand-mappen mangler, og logoerne er ikke bygget."

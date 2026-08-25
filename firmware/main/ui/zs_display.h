@@ -21,7 +21,9 @@ extern "C" {
 #endif
 
 /* Saetter PWM op og taender baglyset paa den gemte lysstyrke. */
-void zs_display_init(void);
+/* start_pct er den gemte lysstyrke. Baglyset taender direkte paa den,
+ * saa der ikke er et spring fra standardvaerdien. */
+void zs_display_init(uint8_t start_pct);
 
 /* Lysstyrke i procent, 5 til 100. Under 5 er skaermen i praksis sort,
  * og en skaerm brugeren ikke kan se er en skaerm brugeren ikke kan

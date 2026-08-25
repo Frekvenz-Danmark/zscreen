@@ -11,6 +11,7 @@
 #define ZS_SCREEN_SETTINGS_H
 
 #include "lvgl.h"
+#include "zs_theme.h"
 #include "zs_nvs.h"
 #include "zs_fronius.h"
 #include "zs_ota.h"
@@ -32,6 +33,15 @@ void zs_settings_set_demo(bool demo);
 /* Opdaterer raden om software. */
 void zs_settings_set_ota(const zs_ota_status_t *o);
 void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi);
+
+
+/* River Indstillinger og Detaljer ned. Se noten ved
+ * zs_screen_home_destroy. */
+void zs_settings_destroy(void);
+
+
+/* Maler tema-vaelgeren om saa den viser hvad der er valgt. */
+void zs_settings_set_theme(zs_theme_mode_t m);
 
 #ifdef __cplusplus
 }

@@ -28,6 +28,7 @@ koer() {
 
 koer "Headere"        ./tools/check-headers.sh
 koer "Tegnsæt"        python3 tools/check-text.py
+koer "Farver"         python3 tools/check-colors.py
 koer "Enhedstest"     ./tests/host/run.sh
 ./tools/zs-probe/build.sh >/dev/null 2>&1 || true
 koer "Hele datavejen" python3 tests/e2e/run.py

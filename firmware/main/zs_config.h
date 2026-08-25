@@ -95,6 +95,17 @@
 
 /* ── Lysstyrke ────────────────────────────────────────────────────── */
 #define ZS_BRIGHTNESS_DEFAULT   80
+
+/*
+ * Selvtest af sideombygning og temaskift.
+ *
+ * 0 i alt der sendes ud. Saettes til 1 naar der er roert ved en skaerm
+ * eller ved temaet, saa man kan se paa enheden at intet siver og at
+ * alle sider stadig kan tegnes. Se zs_selftest.c.
+ */
+#ifndef ZS_SELFTEST
+#define ZS_SELFTEST             0
+#endif
 #define ZS_BRIGHTNESS_NIGHT     25
 #define ZS_NIGHT_START_HOUR     22
 #define ZS_NIGHT_END_HOUR       6

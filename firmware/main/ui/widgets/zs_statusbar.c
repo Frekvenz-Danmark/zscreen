@@ -26,7 +26,7 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
 
     /* Z-maerket. 26 px hoejt, midt i den 44 px hoeje linje. */
     sb->logo = lv_img_create(sb->bar);
-    lv_img_set_src(sb->logo, &zs_img_zmark);
+    lv_img_set_src(sb->logo, zs_logo_zmark());
     lv_obj_set_pos(sb->logo, 14, (ZS_BAR_HEIGHT - 26) / 2);
 
     /*

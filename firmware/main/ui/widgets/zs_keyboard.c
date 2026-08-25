@@ -298,6 +298,23 @@ static bool maps_are_consistent(void)
     return ok;
 }
 
+/*
+ * Tastaturet ejer sig selv.
+ *
+ * Strukturen er lv_mem_alloc'et, men taster og matrix haenger under
+ * forAElderen. Sletter nogen forAElderen, forsvinder objekterne og
+ * strukturen ville blive liggende. Derfor rydder vi op naar matrixen
+ * slettes, uanset hvem der sletter den. Saa kan en side bygges om uden
+ * at kalderen skal huske noget.
+ */
+static void kb_on_delete(lv_event_t *e)
+{
+    zs_keyboard_t *kb = (zs_keyboard_t *)lv_event_get_user_data(e);
+    if (kb != NULL) {
+        lv_mem_free(kb);
+    }
+}
+
 zs_keyboard_t *zs_keyboard_create(lv_obj_t *parent, lv_obj_t *target,
                                   lv_event_cb_t done_cb, void *user_data)
 {
@@ -315,6 +332,7 @@ zs_keyboard_t *zs_keyboard_create(lv_obj_t *parent, lv_obj_t *target,
     kb->hidden = true;
 
     kb->matrix = lv_btnmatrix_create(parent);
+    lv_obj_add_event_cb(kb->matrix, kb_on_delete, LV_EVENT_DELETE, kb);
     lv_obj_remove_style_all(kb->matrix);
     lv_obj_set_size(kb->matrix, ZS_SCR_WIDTH, ZS_KB_HEIGHT);
     lv_obj_set_pos(kb->matrix, 0, ZS_SCR_HEIGHT - ZS_KB_HEIGHT);

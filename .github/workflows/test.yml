@@ -16,10 +16,11 @@ jobs:
       - name: Byg zs-probe
         run: ./tools/zs-probe/build.sh
 
-      - name: Headere og tegnsæt
+      - name: Headere, tegnsæt og farver
         run: |
           ./tools/check-headers.sh
           python3 tools/check-text.py
+          python3 tools/check-colors.py
 
       - name: Enhedstest
         run: ./tests/host/run.sh

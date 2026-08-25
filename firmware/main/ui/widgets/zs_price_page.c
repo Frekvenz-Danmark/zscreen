@@ -72,7 +72,7 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
     /* Prisen og enheden staar paa samme grundlinje, som paa forsiden. */
     p->value = lv_label_create(parent);
     lv_label_set_text(p->value, "-");
-    zs_style_text(p->value, &zs_font_num_64, ZS_C_ACCENT);
+    zs_style_text(p->value, &zs_font_num_64, ZS_C_VALUE);
     lv_obj_set_pos(p->value, ZS_EDGE, Y_VALUE);
 
     p->unit = lv_label_create(parent);
@@ -228,7 +228,7 @@ void zs_price_page_update(zs_price_page_t *p, const zs_price_day_t *d)
         else                                 { ord = "Almindelig pris";  farve = ZS_C_LABEL; }
         lv_label_set_text(p->word, ord);
         lv_obj_set_style_text_color(p->word, lv_color_hex(farve), 0);
-        lv_obj_set_style_text_color(p->value, lv_color_hex(ZS_C_ACCENT), 0);
+        lv_obj_set_style_text_color(p->value, lv_color_hex(ZS_C_VALUE), 0);
     } else {
         /* Uret er ikke sat, saa vi ved ikke hvilken time vi er i. Vi
          * viser dagens gennemsnit i stedet for at gaette. */

@@ -15,6 +15,7 @@
  */
 
 #include "zs_app.h"
+#include "zs_selftest.h"
 #include "zs_config.h"
 #include "zs_ui.h"
 #include "zs_wifi.h"
@@ -51,6 +52,15 @@ typedef enum {
 
 static QueueHandle_t   s_queue;
 static zs_settings_t   s_cfg;
+
+/* Sat naar indstillingerne er laest. Se zs_app_load_settings. */
+static bool            s_cfg_laest;
+static bool            s_cfg_configured;
+
+/* Saettes naar siderne er bygget om, fx efter et temaskift. Naeste
+ * gennemgang fylder dem med det vi allerede har, i stedet for at vente
+ * paa naeste aflaesning. */
+static bool            s_ui_genopfrisk;
 static app_state_t     s_state = ST_SETUP;
 static zs_fr_t         s_fr;
 static zs_home_data_t  s_home;
@@ -472,6 +482,23 @@ static void handle_cmd(const zs_cmd_t *c)
         zs_nvs_save(&s_cfg);
         break;
 
+    case ZS_CMD_SET_THEME:
+        if (c->u8 >= ZS_THEME_COUNT) {
+            break;
+        }
+        if (c->u8 == s_cfg.theme) {
+            break;
+        }
+        s_cfg.theme = c->u8;
+        zs_ui_set_theme((zs_theme_mode_t)c->u8);
+        if (!zs_nvs_save(&s_cfg)) {
+            ESP_LOGW(TAG, "temaet kunne ikke gemmes");
+        }
+        /* Siderne er nybyggede og tomme. Faa alt ind i dem paa naeste
+         * gennemgang, som er hoejst 200 ms vaek. */
+        s_ui_genopfrisk = true;
+        break;
+
     case ZS_CMD_SET_METER_SIGN:
         s_cfg.meter_import_positive = c->flag;
         s_fr.meter_import_positive = c->flag;
@@ -597,6 +624,31 @@ static void handle_cmd(const zs_cmd_t *c)
 /* Opgaven                                                             */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Laeser de gemte indstillinger, én gang.
+ *
+ * Kaldes fra app_main FOER skaermen og brugerfladen bygges. Ellers
+ * ville skaermen taende med standardlysstyrken og i moerkt tema, for
+ * saa at rette sig selv et oejeblik senere. Det ser ud som en fejl,
+ * ogsaa selvom det ender rigtigt.
+ *
+ * Kaldes den to gange, sker der ingenting anden gang.
+ */
+void zs_app_load_settings(void)
+{
+    if (s_cfg_laest) {
+        return;
+    }
+    s_cfg_laest      = true;
+    s_cfg_configured = zs_nvs_load(&s_cfg);
+    zs_theme_set_mode((zs_theme_mode_t)s_cfg.theme);
+}
+
+uint8_t zs_app_saved_brightness(void)
+{
+    return s_cfg_laest ? s_cfg.brightness : ZS_BRIGHTNESS_DEFAULT;
+}
+
 static void app_task(void *arg)
 {
     (void)arg;
@@ -604,7 +656,8 @@ static void app_task(void *arg)
     zs_fr_init(&s_fr);
     memset(&s_home, 0, sizeof(s_home));
 
-    bool configured = zs_nvs_load(&s_cfg);
+    zs_app_load_settings();
+    bool configured = s_cfg_configured;
     zs_display_set_brightness(s_cfg.brightness);
     zs_display_set_night_dimming(s_cfg.night_dimming);
     s_fr.meter_import_positive = s_cfg.meter_import_positive;
@@ -660,6 +713,10 @@ static void app_task(void *arg)
         zs_ui_show(ZS_SCREEN_WELCOME);
     }
 
+#if ZS_SELFTEST
+    zs_selftest_run();
+#endif
+
     int64_t next_poll = 0;
     int64_t next_retry = 0;
     int64_t next_tick = 0;
@@ -703,6 +760,16 @@ static void app_task(void *arg)
         }
 
         int64_t t = now_ms();
+
+        if (s_ui_genopfrisk) {
+            s_ui_genopfrisk = false;
+            /* Tving Indstillinger og Detaljer til at blive fyldt igen. */
+            last_screen = (zs_screen_id_t)-1;
+            next_detail = 0;
+            zs_ui_set_home(&s_home);
+            zs_ui_set_price(&s_price);
+            zs_ui_set_demo(s_demo);
+        }
 
         /*
          * Indstillinger og Detaljer fyldes uanset hvilken tilstand vi

@@ -1,3 +1,58 @@
+## 2026-08-25 22:41
+
+### Lyst tema
+Man kan nu vaelge mellem moerkt og lyst under Indstillinger, foerst i
+afsnittet SKAERM. Valget gemmes og bruges fra naeste opstart.
+
+Farverne staar ikke laengere som faste tal rundt om i koden. De slaas op
+i den palet der er valgt, og navnene er de samme som foer, saa der findes
+ikke et sted der blev glemt ved skiftet. tools/check-colors.py haandhaever
+at ingen skriver en farve udenom paletten.
+
+I lyst tema kan brandets orange ikke bruges til tal: den har 1,8:1 mod
+hvid, og tekst skal have 4,5:1. Derfor er tallene moerk brandgroen med
+9,95:1, og orangen er toneret til 4,5:1 og brugt hvor den fylder nok til
+at ses. Alle kombinationer i begge temaer maales ved hver bygning.
+
+Logoerne skifter med. Negativt logo paa moerk bund, positivt paa lys.
+Begge udgaver har praecis samme maal, saa intet flytter sig.
+
+### Kontrasten i det moerke tema var to steder for lav
+Gammel maaling havde 2,70:1 mod kortet og fejlfarven 4,13:1. Begge er
+haevet til over kravet med samme kuloer, kun lysere.
+
+### Sider bygges om uden at sive
+Et temaskift river alle sider ned og bygger dem op igen, fordi farver der
+sidder paa hvert objekt ellers bliver haengende i det gamle tema. Maalt paa
+enheden: seks ombygninger, ti sider hver gang, 16 bytes forskel i alt.
+Tastaturet frigav ikke sig selv naar dets side blev slettet. Det goer det
+nu, uanset hvem der sletter den.
+
+### Skaermen taender rigtigt fra start
+Indstillingerne laeses foer baglyset og fladen bygges. Foer taendte
+skaermen paa 80 % og rettede sig til kundens vaerdi 200 ms senere.
+
+### zs_theme.h blev laest to gange
+Den afsluttende include-vagt stod 40 linjer for tidligt, saa alt om sider
+laa udenfor. Det gik godt indtil headeren blev inkluderet to gange i samme
+fil. tools/check-headers.sh fanger det nu.
+
+### Wifi-ikonet manglede naar der ikke var wifi
+Toplinjen skjulte ikonet naar forbindelsen var vaek. En tom plads laeser
+man som at skaermen ikke har opdaget noget. Nu staar der wifi-off, altsaa
+wifi-buerne med en streg over, i roed.
+
+### Tal der ikke er maalinger
+lround er UDEFINERET hvis resultatet ikke kan vaere i en long. Effekt,
+energi og pris har nu et loft paa 1 GW, 1 TWh og 1 mia. kr. Over det viser
+vi ingen data. Fundet af GCC paa Linux, som er strengere end clang.
+
+### Gemte indstillinger, efterprovet paa enheden
+Seks ikke-standard vaerdier skrevet direkte i lageret, genstart, og alle
+seks blev laest OG taget i brug. Skaermen skriver nu i loggen hvad der er i
+brug, saa man kan se forskel paa en indstilling der blev laest og en der
+blev laest og derefter ignoreret.
+
 ## 2026-08-25 21:50
 
 ### Opdatering over netvaerket

@@ -99,7 +99,7 @@ static void build_welcome(void)
     lv_obj_t *c = s_welcome.content;
 
     lv_obj_t *logo = lv_img_create(c);
-    lv_img_set_src(logo, &zs_img_wordmark);
+    lv_img_set_src(logo, zs_logo_wordmark());
     lv_obj_align(logo, LV_ALIGN_TOP_MID, 0, 90);
 
     lv_obj_t *t = lv_label_create(c);
@@ -722,4 +722,43 @@ void zs_setup_set_inverter_list(const zs_found_t *list, int n)
             lv_obj_align(r.title, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, -12);
         }
     }
+}
+
+/*
+ * River opsaetningens syv sider ned.
+ *
+ * Hver side har sin egen rod paa skaermen, saa de skal slettes hver for
+ * sig. Tastaturet rydder op efter sig selv naar dets matrix slettes,
+ * saa her nulstiller vi kun pegepinden.
+ *
+ * De fundne netvaerk og den valgte inverter bliver staaende. Det er
+ * data, ikke objekter, og de skal ikke findes forfra bare fordi
+ * skaermen blev tegnet om.
+ */
+void zs_setup_destroy(void)
+{
+    zs_page_t *sider[] = { &s_welcome, &s_wifi, &s_pass, &s_connect,
+                           &s_scan, &s_inv, &s_zone };
+    for (size_t i = 0; i < sizeof(sider) / sizeof(sider[0]); i++) {
+        if (sider[i]->root != NULL) {
+            lv_obj_del(sider[i]->root);
+        }
+        memset(sider[i], 0, sizeof(*sider[i]));
+    }
+
+    s_wifi_list     = NULL;
+    s_wifi_hint     = NULL;
+    s_wifi_rescan   = NULL;
+    s_kb            = NULL;
+    s_pass_field    = NULL;
+    s_pass_eye      = NULL;
+    s_pass_eye_icon = NULL;
+    s_connect_icon  = NULL;
+    s_connect_text  = NULL;
+    s_connect_retry = NULL;
+    s_scan_bar      = NULL;
+    s_scan_text     = NULL;
+    s_scan_found    = NULL;
+    s_inv_list      = NULL;
+    s_inv_hint      = NULL;
 }

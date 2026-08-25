@@ -64,6 +64,12 @@ lv_obj_t *zs_screen_home_root(void);
 struct zs_price_day;
 void zs_screen_home_set_price(const struct zs_price_day *d);
 
+
+/* River skaermen ned og nulstiller modulets tilstand. Bruges naar
+ * temaet skifter, hvor farver der sidder paa hvert objekt skal
+ * tegnes forfra. */
+void zs_screen_home_destroy(void);
+
 #ifdef __cplusplus
 }
 #endif

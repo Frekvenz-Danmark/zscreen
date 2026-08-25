@@ -21,6 +21,7 @@ static const char *TAG = "nvs";
 #define K_ZONE      "pris_zone"
 #define K_BRIGHT    "bright"
 #define K_NIGHT     "night"
+#define K_THEME     "theme"
 #define K_CONF      "configured"
 
 void zs_nvs_defaults(zs_settings_t *s)
@@ -34,6 +35,7 @@ void zs_nvs_defaults(zs_settings_t *s)
     s->meter_import_positive = true;
     s->brightness = ZS_BRIGHTNESS_DEFAULT;
     s->night_dimming = true;
+    s->theme = 0;               /* moerkt */
     s->configured = false;
 }
 
@@ -99,6 +101,7 @@ bool zs_nvs_load(zs_settings_t *s)
     get_str(h, K_ZONE, s->price_zone, sizeof(s->price_zone));
     get_u8(h, K_BRIGHT, &s->brightness);
     get_bool(h, K_NIGHT, &s->night_dimming);
+    get_u8(h, K_THEME, &s->theme);
     get_bool(h, K_CONF,  &s->configured);
 
     nvs_close(h);
@@ -128,6 +131,11 @@ bool zs_nvs_load(zs_settings_t *s)
     }
     if (s->brightness < 5 || s->brightness > 100) {
         s->brightness = ZS_BRIGHTNESS_DEFAULT;
+    }
+    if (s->theme > 1) {
+        /* En vaerdi vi ikke kender. Moerkt er standard, og en skaerm der
+         * pludselig er lys ville se ud som en fejl. */
+        s->theme = 0;
     }
 
     ESP_LOGI(TAG, "indstillinger laest: netvaerk \"%s\", inverter %s:%u",
@@ -172,6 +180,7 @@ bool zs_nvs_save(const zs_settings_t *s)
     ok &= nvs_set_str(h, K_ZONE, s->price_zone) == ESP_OK;
     ok &= nvs_set_u8(h,  K_BRIGHT, s->brightness) == ESP_OK;
     ok &= nvs_set_u8(h,  K_NIGHT, s->night_dimming ? 1 : 0) == ESP_OK;
+    ok &= nvs_set_u8(h,  K_THEME, s->theme) == ESP_OK;
 
     /*
      * "Sat op"-flaget skrives SIDST og forpligtes i sin egen omgang.
