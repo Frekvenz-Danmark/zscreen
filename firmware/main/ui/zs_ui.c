@@ -31,6 +31,8 @@ static const char *TAG = "ui";
 static zs_screen_id_t s_current = ZS_SCREEN_WELCOME;
 static bool           s_ready = false;
 
+static void show_locked(zs_screen_id_t id);
+
 static void on_gear(lv_event_t *e)
 {
     (void)e;
@@ -49,8 +51,12 @@ void zs_ui_init(void)
     zs_settings_create();
 
     s_ready = true;
-    /* Alt er skjult indtil zs_app har fundet ud af hvor vi skal starte. */
-    zs_ui_show(ZS_SCREEN_WELCOME);
+    /* Vi viser velkomstsiden med den laase-frie udgave.
+     *
+     * zs_ui_show() tager selv LVGL-laasen, og kalderen holder den
+     * allerede. To gange fra samme opgave er en doedvande, saa den
+     * offentlige udgave maa ikke kaldes herindefra. */
+    show_locked(ZS_SCREEN_WELCOME);
     ESP_LOGI(TAG, "brugerfladen er klar");
 }
 
@@ -75,12 +81,16 @@ static lv_obj_t *root_of(zs_screen_id_t id)
 
 #define SCREEN_COUNT  (ZS_SCREEN_DETAILS + 1)
 
-void zs_ui_show(zs_screen_id_t id)
+/*
+ * Skifter side UDEN at tage laasen. Kalderen skal holde den.
+ *
+ * Findes fordi zs_ui_init() bygger skaermene mens app_main allerede
+ * holder laasen. Kaldte den den offentlige zs_ui_show(), ville laasen
+ * blive taget to gange af samme opgave, og enheden ville staa stille
+ * uden en eneste fejl i loggen. Det skete i praksis.
+ */
+static void show_locked(zs_screen_id_t id)
 {
-    if (!s_ready) {
-        return;
-    }
-    lv_port_sem_take();
     for (int i = 0; i < SCREEN_COUNT; i++) {
         lv_obj_t *r = root_of((zs_screen_id_t)i);
         if (r == NULL) {
@@ -96,6 +106,15 @@ void zs_ui_show(zs_screen_id_t id)
         }
     }
     s_current = id;
+}
+
+void zs_ui_show(zs_screen_id_t id)
+{
+    if (!s_ready) {
+        return;
+    }
+    lv_port_sem_take();
+    show_locked(id);
     lv_port_sem_give();
 }
 

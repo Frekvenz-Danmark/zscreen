@@ -51,7 +51,20 @@ void lv_port_init(void)
     lv_port_indev_init();
     lv_port_tick_init();
 
-    lvgl_mutex = xSemaphoreCreateMutex();
+    /* zScreen: rekursiv mutex i stedet for en almindelig.
+     *
+     * En almindelig FreeRTOS-mutex kan ikke tages to gange af samme
+     * opgave. Goer man det alligevel, venter opgaven paa sig selv, og
+     * skaermen staar bare stille uden en eneste fejlmeddelelse.
+     *
+     * Det skete: app_main tog laasen og kaldte zs_ui_init(), som til
+     * sidst kaldte zs_ui_show(), som tager laasen igen. Enheden hang
+     * lige efter at baglyset var taendt.
+     *
+     * Selve fejlen er rettet i zs_ui_init, men en rekursiv mutex
+     * koster ingenting og betyder at den slags ikke kan laase hele
+     * skaermen fast en dag i fremtiden. */
+    lvgl_mutex = xSemaphoreCreateRecursiveMutex();
     xTaskCreate(lvgl_task, "lvgl_task", 4096 * 4, NULL, CONFIG_LCD_TASK_PRIORITY, &lvgl_task_handle);
 }
 
@@ -59,7 +72,7 @@ void lv_port_sem_take(void)
 {
     TaskHandle_t task = xTaskGetCurrentTaskHandle();
     if (lvgl_task_handle != task) {
-        xSemaphoreTake(lvgl_mutex, portMAX_DELAY);
+        xSemaphoreTakeRecursive(lvgl_mutex, portMAX_DELAY);
     }
 }
 
@@ -67,7 +80,7 @@ void lv_port_sem_give(void)
 {
     TaskHandle_t task = xTaskGetCurrentTaskHandle();
     if (lvgl_task_handle != task) {
-        xSemaphoreGive(lvgl_mutex);
+        xSemaphoreGiveRecursive(lvgl_mutex);
     }
 }
 
@@ -378,9 +391,9 @@ static void lv_port_direct_mode_copy(void)
 static void lvgl_task(void *args)
 {
     for (;;) {
-        xSemaphoreTake(lvgl_mutex, portMAX_DELAY);
+        xSemaphoreTakeRecursive(lvgl_mutex, portMAX_DELAY);
         lv_task_handler();
-        xSemaphoreGive(lvgl_mutex);
+        xSemaphoreGiveRecursive(lvgl_mutex);
         vTaskDelay(pdMS_TO_TICKS(LV_PORT_TASK_DELAY_MS));
     }
 }

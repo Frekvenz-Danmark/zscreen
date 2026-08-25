@@ -76,7 +76,15 @@ ok "Lucide ($(wc -c < "${CACHE}/lucide.ttf" | tr -d ' ') bytes)"
 #   0x20-0x7E   mellemrum til tilde
 #   0xC5 0xC6 0xD8   AA AE OE
 #   0xE5 0xE6 0xF8   aa ae oe
-DANSK="0x20-0x7E,0xC5,0xC6,0xD8,0xE5,0xE6,0xF8"
+#   0xB7        midterprik, skiller to oplysninger paa samme linje
+#   0x2022      punkttegn, skjuler tegnene i et kodeord
+#
+# De to sidste er ikke pynt. Bruger man et tegn skrifttypen ikke har,
+# tegner LVGL ingenting: der kommer hverken en advarsel naar der bygges
+# eller naar det koerer, bare et hul midt i en saetning.
+# tools/check-text.py holder oeje med at hvert tegn vi skriver, ogsaa
+# findes i alle skrifttyperne.
+DANSK="0x20-0x7E,0xB7,0xC5,0xC6,0xD8,0xE5,0xE6,0xF8,0x2022"
 
 # Til de store tal bruger vi kun cifre og skilletegn. Et fuldt tegnsaet
 # i 64 pixels ville fylde over 200 KB uden at én af bogstaverne blev
