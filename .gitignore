@@ -68,3 +68,12 @@ wifi-credentials.*
 .vscode/
 .idea/
 *.swp
+
+# Lyd- og videofiler hoerer ikke til i firmwaren. Enheden har ingen
+# hoejttaler: Seeeds eget board-modul har FUNC_I2S_EN paa nul og
+# codec_ops paa NULL, saa der er ingen vej ud for lyd. Det eneste der
+# findes er en summer paa RP2040'erens GPIO 19, og den kan give ét bip.
+*.mp3
+*.wav
+*.mp4
+*.mov
