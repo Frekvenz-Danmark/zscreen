@@ -1,0 +1,45 @@
+# ── ESP-IDF build ──────────────────────────────────────────────────
+build/
+firmware/build/
+sdkconfig
+sdkconfig.old
+sdkconfig.ci
+dependencies.lock
+managed_components/
+*.bin
+*.elf
+*.map
+
+# ── Host-test build ────────────────────────────────────────────────
+tests/host/build/
+tests/host/*.o
+tests/host/run
+
+# ── Genererede assets (bygges af tools/build-assets.sh) ────────────
+# Fontene og ikonerne genereres fra TTF. Vi comitter dem alligevel,
+# fordi de skal kunne bygges uden node installeret. Mellemfilerne
+# skal derimod ikke med.
+tools/.assets-cache/
+tools/.fonts/
+
+# ── Python ─────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ── Hemmeligheder ──────────────────────────────────────────────────
+# Skaermen har ingen cloud og ingen noegler, men vi lukker doeren
+# alligevel saa et uheld ikke bliver til en lakage.
+*.pem
+*.key
+secrets.h
+wifi-credentials.*
+.env
+.env.*
+
+# ── macOS / editor ─────────────────────────────────────────────────
+.DS_Store
+.vscode/
+.idea/
+*.swp
