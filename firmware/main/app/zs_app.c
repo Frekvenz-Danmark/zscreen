@@ -117,9 +117,13 @@ static volatile bool  s_net_igang;
  * gentages hvert sekund. */
 static int64_t s_price_next_try;
 
+/* s_demo bliver staaende ogsaa uden demo: brugerfladen faar den med i
+ * hver opdatering, og den er altid falsk. */
 static bool s_demo;
+#if ZS_DEMO_ENABLED
 static bool s_demo_restart;
 static zs_fr_info_t s_demo_info;
+#endif
 
 /* Ventetid foer naeste forsoeg, vokser for hvert fejlslagent. */
 static uint32_t s_backoff_ms = ZS_RECONNECT_MIN_MS;
@@ -721,8 +725,10 @@ static void app_task(void *arg)
     int64_t next_retry = 0;
     int64_t next_tick = 0;
     int64_t next_detail = 0;
+#if ZS_DEMO_ENABLED
     int64_t next_demo_step = 0;
     int64_t last_demo_ms = 0;
+#endif
     /*
      * Foerste tjek efter et halvt minut, saa wifi og ur naar at komme
      * op foerst. Derefter hver halve time.
@@ -804,6 +810,7 @@ static void app_task(void *arg)
             }
             if (scr == ZS_SCREEN_DETAILS && t >= next_detail) {
                 next_detail = t + 1000;
+#if ZS_DEMO_ENABLED
                 if (s_demo) {
                     static zs_fr_t vis;
                     zs_fr_init(&vis);
@@ -811,7 +818,9 @@ static void app_task(void *arg)
                     snprintf(vis.host, sizeof(vis.host), "demo");
                     vis.port = 502;
                     zs_ui_set_details(&vis, "demo", -55);
-                } else {
+                } else
+#endif
+                {
                     zs_wifi_get_ip(ip, sizeof(ip));
                     zs_ui_set_details(&s_fr, ip, zs_wifi_rssi());
                 }

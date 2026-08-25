@@ -1,3 +1,19 @@
+## 2026-08-25 23:47
+
+### Version 0.2.0
+version.txt stod stadig paa 0.1.0 efter tre commits med rigtigt arbejde.
+Udgivelsen v0.1.0 var bygget fra en aeldre commit, saa der fandtes to
+forskellige firmwares der begge kaldte sig 0.1.0. En skaerm der spurgte
+efter opdateringer ville have faaet at vide at den var opdateret, og
+aldrig have hentet det nye. Nummeret er hoejnet, og der laves en ny
+udgivelse.
+
+### Tre ubrugte variabler naar demoen er slaaet fra
+next_demo_step, last_demo_ms og s_demo_restart blev staaende udenfor
+kontakten. Bygningen gav advarsler, og CI stopper paa advarsler i vores
+egen kode. De ligger nu inde i kontakten, og det er efterproevet at der
+er nul advarsler BAADE med demoen slaaet til og fra.
+
 ## 2026-08-25 23:40
 
 ### Demoen er slaaet fra
