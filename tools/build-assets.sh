@@ -175,11 +175,25 @@ python3 icons.py --header "../firmware/main/ui/zs_icons.h" \
 # ---------------------------------------------------------------------
 # Logoer
 # ---------------------------------------------------------------------
-info "Bygger logoer"
-python3 png2lvgl.py "../brand/Z-logo-neg.png" "${OUT}/zs_img_zmark.c" \
-    --name zs_img_zmark --height 26
-python3 png2lvgl.py "../brand/Frekvenz - logo payoff-neg.png" "${OUT}/zs_img_wordmark.c" \
-    --name zs_img_wordmark --width 260
+# Logoerne bygges kun hvis brand-mappen er der.
+#
+# De raa logofiler er ikke i det offentlige repo, men de FAERDIGE
+# C-filer er. Derfor kan enhver hente projektet og bygge firmwaren, og
+# kun den der har brand-mappen kan lave logoerne om.
+if [ -d "../brand" ]; then
+    info "Bygger logoer"
+    python3 png2lvgl.py "../brand/Z-logo-neg.png" "${OUT}/zs_img_zmark.c" \
+        --name zs_img_zmark --height 26
+    python3 png2lvgl.py "../brand/Frekvenz - logo payoff-neg.png" \
+        "${OUT}/zs_img_wordmark.c" --name zs_img_wordmark --width 260
+else
+    info "Springer logoer over"
+    if [ -s "${OUT}/zs_img_zmark.c" ] && [ -s "${OUT}/zs_img_wordmark.c" ]; then
+        ok "brand-mappen er ikke her, men de faerdige logoer findes"
+    else
+        fail "brand-mappen mangler, og logoerne er ikke bygget."
+    fi
+fi
 
 # ---------------------------------------------------------------------
 info "Faerdig"

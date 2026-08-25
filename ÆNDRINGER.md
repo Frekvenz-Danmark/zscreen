@@ -1,3 +1,32 @@
+## 2026-08-25 21:50
+
+### Opdatering over netvaerket
+Firmwaren henter selv nye versioner fra GitHub Releases. Den tjekker ved
+hver opstart og derefter hvert 30. minut. Kun versioner der er hoejere end
+den koerende bliver installeret, sammenlignet tal for tal saa 0.10.0 er
+nyere end 0.9.0 og ikke omvendt.
+
+Hver firmware er underskrevet med RSA-3072. Bootloaderen tjekker
+underskriften mod noeglen i den koerende app, saa en fil der ikke er
+underskrevet af os bliver afvist. Noeglen har aldrig ligget i repoet.
+
+Virker den nye version ikke, ruller enheden tilbage til den gamle af sig
+selv. Den nye bliver foerst godkendt naar den har koert i to minutter.
+
+### Wifi-ikonet manglede naar der ikke var wifi
+Toplinjen skjulte ikonet helt naar forbindelsen var vaek. En tom plads
+laeser man som at skaermen ikke har opdaget noget, hvilket er det modsatte
+af hvad vi vil sige. Nu staar der wifi-off, altsaa wifi-buerne med en streg
+over, i roed. Ikonet er fra Lucide som resten, og alle fire wifi-ikoner
+fylder praecis 20 px i bredden, saa ikonet ikke flytter sig naar signalet
+skifter.
+
+### Logoerne er ude af det offentlige repo
+De raa logofiler ligger ikke paa GitHub. De faerdige C-filer goer, saa
+enhver kan bygge firmwaren, og kun den der har brand-mappen kan lave
+logoerne om. Bygger man uden mappen, springer vaerktoejet logoerne over i
+stedet for at faejle.
+
 # Ændringer
 
 Nyeste øverst. Dato, hvad der blev lavet, og hvilke fejl der blev

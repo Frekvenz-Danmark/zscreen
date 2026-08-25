@@ -126,27 +126,46 @@ void zs_statusbar_set_link(zs_statusbar_t *sb, zs_link_state_t state,
     lv_obj_set_style_bg_color(sb->badge, lv_color_hex(b.farve), 0);
 
     /*
-     * Ikonet viser KUN signalstyrken, og kun naar der er en
-     * forbindelse. Er der ingen, siger maerket det allerede med ord,
-     * og et ikon der gentager det ville bare fylde.
+     * Ikonet viser wifi-signalet. Er der ingen forbindelse, viser vi
+     * wifi-off, altsaa wifi-buerne med en streg over, i samme roede som
+     * maerket. Vi skjuler det ikke, for en tom plads laeser man som at
+     * skaermen ikke har opdaget noget, og det er lige praecis det
+     * modsatte af hvad vi vil sige.
+     *
+     * Alle fire ikoner er Lucide og har samme adv_w paa 20 px, saa
+     * labelet er lige bredt uanset hvilket der staar i det. Ikonet
+     * flytter sig ikke naar signalet skifter.
      *
      * Graenserne er de samme som resten af branchen bruger:
      *   over -60 dBm  godt
      *   -60 til -75   brugbart
      *   under -75     svagt, her begynder forbindelsen at hakke
+     *
+     * Demo er den ene undtagelse. Der er intet rigtigt signal at vise,
+     * og maerket siger allerede DEMO med ord.
      */
-    if (demo || state == ZS_LINK_NO_WIFI) {
+    if (demo) {
         lv_obj_add_flag(sb->status_icon, LV_OBJ_FLAG_HIDDEN);
         return;
     }
     lv_obj_clear_flag(sb->status_icon, LV_OBJ_FLAG_HIDDEN);
 
     const char *icon;
-    if (rssi == 0)        { icon = ZS_ICON_WIFI_OFF; }
-    else if (rssi >= -60) { icon = ZS_ICON_WIFI; }
-    else if (rssi >= -75) { icon = ZS_ICON_WIFI_HIGH; }
-    else                  { icon = ZS_ICON_WIFI_LOW; }
+    uint32_t    farve;
+    if (state == ZS_LINK_NO_WIFI || rssi == 0) {
+        icon  = ZS_ICON_WIFI_OFF;
+        farve = (state == ZS_LINK_NO_WIFI) ? ZS_C_BAD : ZS_C_STALE;
+    } else if (rssi >= -60) {
+        icon  = ZS_ICON_WIFI;
+        farve = ZS_C_LABEL;
+    } else if (rssi >= -75) {
+        icon  = ZS_ICON_WIFI_HIGH;
+        farve = ZS_C_LABEL;
+    } else {
+        icon  = ZS_ICON_WIFI_LOW;
+        farve = ZS_C_LABEL;
+    }
 
     lv_label_set_text(sb->status_icon, icon);
-    lv_obj_set_style_text_color(sb->status_icon, lv_color_hex(ZS_C_LABEL), 0);
+    lv_obj_set_style_text_color(sb->status_icon, lv_color_hex(farve), 0);
 }
