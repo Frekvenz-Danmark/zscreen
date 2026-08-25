@@ -7,6 +7,99 @@ Formatet er med vilje kedeligt: en overskrift med tidspunkt, en kort
 forklaring på almindeligt dansk, og hvor det er relevant en note om
 hvilken fejl der blev fanget og hvordan.
 
+## 2026-08-25 16:15 · Firmware, designsystem og hovedskærm
+
+**Hvad der blev lavet**
+
+Firmwaren bygger nu og kan flashes. 606 KB, 81 % af partitionen ledig.
+
+| Fil | Hvad den laver |
+|---|---|
+| `firmware/CMakeLists.txt` | Byg mod Seeed-SDK'et som pinnet submodul |
+| `firmware/partitions.csv` | To app-pladser fra starten, så OTA kan tilføjes senere |
+| `firmware/main/ui/zs_theme.c` | Farver, skrifttyper, mål, knapper og kort |
+| `firmware/main/ui/zs_display.c` | Lysstyrke med PWM og natdæmpning |
+| `firmware/main/ui/widgets/zs_tile.c` | Ét af de fire kort |
+| `firmware/main/ui/widgets/zs_statusbar.c` | Statuslinjen foroven |
+| `firmware/main/ui/zs_screen_home.c` | Hovedskærmen |
+| `tools/build-assets.sh` | Skrifttyper, ikoner og logoer til LVGL |
+| `tools/png2lvgl.py` | PNG til LVGL uden at installere noget |
+| `tools/icons.py` | Ikonlisten, ét sted |
+| `tools/check-headers.sh` | Værn mod navnesammenstød |
+
+**Designet**
+
+Brandfarverne fra `brand/`-mappen, i mørk udgave: baggrund #0E2A29,
+kort #16403E, accent #FBAC18. Skrifttype Funnel Sans, samme som
+frekvenz.nu og Zbox-webfladen. Ikoner fra Lucide, samme pakke som
+Zbox-webfladen, så en advarselstrekant ser ens ud begge steder.
+
+Hele layoutet er regnet ud, ikke skudt efter:
+
+```
+Vandret:  12 + 222 + 12 + 222 + 12 = 480
+Lodret:   44 + 12 + 200 + 12 + 200 + 12 = 480
+```
+
+Inde i hvert kort: overskrift på y=0, stort tal på y=60, undertekst på
+y=154, som slutter præcis på kortets indvendige underkant, 172.
+
+Enheden "kW" står på samme grundlinje som tallet. De to skrifttyper har
+forskellig størrelse, så forskellen regnes ud af LVGL's egne mål
+(54-9=45 mod 31-5=26, altså 19 pixels) i stedet for at blive skrevet
+ind som et tal der holder op med at passe.
+
+Alt man kan trykke på er mindst 44x44 pixels, som er cirka 8 mm på
+denne skærm. Tandhjulet er derfor en 44x44 knap med et 20 px ikon i.
+
+**Fejl der blev fanget**
+
+1. **Navnesammenstød der slog en hel header fra.**
+   `zs_config.h` havde `#define ZS_STATUSBAR_H 44` som statuslinjens
+   højde. Det er præcis samme navn som include-guarden i
+   `zs_statusbar.h`. Fordi `zs_config.h` blev læst først, troede
+   præprocessoren at headeren allerede var med, og sprang hele filen
+   over. Ingen advarsel. Fejlen dukkede op et helt andet sted som
+   "unknown type name".
+   Rettet ved roden: målene står nu kun ét sted, i `zs_theme.h`, og
+   ingen konstant slutter på `_H`. `tools/check-headers.sh` håndhæver
+   det og køres af testene, så det ikke kan glemmes.
+
+2. **Forkert funktionstype i afbrydelsesstien.**
+   `bsp_lcd_set_cb()` forventer `bool (*)(void *)`, men Seeeds eksempel
+   giver den `bool (*)(void)`. Det virker i praksis på Xtensa, men er
+   udefineret opførsel, og det er ikke noget man vil have stående i en
+   skærm der skal køre i årevis. Rettet.
+
+3. **Ikonlisten stod to steder.**
+   Én liste bestemte hvilke ikoner der kom med i skrifttypen, en anden
+   hvilke navne C-koden kendte. Tilføjede man et ikon ét sted og ikke
+   det andet, blev feltet tomt på skærmen uden en eneste fejl i loggen.
+   Nu står listen i `tools/icons.py` og bruges begge steder.
+
+4. **IRAM-mærke uden grund.**
+   Touch-læsningen var mærket `IRAM_ATTR`, men kaldes fra LVGL's egen
+   opgave og læser I2C, som alligevel ikke ligger i IRAM. Den optog
+   bare plads i den knappe interne hukommelse.
+
+5. **Seeeds kode oversætter ikke rent med ESP-IDF v5.1.7.**
+   Deres SDK er skrevet til en ældre udgave hvor loggens tidsstempel var
+   en `int`. ESP-IDF slår `-Werror=all` til for alt der bygges, også
+   kode vi ikke ejer, så byggeriet stoppede.
+   Løst ved at slå netop de advarsler fra for deres komponenter alene.
+   Vores egen kode i `main/` har stadig `-Werror=all`, og bygger med
+   nul advarsler.
+   Bemærk: deres `gt1151`-driver har en rigtig fejl hvor x og y kan
+   bruges uinitialiserede. Vi bruger ikke den driver på D1.
+
+**Sådan prøver du det**
+
+```
+source tools/env.sh
+cd firmware && idf.py build
+idf.py -p /dev/cu.usbmodemXXXX flash monitor
+```
+
 ---
 
 ## 2026-08-25 15:43 · Datalaget står færdigt og er testet

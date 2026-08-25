@@ -1,0 +1,89 @@
+# zScreen - grundopsaetning af ESP-IDF.
+#
+# Filen er startet fra Seeeds egen indicator_basis-opsaetning, som er
+# den kombination deres skaerm og LVGL er afproevet med, og derefter
+# tilpasset. Alt hvad vi har aendret staar med en begrundelse.
+
+# ── Chip ──────────────────────────────────────────────────────────────
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_IDF_EXPERIMENTAL_FEATURES=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# ── PSRAM ─────────────────────────────────────────────────────────────
+# D1'eren har 8 MB oktal PSRAM. Skaermens to billedbuffere fylder
+# 480 x 480 x 2 bytes = 450 KB hver, saa de SKAL ligge her og ikke i
+# den interne hukommelse.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_120M=y
+CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
+CONFIG_SPIRAM_RODATA=y
+
+# ── Flash ─────────────────────────────────────────────────────────────
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_120M=y
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_OFFSET=0x8000
+
+# ── FreeRTOS ──────────────────────────────────────────────────────────
+# 1000 Hz giver LVGL et jaevnt tick og goer rulning og tryk foelsomme.
+CONFIG_FREERTOS_HZ=1000
+
+# ── Skaerm ────────────────────────────────────────────────────────────
+CONFIG_LCD_BOARD_SENSECAP_INDICATOR_D1=y
+# GX er standardpanelet i D1. Er billedet forskudt eller har forkerte
+# farver paa den enhed du flasher, saa skift til
+# CONFIG_SENSECAP_INDICATOR_SCREEN_DX=y i stedet.
+CONFIG_SENSECAP_INDICATOR_SCREEN_GX=y
+# Uden dette river billedet naar noget bevaeger sig.
+CONFIG_LCD_AVOID_TEAR=y
+CONFIG_LCD_LVGL_DIRECT_MODE=y
+CONFIG_LCD_TASK_REFRESH_TIME=10
+
+# ── LVGL ──────────────────────────────────────────────────────────────
+CONFIG_LV_MEM_CUSTOM=y
+CONFIG_LV_TXT_ENC_UTF8=y
+CONFIG_LV_FONT_DEFAULT_MONTSERRAT_14=y
+CONFIG_LV_FONT_MONTSERRAT_14=y
+# De oevrige indbyggede skrifttyper er slaaet fra. Vi bruger vores egne
+# fra Funnel Sans, og hver ubrugt Montserrat-stoerrelse fylder mellem
+# 10 og 60 KB i flash uden at blive tegnet én gang.
+CONFIG_LV_FONT_UNSCII_8=n
+
+# ── Bluetooth ─────────────────────────────────────────────────────────
+# Slaaet helt fra. Skaermen bruger kun wifi, og BT-stakken fylder over
+# 400 KB flash og en pæn del RAM. Mindre kode er ogsaa mindre angrebsflade.
+CONFIG_BT_ENABLED=n
+
+# ── Wifi ──────────────────────────────────────────────────────────────
+# Vi vil kunne se alle netvaerk i naerheden i opsaetningen.
+CONFIG_ESP_WIFI_SOFTAP_SUPPORT=n
+CONFIG_ESP_WIFI_ENABLE_WPA3_SAE=y
+
+# ── Netvaerk ──────────────────────────────────────────────────────────
+# Netvaerksscanningen proever mange adresser paa én gang for at kunne
+# gennemgaa et helt undernet paa faa sekunder. Standard er 10 sockets,
+# og det er for lidt.
+CONFIG_LWIP_MAX_SOCKETS=16
+# Vi skal selv kunne saette timeout paa hver enkelt laesning.
+CONFIG_LWIP_SO_RCVBUF=y
+CONFIG_LWIP_SO_LINGER=y
+# Uret hentes fra NTP. Uden det staar skaermen og viser 1970.
+CONFIG_LWIP_SNTP_MAX_SERVERS=2
+
+# ── Vagthund ──────────────────────────────────────────────────────────
+# En skaerm der haenger paa en vaeg skal komme sig selv hvis en opgave
+# gaar i staa. Ingen er i naerheden til at trykke reset.
+CONFIG_ESP_TASK_WDT_EN=y
+CONFIG_ESP_TASK_WDT_INIT=y
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=30
+CONFIG_ESP_INT_WDT=y
+
+# ── Log ───────────────────────────────────────────────────────────────
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LOG_MAXIMUM_LEVEL_DEBUG=y

@@ -1,0 +1,4 @@
+[submodule "firmware/vendor/SenseCAP_Indicator_ESP32"]
+	path = firmware/vendor/SenseCAP_Indicator_ESP32
+	url = https://github.com/Seeed-Solution/SenseCAP_Indicator_ESP32.git
+	branch = main

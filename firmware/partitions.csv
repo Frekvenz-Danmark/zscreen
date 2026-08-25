@@ -1,0 +1,19 @@
+# zScreen - partitionstabel til 8 MB flash
+#
+# To app-pladser fra starten, selvom vi ikke opdaterer over netvaerket
+# endnu. Partitionstabellen ligger fast paa en enhed der er sendt ud til
+# en kunde: skal vi senere kunne opdatere skaermen uden at hente den
+# hjem og saette den i USB, SKAL der vaere plads til to udgaver af
+# programmet allerede nu. Det koster ingenting at have pladsen staaende
+# tom, og det er umuligt at tilfoeje bagefter.
+#
+# storage staar tom indtil videre. Den er taenkt til gemte maalinger
+# hvis vi senere vil vise en dagsgraf.
+#
+# Navn      Type  Undertype Offset    Stoerrelse
+nvs,        data, nvs,      0x9000,   0x6000
+otadata,    data, ota,      0xF000,   0x2000
+phy_init,   data, phy,      0x11000,  0x1000
+ota_0,      app,  ota_0,    0x20000,  0x300000
+ota_1,      app,  ota_1,    ,         0x300000
+storage,    data, spiffs,   ,         0x1D0000

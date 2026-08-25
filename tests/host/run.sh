@@ -57,6 +57,11 @@ SRC=(
     ../../firmware/main/app/zs_format.c
 )
 
+# Headerne tjekkes foerst. Et navnesammenstoed mellem en konstant og en
+# include-guard giver ikke en advarsel, kun en mystisk fejl et helt
+# andet sted, saa det skal fanges hver gang og ikke naar nogen husker det.
+../../tools/check-headers.sh
+
 echo "Oversaetter ..."
 "${CC}" "${CFLAGS[@]}" "${SRC[@]}" -lm -o "${OUT}/run"
 echo "Kører ..."
