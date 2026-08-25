@@ -190,6 +190,69 @@ cd firmware && idf.py -p /dev/cu.usbmodemXXXX flash monitor
 
 `docs/test-plan.md` har hele tjeklisten.
 
+## 2026-08-25 20:37 · Side 2, demo, tastaturfejl og fejljagt
+
+Side 2 med energiflow, swipe og prikker. Demo-tilstand. Fem fejl
+rettet. Ny E2E-test af hele datavejen: 24 tjek.
+
+**Fronius efterprøvet mod produktionskode**
+
+Elmålerens fortegn stod som ikke efterprøvet. Det er det nu, mod evcc's
+template til netop Fronius GEN24, som kører på tusindvis af anlæg:
+
+- Batteri: `-160:3:DCW + 160:4:DCW`, altså aflad minus lad, positiv =
+  aflader. Samme fortegn som vores
+- Elmåler: `20x:W` læses råt uden negering, og evcc's grid-måler er
+  positiv ved køb. Vores standard er rigtigt
+- Målerens Modbus-enhed er 200, flere målere får 201, 202. Vores
+  søgerækkefølge passer
+- PV er `160:1:DCW + 160:2:DCW`, batteri er kanal 3 og 4. Vores
+  navnebaserede løsning er en generalisering af det samme
+
+evcc PR 18386 om Fronius handler om at skrive til model 124. Vi
+skriver ikke, så den rører os ikke.
+
+**Fejl fundet og rettet**
+
+1. Tastaturet skiftede tast under fingeren. Tre årsager, alle bekræftet
+   i LVGL's kilde: `CLICK_TRIG` manglede, så tasten blev sendt når
+   fingeren ramte og igen for hver tast den gled over. `NO_REPEAT`
+   manglede, så en holdt tast gentog sig. Og layoutskiftet skete inde
+   fra tryk-håndteringen, hvor `lv_btnmatrix_set_map()` bygger gitteret
+   om mens LVGL står midt i trykket. Nu sendes tasten først når fingeren
+   slippes, og layoutskift udskydes med `lv_async_call`.
+
+2. En afbrudt inverter-søgning rev brugeren tilbage. Trykkede man
+   tilbage under søgningen, viste den alligevel resultatet et halvt
+   sekund senere og skiftede side.
+
+3. Prikkernes fingerflader overlappede: 207..251 og 228..272, så et tryk
+   til højre for første prik ramte den anden. Afstanden er nu 30 px og
+   fladen 38, altså 201..239 og 241..279.
+
+4. Uinitialiserede felter i netværksscanningen. `probe_batch` havde to
+   betingelser i samme løkke; stoppede den anden tidligt, blev resten af
+   `fds[]` og `alive[]` læst uden at være skrevet. Kan ikke ske i dag,
+   men ville ske hvis nogen ændrede den ene grænse.
+
+5. `zs_fr_t` på stakken hvert sekund i demoens detaljeside. 850 bytes af
+   opgavens 8 KB. Nu static.
+
+**Ny E2E-test**
+
+`tests/e2e/run.py` starter en simuleret Fronius, lader firmwarens egen
+kode tale med den over en rigtig TCP-forbindelse, og sammenligner de
+fire tal med det simulatoren siger den har. Alle seks anlægstyper, base
+40000 og 40001, og fire fejltilstande: lukket port, åben port uden
+Modbus, rent skrald som svar, og en inverter der forsvinder midt i.
+
+Det fanger det enhedstestene ikke kan: at to dele hver for sig er
+rigtige men uenige om hvad de sender til hinanden. Præcis sådan fejlen
+med elmålerens modelnumre kom igennem.
+
+`tests/run-all.sh` kører det hele: 22 guards, 5 skrifttyper, 218
+enhedstest, 24 E2E.
+
 ---
 
 ## 2026-08-25 15:43 · Datalaget står færdigt og er testet
