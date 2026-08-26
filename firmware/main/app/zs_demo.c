@@ -22,21 +22,53 @@
 #define DAY_SECONDS      86400.0f
 #define DEMO_SPEED       (DAY_SECONDS / 180.0f)   /* 480 gange normal tid */
 
-#define PV_PEAK_W        7000.0f
+/*
+ * Tallene er et almindeligt dansk parcelhus, ikke et kraftvaerk.
+ *
+ *   7 kWp paa taget, hvilket er en helt normal stoerrelse herhjemme.
+ *   Toppen er 5,5 kW og ikke 7. Et panel yder sjaeldent sin
+ *   maerkeeffekt: solen staar lavt paa 56 grader nord, og panelerne
+ *   bliver varme om sommeren. 78 procent er hvad man faktisk ser.
+ *
+ *   Solen staar op 5:30 og gaar ned 21:00, altsaa en klar dag i juni.
+ *   Det giver 37 kWh paa doegnet. EU's PVGIS siger 31 kWh som
+ *   gennemsnit for maj og juni for et anlaeg som det her ved Aarhus,
+ *   og det gennemsnit har graavejrsdagene med. En klar dag ligger
+ *   hoejere, og det er den vi viser.
+ *
+ *   Batteriet er 10,2 kWh og kan tage 5 kW. Det svarer til de
+ *   husbatterier der saelges til anlaeg i den stoerrelse.
+ */
+#define PV_PEAK_W        5500.0f
+#define PV_SUNRISE_H     5.5f
+#define PV_SUNSET_H      21.0f
+#define PV_SHAPE         2.8f
 #define BATTERY_WH       10240.0f
 #define BATTERY_MAX_W    5000.0f
 #define MIN_RESERVE_PCT  5.0f
-/* Batteriet rammer ikke sit maal oejeblikkeligt. Uden den forsinkelse
- * ville nettet staa paa praecis nul hele natten, og saa fik man aldrig
- * set hverken koeb eller salg paa skaermen. */
-#define BATTERY_TAU_S    90.0f
+/*
+ * Batteriet rammer ikke sit maal oejeblikkeligt.
+ *
+ * Uden forsinkelsen daekker batteriet forskellen mellem sol og forbrug
+ * praecis, og saa staar NETTET paa nul hele doegnet. Sandt er det ikke:
+ * en rigtig regulering haenger altid lidt bagefter, og der loeber hele
+ * tiden nogle hundrede watt til eller fra nettet.
+ *
+ * Tallet er i demoens egen tid, ikke i rigtige sekunder. Et skridt er
+ * to sekunder paa uret, hvilket er 960 sekunder i demoen. Med en
+ * tidskonstant paa 900 naar batteriet omkring 65 procent af vejen mod
+ * maalet paa ét skridt, og resten ses som koeb eller salg.
+ *
+ * Stod her 90, som der gjorde foer, ville batteriet vaere fremme paa
+ * foerste skridt og forsinkelsen ville ikke findes i praksis.
+ */
+#define BATTERY_TAU_S    900.0f
 
 static float s_day_s      = 13.0f * 3600.0f;   /* start midt paa dagen */
 static float s_soc        = 48.0f;
 static float s_battery_w  = 0.0f;
 static float s_drift      = 0.0f;
 static uint32_t s_rand    = 12345u;
-static char  s_clock[8]   = "13:00";
 
 /* Lille generator med fast startvaerdi. Vi vil have noget der ligner
  * stoej, ikke rigtig tilfaeldighed, og den skal opfoere sig ens hver
@@ -55,17 +87,27 @@ void zs_demo_reset(void)
     s_battery_w = 0.0f;
     s_drift = 0.0f;
     s_rand = 12345u;
-    snprintf(s_clock, sizeof(s_clock), "13:00");
 }
 
-/* Solkurve. Nul foer klokken 5 og efter 21, top ved middag. */
+/*
+ * Solkurven.
+ *
+ * En sinus loeftet i en potens. Potensen goer skuldrene lavere end en
+ * ren sinus, og det er den vigtige del: om morgenen og om aftenen
+ * staar solen lavt og rammer panelet skraat, saa der kommer meget
+ * mindre ud end midt paa dagen. Med en ren sinus ville doegnet give
+ * halvanden gang for meget.
+ *
+ * Toppen ligger midt mellem op- og nedgang, altsaa 13:15. Det passer
+ * med at solen staar hoejest omkring da paa dansk sommertid.
+ */
 static float solar_at(float hour)
 {
-    if (hour < 5.0f || hour > 21.0f) {
+    if (hour < PV_SUNRISE_H || hour > PV_SUNSET_H) {
         return 0.0f;
     }
-    float x = (hour - 5.0f) / 16.0f;
-    float base = powf(sinf((float)M_PI * x), 1.6f);
+    float x = (hour - PV_SUNRISE_H) / (PV_SUNSET_H - PV_SUNRISE_H);
+    float base = powf(sinf((float)M_PI * x), PV_SHAPE);
     return base > 0.0f ? PV_PEAK_W * base : 0.0f;
 }
 
@@ -97,10 +139,6 @@ void zs_demo_step(zs_fr_live_t *live, uint32_t dt_ms)
         s_day_s -= DAY_SECONDS;
     }
     float hour = s_day_s / 3600.0f;
-
-    int hh = (int)hour;
-    int mm = (int)((hour - (float)hh) * 60.0f);
-    snprintf(s_clock, sizeof(s_clock), "%02d:%02d", hh, mm);
 
     /* ── sol, fordelt paa to strenge ── */
     float sun = solar_at(hour);
@@ -232,9 +270,13 @@ void zs_demo_price(zs_price_day_t *ud)
     ud->antal = 24;
 
     /*
-     * Doegnkurven. To toppe, morgen og aften, og en bund midt paa
-     * dagen hvor solen producerer mest. Tallene er i samme
-     * stoerrelsesorden som en almindelig dag paa spotmarkedet.
+     * Doegnkurven for spotprisen.
+     *
+     * To toppe, morgen og aften, og en bund midt paa dagen hvor solen
+     * producerer mest. Stoerrelserne er en almindelig dag paa det
+     * danske spotmarked: bunden omkring 20 oere, toppen omkring en
+     * krone. Det er ren spotpris, altsaa uden afgifter og transport,
+     * praecis som paa prissiden.
      */
     float sum = 0.0f;
     for (uint8_t h = 0; h < 24; h++) {
@@ -242,10 +284,10 @@ void zs_demo_price(zs_price_day_t *ud)
         float m = x - 7.5f;
         float a = x - 19.0f;
         float d = x - 13.0f;
-        float pris = 1.05f
-                   + 0.45f * expf(-(m * m) / 6.0f)     /* morgenspids  */
-                   + 0.60f * expf(-(a * a) / 5.0f)     /* aftenspids   */
-                   - 0.50f * expf(-(d * d) / 14.0f);   /* midt paa dagen */
+        float pris = 0.55f
+                   + 0.30f * expf(-(m * m) / 6.0f)     /* morgenspids  */
+                   + 0.45f * expf(-(a * a) / 5.0f)     /* aftenspids   */
+                   - 0.35f * expf(-(d * d) / 14.0f);   /* midt paa dagen */
         if (pris < 0.05f) {
             pris = 0.05f;
         }
@@ -260,14 +302,13 @@ void zs_demo_price(zs_price_day_t *ud)
         if (ud->timer[i].dkk < ud->timer[ud->billigst].dkk) { ud->billigst = i; }
         if (ud->timer[i].dkk > ud->timer[ud->dyrest].dkk)   { ud->dyrest = i; }
     }
-    /* Den fremhaevede time foelger demoens eget ur, ikke maskinens. */
-    int h = (int)(s_day_s / 3600.0f);
-    ud->nu = (int8_t)((h >= 0 && h < 24) ? h : 0);
-}
-
-const char *zs_demo_clock(void)
-{
-    return s_clock;
+    /*
+     * Den fremhaevede time saettes af den SAMME funktion som bruges til
+     * rigtige priser, saa den peger paa det klokkeslaet der staar i
+     * toplinjen. Foer fulgte den demoens eget ur, og saa stod pilen et
+     * andet sted end uret sagde.
+     */
+    zs_price_update_now(ud);
 }
 
 #endif /* ZS_DEMO_ENABLED */

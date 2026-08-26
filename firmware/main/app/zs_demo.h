@@ -50,8 +50,6 @@ void zs_demo_step(zs_fr_live_t *live, uint32_t dt_ms);
  * har noget at vise. */
 void zs_demo_info(zs_fr_info_t *info);
 
-/* Klokkeslaet i demoens egen tid, fx "13:24". */
-const char *zs_demo_clock(void);
 
 /*
  * Opdigtede elpriser med samme form som de rigtige.

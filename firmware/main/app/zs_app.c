@@ -238,7 +238,15 @@ static void publish_home(void)
         s_home.has_battery = true;
         s_home.link        = ZS_LINK_OK;
         s_home.rssi        = -55;
-        s_home.time_text   = zs_demo_clock();
+        /*
+         * Uret er maskinens, ikke demoens.
+         *
+         * Demoen koerer et doegn paa tre minutter, saa dens eget ur
+         * ville springe et kvarter frem hvert andet sekund. Det ligner
+         * en fejl, ikke en fremvisning. Tallene i kasserne foelger
+         * demoens doegn, men klokken i toplinjen staar som den skal.
+         */
+        s_home.time_text   = s_clock_ok ? s_time_text : NULL;
         s_home.demo        = true;
         zs_ui_set_home(&s_home);
         return;

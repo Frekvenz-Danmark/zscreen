@@ -71,5 +71,6 @@ void test_format(void);
 void test_fronius(void);
 void test_version(void);
 void test_tilegrid(void);
+void test_demo(void);
 
 #endif /* ZS_TEST_H */

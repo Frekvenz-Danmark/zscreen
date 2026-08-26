@@ -35,6 +35,14 @@ CFLAGS=(
     -Wstrict-prototypes
     -Wmissing-prototypes
     -Wno-unused-parameter
+    # Modulerne finder hinanden med korte navne, praecis som naar
+    # firmwaren bygges. Uden det skulle hver include skrives med sti,
+    # og saa ville de to bygninger ikke se ens ud.
+    -I../../firmware/main
+    -I../../firmware/main/app
+    -I../../firmware/main/net
+    -I../../firmware/main/ui
+    -I../../firmware/main/storage
 )
 
 # Sanitizers fanger laesning uden for bufferen og heltalsoverloeb.
@@ -54,11 +62,14 @@ SRC=(
     test_fronius.c
     test_version.c
     test_tilegrid.c
+    test_demo.c
     ../../firmware/main/net/zs_modbus_tcp.c
     ../../firmware/main/net/zs_sunspec.c
     ../../firmware/main/app/zs_format.c
     ../../firmware/main/net/zs_version.c
     ../../firmware/main/ui/zs_tilegrid.c
+    ../../firmware/main/app/zs_demo.c
+    ../../firmware/main/net/zs_price_now.c
 )
 
 # Headerne tjekkes foerst. Et navnesammenstoed mellem en konstant og en

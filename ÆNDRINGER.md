@@ -1,3 +1,62 @@
+## 2026-08-26 18:43
+
+### Demoen er tilbage, med tal der kan lade sig goere
+ZS_DEMO_ENABLED staar paa 1 igen. Knappen "Se demo" er tilbage paa
+velkomstsiden.
+
+Uret i toplinjen viser nu maskinens klokkeslaet, ikke demoens. Demoen
+koerer et doegn paa tre minutter, saa dens eget ur sprang et kvarter frem
+hvert andet sekund. Det ligner en fejl, ikke en fremvisning. Tallene i
+kasserne foelger stadig demoens doegn.
+
+Den fremhaevede time paa prissiden saettes af den samme funktion som
+bruges til rigtige priser, saa pilen peger paa det klokkeslaet der staar
+i toppen. Foer fulgte den demoens ur og stod et andet sted.
+
+### Tallene er et dansk parcelhus, ikke et kraftvaerk
+Solen toppede paa 7000 W, altsaa 100 procent af maerkeeffekten, og gav
+60 kWh paa et doegn. Det svarer til 3175 kWh pr. kWp om aaret. EU's
+PVGIS siger 985 for et anlaeg som det her ved Aarhus, altsaa tre gange
+for meget.
+
+Nu topper den paa 5500 W, som er 79 procent. Et panel yder sjaeldent sin
+maerkeeffekt: solen staar lavt paa 56 grader nord, og panelerne bliver
+varme om sommeren. Doegnet giver 37 kWh, hvilket er en klar dag i juni.
+PVGIS' 31 kWh er et maanedsgennemsnit med graavejrsdagene talt med.
+
+Spotpriserne laa paa en krone som bund og gik til 1,70. Nu er bunden 20
+oere og toppen omkring en krone, som en almindelig dag paa det danske
+marked.
+
+### Nettet stod paa nul hele natten
+Batteriets forsinkelse havde en tidskonstant paa 90 sekunder, men hvert
+skridt i demoen er 960 sekunder. Batteriet var altsaa fremme paa foerste
+skridt, daekkede forskellen mellem sol og forbrug praecis, og NETTET stod
+paa nul. En rigtig regulering haenger altid lidt bagefter, og der loeber
+hele tiden nogle hundrede watt til eller fra nettet. Tidskonstanten er nu
+900, saa batteriet naar to tredjedele af vejen pr. skridt.
+
+### 45 nye tests paa demoens tal
+Det vigtigste af dem: forbrug skal vaere lig inverter plus net, i hvert
+eneste skridt, tre doegn igennem. De fire tal kan ikke vaelges frit, og
+passer regnestykket ikke, staar der fire tal paa skaermen der tilsammen
+siger noget umuligt. Afvigelsen er under en watt.
+
+Derudover: solen topper mellem 5 og 6 kW og bliver aldrig negativ,
+doegnet giver 30 til 45 kWh, forbruget 11 til 22 kWh, batteriet holder
+sig under 5 kW, et fuldt batteri lader ikke videre og et tomt aflader
+ikke videre, og priserne er billigst midt paa dagen og dyrest morgen
+eller aften.
+
+zs_price_update_now er flyttet ud i sin egen fil. Den bruger kun time.h,
+mens resten af prismodulet trAEkker hele HTTP-laget med, og nu kan baade
+den og demoen oversaettes paa en almindelig maskine.
+
+### Version 0.3.0
+Nummeret er hoejnet fordi koden er aendret siden v0.2.0 blev udgivet. Der
+er ikke lavet en ny udgivelse: demoen er til fremvisning, ikke til
+kundernes skaerme.
+
 ## 2026-08-25 23:47
 
 ### Version 0.2.0
