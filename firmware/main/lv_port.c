@@ -173,6 +173,27 @@ static void button_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
  * eneste virkning var at optage plads i den interne hukommelse, som er
  * knap, og at give en advarsel om modstridende sektioner fordi
  * erklaeringen ovenfor manglede det samme maerke. */
+/*
+ * zScreen: beroeringen skal vaere gyldig, ikke bare til stede.
+ *
+ * Seeeds egen kode har en note om at FT-kredsen kan svare 0xff foer
+ * det foerste tryk, men den goer ikke noget ved det. Maalt paa en D1
+ * lige efter opstart melder kredsen raa koordinater som 12204, 50336
+ * og 65531, hvor gyldige vaerdier er 0 til 479.
+ *
+ * Den gamle kode regnede 480 minus det tal og gav resultatet videre.
+ * Med 65531 giver det -65051, som ikke kan vaere i den int16 LVGL
+ * bruger, saa tallet folder rundt og lander et tilfaeldigt sted paa
+ * skaermen. Blev "pressed" sandt et enkelt oejeblik, fik LVGL et tryk
+ * paa et vilkaarligt punkt, og hvad der end laa der blev trykket paa.
+ *
+ * Det er ikke teori. Skaermen startede demoen af sig selv halvandet
+ * sekund efter opstart, uden at nogen roerte den.
+ *
+ * Derfor: et tryk taeller kun hvis baade x og y ligger indenfor
+ * skaermen. Ellers melder vi sluppet, praecis som naar ingen roerer
+ * den. Vi kaster hellere et rigtigt tryk vaek end at opfinde ét.
+ */
 static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
 {
     static uint16_t x = 0, y = 0;
@@ -181,11 +202,17 @@ static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
     if (ESP_OK != indev_get_major_value(&indev_data)) {
         return;
     }
-    /* FT series touch IC might return 0xff before first touch. */
-    if (indev_data.pressed) {
+
+    bool gyldig = indev_data.pressed
+               && indev_data.x < CONFIG_LCD_EVB_SCREEN_WIDTH
+               && indev_data.y < CONFIG_LCD_EVB_SCREEN_HEIGHT;
+
+    if (gyldig) {
+        /* Panelet er monteret vendt om, derfor traekkes der fra. Efter
+         * tjekket ovenfor kan resultatet ikke blive negativt. */
         data->state = LV_INDEV_STATE_PR;
-        data->point.x = CONFIG_LCD_EVB_SCREEN_WIDTH - indev_data.x;
-        data->point.y = CONFIG_LCD_EVB_SCREEN_HEIGHT - indev_data.y;
+        data->point.x = CONFIG_LCD_EVB_SCREEN_WIDTH  - 1 - indev_data.x;
+        data->point.y = CONFIG_LCD_EVB_SCREEN_HEIGHT - 1 - indev_data.y;
         x = data->point.x;
         y = data->point.y;
 
@@ -195,7 +222,6 @@ static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
         data->point.x = x;
         data->point.y = y;
     }
-    //ESP_LOGI(TAG, "Touch (%u) : [%3u, %3u] - 0x%02X", indev_data.pressed, data->point.x, data->point.y, indev_data.btn_val);
 }
 
 /**

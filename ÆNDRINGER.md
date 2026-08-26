@@ -1,3 +1,33 @@
+## 2026-08-26 19:07
+
+### Skaermen startede demoen af sig selv
+Halvandet sekund efter opstart stod der "demo startet" i loggen, uden at
+nogen havde roert skaermen. Det skete ikke hver gang, hvilket er den
+vaerste slags: den slags fejl finder man ikke ved at proeve.
+
+Aarsagen sad i beroeringen. Seeeds egen kode har en note om at FT-kredsen
+kan svare 0xff foer det foerste tryk, men den goer ikke noget ved det.
+Maalt paa enheden lige efter opstart melder kredsen raa koordinater som
+12204, 50336 og 65531, hvor gyldige vaerdier er 0 til 479.
+
+Koden regnede 480 minus det tal og gav resultatet videre. Med 65531 giver
+det -65051, som ikke kan vaere i den int16 LVGL bruger, saa tallet folder
+rundt og lander et tilfaeldigt sted paa skaermen. Blev "pressed" sandt et
+enkelt oejeblik, fik LVGL et tryk paa et vilkaarligt punkt, og hvad der
+end laa der blev trykket paa. Paa velkomstsiden laa "Se demo".
+
+Nu taeller et tryk kun hvis baade x og y ligger indenfor skaermen. Ellers
+melder vi sluppet. Vi kaster hellere et rigtigt tryk vaek end at opfinde
+ét.
+
+Samtidig er der trukket én fra: skaermen er 480 pixels bred, saa den
+hoejeste gyldige koordinat er 479. Foer kunne et tryk i venstre kant give
+480, altsaa en pixel udenfor.
+
+Efterproevet: to opstarter i traek uden at demoen startede. Fejlen var
+uregelmaessig, saa det er ikke i sig selv et bevis. Beviset er maalingen:
+de tal der blev sendt videre foer, kan ikke laengere komme igennem.
+
 ## 2026-08-26 18:43
 
 ### Demoen er tilbage, med tal der kan lade sig goere
