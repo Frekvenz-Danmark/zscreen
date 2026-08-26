@@ -117,7 +117,9 @@ void zs_selftest_run(void)
     ESP_LOGI(TAG, "start: %u KB fri", (unsigned)(foer / 1024));
 
     for (int runde = 0; runde < RUNDER; runde++) {
-        zs_theme_mode_t t = (runde % 2 == 0) ? ZS_THEME_LIGHT : ZS_THEME_DARK;
+        /* Gaa alle temaer igennem, ikke kun to. Tilfoejes et, kommer
+         * det med af sig selv. */
+        zs_theme_mode_t t = (zs_theme_mode_t)(runde % ZS_THEME_COUNT);
         zs_ui_set_theme(t);
 
         for (size_t i = 0; i < ANTAL_SIDER; i++) {

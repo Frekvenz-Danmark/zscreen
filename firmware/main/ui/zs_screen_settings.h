@@ -43,6 +43,9 @@ void zs_settings_destroy(void);
 /* Maler tema-vaelgeren om saa den viser hvad der er valgt. */
 void zs_settings_set_theme(zs_theme_mode_t m);
 
+/* Tema-sidens rod. */
+lv_obj_t *zs_theme_page_root(void);
+
 #ifdef __cplusplus
 }
 #endif

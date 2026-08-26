@@ -480,35 +480,6 @@ static void on_zone_back(lv_event_t *e)
 
 /* Ét stort valg med forklaring under. To knapper der fylder halvdelen
  * hver ville tvinge teksten ned i to smalle spalter. */
-static lv_obj_t *zone_button(lv_obj_t *parent, const char *titel,
-                             const char *forklaring, lv_coord_t y,
-                             lv_event_cb_t cb)
-{
-    lv_obj_t *b = lv_btn_create(parent);
-    lv_obj_remove_style_all(b);
-    lv_obj_set_size(b, ZS_CONTENT_WIDTH, 92);
-    lv_obj_set_pos(b, ZS_EDGE, y);   /* samme kant som alt andet */
-    lv_obj_set_style_bg_color(b, lv_color_hex(ZS_C_CARD), 0);
-    lv_obj_set_style_bg_opa(b, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(b, 16, 0);
-    lv_obj_set_style_border_width(b, 1, 0);
-    lv_obj_set_style_border_color(b, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_set_style_bg_color(b, lv_color_hex(ZS_C_ACCENT), LV_STATE_PRESSED);
-    lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *t = lv_label_create(b);
-    lv_label_set_text(t, titel);
-    zs_style_text(t, &zs_font_28, ZS_C_TEXT);
-    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 16, 14);
-
-    lv_obj_t *f = lv_label_create(b);
-    lv_label_set_text(f, forklaring);
-    zs_style_text(f, &zs_font_16, ZS_C_LABEL);
-    lv_label_set_long_mode(f, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(f, ZS_CONTENT_WIDTH - 32);
-    lv_obj_align(f, LV_ALIGN_TOP_LEFT, 16, 50);
-    return b;
-}
 
 static void build_zone(void)
 {
@@ -521,11 +492,14 @@ static void build_zone(void)
     lv_obj_set_width(h, ZS_CONTENT_WIDTH);
     lv_obj_set_pos(h, ZS_EDGE, 16);
 
-    zone_button(s_zone.content, "Vest for Storebælt",
-                "Jylland og Fyn. Kaldes DK1.", 56, on_zone_dk1);
-    zone_button(s_zone.content, "Øst for Storebælt",
-                "Sjælland, Lolland, Falster og Bornholm. Kaldes DK2.",
-                160, on_zone_dk2);
+    /* Samme knap som paa tema-siden. Se zs_choice_create. */
+    zs_choice_create(s_zone.content, "Vest for Storebælt",
+                     "Jylland og Fyn. Kaldes DK1.", 56, false,
+                     on_zone_dk1, NULL);
+    zs_choice_create(s_zone.content, "Øst for Storebælt",
+                     "Sjælland, Lolland, Falster og Bornholm. Kaldes DK2.",
+                     56 + ZS_CHOICE_HEIGHT + ZS_CHOICE_GAP, false,
+                     on_zone_dk2, NULL);
 }
 
 /* ------------------------------------------------------------------ */

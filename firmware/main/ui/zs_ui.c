@@ -76,11 +76,12 @@ static lv_obj_t *root_of(zs_screen_id_t id)
     case ZS_SCREEN_HOME:          return zs_screen_home_root();
     case ZS_SCREEN_SETTINGS:      return zs_settings_root();
     case ZS_SCREEN_DETAILS:       return zs_details_root();
+    case ZS_SCREEN_THEME:         return zs_theme_page_root();
     }
     return NULL;
 }
 
-#define SCREEN_COUNT  (ZS_SCREEN_DETAILS + 1)
+#define SCREEN_COUNT  (ZS_SCREEN_THEME + 1)
 
 /*
  * Skifter side UDEN at tage laasen. Kalderen skal holde den.

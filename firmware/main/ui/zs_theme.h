@@ -66,6 +66,7 @@ typedef enum {
     ZS_ID_LABEL,
     ZS_ID_STALE,
     ZS_ID_VALUE,
+    ZS_ID_BADGE_TEXT,
     ZS_ID_ACCENT,
     ZS_ID_GOOD,
     ZS_ID_BAD,
@@ -106,6 +107,18 @@ uint32_t zs_col(zs_col_id_t id);
 #define ZS_C_VALUE          zs_col(ZS_ID_VALUE)
 #define ZS_C_ACCENT         zs_col(ZS_ID_ACCENT)
 
+/*
+ * Teksten paa et statusmaerke i toplinjen.
+ *
+ * Maerket er en fyldt flade med et ord paa. Farven paa fladen kommer
+ * fra tilstanden, og den her er farven paa ordet. Den hoerer til temaet
+ * og ikke til tilstanden: paa moerk og lys bund er et lyst maerke med
+ * moerk skrift rigtigt, og paa roed bund er det noget andet der
+ * fungerer. Foer blev bundfarven brugt, og det holdt kun saa laenge der
+ * var to temaer der lignede hinanden.
+ */
+#define ZS_C_BADGE_TEXT     zs_col(ZS_ID_BADGE_TEXT)
+
 /* Retning og tilstand. Groen naar der kommer noget ind i huset uden at
  * koste noget, roed naar der koebes. */
 #define ZS_C_GOOD           zs_col(ZS_ID_GOOD)
@@ -116,6 +129,7 @@ uint32_t zs_col(zs_col_id_t id);
 typedef enum {
     ZS_THEME_DARK  = 0,     /* standard, og det skaermen starter i */
     ZS_THEME_LIGHT = 1,
+    ZS_THEME_RED   = 2,
     ZS_THEME_COUNT
 } zs_theme_mode_t;
 
@@ -131,8 +145,12 @@ void zs_theme_set_mode(zs_theme_mode_t m);
 
 zs_theme_mode_t zs_theme_mode(void);
 
-/* Navnet til brugerfladen: "Mørkt" eller "Lyst". */
+/* Navnet paa temaet, fx "Mørkt". */
 const char *zs_theme_name(zs_theme_mode_t m);
+
+/* Én linje der siger hvad temaet er godt til. Bruges under navnet paa
+ * valgsiden, samme sted som forklaringen ved DK1 og DK2. */
+const char *zs_theme_hint(zs_theme_mode_t m);
 
 /* ── Skrifttyper ──────────────────────────────────────────────────── */
 /* Funnel Sans, den samme som frekvenz.nu og Zbox-webfladen. */
@@ -328,6 +346,24 @@ typedef struct {
 /* icon og value maa vaere NULL. out maa ikke. */
 void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
                    const char *title, const char *value, bool chevron);
+
+/*
+ * En stor valgknap med overskrift og en linje forklaring under.
+ *
+ * Bruges hvor kunden skal vaelge én ting ud af faa: prisomraade i
+ * opsaetningen, tema under Indstillinger. Ét sted, saa de to sider ser
+ * ens ud og bliver ved med det.
+ *
+ * valgt tegner en tydelig kant, saa man kan se hvad der staar paa nu.
+ * y er afstanden ned fra toppen af indholdet.
+ */
+lv_obj_t *zs_choice_create(lv_obj_t *parent, const char *titel,
+                           const char *forklaring, lv_coord_t y, bool valgt,
+                           lv_event_cb_t cb, void *user_data);
+
+/* Hoejden paa en valgknap, saa kalderen kan regne y ud. */
+#define ZS_CHOICE_HEIGHT    92
+#define ZS_CHOICE_GAP       12
 
 /*
  * En beholder der stabler sine boern lodret med lige meget luft

@@ -38,7 +38,9 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
      */
     sb->badge = lv_label_create(sb->bar);
     lv_label_set_text(sb->badge, "");
-    zs_style_text(sb->badge, &zs_font_13, ZS_C_BG);
+    /* Skriften paa maerket hoerer til temaet, ikke til bunden.
+     * Se noten ved ZS_C_BADGE_TEXT i zs_theme.h. */
+    zs_style_text(sb->badge, &zs_font_13, ZS_C_BADGE_TEXT);
     lv_obj_set_style_text_letter_space(sb->badge, 1, 0);
     lv_obj_set_style_bg_opa(sb->badge, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(sb->badge, 6, 0);

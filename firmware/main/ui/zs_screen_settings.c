@@ -22,9 +22,10 @@ static lv_obj_t *s_slider_val;
 static lv_obj_t *s_sw_night;
 static lv_obj_t *s_sw_meter;
 static lv_obj_t *s_det_col;
-static lv_obj_t *s_seg[ZS_THEME_COUNT];
 static zs_row_t  s_row_demo;
 static zs_row_t  s_row_zone;
+static zs_row_t  s_row_tema;
+static zs_page_t s_tema;
 static zs_row_t  s_row_soft;
 
 /* ------------------------------------------------------------------ */
@@ -37,53 +38,6 @@ static void send_simple(zs_cmd_type_t t)
     memset(&c, 0, sizeof(c));
     c.type = t;
     zs_app_send(&c);
-}
-
-/*
- * Tema-vaelgeren: to segmenter der deler bredden praecis.
- *
- * Maalene er regnet ud, ikke skudt efter:
- *   kortet er ZS_CONTENT_WIDTH bredt med 16 px luft hele vejen rundt,
- *   saa der er ZS_CONTENT_WIDTH - 32 tilbage indeni. Det tal deles i
- *   to lige store segmenter, saa de tilsammen flugter med kortets
- *   inderkant i baade venstre og hoejre side.
- */
-#define SEG_W       ((ZS_CONTENT_WIDTH - 32) / 2)
-#define SEG_H       40
-#define TEMA_KORT_H 102
-
-static void on_theme(lv_event_t *e)
-{
-    zs_cmd_t c;
-    memset(&c, 0, sizeof(c));
-    c.type = ZS_CMD_SET_THEME;
-    c.u8   = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
-    zs_app_send(&c);
-}
-
-/* Maler segmenterne om saa det valgte er fyldt og det andet er tomt. */
-static void theme_paint(zs_theme_mode_t valgt)
-{
-    for (int i = 0; i < ZS_THEME_COUNT; i++) {
-        if (s_seg[i] == NULL) {
-            continue;
-        }
-        bool aktiv = (i == (int)valgt);
-        lv_obj_set_style_bg_color(s_seg[i],
-            lv_color_hex(aktiv ? ZS_C_ACCENT : ZS_C_BG), 0);
-        lv_obj_set_style_bg_opa(s_seg[i],
-            aktiv ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
-        lv_obj_t *lbl = lv_obj_get_child(s_seg[i], 0);
-        if (lbl != NULL) {
-            lv_obj_set_style_text_color(lbl,
-                lv_color_hex(aktiv ? ZS_C_BG : ZS_C_LABEL), 0);
-        }
-    }
-}
-
-void zs_settings_set_theme(zs_theme_mode_t m)
-{
-    theme_paint(m);
 }
 
 /* En raekke med en kontakt til hoejre. */
@@ -166,6 +120,73 @@ static void on_change_wifi(lv_event_t *e)
 {
     (void)e;
     send_simple(ZS_CMD_SETUP_RESTART);
+}
+
+static void on_change_tema(lv_event_t *e)
+{
+    (void)e;
+    zs_ui_show(ZS_SCREEN_THEME);
+}
+
+static void on_tema_tilbage(lv_event_t *e)
+{
+    (void)e;
+    zs_ui_show(ZS_SCREEN_SETTINGS);
+}
+
+static void on_tema_valgt(lv_event_t *e)
+{
+    zs_cmd_t c;
+    memset(&c, 0, sizeof(c));
+    c.type = ZS_CMD_SET_THEME;
+    c.u8   = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
+    zs_app_send(&c);
+    /*
+     * Vi gaar tilbage med det samme.
+     *
+     * Selve skiftet river alle sider ned og bygger dem op igen,
+     * inklusive den her side og knappen der lige blev trykket paa. Vi
+     * beder om siden FOER det sker, saa det er zs_ui_set_theme der
+     * lander os paa Indstillinger i det nye tema. Blev vi staaende,
+     * ville kunden se tema-siden tegnet om og skulle trykke tilbage
+     * selv.
+     */
+    zs_ui_show(ZS_SCREEN_SETTINGS);
+}
+
+static void build_tema(void)
+{
+    zs_page_create(&s_tema, "Tema", on_tema_tilbage, NULL, false);
+
+    lv_obj_t *h = lv_label_create(s_tema.content);
+    lv_label_set_text(h, "Vælg hvordan skærmen skal se ud.");
+    zs_style_text(h, &zs_font_16, ZS_C_LABEL);
+    lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(h, ZS_CONTENT_WIDTH);
+    lv_obj_set_pos(h, ZS_EDGE, 16);
+
+    /*
+     * Én knap pr. tema, i den raekkefoelge de staar i opregningen.
+     * Tilfoejes et tema, kommer det med her af sig selv: der er ingen
+     * liste at huske at rette.
+     */
+    zs_theme_mode_t nu = zs_theme_mode();
+    for (int i = 0; i < ZS_THEME_COUNT; i++) {
+        zs_theme_mode_t m = (zs_theme_mode_t)i;
+        lv_coord_t y = 56 + i * (ZS_CHOICE_HEIGHT + ZS_CHOICE_GAP);
+        zs_choice_create(s_tema.content, zs_theme_name(m), zs_theme_hint(m),
+                         y, m == nu, on_tema_valgt, (void *)(uintptr_t)i);
+    }
+}
+
+lv_obj_t *zs_theme_page_root(void) { return s_tema.root; }
+
+/* Skriver hvilket tema der er valgt, i raekken under Indstillinger. */
+void zs_settings_set_theme(zs_theme_mode_t m)
+{
+    if (s_row_tema.value != NULL) {
+        lv_label_set_text(s_row_tema.value, zs_theme_name(m));
+    }
 }
 
 static void on_change_zone(lv_event_t *e)
@@ -314,52 +335,13 @@ static void build_settings(void)
     detail_heading(col, "SKÆRM");
 
     /* Tema. Ligger foerst i SKAERM, fordi det aendrer hele skaermens
-     * udseende og de andre valg herunder ses i det tema man vaelger. */
-    lv_obj_t *trow = lv_obj_create(col);
-    lv_obj_remove_style_all(trow);
-    lv_obj_set_size(trow, ZS_CONTENT_WIDTH, TEMA_KORT_H);
-    lv_obj_clear_flag(trow, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(trow, lv_color_hex(ZS_C_CARD), 0);
-    lv_obj_set_style_bg_opa(trow, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(trow, 14, 0);
-    lv_obj_set_style_border_width(trow, 1, 0);
-    lv_obj_set_style_border_color(trow, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_set_style_pad_all(trow, 16, 0);
-
-    lv_obj_t *tl = lv_label_create(trow);
-    lv_label_set_text(tl, "Tema");
-    zs_style_text(tl, &zs_font_20, ZS_C_TEXT);
-    lv_obj_align(tl, LV_ALIGN_TOP_LEFT, 0, 0);
-
-    /* Sporet bag segmenterne. Det giver den tomme halvdel en kant, saa
-     * man kan se at der er to at vaelge imellem og ikke kun én knap. */
-    lv_obj_t *spor = lv_obj_create(trow);
-    lv_obj_remove_style_all(spor);
-    lv_obj_set_size(spor, SEG_W * 2, SEG_H);
-    lv_obj_align(spor, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-    lv_obj_clear_flag(spor, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(spor, lv_color_hex(ZS_C_BG), 0);
-    lv_obj_set_style_bg_opa(spor, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(spor, 12, 0);
-    lv_obj_set_style_pad_all(spor, 0, 0);
-
-    for (int i = 0; i < ZS_THEME_COUNT; i++) {
-        s_seg[i] = lv_obj_create(spor);
-        lv_obj_remove_style_all(s_seg[i]);
-        lv_obj_set_size(s_seg[i], SEG_W, SEG_H);
-        lv_obj_set_pos(s_seg[i], i * SEG_W, 0);
-        lv_obj_clear_flag(s_seg[i], LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_add_flag(s_seg[i], LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_set_style_radius(s_seg[i], 12, 0);
-        lv_obj_add_event_cb(s_seg[i], on_theme, LV_EVENT_CLICKED,
-                            (void *)(uintptr_t)i);
-
-        lv_obj_t *lbl = lv_label_create(s_seg[i]);
-        lv_label_set_text(lbl, zs_theme_name((zs_theme_mode_t)i));
-        zs_style_text(lbl, &zs_font_20, ZS_C_LABEL);
-        lv_obj_center(lbl);
-    }
-    theme_paint(zs_theme_mode());
+     * udseende og de andre valg herunder ses i det tema man vaelger.
+     * Samme slags raekke som Prisområde: den viser hvad der er valgt og
+     * aabner en side hvor man vaelger. */
+    zs_row_create(&s_row_tema, col, ZS_ICON_SUN, "Tema", "", true);
+    lv_obj_set_width(s_row_tema.row, ZS_CONTENT_WIDTH);
+    lv_obj_add_flag(s_row_tema.row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_row_tema.row, on_change_tema, LV_EVENT_CLICKED, NULL);
 
     /* Lysstyrke. Skyderen er 40 px hoej og hele raden 76, saa den kan
      * rammes uden at sigte. */
@@ -465,6 +447,7 @@ void zs_settings_create(void)
 {
     build_settings();
     build_details();
+    build_tema();
 }
 
 lv_obj_t *zs_settings_root(void) { return s_set.root; }
@@ -483,7 +466,8 @@ void zs_settings_update(const zs_settings_t *s, const char *ip)
         lv_label_set_text(s_row_inv.value,
                           s->inverter_ip[0] ? s->inverter_ip : "Ikke valgt");
     }
-    zs_settings_set_theme((zs_theme_mode_t)(s->theme <= 1 ? s->theme : 0));
+    zs_settings_set_theme((zs_theme_mode_t)
+        (s->theme < ZS_THEME_COUNT ? s->theme : ZS_THEME_DARK));
 
     if (s_row_zone.value != NULL) {
         /* Vi skriver hvor det er, ikke kun koden. "DK2" siger ingen
@@ -715,7 +699,7 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
  */
 void zs_settings_destroy(void)
 {
-    zs_page_t *sider[] = { &s_set, &s_det };
+    zs_page_t *sider[] = { &s_set, &s_det, &s_tema };
     for (size_t i = 0; i < sizeof(sider) / sizeof(sider[0]); i++) {
         if (sider[i]->root != NULL) {
             lv_obj_del(sider[i]->root);
@@ -727,11 +711,11 @@ void zs_settings_destroy(void)
     memset(&s_row_inv,  0, sizeof(s_row_inv));
     memset(&s_row_demo, 0, sizeof(s_row_demo));
     memset(&s_row_zone, 0, sizeof(s_row_zone));
+    memset(&s_row_tema, 0, sizeof(s_row_tema));
     memset(&s_row_soft, 0, sizeof(s_row_soft));
     s_slider     = NULL;
     s_slider_val = NULL;
     s_sw_night   = NULL;
     s_sw_meter   = NULL;
     s_det_col    = NULL;
-    memset(s_seg, 0, sizeof(s_seg));
 }

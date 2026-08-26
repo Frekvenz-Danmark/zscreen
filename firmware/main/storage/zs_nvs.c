@@ -132,9 +132,14 @@ bool zs_nvs_load(zs_settings_t *s)
     if (s->brightness < 5 || s->brightness > 100) {
         s->brightness = ZS_BRIGHTNESS_DEFAULT;
     }
-    if (s->theme > 1) {
+    if (s->theme > ZS_THEME_MAKS) {
         /* En vaerdi vi ikke kender. Moerkt er standard, og en skaerm der
-         * pludselig er lys ville se ud som en fejl. */
+         * pludselig ser helt anderledes ud ville ligne en fejl.
+         *
+         * Graensen staar i zs_config.h og ikke som et tal her. Lageret
+         * skal ikke kende brugerfladens opregning, men det skal vide
+         * hvor mange temaer der findes, og det tal maa kun staa ét
+         * sted. Der er en test der tjekker at de to er enige. */
         s->theme = 0;
     }
 

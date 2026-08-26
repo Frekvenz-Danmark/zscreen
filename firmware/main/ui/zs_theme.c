@@ -3,6 +3,7 @@
  */
 
 #include "zs_theme.h"
+#include "zs_config.h"
 
 #include <string.h>
 
@@ -51,6 +52,8 @@ static const uint32_t PALET[ZS_THEME_COUNT][ZS_ID_COUNT] = {
          * kuloer, kun lysere. Se tools/check-colors.py. */
         [ZS_ID_STALE]        = 0x628B88,
         [ZS_ID_VALUE]        = ZS_BRAND_ORANGE,
+        /* Maerkerne er lyse flader, saa skriften paa dem er bunden. */
+        [ZS_ID_BADGE_TEXT]   = 0x0E2A29,
         [ZS_ID_ACCENT]       = ZS_BRAND_ORANGE,
         [ZS_ID_GOOD]         = 0x4ADE80,
         /* Haevet fra F87171: 4,13:1 mod kortet, under de 4,50 tekst
@@ -69,6 +72,7 @@ static const uint32_t PALET[ZS_THEME_COUNT][ZS_ID_COUNT] = {
         [ZS_ID_STALE]        = 0x699997,
         /* Tallene: brandets moerkegroenne, 9,95:1 mod hvid. */
         [ZS_ID_VALUE]        = ZS_BRAND_GREEN,
+        [ZS_ID_BADGE_TEXT]   = 0xF7FAF9,
         /* Orangen toneret ned til 4,5:1. Brandets egen har 1,8:1 mod
          * hvid og kan ikke laeses. */
         [ZS_ID_ACCENT]       = 0x9E6803,
@@ -76,7 +80,71 @@ static const uint32_t PALET[ZS_THEME_COUNT][ZS_ID_COUNT] = {
         [ZS_ID_BAD]          = 0xC02626,
         [ZS_ID_WARN]         = 0xA16207,
     },
+    /*
+     * Roedt. Bunden er #D73338, som den skal vaere.
+     *
+     * En maettet roed i den lysstyrke er et haardt laerred. Kun
+     * naesten hvid tekst naar de 4,5:1 som smaa bogstaver kraever, saa
+     * det her tema har mindre forskel mellem overskrift og etiket end
+     * de to andre. Det er en foelge af farven, ikke en forglemmelse.
+     *
+     * Maerkerne er vendt om i forhold til de andre temaer: lyse flader
+     * med moerk skrift. Moerke maerker ville ikke kunne skelnes fra
+     * bunden, og lyse med lys skrift kunne ikke laeses.
+     */
+    [ZS_THEME_RED] = {
+        [ZS_ID_BG]           = 0xD73338,
+        [ZS_ID_CARD]         = 0xB82429,
+        [ZS_ID_CARD_PRESSED] = 0xA81F24,
+        [ZS_ID_BORDER]       = 0xE8686C,
+        [ZS_ID_TEXT]         = 0xFFFFFF,
+        [ZS_ID_TEXT_DIM]     = 0xFEF8F8,
+        [ZS_ID_LABEL]        = 0xFEF8F8,
+        [ZS_ID_STALE]        = 0xF0C3C5,
+        [ZS_ID_VALUE]        = 0xFFFFFF,
+        [ZS_ID_BADGE_TEXT]   = 0x5A1114,
+        [ZS_ID_ACCENT]       = 0xFFFFFF,
+        /*
+         * Kun en anelse kuloer.
+         *
+         * Paa en maettet roed bund kan en raesonabel groen ikke laeses:
+         * alt hvad der har farve nok til at ses som groent, falder
+         * under de 4,5:1 som smaa bogstaver kraever. Derfor blege
+         * toner, hvor ordet baerer betydningen og farven kun hvisker.
+         *
+         * Roed er helt hvid. En roed tone paa roed bund naar kun 4,44,
+         * og den ville alligevel forsvinde i bunden i stedet for at
+         * raabe op.
+         */
+        [ZS_ID_GOOD]         = 0xEDFFF4,
+        [ZS_ID_BAD]          = 0xFFFFFF,
+        [ZS_ID_WARN]         = 0xFFFBEA,
+    },
 };
+
+/*
+ * Hvilket logo hoerer til hvilket tema.
+ *
+ * Negativt logo er hvidt og skal paa moerk bund. Positivt er
+ * moerkegroent og skal paa lys. Skal et tema en dag have sit helt eget
+ * logo, er det den her tabel der udvides, og intet andet sted i koden
+ * skal roeres.
+ */
+static const bool LOGO_NEGATIV[ZS_THEME_COUNT] = {
+    [ZS_THEME_DARK]  = true,
+    [ZS_THEME_LIGHT] = false,
+    [ZS_THEME_RED]   = true,
+};
+
+/*
+ * Lageret gemmer temaet som et tal og kender ikke opregningen her.
+ * Grænsen staar i zs_config.h. Den her linje sikrer at de to foelges
+ * ad: tilfoejer nogen et tema uden at rette graensen, oversaetter
+ * firmwaren ikke, i stedet for at det nye tema stille bliver nulstillet
+ * til moerkt ved hver genstart.
+ */
+_Static_assert(ZS_THEME_MAKS == ZS_THEME_COUNT - 1,
+               "ZS_THEME_MAKS i zs_config.h passer ikke med antallet af temaer");
 
 static zs_theme_mode_t s_mode = ZS_THEME_DARK;
 
@@ -97,18 +165,33 @@ zs_theme_mode_t zs_theme_mode(void)
 
 const char *zs_theme_name(zs_theme_mode_t m)
 {
-    return (m == ZS_THEME_LIGHT) ? "Lyst" : "Mørkt";
+    switch (m) {
+    case ZS_THEME_LIGHT: return "Lyst";
+    case ZS_THEME_RED:   return "Rødt";
+    default:             return "Mørkt";
+    }
+}
+
+const char *zs_theme_hint(zs_theme_mode_t m)
+{
+    switch (m) {
+    case ZS_THEME_LIGHT:
+        return "Lys bund. Bedst i et rum med meget dagslys.";
+    case ZS_THEME_RED:
+        return "Rød bund med hvid skrift. Ses tydeligt på afstand.";
+    default:
+        return "Mørk grøn bund. Lyser ikke rummet op om aftenen.";
+    }
 }
 
 const lv_img_dsc_t *zs_logo_zmark(void)
 {
-    return (s_mode == ZS_THEME_LIGHT) ? &zs_img_zmark_pos : &zs_img_zmark;
+    return LOGO_NEGATIV[s_mode] ? &zs_img_zmark : &zs_img_zmark_pos;
 }
 
 const lv_img_dsc_t *zs_logo_wordmark(void)
 {
-    return (s_mode == ZS_THEME_LIGHT) ? &zs_img_wordmark_pos
-                                      : &zs_img_wordmark;
+    return LOGO_NEGATIV[s_mode] ? &zs_img_wordmark : &zs_img_wordmark_pos;
 }
 
 void zs_style_text(lv_obj_t *obj, const lv_font_t *font, uint32_t color)
@@ -218,7 +301,7 @@ void zs_theme_init(void)
 
 void zs_theme_set_mode(zs_theme_mode_t m)
 {
-    if (m != ZS_THEME_DARK && m != ZS_THEME_LIGHT) {
+    if ((unsigned)m >= ZS_THEME_COUNT) {
         return;
     }
     if (m == s_mode) {
@@ -468,4 +551,51 @@ void zs_page_set_hidden(zs_page_t *p, bool hidden)
     } else {
         lv_obj_clear_flag(p->root, LV_OBJ_FLAG_HIDDEN);
     }
+}
+
+lv_obj_t *zs_choice_create(lv_obj_t *parent, const char *titel,
+                           const char *forklaring, lv_coord_t y, bool valgt,
+                           lv_event_cb_t cb, void *user_data)
+{
+    lv_obj_t *b = lv_btn_create(parent);
+    lv_obj_remove_style_all(b);
+    lv_obj_set_size(b, ZS_CONTENT_WIDTH, ZS_CHOICE_HEIGHT);
+    lv_obj_set_pos(b, ZS_EDGE, y);   /* samme kant som alt andet */
+    lv_obj_set_style_bg_color(b, lv_color_hex(ZS_C_CARD), 0);
+    lv_obj_set_style_bg_opa(b, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(b, 16, 0);
+
+    /*
+     * Det valgte faar en tykkere kant i accentfarven.
+     *
+     * Kanten og ikke baggrunden, for en fyldt flade ville se ud som en
+     * knap der er trykket ned lige nu. Tykkelsen er 2 mod 1, hvilket er
+     * nok til at oejet finder den uden at raekken hopper: kanten tegnes
+     * indad i LVGL, saa knappen fylder det samme.
+     */
+    lv_obj_set_style_border_width(b, valgt ? 2 : 1, 0);
+    lv_obj_set_style_border_color(b,
+        lv_color_hex(valgt ? ZS_C_ACCENT : ZS_C_BORDER), 0);
+    lv_obj_set_style_border_opa(b, LV_OPA_COVER, 0);
+
+    lv_obj_set_style_bg_color(b, lv_color_hex(ZS_C_CARD_PRESSED),
+                              LV_STATE_PRESSED);
+    if (cb != NULL) {
+        lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, user_data);
+    }
+
+    lv_obj_t *t = lv_label_create(b);
+    lv_label_set_text(t, titel);
+    zs_style_text(t, &zs_font_28, ZS_C_TEXT);
+    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 16, 14);
+
+    if (forklaring != NULL && forklaring[0] != '\0') {
+        lv_obj_t *f = lv_label_create(b);
+        lv_label_set_text(f, forklaring);
+        zs_style_text(f, &zs_font_16, ZS_C_LABEL);
+        lv_label_set_long_mode(f, LV_LABEL_LONG_WRAP);
+        lv_obj_set_width(f, ZS_CONTENT_WIDTH - 32);
+        lv_obj_align(f, LV_ALIGN_TOP_LEFT, 16, 50);
+    }
+    return b;
 }

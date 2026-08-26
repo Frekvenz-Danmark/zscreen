@@ -57,8 +57,18 @@ navne = re.findall(r"^\s*(ZS_ID_[A-Z_]+)\s*(?:=\s*\d+\s*)?,", TEMA_H.read_text()
 navne = [n for n in navne if n != "ZS_ID_COUNT"]
 
 kilde = TEMA_C.read_text()
+
+# Temaerne laeses ud af opregningen, ikke skrevet i en liste her.
+# Ellers kan et nyt tema blive tilfoejet uden at nogen opdager at det
+# aldrig blev maalt.
+temaer = [t for t in re.findall(r"^\s*(ZS_THEME_[A-Z]+)\s*(?:=\s*\d+\s*)?,",
+                                TEMA_H.read_text(), re.M)
+          if t != "ZS_THEME_COUNT"]
+if not temaer:
+    fejl.append("kunne ikke finde temaerne i zs_theme.h")
+
 paletter = {}
-for tema in ("ZS_THEME_DARK", "ZS_THEME_LIGHT"):
+for tema in temaer:
     m = re.search(r"\[" + tema + r"\]\s*=\s*\{(.*?)\n    \},", kilde, re.S)
     if m is None:
         fejl.append(f"paletten {tema} findes ikke i zs_theme.c")
@@ -110,13 +120,28 @@ for tema, p in paletter.items():
                     f"{tema} {navn} paa {fnavn}: {k:.2f}:1, "
                     f"skal mindst vaere {mindst:.2f}:1 ({slags})")
 
-    # Maerkerne i toplinjen: farven er BAGGRUND, og teksten er bunden.
+    # Maerkerne i toplinjen.
+    #
+    # Et maerke er en fyldt flade med et ord paa. To ting skal holde,
+    # og de er ikke det samme:
+    #
+    #   ordet skal kunne laeses paa fladen          4,50:1
+    #   fladen skal kunne ses mod siden bagved      3,00:1
+    #
+    # Foer blev der kun tjekket ét tal, fordi skriften altid var
+    # bundfarven. Med et tredje tema holder den antagelse ikke, og
+    # skriftfarven er nu en del af paletten.
+    maerketekst = p["ZS_ID_BADGE_TEXT"]
     for navn in ("ZS_ID_GOOD", "ZS_ID_BAD", "ZS_ID_WARN",
                  "ZS_ID_ACCENT", "ZS_ID_LABEL"):
-        k = kontrast(p[navn], bund)
+        k = kontrast(p[navn], maerketekst)
         if k < 4.5:
-            fejl.append(f"{tema} maerke med {navn} som bund og teksten i "
-                        f"bundfarven: {k:.2f}:1, skal vaere 4,50:1")
+            fejl.append(f"{tema} ordet paa et {navn}-maerke: {k:.2f}:1, "
+                        f"skal vaere 4,50:1")
+        k = kontrast(p[navn], bund)
+        if k < 3.0:
+            fejl.append(f"{tema} et {navn}-maerke kan ikke ses mod siden: "
+                        f"{k:.2f}:1, skal vaere 3,00:1")
 
     # Kortet skal kunne ses mod baggrunden, og kanten mod kortet.
     if kontrast(kort, bund) < 1.03:

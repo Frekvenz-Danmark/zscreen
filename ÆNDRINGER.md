@@ -1,3 +1,49 @@
+## 2026-08-26 20:45
+
+### Tema vaelges nu paa en side, som prisomraade
+Under Indstillinger staar der en raekke der hedder Tema og viser hvad der
+er valgt. Trykker man paa den, aabner en side med én stor knap pr. tema,
+praecis som DK1 og DK2 i opsaetningen. Det valgte har en tykkere kant i
+accentfarven, saa man kan se hvor man staar.
+
+Knappen findes ét sted, zs_choice_create i zs_theme.c. Prisomraade-siden
+brugte foer sin egen kopi. Nu er der én, og de to sider kan ikke komme
+til at se forskellige ud.
+
+### Tredje tema: roedt
+Bund #D73338 med hvid skrift. Moerkt er stadig standard og det skaermen
+starter i.
+
+To ting maatte laves om for at det kunne holde:
+
+Logoet foelger nu en tabel i stedet for et spoergsmaal om temaet er lyst.
+Skal et tema en dag have sit helt eget logo, er det den tabel der
+udvides, og intet andet sted skal roeres.
+
+Skriften paa statusmaerket er blevet en del af paletten. Foer var den
+altid bundfarven, hvilket virkede saa laenge de to temaer lignede
+hinanden. Paa roed bund duer det ikke: maerkerne er vendt om til lyse
+flader med moerk skrift, fordi moerke maerker ikke kan skelnes fra
+bunden, og lyse med lys skrift ikke kan laeses.
+
+Vaer opmaerksom paa én ting ved den roede: paa en maettet roed i den
+lysstyrke er det kun naesten hvid tekst der naar de 4,5:1 som smaa
+bogstaver kraever. Derfor har temaet mindre forskel mellem overskrift og
+etiket end de to andre, og groen og gul er kun en anelse toenet. "Dyrt
+lige nu" er helt hvid: en roed tone paa roed bund naar kun 4,44 og ville
+alligevel forsvinde i bunden. Ordene baerer betydningen. Det er en foelge
+af farven, ikke en forglemmelse.
+
+### To ting laast fast saa de ikke kan glide fra hinanden
+Kontrast-tjekket fandt temaerne i en liste skrevet i haanden, saa den
+roede palet blev ikke maalt foerste gang. Det laeser nu opregningen, og
+et nyt tema kan ikke snige sig uden om maalingen.
+
+Lageret klemte tema-tallet til nul hvis det var over 1, saa det roede
+ville blive nulstillet ved hver genstart. Graensen staar nu ét sted, og
+en _Static_assert stopper oversaettelsen hvis nogen tilfoejer et tema
+uden at rette den. Afproevet ved at bryde den med vilje.
+
 ## 2026-08-26 19:07
 
 ### Skaermen startede demoen af sig selv

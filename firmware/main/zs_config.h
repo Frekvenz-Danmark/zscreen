@@ -97,6 +97,16 @@
 #define ZS_BRIGHTNESS_DEFAULT   80
 
 /*
+ * Hoejeste gyldige tema-nummer i lageret.
+ *
+ * Staar her og ikke i zs_theme.h, fordi lageret ikke maa afhaenge af
+ * brugerfladen: zs_nvs.c skal kunne oversaettes uden LVGL. Der er en
+ * test der tjekker at tallet passer med ZS_THEME_COUNT, saa de to ikke
+ * kan komme ud af trit naar der tilfoejes et tema.
+ */
+#define ZS_THEME_MAKS           2
+
+/*
  * Selvtest af sideombygning og temaskift.
  *
  * 0 i alt der sendes ud. Saettes til 1 naar der er roert ved en skaerm

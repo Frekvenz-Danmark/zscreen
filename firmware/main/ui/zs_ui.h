@@ -36,6 +36,7 @@ typedef enum {
     ZS_SCREEN_HOME,          /* de fire kort                        */
     ZS_SCREEN_SETTINGS,      /* indstillinger                       */
     ZS_SCREEN_DETAILS,       /* detaljer om anlægget                */
+    ZS_SCREEN_THEME,         /* vælg tema                           */
 } zs_screen_id_t;
 
 /* Bygger alle skaerme. Kaldes én gang fra app_main, med LVGL-laasen
