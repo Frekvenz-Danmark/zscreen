@@ -7,6 +7,13 @@
  * maskine.
  */
 
+/*
+ * localtime_r er POSIX, ikke C-standard. Uden det her er den skjult paa
+ * glibc naar der oversaettes med -std=c11, og saa bygger filen paa Mac
+ * men ikke paa Linux. Linjen skal staa FOER enhver include.
+ */
+#define _POSIX_C_SOURCE 200809L
+
 #include "zs_price.h"
 
 #include <time.h>

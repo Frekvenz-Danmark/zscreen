@@ -16,6 +16,16 @@
 #include <string.h>
 
 /*
+ * Vores egen pi.
+ *
+ * M_PI staar ikke i C-standarden. Clang paa Mac har den alligevel, men
+ * glibc paa Linux skjuler den bag _GNU_SOURCE, og saa oversaetter den
+ * her fil paa den ene maskine og ikke paa den anden. Vi skriver den
+ * selv i stedet for at laene os paa et flag.
+ */
+#define DEMO_PI  3.14159265358979323846f
+
+/*
  * Et doegn paa tre minutter. Hurtigt nok til at man ser hele forloebet
  * mens man staar og kigger, langsomt nok til at tallene ikke flakker.
  */
@@ -107,7 +117,7 @@ static float solar_at(float hour)
         return 0.0f;
     }
     float x = (hour - PV_SUNRISE_H) / (PV_SUNSET_H - PV_SUNRISE_H);
-    float base = powf(sinf((float)M_PI * x), PV_SHAPE);
+    float base = powf(sinf(DEMO_PI * x), PV_SHAPE);
     return base > 0.0f ? PV_PEAK_W * base : 0.0f;
 }
 
