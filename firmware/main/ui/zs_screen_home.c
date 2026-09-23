@@ -4,7 +4,6 @@
 #include "zs_config.h"
 #include "zs_tile.h"
 #include "zs_flow.h"
-#include "zs_status_page.h"
 #include "zs_price_page.h"
 #include "zs_format.h"
 
@@ -19,7 +18,13 @@
  * staar der 0 W, maa der ikke ogsaa staa en retning. */
 #define IDLE_W   ZS_DEADBAND_W
 
-#define PAGE_COUNT   4
+/*
+ * Tre sider: de fire kasser, energiflow og elprisen.
+ *
+ * Fejlkode-siden er taget ud. Prikkerne regner sig selv ud fra det her
+ * tal og midtstiller sig, saa der er ikke andet at rette.
+ */
+#define PAGE_COUNT   3
 #define DOT_SIZE     10
 /*
  * Afstanden mellem prikkerne er ikke pynt.
@@ -59,7 +64,6 @@ static zs_tile_t      s_house;
 static zs_tile_t      s_battery;
 static zs_tile_t      s_grid;
 static zs_flow_t      s_flow;
-static zs_status_page_t s_status;
 static zs_price_page_t s_price;
 static int            s_page_now;
 static bool           s_created;
@@ -186,8 +190,6 @@ void zs_screen_home_create(lv_event_cb_t gear_cb, void *user_data)
     /* Side 3: spotprisen i dag */
     zs_price_page_create(&s_price, s_page[2]);
 
-    /* Side 4: inverterens tilstand og fejl */
-    zs_status_page_create(&s_status, s_page[3]);
 
     /* Prikkerne nederst, midt paa:
      *   10 + 30 + 10 = 50, saa den foerste starter paa 240 - 25 = 215. */
@@ -411,7 +413,6 @@ void zs_screen_home_update(const zs_home_data_t *d)
         zs_tile_set_none(&s_battery, "Henter ...");
         zs_tile_set_none(&s_grid,    "Henter ...");
         zs_flow_update(&s_flow, d);
-        zs_status_page_update(&s_status, d);
         return;
     }
 
@@ -424,7 +425,6 @@ void zs_screen_home_update(const zs_home_data_t *d)
      * sandhedsbegreb: de kan ikke komme til at sige hver sit om samme
      * maaling. */
     zs_flow_update(&s_flow, d);
-    zs_status_page_update(&s_status, d);
 }
 
 /*
@@ -452,7 +452,6 @@ void zs_screen_home_destroy(void)
     memset(&s_battery, 0, sizeof(s_battery));
     memset(&s_grid,    0, sizeof(s_grid));
     memset(&s_flow,    0, sizeof(s_flow));
-    memset(&s_status,  0, sizeof(s_status));
     memset(&s_price,   0, sizeof(s_price));
     s_created = false;
     s_sidste_saet = -1;

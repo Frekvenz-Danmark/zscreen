@@ -39,7 +39,6 @@ idf_component_register(
         "ui/zs_screen_settings.c"
         "ui/widgets/zs_tile.c"
         "ui/widgets/zs_flow.c"
-        "ui/widgets/zs_status_page.c"
         "ui/widgets/zs_price_page.c"
         "ui/widgets/zs_statusbar.c"
         "ui/widgets/zs_keyboard.c"

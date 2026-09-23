@@ -1,3 +1,17 @@
+## 2026-09-23 17:13
+
+### Fejlkode-siden er taget ud
+Swipe-raekken har nu tre sider: de fire kasser, energiflow og elprisen.
+Prikkerne regner sig selv ud fra antallet og midtstiller sig, saa der var
+ikke andet at rette: de staar nu med 195 px luft i hver side, og
+tryk-omraaderne overlapper stadig ikke.
+
+Selve fejlkoderne er der stadig. zs_status.c oversaetter Fronius' bits til
+dansk som foer, og E2E-testen proever dem stadig. Det er kun siden i
+dashboardet der er vaek.
+
+### Version 0.7.0
+
 ## 2026-09-23 16:51
 
 ### Smaa tal flakker ikke laengere
