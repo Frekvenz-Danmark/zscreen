@@ -268,11 +268,40 @@ zs_ch_role_t zs_ss_classify_channel(const char *idstr)
 
 bool zs_ss_channel_active(int32_t dcst)
 {
-    /* Kun MPPT (4) og THROTTLING (5) betyder at kanalen leverer.
-     * STARTING (3) er en overgang paa vej op hvor DCW endnu ikke er
-     * troværdig, og OFF/SLEEPING/FAULT kan sagtens staa med en gammel
-     * vaerdi i DCW som saa ville blive lagt til soltallet. */
-    return dcst == ZS_DCST_MPPT || dcst == ZS_DCST_THROTTLING;
+    /*
+     * Taeller kanalens effekt med?
+     *
+     * Reglen er "med mindre vi VED at den er doed", ikke "kun hvis vi
+     * ved at den leverer". Forskellen er hele sagen:
+     *
+     * En Fronius Symo GEN24 med firmware 1.41 melder DCSt som 65535,
+     * altsaa "ikke implementeret", paa hver eneste kanal. Maalt paa et
+     * rigtigt anlaeg 2026-09-23. Med den gamle regel blev begge
+     * solstrenge smidt vaek, og SOLCELLER stod paa 0 W mens de leverede
+     * 2429 og 2543 watt.
+     *
+     * Batterikanalerne brugte allerede den her regel og virkede derfor.
+     * Det var forskellen mellem de to der var fejlen, ikke reglen selv.
+     *
+     * Vi udelader altsaa kun naar inverteren siger noget der betyder
+     * stoppet:
+     *   OFF, SLEEPING, FAULT, SHUTTING_DOWN, STANDBY
+     * STARTING er ogsaa ude: der er DCW endnu ikke til at stole paa.
+     * Alt andet, inklusive en vaerdi vi ikke kender og "ikke
+     * implementeret", taeller med. Vi har maalingen, og vi har ingen
+     * grund til at kassere den.
+     */
+    switch (dcst) {
+    case ZS_DCST_OFF:
+    case ZS_DCST_SLEEPING:
+    case ZS_DCST_STARTING:
+    case ZS_DCST_SHUTTING_DOWN:
+    case ZS_DCST_FAULT:
+    case ZS_DCST_STANDBY:
+        return false;
+    default:
+        return true;
+    }
 }
 
 /* ------------------------------------------------------------------ */

@@ -240,13 +240,34 @@ void test_sunspec(void)
     CHECK_INT("noget helt andet er ukendt",
               zs_ss_classify_channel("Aux Input"), ZS_CH_UNKNOWN);
 
-    CHECK("MPPT (4) taeller som aktiv",       zs_ss_channel_active(ZS_DCST_MPPT));
-    CHECK("THROTTLING (5) taeller som aktiv", zs_ss_channel_active(ZS_DCST_THROTTLING));
-    CHECK("STARTING (3) taeller IKKE som aktiv", !zs_ss_channel_active(ZS_DCST_STARTING));
+    /*
+     * Reglen er "med mindre vi VED at den er stoppet", ikke "kun hvis
+     * vi ved at den leverer".
+     *
+     * Testen sagde foer det modsatte om en ukendt tilstand, og den
+     * antagelse blev modbevist paa et rigtigt anlaeg 2026-09-23: en
+     * Fronius Symo GEN24 med firmware 1.41 melder DCSt som 65535,
+     * altsaa "ikke implementeret", paa hver eneste kanal. Med den gamle
+     * regel blev begge solstrenge kasseret, og SOLCELLER stod paa 0 W
+     * mens de leverede 2429 og 2543 watt.
+     */
+    CHECK("MPPT (4) taeller med",             zs_ss_channel_active(ZS_DCST_MPPT));
+    CHECK("THROTTLING (5) taeller med",       zs_ss_channel_active(ZS_DCST_THROTTLING));
     CHECK("OFF (1) taeller ikke",             !zs_ss_channel_active(ZS_DCST_OFF));
     CHECK("SLEEPING (2) taeller ikke",        !zs_ss_channel_active(ZS_DCST_SLEEPING));
     CHECK("FAULT (7) taeller ikke",           !zs_ss_channel_active(ZS_DCST_FAULT));
-    CHECK("ukendt (-1) taeller ikke",         !zs_ss_channel_active(-1));
+    CHECK("SHUTTING_DOWN (6) taeller ikke",   !zs_ss_channel_active(ZS_DCST_SHUTTING_DOWN));
+    CHECK("STANDBY (8) taeller ikke",         !zs_ss_channel_active(ZS_DCST_STANDBY));
+    /* STARTING er paa vej op, og DCW er endnu ikke til at stole paa. */
+    CHECK("STARTING (3) taeller ikke",        !zs_ss_channel_active(ZS_DCST_STARTING));
+
+    /*
+     * De to vigtigste. Melder inverteren ikke sin tilstand, kasserer vi
+     * ikke maalingen: vi har et tal, og vi har ingen grund til at tro
+     * det er forkert.
+     */
+    CHECK("ikke implementeret (-1) taeller MED", zs_ss_channel_active(-1));
+    CHECK("en vaerdi vi ikke kender taeller MED", zs_ss_channel_active(42));
 
     ZS_SUITE("SunSpec: vandring gennem model-kaeden");
 

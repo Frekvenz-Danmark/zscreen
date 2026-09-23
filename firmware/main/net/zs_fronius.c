@@ -386,10 +386,17 @@ bool zs_fr_connect(zs_fr_t *fr, const char *host, uint16_t port, uint8_t unit)
 
 /* Kanaler i model 160 der er slukket, sover eller er i fejl. Deres DCW
  * kan staa med en gammel vaerdi som ikke maa taelle med. */
+/*
+ * Samme regel som for solstrengene, ét sted.
+ *
+ * Foer stod der to lister med hver sine tilstande, og de var ikke
+ * enige: batteriet taalte en ukendt DCSt, solstrengene gjorde ikke.
+ * Det var praecis den forskel der gjorde at SOLCELLER stod paa nul paa
+ * et anlaeg hvor inverteren ikke udfylder DCSt.
+ */
 static bool channel_is_dead(int32_t dcst)
 {
-    return dcst == ZS_DCST_OFF || dcst == ZS_DCST_SLEEPING ||
-           dcst == ZS_DCST_FAULT || dcst == ZS_DCST_SHUTTING_DOWN;
+    return !zs_ss_channel_active(dcst);
 }
 
 /*

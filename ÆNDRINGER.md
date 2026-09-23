@@ -1,3 +1,52 @@
+## 2026-09-23 15:59
+
+### Soegningen fandt aldrig inverteren
+Skaermen gennemgik hele undernettet og meldte nul, mens der stod en
+Fronius Symo GEN24 paa 192.168.1.100 med port 502 aaben.
+
+Aarsagen var ikke den man ville gaette. Maalt paa enheden mod det
+rigtige net:
+
+    12 samtidige, 250 ms, ingen pause   ->  0 fundet
+    12 samtidige, 250 ms, 10 ms pause   ->  1 fundet
+    12 samtidige, 1200 ms, ingen pause  ->  0 fundet
+     4 samtidige, 800 ms, ingen pause   ->  0 fundet
+     4 samtidige, 800 ms, 10 ms pause   ->  1 fundet
+     1 ad gangen, 300 ms                ->  1 fundet
+
+Hverken laengere ventetid eller faerre samtidige hjaelper. Det eneste
+der virker er en pause MELLEM kaldene til connect.
+
+connect vender tilbage med det samme, men SYN-pakken skal videre gennem
+lwIP og ud af wifi-senderen. Fyrer man tolv af i en tot, er der ikke
+sendebuffere nok, og de fleste bliver smidt vaek uden at nogen faar
+besked. lwIP proever foerst igen efter flere sekunder, og da har vi for
+laengst givet op.
+
+Ti millisekunder mellem hvert kald loeser det. Hele undernettet tager nu
+6 sekunder mod 5 foer. Efterproevet paa enheden: den finder inverteren.
+
+### SOLCELLER stod paa nul paa et anlaeg der producerede
+Samme inverter melder DCSt som 65535, altsaa "ikke implementeret", paa
+hver eneste kanal. Vores regel var "tael kun med hvis inverteren siger
+at kanalen leverer", og saa blev begge solstrenge kasseret. SOLCELLER
+stod paa 0 W mens de leverede 2429 og 2543 watt.
+
+Batteriet virkede, fordi det brugte den modsatte regel: "med mindre vi
+ved at den er stoppet". Det var forskellen mellem de to regler der var
+fejlen, ikke reglen selv.
+
+Nu er der ÉN regel, og den er den sikre: vi udelader kun naar
+inverteren siger noget der betyder stoppet. En tilstand vi ikke kender,
+og en der ikke er udfyldt, taeller med. Vi har maalingen, og vi har
+ingen grund til at kassere den.
+
+Efter rettelsen viser samme anlaeg 463 W sol, 2,6 kW forbrug, 3,3 kW til
+batteriet og 5,5 kW fra nettet. Det stemmer: 463 minus 3300 plus 5500
+giver 2663.
+
+### Version 0.4.0
+
 ## 2026-08-26 20:45
 
 ### Tema vaelges nu paa en side, som prisomraade

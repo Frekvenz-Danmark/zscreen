@@ -96,6 +96,14 @@ static int probe_batch(const char base[static 12], int first, int count,
             close(fd);
             fds[i] = -1;
         }
+
+        /*
+         * Pust mellem hvert kald, ellers gaar SYN-pakkerne tabt.
+         * Se den lange forklaring ved ZS_SCAN_CONNECT_GAP_MS.
+         */
+        if (i + 1 < count) {
+            usleep(ZS_SCAN_CONNECT_GAP_MS * 1000);
+        }
     }
 
     if (n > 0) {

@@ -76,6 +76,34 @@
 /* ── Netvaerksscanning ─────────────────────────────────────────────── */
 #define ZS_SCAN_PARALLEL        12      /* samtidige sockets            */
 #define ZS_SCAN_PORT_TIMEOUT_MS 250     /* er der noget paa port 502    */
+
+/*
+ * Pause mellem hvert connect() under soegningen.
+ *
+ * Uden den finder skaermen ingenting. Det er maalt paa en rigtig D1
+ * mod et net med en Fronius paa .100:
+ *
+ *   12 samtidige, 250 ms, ingen pause   ->  0 fundet
+ *   12 samtidige, 250 ms, 10 ms pause   ->  1 fundet
+ *   12 samtidige, 1200 ms, ingen pause  ->  0 fundet
+ *    4 samtidige, 800 ms, ingen pause   ->  0 fundet
+ *    4 samtidige, 800 ms, 10 ms pause   ->  1 fundet
+ *    1 ad gangen, 300 ms                ->  1 fundet
+ *
+ * Laeg maerke til at hverken laengere ventetid eller faerre samtidige
+ * hjaelper. Det eneste der virker er en pause MELLEM kaldene.
+ *
+ * Forklaringen: connect() vender tilbage med det samme, men SYN-pakken
+ * skal videre gennem lwIP og ud af wifi-senderen. Fyrer man tolv af i
+ * en tot, er der ikke sendebuffere nok, og de fleste bliver smidt vaek
+ * uden at nogen faar besked. lwIP proever foerst igen efter flere
+ * sekunder, og da har vi for laengst givet op.
+ *
+ * Ti millisekunder er ét tik ved 100 Hz, altsaa det mindste der
+ * faktisk giver de andre opgaver plads. Hele undernettet tager 6
+ * sekunder med pausen mod 5 uden, saa det koster naesten ingenting.
+ */
+#define ZS_SCAN_CONNECT_GAP_MS  10
 #define ZS_SCAN_SUNSPEC_TIMEOUT_MS 800  /* taler den SunSpec            */
 #define ZS_SCAN_MAX_FOUND       12      /* invertere vi kan vise        */
 
