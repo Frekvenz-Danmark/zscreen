@@ -1,3 +1,37 @@
+## 2026-09-23 16:38
+
+### Soegningen taaler nu at en pakke gaar tabt
+Pausen mellem hvert connect loeste den systematiske fejl, men den daekker
+kun den ene aarsag. Wifi taber ogsaa pakker tilfaeldigt: et andet apparat
+sender samtidig, signalet dykker, aksesspunktet har travlt. Derfor proeves
+hver adresse nu igen hvis den ikke svarede foerste gang, og anden runde
+roerer kun dem der ikke allerede har svaret.
+
+Det er efterproevet at gentagelsen IKKE kan staa alene: med pausen sat til
+nul finder soegningen stadig ingenting, ogsaa med to forsoeg. Byger af
+connect-kald bliver ved med at druknes, uanset hvor mange gange man
+gentager dem. De to ting daekker hver sin fejl, og der skal begge til.
+
+Pausens stoerrelse er ogsaa maalt, ikke gaettet:
+
+    1 ms -> 0 fundet        5 ms -> 1 fundet
+    2 ms -> 0 fundet       10 ms -> 1 fundet
+    3 ms -> 1 fundet       20 ms -> 1 fundet
+
+Graensen ligger ved tre millisekunder, og vi bruger ti. Tre gange margen,
+saa det ogsaa holder paa et travlt net eller med svagere signal.
+
+En hel gennemgang tager nu 12 sekunder mod 6. Det sker én gang under
+opsaetningen, saa det er billigt for at vaere sikker paa at finde
+inverteren i foerste forsoeg.
+
+### En soegning uden ledige sockets siger det nu
+Kunne der ikke skaffes en socket, sprang koden bare adressen over uden et
+ord. En soegning der ikke fandt noget, saa praecis ud som en der gik godt.
+
+### Version 0.5.0
+Sendes som udgivelse, saa skaermene henter den selv over netvaerket.
+
 ## 2026-09-23 15:59
 
 ### Soegningen fandt aldrig inverteren

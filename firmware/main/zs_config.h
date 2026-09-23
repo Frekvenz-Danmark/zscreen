@@ -99,11 +99,33 @@
  * uden at nogen faar besked. lwIP proever foerst igen efter flere
  * sekunder, og da har vi for laengst givet op.
  *
- * Ti millisekunder er ét tik ved 100 Hz, altsaa det mindste der
- * faktisk giver de andre opgaver plads. Hele undernettet tager 6
- * sekunder med pausen mod 5 uden, saa det koster naesten ingenting.
+ * Hvor stor skal pausen vaere? Maalt paa enheden mod samme net:
+ *
+ *    1 ms -> 0 fundet        5 ms -> 1 fundet
+ *    2 ms -> 0 fundet       10 ms -> 1 fundet
+ *    3 ms -> 1 fundet       20 ms -> 1 fundet
+ *
+ * Graensen ligger ved tre millisekunder. Vi bruger ti, altsaa tre
+ * gange margen, saa det ogsaa holder paa et travlt net eller med et
+ * svagere signal. Det koster to sekunder paa en hel gennemgang.
  */
 #define ZS_SCAN_CONNECT_GAP_MS  10
+
+/*
+ * Hvor mange gange hver adresse proeves.
+ *
+ * Pausen ovenfor hjaelper, men den er et maalt tal og ikke en
+ * aarsagsrettelse. Den rigtige fejl var at koden gik ud fra at ét
+ * probe-forsoeg altid naar frem. Wifi taber pakker: et andet apparat
+ * sender samtidig, signalet dykker, aksesspunktet har travlt. Saa den
+ * antagelse holder ikke, uanset hvor lang pausen er.
+ *
+ * Derfor proever vi hver adresse igen hvis den ikke svarede foerste
+ * gang. Det virker uanset HVORFOR pakken forsvandt, og det er billigt:
+ * anden runde roerer kun de adresser der ikke allerede har svaret, og
+ * paa et almindeligt hjemmenet svarer de faerreste.
+ */
+#define ZS_SCAN_TRIES           2
 #define ZS_SCAN_SUNSPEC_TIMEOUT_MS 800  /* taler den SunSpec            */
 #define ZS_SCAN_MAX_FOUND       12      /* invertere vi kan vise        */
 

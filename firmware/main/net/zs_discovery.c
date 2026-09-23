@@ -48,65 +48,68 @@ static int probe_batch(const char base[static 12], int first, int count,
                        bool *alive)
 {
     /*
-     * Begge felter nulstilles FOERST.
-     *
-     * Loekken nedenfor har to betingelser, og hvis den anden stopper
-     * den tidligt, ville de resterende pladser aldrig blive udfyldt.
-     * Loekken laengere nede laeser dem alligevel. I dag kan det ikke
-     * ske, fordi count aldrig er stoerre end ZS_SCAN_PARALLEL, men det
-     * er en fejl der venter paa at nogen aendrer den ene af de to.
+     * Begge felter nulstilles FOERST. Loekken nedenfor kan stoppe
+     * tidligt, og loekken laengere nede laeser dem alligevel.
      */
     int fds[ZS_SCAN_PARALLEL];
     for (int i = 0; i < ZS_SCAN_PARALLEL; i++) {
         fds[i] = -1;
         alive[i] = false;
     }
-    int n = 0;
 
-    for (int i = 0; i < count && n < ZS_SCAN_PARALLEL; i++) {
-        char ip[16];
-        snprintf(ip, sizeof(ip), "%s.%d", base, first + i);
+    /*
+     * Hver adresse proeves op til ZS_SCAN_TRIES gange, og anden runde
+     * roerer kun dem der ikke svarede. Se noten ved ZS_SCAN_TRIES om
+     * hvorfor det, og ikke bare en laengere pause, er rettelsen.
+     */
+    for (int runde = 0; runde < ZS_SCAN_TRIES; runde++) {
+        int n = 0;
+        for (int i = 0; i < count && n < ZS_SCAN_PARALLEL; i++) {
+            if (alive[i]) {
+                continue;   /* svarede allerede */
+            }
+            char ip[16];
+            snprintf(ip, sizeof(ip), "%s.%d", base, first + i);
 
-        struct sockaddr_in addr;
-        memset(&addr, 0, sizeof(addr));
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(ZS_MB_DEFAULT_PORT);
-        if (inet_pton(AF_INET, ip, &addr.sin_addr) != 1) {
-            fds[i] = -1;
-            continue;
+            struct sockaddr_in addr;
+            memset(&addr, 0, sizeof(addr));
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(ZS_MB_DEFAULT_PORT);
+            if (inet_pton(AF_INET, ip, &addr.sin_addr) != 1) {
+                continue;
+            }
+
+            int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            if (fd < 0) {
+                /* Uden den her linje ligner en soegning der ikke fandt
+                 * noget, en soegning der gik godt. */
+                ZS_LOGW(TAG, "ingen ledig socket til %s", ip);
+                continue;
+            }
+            int flags = fcntl(fd, F_GETFL, 0);
+            fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+            int rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+            if (rc == 0) {
+                alive[i] = true;      /* kom igennem med det samme */
+                close(fd);
+            } else if (errno == EINPROGRESS) {
+                fds[i] = fd;
+                n++;
+            } else {
+                close(fd);
+            }
+
+            /* Pust mellem hvert kald, se ZS_SCAN_CONNECT_GAP_MS. */
+            if (i + 1 < count) {
+                usleep(ZS_SCAN_CONNECT_GAP_MS * 1000);
+            }
         }
 
-        int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (fd < 0) {
-            fds[i] = -1;
-            continue;
-        }
-        int flags = fcntl(fd, F_GETFL, 0);
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-
-        int rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
-        if (rc == 0) {
-            alive[i] = true;      /* kom igennem med det samme */
-            close(fd);
-            fds[i] = -1;
-        } else if (errno == EINPROGRESS) {
-            fds[i] = fd;
-            n++;
-        } else {
-            close(fd);
-            fds[i] = -1;
+        if (n == 0) {
+            break;   /* intet at vente paa */
         }
 
-        /*
-         * Pust mellem hvert kald, ellers gaar SYN-pakkerne tabt.
-         * Se den lange forklaring ved ZS_SCAN_CONNECT_GAP_MS.
-         */
-        if (i + 1 < count) {
-            usleep(ZS_SCAN_CONNECT_GAP_MS * 1000);
-        }
-    }
-
-    if (n > 0) {
         fd_set wset;
         FD_ZERO(&wset);
         int maxfd = -1;
