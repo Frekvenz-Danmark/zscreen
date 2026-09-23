@@ -1,3 +1,28 @@
+## 2026-09-23 16:51
+
+### Smaa tal flakker ikke laengere
+Et anlaeg staar aldrig helt stille. Maaleren svinger nogle faa watt frem
+og tilbage, og uden en graense skiftede tallet paa vaeggen hvert andet
+sekund mellem 12, 8 og 15 watt. Et tal der aldrig staar stille traekker
+oejet til sig hele tiden, og man kan ikke se paa det om der sker noget
+vaesentligt.
+
+Under 50 watt staar der nu 0 W. Halvtreds er valgt fordi det er under en
+enkelt paere i et moderne hus, altsaa under det man overhovedet kan
+maerke.
+
+Faelden ved sadan en graense er at den skal gaelde BAADE tallet og
+retningen. Rundede vi kun tallet, ville der komme til at staa "0 W" og
+"saelger" ved siden af hinanden, og det ser ud som en fejl.
+
+Graensen laa i forvejen to steder som hver sin kopi af IDLE_W paa 25
+watt, én i zs_screen_home.c og én i zs_flow.c, og de styrede pile og ord.
+Nu er der ÉN graense, ZS_DEADBAND_W i zs_config.h, og baade tallet,
+pilene og ordene henter den samme. Der er en test der tjekker at de
+foelges ad.
+
+### Version 0.6.0
+
 ## 2026-09-23 16:38
 
 ### Soegningen taaler nu at en pakke gaar tabt

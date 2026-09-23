@@ -12,6 +12,8 @@
 #include <math.h>
 #include <string.h>
 
+#include "../../firmware/main/zs_config.h"
+
 static void chk_power(const char *what, float w, const char *val, const char *unit)
 {
     zs_num_t n;
@@ -29,7 +31,11 @@ void test_format(void)
     ZS_SUITE("Tal paa dansk: effekt");
 
     chk_power("0 W",                        0.0f,     "0",   "W");
-    chk_power("1 W",                        1.0f,     "1",   "W");
+    /* 1 W er under doedbaandet og skal vises som nul. Se
+     * ZS_DEADBAND_W: et tal der flakker mellem 12, 8 og 15 watt
+     * traekker oejet til sig uden at betyde noget. */
+    chk_power("1 W vises som 0",             1.0f,     "0",   "W");
+    chk_power("50 W er lige over graensen", 50.0f,    "50",   "W");
     chk_power("850 W",                    850.0f,   "850",   "W");
     chk_power("999 W",                    999.0f,   "999",   "W");
 
@@ -139,6 +145,39 @@ void test_format(void)
         zs_fmt_energy_wh(9.0e11, &n);
         CHECK("lige under energiloftet er stadig et tal", n.value[0] != '-');
         CHECK("og der er plads i feltet", strlen(n.value) < sizeof(n.value));
+    }
+
+    ZS_SUITE("Tal på dansk: smaa vaerdier flakker ikke");
+
+    /*
+     * Et anlaeg staar aldrig helt stille, og uden en graense skifter
+     * tallet paa vaeggen hvert andet sekund mellem 12, 8 og 15 watt.
+     *
+     * Det vigtigste her er den SIDSTE test: den samme graense skal
+     * bruges af retningen. Rundede vi kun tallet, ville der komme til
+     * at staa "0 W" og "saelger" ved siden af hinanden.
+     */
+    {
+        zs_num_t n;
+        float smaa[] = { 0.0f, 1.0f, 12.0f, 25.0f, 49.0f, 49.9f };
+        for (size_t i = 0; i < sizeof(smaa) / sizeof(smaa[0]); i++) {
+            zs_fmt_power(smaa[i], &n);
+            CHECK_STR("under graensen vises som nul", n.value, "0");
+            zs_fmt_power(-smaa[i], &n);
+            CHECK_STR("ogsaa den anden vej", n.value, "0");
+        }
+
+        zs_fmt_power(50.0f, &n);
+        CHECK_STR("praecis paa graensen vises som sig selv", n.value, "50");
+        zs_fmt_power(51.0f, &n);
+        CHECK_STR("lige over graensen ogsaa", n.value, "51");
+        zs_fmt_power(-51.0f, &n);
+        CHECK_STR("negativ vises uden fortegn, retningen staar i ordet",
+                  n.value, "51");
+
+        /* Graensen maa ikke kunne komme ud af trit med retningen. */
+        CHECK("graensen er den samme som brugerfladen bruger",
+              ZS_DEADBAND_W == 50.0f);
     }
 
     ZS_SUITE("Tal på dansk: kroner");

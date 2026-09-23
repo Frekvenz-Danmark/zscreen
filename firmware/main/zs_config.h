@@ -144,6 +144,26 @@
 #define ZS_TIMEZONE          "CET-1CEST,M3.5.0,M10.5.0/3"
 
 /* ── Lysstyrke ────────────────────────────────────────────────────── */
+/*
+ * Under den her graense kalder vi det nul.
+ *
+ * Et anlaeg staar aldrig helt stille. Maaleren svinger nogle faa watt
+ * frem og tilbage, og uden en graense skifter tallet paa vaeggen hvert
+ * andet sekund mellem 12, 8 og 15 watt. Et tal der aldrig staar stille
+ * traekker oejet til sig hele tiden, og man kan ikke se paa det om der
+ * sker noget vaesentligt.
+ *
+ * VIGTIGT: den samme graense skal bruges baade til TALLET og til
+ * RETNINGEN. Rundede vi kun tallet, ville der komme til at staa
+ * "0 W" og "saelger" ved siden af hinanden, og det ser ud som en fejl.
+ * Derfor staar den her ét sted, og baade zs_fmt_power og alle
+ * pile og ord henter den samme.
+ *
+ * Halvtreds watt er valgt fordi det er under en enkelt paere i et
+ * moderne hus, altsaa under det man overhovedet kan maerke.
+ */
+#define ZS_DEADBAND_W           50.0f
+
 #define ZS_BRIGHTNESS_DEFAULT   80
 
 /*

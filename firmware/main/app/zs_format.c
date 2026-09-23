@@ -4,6 +4,8 @@
 #include <string.h>
 #include <math.h>
 
+#include "zs_config.h"
+
 /*
  * Lofter for hvad der overhovedet kan vaere en maaling.
  *
@@ -79,6 +81,17 @@ void zs_fmt_power(float watts, zs_num_t *out)
     }
 
     float w = fabsf(watts);
+
+    /*
+     * Under doedbaandet er det nul.
+     *
+     * Her og ikke hos kalderen, saa der ikke findes ét sted i
+     * brugerfladen hvor et lille tal alligevel slipper igennem og
+     * staar og flakker. Se noten ved ZS_DEADBAND_W.
+     */
+    if (w < ZS_DEADBAND_W) {
+        w = 0.0f;
+    }
 
     /*
      * Graensen ligger paa 999,5 og ikke paa 1000.

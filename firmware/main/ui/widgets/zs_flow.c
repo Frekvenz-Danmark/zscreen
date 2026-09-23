@@ -1,5 +1,6 @@
 #include "zs_flow.h"
 #include "zs_theme.h"
+#include "zs_config.h"
 #include "zs_format.h"
 
 #include <stdio.h>
@@ -40,7 +41,9 @@
 
 /* Under saa mange watt kalder vi det hvile. Det samme tal som paa
  * side 1, saa de to sider ikke kan sige hver sit om samme maaling. */
-#define IDLE_W        25.0f
+/* Samme graense som tallet rundes med. Se ZS_DEADBAND_W:
+ * staar der 0 W, maa der ikke ogsaa staa en pil. */
+#define IDLE_W        ZS_DEADBAND_W
 
 /* ------------------------------------------------------------------ */
 /* Byggeklodser                                                        */

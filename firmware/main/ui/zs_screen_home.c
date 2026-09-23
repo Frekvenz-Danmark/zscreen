@@ -1,6 +1,7 @@
 #include "zs_screen_home.h"
 #include "zs_tilegrid.h"
 #include "zs_theme.h"
+#include "zs_config.h"
 #include "zs_tile.h"
 #include "zs_flow.h"
 #include "zs_status_page.h"
@@ -14,7 +15,9 @@
  * traekker tyve watt er ikke noget nogen skal forholde sig til, og et
  * kort der skifter mellem "lader" og "aflader" hvert andet sekund
  * fordi tallet vipper omkring nul, er bare uroligt at kigge paa. */
-#define IDLE_W   25.0f
+/* Samme graense som tallet rundes med. Se ZS_DEADBAND_W:
+ * staar der 0 W, maa der ikke ogsaa staa en retning. */
+#define IDLE_W   ZS_DEADBAND_W
 
 #define PAGE_COUNT   4
 #define DOT_SIZE     10
