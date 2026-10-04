@@ -1,3 +1,48 @@
+## 2026-10-05 01:36
+
+### Lasttest med tres skærme, og tre fund i flødestyringen
+Tres enheder kørt mod en rigtig OpenRemote med hver sit certifikat, og
+derefter en gennemgang af det der gik skævt.
+
+**Indmeldelsen skal spredes.** Meldte tres enheder sig ind inden for fem
+sekunder, løb serverens Keycloak-kald tørt: 49 tidsudløb og 109 tvungne
+afbrydelser på et minut. Og hver afbrydelse fik enheden til at melde ind
+igen med det samme, så stormen fødte sig selv. Det samme spredt over
+femten sekunder gav nul af begge. Skærmen venter nu et tilfældigt stykke
+tid mellem nul og et minut før den første indmeldelse. Alle skærme på
+samme gade får strøm tilbage i samme sekund efter et svigt, og det er
+præcis det tilfælde der gik galt. Prisen er at en skærm kan være op til
+et minut om at vise sig i flådeoversigten. Tallene på væggen kommer med
+det samme som før.
+
+**Afvist for evigt.** Den værste af de tre. Bliver et certifikat afvist,
+svarer serveren UNAUTHORIZED og holder så forbindelsen åben, den lukker
+den ikke. Vi forsøgte kun indmeldelse når abonnementet var nyt, altså én
+gang per forbindelse, så der kom aldrig et nyt forsøg. Skærmen var afvist
+for evigt, også efter at certifikatet var rettet på serveren, indtil
+nogen tog strømmen. Det samme gjaldt en afsendelse der ikke gik igennem
+og et svar der aldrig kom. Nu er der én regel styret af tiden i stedet
+for tre halve: er vi forbundet, mangler vi et enheds-id, og er uret
+gået, så prøver vi igen. Reglen ligger i den del af modulet der kan
+testes på en almindelig maskine, og der er otte nye tests på den.
+
+**Alle forbandt igen i takt.** esp-mqtt venter præcis det samme tal hver
+gang, der er ingen voksende pause og ingen spredning indbygget. Havde
+alle skærme det samme tal, ville tres skærme som serveren afbryder i
+samme øjeblik forbinde igen i samme øjeblik, og blive ved med det. Hver
+skærm trækker nu sit eget interval mellem ti og tyve sekunder ved opstart
+og beholder det.
+
+**Lagerplads.** Målt at et datapunkt fylder 297 bytes. Med tusind skærme
+der sender fem felter hvert 2. sekund er det 216 millioner rækker om
+dagen. OpenRemote leverer databasen med syv dages chunks og komprimering
+efter syv dage, så halvdelen af de fjorten dage ligger ukomprimeret,
+omkring 490 GB. Sat til ét døgn begge steder bliver det omkring 150 GB.
+Takten er uændret, det er serverens opsætning der er rettet.
+
+Alt målt, intet gættet: 486 enhedstest og 36 ende til ende, alle
+bestået. Version 0.8.0.
+
 ## 2026-10-04 20:58
 
 ### Bug check af floedestyringen: fire fund

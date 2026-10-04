@@ -186,6 +186,64 @@
 #define ZS_FLEET_READY_DELAY_MS 2000
 
 /*
+ * Tilfaeldig ventetid foer skaermen melder sig ind foerste gang.
+ *
+ * Alle skaerme paa samme gade faar stroem tilbage i samme sekund efter
+ * et svigt, og uden den her banker de paa serveren samtidig.
+ *
+ * Maalt paa tres enheder mod en rigtig OpenRemote:
+ *   indmeldelse spredt over 4,8 sek -> 49 tidsudloeb mod Keycloak og
+ *                                      109 tvungne afbrydelser, og hver
+ *                                      afbrydelse giver en ny
+ *                                      indmeldelse, saa stormen foeder
+ *                                      sig selv
+ *   indmeldelse spredt over 15 sek  -> nul af begge
+ *
+ * Et minut giver tusind skaerme omkring sytten indmeldelser i sekundet,
+ * godt under det maalte punkt hvor det gik galt. Prisen er at en skaerm
+ * kan vaere op til et minut om at vise sig i flaadeoversigten efter en
+ * genstart. Den viser tal paa vaeggen med det samme uanset hvad.
+ *
+ * Nul slaar spredningen fra, til naar man staar med én enhed og ikke
+ * vil vente.
+ */
+#define ZS_FLEET_START_SPREAD_MS  60000
+
+/*
+ * Hvor laenge vi venter foer vi proever at melde ind igen, naar
+ * indmeldelsen ikke lykkedes OG det ikke var en afvisning.
+ *
+ * Daekker to ting: en afsendelse der ikke gik igennem, og et svar der
+ * aldrig kom. Begge betyder at vi sidder paa en aaben forbindelse uden
+ * at vaere indmeldt, og uden den her ville vi sidde der for evigt, for
+ * indmeldelsen blev foer kun forsoegt naar abonnementet var nyt.
+ *
+ * En afvisning er en anden sag. Der er noget galt med certifikatet, og
+ * det retter sig ikke paa et halvt minut. Se AFVIST_PAUSE_MS i
+ * zs_fleet.c.
+ */
+#define ZS_FLEET_ENROLL_RETRY_MS  30000
+
+/*
+ * Hvor laenge der gaar foer vi forbinder igen, og hvor meget det tal
+ * varierer fra skaerm til skaerm.
+ *
+ * esp-mqtt venter PRAECIS det samme hver gang, der er ingen voksende
+ * pause og ingen spredning indbygget, det er efterset i deres kode.
+ * Satte alle skaerme det samme tal, ville tres skaerme som serveren
+ * afbryder i samme oejeblik forbinde igen i samme oejeblik, ti sekunder
+ * senere, og saadan bliver de ved. Maalt: serveren afbroed 109
+ * forbindelser paa et minut under en indmeldelsesbyrde, saa det er ikke
+ * et opfundet tilfaelde.
+ *
+ * Hver skaerm trAEkker sit eget tal mellem de to graenser ved opstart og
+ * beholder det. Saa er de ude af trit med hinanden for altid, ogsaa
+ * efter ting der rammer dem alle sammen.
+ */
+#define ZS_FLEET_RECONNECT_MS         10000
+#define ZS_FLEET_RECONNECT_SPREAD_MS  10000
+
+/*
  * Under den her graense kalder vi det nul.
  *
  * Et anlaeg staar aldrig helt stille. Maaleren svinger nogle faa watt

@@ -143,3 +143,55 @@ void test_fleet(void)
               zs_fleet_msg_topic(e, sizeof(e), "master", "x", "y", NULL) == 0);
     }
 }
+
+/*
+ * Hvornaar melder vi ind igen?
+ *
+ * Den her regel var EN GANG forkert, og det er grunden til at den nu
+ * ligger for sig selv. Indmeldelsen blev kun forsoegt naar abonnementet
+ * var nyt, altsaa én gang per forbindelse. Og maalt mod en rigtig
+ * OpenRemote holder serveren forbindelsen AABEN efter en afvisning, den
+ * svarer {"type":"error","error":"UNAUTHORIZED"} og lader den ligge. Saa
+ * kom der aldrig et nyt abonnement, og skaermen var afvist for evigt,
+ * ogsaa efter at certifikatet var rettet paa serveren, indtil nogen tog
+ * stroemmen.
+ */
+void test_fleet_igen(void)
+{
+    ZS_SUITE("Melder vi ind igen");
+
+    const int64_t NU = 1000000;
+
+    /* Det der gik galt: afvist, pausen er gaaet, forbindelsen er stadig
+     * aaben, og der kommer aldrig et nyt abonnement. */
+    CHECK("afvist og pausen gaaet: proev igen",
+          zs_fleet_enroll_due(true, false, NU - 1, NU) == true);
+    CHECK("praecis naar uret er gaaet: proev igen",
+          zs_fleet_enroll_due(true, false, NU, NU) == true);
+    CHECK("pausen er ikke gaaet endnu: vent",
+          zs_fleet_enroll_due(true, false, NU + 1, NU) == false);
+
+    /* Er vi inde, er der intet at proeve. Ellers ville en indmeldt
+     * skaerm melde ind oven i sig selv og faa forbindelsen lukket. */
+    CHECK("allerede indmeldt: lad vaere",
+          zs_fleet_enroll_due(true, true, NU - 1, NU) == false);
+
+    /* Uden abonnement kommer svaret ingen steder. Melder vi ind her,
+     * sender vi certifikatet ud i det blaa. */
+    CHECK("ikke abonneret: lad vaere",
+          zs_fleet_enroll_due(false, false, NU - 1, NU) == false);
+
+    /*
+     * Nul betyder "ingen plan", ikke "med det samme". Betoed det med det
+     * samme, ville en nystartet skaerm melde ind fra den rene tilstand.
+     */
+    CHECK("nul er ingen plan, ikke nu",
+          zs_fleet_enroll_due(true, false, 0, NU) == false);
+    CHECK("negativ er ogsaa ingen plan",
+          zs_fleet_enroll_due(true, false, -5, NU) == false);
+
+    /* Lige efter opstart er uret smaat. Der maa ikke vaere et hul hvor
+     * vi melder ind foer der er noget at melde ind paa. */
+    CHECK("nul i baade ur og tid: lad vaere",
+          zs_fleet_enroll_due(true, false, 0, 0) == false);
+}

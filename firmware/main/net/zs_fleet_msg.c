@@ -83,3 +83,15 @@ size_t zs_fleet_msg_topic(char *ud, size_t ud_len, const char *realm,
     }
     return (size_t)n;
 }
+
+bool zs_fleet_enroll_due(bool abonneret, bool har_asset,
+                         int64_t naeste_forsoeg_ms, int64_t nu_ms)
+{
+    if (!abonneret || har_asset) {
+        return false;
+    }
+    if (naeste_forsoeg_ms <= 0) {
+        return false;
+    }
+    return nu_ms >= naeste_forsoeg_ms;
+}

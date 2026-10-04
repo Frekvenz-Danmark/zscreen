@@ -39,12 +39,25 @@
  *
  *   Mister vi forbindelsen, skal vi melde ind FORFRA. Godkendelsen
  *   hAEnger paa forbindelsen, ikke paa enheden.
+ *
+ * Og en femte, fundet ved at koere tres enheder mod en rigtig server:
+ *
+ *   Indmeldelsen skal spredes. Melder tres enheder sig ind inden for
+ *   fem sekunder, loeber serverens Keycloak-kald tOErt, den lukker
+ *   forbindelserne, enhederne melder ind igen, og stormen foeder sig
+ *   selv. Maalt: 49 tidsudloeb og 109 tvungne afbrydelser mod nul naar
+ *   det samme sker over femten sekunder. Derfor venter skaermen et
+ *   tilfaeldigt stykke tid foer den foerste indmeldelse, se
+ *   ZS_FLEET_START_SPREAD_MS. Det betyder at en skaerm kan vaere op til
+ *   et minut om at vise sig i flaadeoversigten efter en genstart.
+ *   Tallene paa vaeggen kommer med det samme uanset hvad.
  */
 
 #ifndef ZS_FLEET_H
 #define ZS_FLEET_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "zs_fronius.h"
@@ -97,8 +110,16 @@ zs_fleet_state_t zs_fleet_state(void);
 /* Tilstanden som dansk tekst til Detaljer-siden. */
 const char *zs_fleet_state_text(void);
 
-/* Enhedens id paa serveren, eller tom streng. Til Detaljer-siden. */
-const char *zs_fleet_asset_id(void);
+/*
+ * Enhedens id paa serveren, kopieret ind i ud.
+ *
+ * En KOPI og ikke en pegepind: MQTT-opgaven rydder id'et naar
+ * forbindelsen gaar tabt, og en laeser der holdt en pegepind kunne
+ * ende med at vise en halvt ryddet streng. Kopien tages under laas.
+ *
+ * Skriver en tom streng hvis vi ikke er indmeldt.
+ */
+void zs_fleet_asset_id(char *ud, size_t ud_len);
 
 /*
  * Skaermens unikke navn, udledt af chippens egen MAC-adresse.

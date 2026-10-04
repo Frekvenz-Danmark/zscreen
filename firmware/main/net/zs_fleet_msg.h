@@ -1,17 +1,22 @@
 /*
- * zScreen - beskederne til floedestyringen, som ren tekst.
+ * zScreen - den del af floedestyringen der kan staa alene: beskederne
+ * som ren tekst, og beslutningen om hvornaar vi melder ind igen.
  *
- * Ligger for sig selv og bruger intet fra ESP-IDF, saa den kan testes
- * paa en almindelig maskine. Det er ikke pynt: indmeldelsen staar og
- * falder paa at et certifikat paa halvanden kilobyte bliver undsluppet
- * rigtigt til JSON. Er ét linjeskift forkert, afviser serveren os, og
- * det ville vi foerst opdage ude hos en kunde.
+ * Bruger intet fra ESP-IDF, saa den kan testes paa en almindelig
+ * maskine. Det er ikke pynt. Indmeldelsen staar og falder paa at et
+ * certifikat paa halvanden kilobyte bliver undsluppet rigtigt til JSON:
+ * er ét linjeskift forkert, afviser serveren os, og det ville vi foerst
+ * opdage ude hos en kunde. Og beslutningen om at proeve igen gik
+ * EN GANG galt netop fordi den laa inde i haendelseshaandteringen hvor
+ * den ikke kunne proeves af.
  */
 
 #ifndef ZS_FLEET_MSG_H
 #define ZS_FLEET_MSG_H
 
+#include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +48,26 @@ size_t zs_fleet_msg_enroll_size(const char *cert_pem);
 size_t zs_fleet_msg_topic(char *ud, size_t ud_len, const char *realm,
                           const char *unik, const char *felt,
                           const char *asset_id);
+
+/*
+ * Skal vi melde ind igen nu?
+ *
+ * ÉN regel for alle de maader en indmeldelse kan gaa skaevt paa: en
+ * afvisning, en afsendelse der ikke gik igennem, og et svar der aldrig
+ * kom. Alle tre ender med at vi sidder paa en aaben forbindelse uden at
+ * vaere indmeldt.
+ *
+ *   abonneret           er vi forbundet og lytter paa svaret
+ *   har_asset           har vi et enheds-id, altsaa er vi inde
+ *   naeste_forsoeg_ms   hvornaar vi tidligst maa, nul = aldrig
+ *   nu_ms               nu
+ *
+ * Nul i naeste_forsoeg_ms betyder "ingen plan", ikke "med det samme".
+ * Ellers ville en nystartet skaerm melde ind fra den rene tilstand uden
+ * at vaere forbundet.
+ */
+bool zs_fleet_enroll_due(bool abonneret, bool har_asset,
+                         int64_t naeste_forsoeg_ms, int64_t nu_ms);
 
 #ifdef __cplusplus
 }

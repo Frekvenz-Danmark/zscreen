@@ -14,6 +14,7 @@
 #include "esp_crt_bundle.h"
 #include "esp_mac.h"
 #include "esp_timer.h"
+#include "esp_random.h"
 #include "nvs.h"
 #include "cJSON.h"
 
@@ -106,10 +107,19 @@ static SemaphoreHandle_t s_laas;
 #define SLIP()    do { if (s_laas) { xSemaphoreGive(s_laas); } } while (0)
 
 /*
- * Naar vi tidligst proever at melde ind igen efter en afvisning.
+ * Naar vi tidligst maa proeve at melde ind igen. Nul betyder med det
+ * samme.
  *
- * Er certifikatet forkert, hjaelper det ikke at proeve igen om tien
- * sekunder. Uden den her sendte vi det afviste certifikat ved hver
+ * ÉT ur til alle de maader en indmeldelse kan gaa skaevt paa, saa der
+ * ikke er tre halve loesninger der skal passe sammen:
+ *
+ *   afvist af serveren     AFVIST_PAUSE_MS, ti minutter
+ *   afsendelsen fejlede    ZS_FLEET_ENROLL_RETRY_MS
+ *   svaret kom aldrig      ZS_FLEET_ENROLL_RETRY_MS
+ *   indmeldt               nul, der er intet at proeve
+ *
+ * Er certifikatet forkert, hjaelper det ikke at proeve igen om ti
+ * sekunder. Uden pausen sendte vi det afviste certifikat ved hver
  * genforbindelse, for evigt, og med tres skaerme bliver det stoej paa
  * serveren uden at nogen bliver klogere. Ti minutter er nok til at en
  * rettelse paa serveren bliver opdaget af sig selv, og lidt nok til at
@@ -117,6 +127,23 @@ static SemaphoreHandle_t s_laas;
  */
 static int64_t s_naeste_forsoeg_ms;
 #define AFVIST_PAUSE_MS   (10 * 60 * 1000)
+
+/*
+ * Engangsuret til spredningen. Se ZS_FLEET_START_SPREAD_MS.
+ *
+ * Et ur og ikke en opgave der sover: en opgave ville staa stille i op
+ * til et minut og alligevel optage sin stak hele tiden.
+ */
+static esp_timer_handle_t s_spred_ur;
+
+/*
+ * Er vi forbundet OG abonneret paa svaret?
+ *
+ * Skal vaere sandt foer vi tOErr melde ind, for svaret kommer paa det
+ * abonnement. Bruges af den tidsstyrede genopmelding i
+ * zs_fleet_publish.
+ */
+static bool s_abonneret;
 
 /* ------------------------------------------------------------------ */
 /* Smaating                                                            */
@@ -139,12 +166,30 @@ const char *zs_fleet_unique_id(void)
     return s_unik;
 }
 
-zs_fleet_state_t zs_fleet_state(void) { return s_state; }
-const char *zs_fleet_asset_id(void)   { return s_asset; }
+zs_fleet_state_t zs_fleet_state(void)
+{
+    LAAS();
+    zs_fleet_state_t t = s_state;
+    SLIP();
+    return t;
+}
+
+void zs_fleet_asset_id(char *ud, size_t ud_len)
+{
+    if (ud == NULL || ud_len == 0) {
+        return;
+    }
+    LAAS();
+    snprintf(ud, ud_len, "%s", s_asset);
+    SLIP();
+}
 
 const char *zs_fleet_state_text(void)
 {
-    switch (s_state) {
+    /* Teksterne er faste strenge, saa den returnerede pegepind kan
+     * ikke blive revet vaek under laeseren. Kun tilstanden skal laeses
+     * under laas. */
+    switch (zs_fleet_state()) {
     case ZS_FLEET_CONNECTING: return "Forbinder";
     case ZS_FLEET_ENROLLING:  return "Melder sig ind";
     case ZS_FLEET_READY:      return "Sender data";
@@ -196,7 +241,7 @@ static void send_indmeldelse(void)
     if (o == 0) {
         ZS_LOGE(TAG, "indmeldelsen kunne ikke bygges");
         free(krop);
-        s_state = ZS_FLEET_ERROR;
+        LAAS(); s_state = ZS_FLEET_ERROR; SLIP();
         return;
     }
 
@@ -214,12 +259,28 @@ static void send_indmeldelse(void)
     int id = esp_mqtt_client_publish(s_klient, emne, krop, (int)o, 0, 0);
     free(krop);
 
+    /*
+     * Laas om tilstanden. Den her funktion kaldes nu fra TO opgaver:
+     * MQTT-opgaven naar abonnementet er paa plads, og hovedopgaven naar
+     * pausen efter en afvisning er gaaet.
+     */
+    LAAS();
     if (id < 0) {
-        ZS_LOGW(TAG, "indmeldelsen kunne ikke sendes");
         s_state = ZS_FLEET_ERROR;
     } else {
-        ZS_LOGI(TAG, "sendte certifikat, venter paa svar");
         s_state = ZS_FLEET_ENROLLING;
+    }
+    /*
+     * Saet hvornaar vi maa proeve igen, ogsaa naar afsendelsen lykkedes.
+     * Kommer der aldrig et svar, sidder vi ellers og venter for evigt
+     * paa en forbindelse der er helt i orden. Svaret nulstiller den.
+     */
+    s_naeste_forsoeg_ms = (esp_timer_get_time() / 1000) + ZS_FLEET_ENROLL_RETRY_MS;
+    SLIP();
+    if (id < 0) {
+        ZS_LOGW(TAG, "indmeldelsen kunne ikke sendes");
+    } else {
+        ZS_LOGI(TAG, "sendte certifikat, venter paa svar");
     }
 }
 
@@ -245,11 +306,16 @@ static void laes_svar(const char *data, int len)
             s_klar_ms = (esp_timer_get_time() / 1000) + ZS_FLEET_READY_DELAY_MS;
             s_info_sendt = false;
             s_state = ZS_FLEET_READY;
+            s_naeste_forsoeg_ms = 0;        /* vi er inde, intet at proeve */
             SLIP();
             ZS_LOGI(TAG, "indmeldt som %s", s_asset);
         } else {
             ZS_LOGW(TAG, "svaret havde intet enheds-id");
+            LAAS();
             s_state = ZS_FLEET_ERROR;
+            s_naeste_forsoeg_ms = (esp_timer_get_time() / 1000)
+                                + ZS_FLEET_ENROLL_RETRY_MS;
+            SLIP();
         }
     } else {
         const cJSON *fejl = cJSON_GetObjectItemCaseSensitive(rod, "error");
@@ -299,6 +365,7 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
          */
         LAAS();
         int64_t vent = s_naeste_forsoeg_ms;
+        s_abonneret = true;
         SLIP();
         if (vent > 0 && (esp_timer_get_time() / 1000) < vent) {
             ZS_LOGI(TAG, "vi blev afvist, venter foer vi proever igen");
@@ -325,6 +392,12 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
         }
         s_asset[0] = '\0';
         s_klar_ms = 0;
+        s_abonneret = false;
+        if (s_state != ZS_FLEET_REJECTED) {
+            /* En ny forbindelse skal melde ind med det samme. Pausen
+             * gaelder kun en afvisning, og den overlever med vilje. */
+            s_naeste_forsoeg_ms = 0;
+        }
         SLIP();
         ZS_LOGW(TAG, "forbindelsen gik tabt, melder ind igen naar den er tilbage");
         break;
@@ -345,6 +418,41 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
 /* ------------------------------------------------------------------ */
 /* Udadtil                                                             */
 /* ------------------------------------------------------------------ */
+
+/*
+ * Starter klienten naar spredningen er gaaet. Kaldes fra uret, eller
+ * direkte hvis spredningen er slaaet fra.
+ *
+ * Laasen holdes hele vejen gennem starten. Det er den ene undtagelse
+ * fra reglen om at vi aldrig laaser mens vi taler med serveren, og den
+ * er efterset i esp-mqtt: esp_mqtt_client_start laver en opgave og
+ * vender tilbage med det samme, den kalder ikke vores
+ * haendelseshaandtering undervejs. Saa er der ingen vej til en laas der
+ * venter paa sig selv, og til gengaeld kan zs_fleet_stop ikke rive
+ * klienten ned midt i starten.
+ */
+static void start_klienten(void *arg)
+{
+    (void) arg;
+
+    LAAS();
+    if (s_klient == NULL) {
+        SLIP();                 /* stoppet imens, der er intet at starte */
+        return;
+    }
+    esp_err_t r = esp_mqtt_client_start(s_klient);
+    if (r != ESP_OK) {
+        s_state = ZS_FLEET_ERROR;
+    }
+    SLIP();
+
+    if (r != ESP_OK) {
+        ZS_LOGE(TAG, "klienten kunne ikke startes");
+        return;
+    }
+    ZS_LOGI(TAG, "melder ind som %s hos %s:%d",
+            zs_fleet_unique_id(), s_host, ZS_FLEET_PORT);
+}
 
 bool zs_fleet_start(void)
 {
@@ -380,6 +488,16 @@ bool zs_fleet_start(void)
         s_cert = s_key = s_srv_ca = NULL;
         s_state = ZS_FLEET_OFF;
         return false;
+    }
+
+    /*
+     * Eget genforbindelsesinterval per skaerm, se
+     * ZS_FLEET_RECONNECT_SPREAD_MS. Traekkes én gang ved opstart og
+     * bliver ved, saa skaermen ligger ude af trit med naboen for altid.
+     */
+    uint32_t genforbind_ms = ZS_FLEET_RECONNECT_MS;
+    if (ZS_FLEET_RECONNECT_SPREAD_MS > 0) {
+        genforbind_ms += esp_random() % (uint32_t) ZS_FLEET_RECONNECT_SPREAD_MS;
     }
 
     esp_mqtt_client_config_t cfg = {
@@ -424,7 +542,7 @@ bool zs_fleet_start(void)
             .disable_clean_session = false,
         },
         .network = {
-            .reconnect_timeout_ms = 10000,
+            .reconnect_timeout_ms = (int) genforbind_ms,
             .timeout_ms = 10000,
         },
         .task = {
@@ -445,29 +563,73 @@ bool zs_fleet_start(void)
         return false;
     }
     esp_mqtt_client_register_event(s_klient, ESP_EVENT_ANY_ID, paa_haendelse, NULL);
-    if (esp_mqtt_client_start(s_klient) != ESP_OK) {
-        ZS_LOGE(TAG, "klienten kunne ikke startes");
-        zs_fleet_stop();
-        s_state = ZS_FLEET_ERROR;
-        return false;
-    }
     s_state = ZS_FLEET_CONNECTING;
-    ZS_LOGI(TAG, "floedestyring startet, id %s, server %s:%d",
-            zs_fleet_unique_id(), s_host, ZS_FLEET_PORT);
+
+    /*
+     * Vent et tilfaeldigt stykke tid foer vi melder ind, saa en hel gade
+     * der faar stroem tilbage samtidig ikke rammer serveren i samme
+     * sekund. Tallet kommer fra hardwarens stoejkilde, saa to skaerme
+     * med samme firmware ikke lander paa samme ventetid.
+     */
+    uint32_t vent_ms = 0;
+    if (ZS_FLEET_START_SPREAD_MS > 0) {
+        vent_ms = esp_random() % (uint32_t) ZS_FLEET_START_SPREAD_MS;
+    }
+    if (vent_ms == 0) {
+        start_klienten(NULL);
+        return true;
+    }
+
+    const esp_timer_create_args_t ur = {
+        .callback = start_klienten,
+        .name     = "fleet-spred",
+    };
+    if (esp_timer_create(&ur, &s_spred_ur) != ESP_OK
+        || esp_timer_start_once(s_spred_ur, (uint64_t) vent_ms * 1000) != ESP_OK) {
+        /* Kan vi ikke faa et ur, er spredningen det mindste af to onder.
+         * Saa melder vi ind med det samme i stedet for aldrig. */
+        ZS_LOGW(TAG, "intet ur til spredning, melder ind straks");
+        start_klienten(NULL);
+        return true;
+    }
+    ZS_LOGI(TAG, "floedestyring klar som %s, melder ind om %u ms",
+            zs_fleet_unique_id(), (unsigned) vent_ms);
     return true;
 }
 
 void zs_fleet_stop(void)
 {
-    if (s_klient != NULL) {
-        esp_mqtt_client_stop(s_klient);
-        esp_mqtt_client_destroy(s_klient);
-        s_klient = NULL;
+    /*
+     * Tag handtaget ud under laasen foerst.
+     *
+     * Saa kan start_klienten ikke vaere midt i at starte en klient vi er
+     * ved at rive ned: den holder laasen hele vejen gennem starten, saa
+     * de to udelukker hinanden. Derefter slipper vi laasen IGEN foer vi
+     * venter paa mqtt-opgaven. Holdt vi den, kunne opgaven staa og
+     * vente paa den samme laas inde i vores haendelseshaandtering, og
+     * saa ventede de to paa hinanden for evigt.
+     */
+    LAAS();
+    esp_mqtt_client_handle_t klient = s_klient;
+    s_klient = NULL;
+    SLIP();
+
+    if (s_spred_ur != NULL) {
+        esp_timer_stop(s_spred_ur);       /* ikke startet: harmloes fejl */
+        esp_timer_delete(s_spred_ur);
+        s_spred_ur = NULL;
+    }
+    if (klient != NULL) {
+        esp_mqtt_client_stop(klient);
+        esp_mqtt_client_destroy(klient);
     }
     free(s_cert); free(s_key); free(s_srv_ca);
     s_cert = s_key = s_srv_ca = NULL;
+
+    LAAS();
     s_asset[0] = '\0';
     s_state = ZS_FLEET_OFF;
+    SLIP();
 }
 
 /* Sender ét felt. Fejler den, siger vi ikke fra: naeste runde er om to
@@ -504,6 +666,45 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
     if (s_klient == NULL || live == NULL) {
         return;
     }
+
+    /*
+     * Proev at melde ind igen. Styret af TIDEN, ikke af en haendelse.
+     *
+     * Hvorfor det skal vaere tiden: indmeldelsen blev foer kun forsoegt
+     * naar abonnementet var nyt, altsaa én gang per forbindelse. Og
+     * maalt mod serveren holder den forbindelsen AABEN efter en
+     * afvisning, den svarer
+     * {"type":"error","error":"UNAUTHORIZED"} og lader den ligge. Saa
+     * kom der aldrig et nyt abonnement, og skaermen var afvist for
+     * evigt, ogsaa efter at fejlen var rettet paa serveren, indtil
+     * nogen tog stroemmen. Det samme gjaldt en afsendelse der ikke gik
+     * igennem og et svar der aldrig kom.
+     *
+     * Reglen er den samme for alle tre: er vi abonneret, har vi intet
+     * enheds-id, og er uret gaaet, saa proever vi igen. Se
+     * s_naeste_forsoeg_ms.
+     *
+     * Hovedopgaven kommer forbi her ved hver aflaesning, og det er nok
+     * til at holde oeje med uret. Ingen ekstra opgave, intet ekstra ur.
+     */
+    bool proev_igen = false;
+    LAAS();
+    if (zs_fleet_enroll_due(s_abonneret, s_asset[0] != '\0',
+                            s_naeste_forsoeg_ms,
+                            esp_timer_get_time() / 1000)) {
+        /* Nulstil FOER vi sender, under laasen, saa to runder ikke kan
+         * sende to indmeldelser hvis de overlapper. Svaret saetter den
+         * igen hvis vi bliver afvist en gang mere. */
+        s_naeste_forsoeg_ms = 0;
+        proev_igen = true;
+    }
+    SLIP();
+    if (proev_igen) {
+        ZS_LOGI(TAG, "pausen er gaaet, proever at melde ind igen");
+        send_indmeldelse();
+        return;                 /* svaret skal ind foerst */
+    }
+
     /* Takten foelger aflaesningen, se ZS_FLEET_PUBLISH_EVERY_N_POLLS. */
     if (++s_poll_taeller < ZS_FLEET_PUBLISH_EVERY_N_POLLS) {
         return;
@@ -561,7 +762,8 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 { (void)live; (void)info; }
 zs_fleet_state_t zs_fleet_state(void) { return ZS_FLEET_OFF; }
 const char *zs_fleet_state_text(void) { return "Slået fra"; }
-const char *zs_fleet_asset_id(void) { return ""; }
+void zs_fleet_asset_id(char *ud, size_t ud_len)
+{ if (ud != NULL && ud_len > 0) { ud[0] = '\0'; } }
 const char *zs_fleet_unique_id(void) { return ""; }
 
 #endif /* ZS_FLEET_ENABLED */

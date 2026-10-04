@@ -73,5 +73,6 @@ void test_version(void);
 void test_tilegrid(void);
 void test_demo(void);
 void test_fleet(void);
+void test_fleet_igen(void);
 
 #endif /* ZS_TEST_H */
