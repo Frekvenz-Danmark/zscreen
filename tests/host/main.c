@@ -34,6 +34,7 @@ int main(int argc, char **argv)
     test_version();
     test_tilegrid();
     test_demo();
+    test_fleet();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

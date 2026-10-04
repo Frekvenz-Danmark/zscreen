@@ -20,6 +20,8 @@ idf_component_register(
         "net/zs_price_now.c"
         "net/zs_ota.c"
         "net/zs_version.c"
+        "net/zs_fleet.c"
+        "net/zs_fleet_msg.c"
 
         "app/zs_format.c"
         "app/zs_app.c"
@@ -79,6 +81,7 @@ idf_component_register(
         esp_http_client
         esp-tls
         json
+        mqtt
         mbedtls
         esp_app_format
         app_update

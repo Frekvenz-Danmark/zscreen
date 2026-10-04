@@ -23,7 +23,7 @@ FAIL=0
 
 # Alle include-guards, altsaa det navn der staar lige efter #ifndef paa
 # den foerste linje i hver header.
-GUARDS=$(grep -h "^#ifndef ZS_" "${SRC}"/*.h "${SRC}"/*/*.h "${SRC}"/*/*/*.h 2>/dev/null \
+GUARDS=$(grep -hE "^#ifndef ZS_[A-Z0-9_]*_H\$" "${SRC}"/*.h "${SRC}"/*/*.h "${SRC}"/*/*/*.h 2>/dev/null \
          | awk '{print $2}' | sort -u)
 
 # Alle andre #define'r. Vi springer assets over: de er genererede, og
@@ -61,9 +61,26 @@ done
 
 # Regel 3: hver header skal have en guard. Uden én kan den blive laest
 # to gange og give dobbeltdefinitioner.
+#
+# Vi kigger i HELE filen og ikke kun i de foerste linjer. En header med
+# en ordentlig forklaring oeverst har sin guard laengere nede, og den
+# skal ikke straffes for at vaere veldokumenteret. Til gengaeld skal
+# guarden komme FOER enhver erklaering, ellers daekker den ikke det den
+# skal. Det tjekker vi ogsaa.
 for f in $(find "${SRC}" -name "*.h" | grep -v "/assets/"); do
-    if ! head -40 "${f}" | grep -q "^#ifndef "; then
+    # || true: uden den draeber et grep uden fund hele scriptet,
+    # fordi set -euo pipefail er slaaet til.
+    g=$(grep -n "^#ifndef " "${f}" | head -1 | cut -d: -f1 || true)
+    if [ -z "${g}" ]; then
         echo "  FEJL: ${f} mangler en include-guard."
+        FAIL=1
+        continue
+    fi
+    # Foerste linje der ser ud som en erklaering eller en include.
+    d=$(grep -nE "^#include|^(typedef|struct|enum|extern|static|void|int|bool|char|uint|float|double|const|size_t|lv_|zs_|LV_)" "${f}" | head -1 | cut -d: -f1 || true)
+    if [ -n "${d}" ] && [ "${d}" -lt "${g}" ]; then
+        echo "  FEJL: ${f} har indhold paa linje ${d}, foer guarden paa linje ${g}."
+        echo "        Saa daekker guarden ikke det hele."
         FAIL=1
     fi
 done

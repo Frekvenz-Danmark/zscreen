@@ -144,6 +144,47 @@
 #define ZS_TIMEZONE          "CET-1CEST,M3.5.0,M10.5.0/3"
 
 /* ── Lysstyrke ────────────────────────────────────────────────────── */
+/* ── Floedestyring ────────────────────────────────────────────────── */
+/*
+ * Forbindelsen til Frekvenz' egen OpenRemote-server.
+ *
+ * ALT om den staar her, saa der kun er ét sted at aendre takt, vaert og
+ * om den overhovedet er med.
+ *
+ * 0 slaar den helt ud af den byggede fil, som demoen. En skaerm uden
+ * floedestyring skal ikke have koden med.
+ */
+#ifndef ZS_FLEET_ENABLED
+#define ZS_FLEET_ENABLED        1
+#endif
+
+/* Serveren. Kan overskrives per enhed i lageret, saa den samme
+ * firmware kan pege paa en proeveserver og paa den rigtige. */
+#define ZS_FLEET_HOST           "fleet.frekvenz.nu"
+#define ZS_FLEET_PORT           8883
+#define ZS_FLEET_REALM          "master"
+
+/*
+ * Hvor ofte der sendes, maalt i aflaesninger og ikke i sekunder.
+ *
+ * 1 betyder hver gang vi har laest inverteren, altsaa realtid. Tallet
+ * er med VILJE i aflaesninger: saa foelger takten automatisk
+ * ZS_POLL_INTERVAL_MS, og de to kan ikke komme ud af trit. Skal der
+ * sendes sjaeldnere, er det ét tal her: 15 giver hvert halve minut ved
+ * to sekunders aflaesning.
+ */
+#define ZS_FLEET_PUBLISH_EVERY_N_POLLS  1
+
+/*
+ * Hvor laenge vi venter efter indmeldelsen foer vi skriver.
+ *
+ * Maalt: skriver man i samme oejeblik svaret kommer, bliver hver
+ * skrivning nAEgtet og forbindelsen lukket. Serveren skal foerst
+ * opgradere forbindelsen til servicebrugeren. Halvandet sekund var nok
+ * i alle forsoeg; to giver luft paa et langsomt net.
+ */
+#define ZS_FLEET_READY_DELAY_MS 2000
+
 /*
  * Under den her graense kalder vi det nul.
  *

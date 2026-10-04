@@ -1,3 +1,54 @@
+## 2026-10-04 19:46
+
+### Floedestyring, fase 2: firmwaren
+Skaermen kan nu melde sig ind paa Frekvenz' egen OpenRemote-server og
+sende sine maalinger. zs_fleet.c staar for det.
+
+Alt om den staar ét sted i zs_config.h: om den er med, hvilken server,
+og hvor ofte der sendes. Takten maales i AFLAESNINGER og ikke i
+sekunder, saa den foelger ZS_POLL_INTERVAL_MS af sig selv og de to ikke
+kan komme ud af trit. 1 betyder hver gang vi har laest inverteren,
+altsaa realtid.
+
+Det vigtigste: skaermen virker praecis lige saa godt uden serveren. Er
+der ingen forbindelse, er serveren nede, eller mangler certifikatet,
+viser skaermen anlaegget som den altid har gjort. Er floedestyringen
+slaaet fra, findes koden ikke i den byggede fil.
+
+Certifikat og noegle ligger i lageret og ikke i firmwaren. De er
+forskellige paa hver enhed, og firmwaren er den samme paa alle. Laa de i
+firmwaren, ville alle skaerme have samme identitet, og saa kunne den ene
+skrive i den andens anlaeg. Enhedens navn udledes af chippens egen
+MAC-adresse fra eFuse, som ikke kan aendres.
+
+Serveren kan tjekkes mod et privat CA fra lageret i stedet for Mozillas
+rodliste, fordi en selvhostet server kan have sit eget. Der findes
+bevidst INGEN mulighed for at springe tjekket over: et saadant flag
+ville foer eller siden slippe med i en udgivelse.
+
+### Indmeldelsens JSON er trukket ud og testet
+Indmeldelsen staar og falder paa at et certifikat paa halvanden kilobyte
+bliver undsluppet rigtigt til JSON. Er ét linjeskift forkert, afviser
+serveren os, og det ville vi foerst opdage ude hos en kunde.
+
+Derfor ligger den i zs_fleet_msg.c uden afhaengigheder, med 25 tests:
+at der ikke er raa linjeskift i beskeden, at der kommer lige saa mange
+ud som ind, at begge markoerer er med, og at en for lille buffer giver
+NUL i stedet for en afkortet besked. Det samme for emnet der skrives
+til: et afkortet emne ville skrive i et andet felt eller i en anden
+enhed.
+
+### To fejl i vores eget header-tjek
+Det meldte at zs_fleet.h manglede en include-guard. Den var der, men
+tjekket kiggede kun i de foerste 40 linjer, og headeren har en lang
+forklaring foerst. En veldokumenteret header skal ikke straffes.
+
+Da jeg rettede det, indfoerte jeg to nye: et grep uden fund draebte hele
+scriptet, fordi set -euo pipefail er slaaet til, og mine
+"#ifndef ZS_FLEET_ENABLED" blev opsamlet som om de var include-guards.
+Begge rettet, og tjekket er efterproevet paa en header uden guard og paa
+en hvor indholdet staar foer guarden.
+
 ## 2026-09-23 17:13
 
 ### Fejlkode-siden er taget ud

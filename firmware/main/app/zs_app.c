@@ -16,6 +16,7 @@
 
 #include "zs_app.h"
 #include "zs_selftest.h"
+#include "zs_fleet.h"
 #include "zs_config.h"
 #include "zs_ui.h"
 #include "zs_wifi.h"
@@ -693,6 +694,16 @@ static void app_task(void *arg)
         ESP_LOGE(TAG, "wifi kunne ikke startes: %s", zs_wifi_last_error());
     }
 
+    /*
+     * Floedestyringen startes her og ikke senere.
+     *
+     * Den har sin egen opgave og forbinder naar nettet er der, saa den
+     * skal ikke vente paa noget. Er den slaaet fra, eller mangler
+     * certifikatet, siger den bare nej og vi gaar videre. Skaermen
+     * virker uanset.
+     */
+    zs_fleet_start();
+
     /* Netvaerksopgaven. Se noten ved net_task om hvorfor der kun er én.
      * 10 KB stak: mbedTLS' haandtryk med certifikatbundtet er det
      * tungeste vi laver. Prioritet 4, under hovedopgaven, saa en
@@ -1025,6 +1036,19 @@ static void app_task(void *arg)
         if (t >= next_poll) {
             next_poll = t + ZS_POLL_INTERVAL_MS;
             poll_once();
+
+            /*
+             * Samme takt som aflaesningen, med vilje.
+             *
+             * Kaldet staar HER og ikke i en egen timer, saa takten
+             * foelger ZS_POLL_INTERVAL_MS af sig selv og de to ikke kan
+             * komme ud af trit. Hvor ofte der faktisk sendes styres af
+             * ZS_FLEET_PUBLISH_EVERY_N_POLLS, ét tal i zs_config.h.
+             *
+             * Funktionen tier hvis vi ikke er indmeldt, saa der er
+             * intet at tjekke her.
+             */
+            zs_fleet_publish(&s_home.live, &s_fr.info);
 
             /*
              * Har vi ikke faaet et brugbart svar laenge, saa luk og
