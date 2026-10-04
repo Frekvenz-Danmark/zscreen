@@ -1,3 +1,46 @@
+## 2026-10-04 20:58
+
+### Bug check af floedestyringen: fire fund
+Gennemgang af zs_fleet.c, scenarie for scenarie.
+
+**Kapløb mellem to opgaver.** esp-mqtt skriver tilstanden fra sin egen
+opgave, hovedopgaven laeser den naar den sender. Uden laas kunne
+hovedopgaven laese et enheds-id der var halvt overskrevet, eller se
+"klar" med et id der netop var ryddet. Resultatet ville vaere et emne der
+peger paa en anden enhed eller ingen. Der er nu en laas, og den holdes
+kun om kopieringen af nogle faa felter. Hovedopgaven tager en KOPI under
+laas og sender derefter uden, saa laasen aldrig holdes over netvaerket.
+
+**Uendelige forsoeg ved afvisning.** Blev certifikatet afvist, sendte vi
+det igen ved hver genforbindelse, altsaa hvert tiende sekund for evigt.
+Med tres skaerme bliver det stoej paa serveren uden at nogen bliver
+klogere. Nu ventes der ti minutter, saa en rettelse paa serveren bliver
+opdaget af sig selv, men ingen skal ud og genstarte en skaerm.
+
+**Laekage.** Kunne MQTT-klienten ikke startes, blev certifikaterne
+liggende i heapen, og et nyt forsoeg ville laegge endnu et saet. Rettet.
+
+**Noeglen var et krav men blev aldrig brugt.** Modulet naegtede at starte
+uden den private noegle og sendte den aldrig nogen steder. Den er nu
+valgfri.
+
+Og det sidste afdaekkede noget vigtigere: i dette forloeb er
+CERTIFIKATET ALENE legitimationen. Serveren tjekker at det er signeret
+af vores CA og at navnet passer, men beder aldrig om bevis paa at vi har
+den private noegle. Et certifikat er normalt offentligt, men her skal det
+behandles som en hemmelighed paa linje med et kodeord: kan nogen laese
+det ud af en skaerm, kan de melde sig ind som den skaerm.
+
+Noeglen laeses alligevel hvis den er der, saa vi kan skifte til mTLS paa
+en egen port en dag uden at skulle ud til enhederne. Maalt: mTLS virker
+IKKE gennem deres HAProxy, for den afslutter TLS selv, saa
+klientcertifikatet aldrig naar brokeren.
+
+### Hovedafbryderen virker
+Med ZS_FLEET_ENABLED paa 0 bygger firmwaren uden advarsler, og der er
+NUL forekomster af "writeattributevalue" i den byggede fil. Koden er
+vaek, ikke bare utilgaengelig.
+
 ## 2026-10-04 19:46
 
 ### Floedestyring, fase 2: firmwaren

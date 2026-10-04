@@ -17,6 +17,9 @@
 #include "nvs.h"
 #include "cJSON.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -35,6 +38,24 @@ static const char *TAG = "fleet";
  */
 #define NS_FLEET        "zsfleet"
 #define K_CERT          "cert"
+/*
+ * Den private noegle. VALGFRI.
+ *
+ * I indmeldelsen sendes certifikatet som tekst i en JSON-besked, og
+ * serveren tjekker at det er signeret af vores CA og at navnet passer.
+ * Den beder ALDRIG om bevis paa at vi har den private noegle, saa den
+ * bruges ikke til noget i dag.
+ *
+ * Det betyder noget: certifikatet ALENE er legitimationen. Et
+ * certifikat er normalt offentligt, men her skal det behandles som en
+ * hemmelighed paa linje med et kodeord. Kan nogen laese det ud af en
+ * skaerm, kan de melde sig ind som den skaerm.
+ *
+ * Noeglen laeses alligevel hvis den er der, saa vi kan skifte til mTLS
+ * paa en egen port en dag uden at skulle ud til enhederne igen. Maalt:
+ * mTLS virker IKKE gennem deres HAProxy, for den afslutter TLS selv, saa
+ * klientcertifikatet naar aldrig brokeren.
+ */
 #define K_KEY           "key"
 #define K_HOST          "host"      /* valgfri, ellers ZS_FLEET_HOST */
 /*
@@ -65,6 +86,37 @@ static char  *s_srv_ca;
 static int64_t s_klar_ms;          /* naar vi tidligst maa skrive       */
 static bool   s_info_sendt;
 static int    s_poll_taeller;
+
+/*
+ * Laas om den delte tilstand.
+ *
+ * To opgaver roerer de samme felter: esp-mqtt skriver dem fra sin egen
+ * opgave naar der kommer en haendelse, og hovedopgaven laeser dem naar
+ * den sender maalinger. Uden laas kan hovedopgaven laese et enheds-id
+ * der er halvt overskrevet, eller se READY med et id der netop blev
+ * ryddet. Det ville give et emne der peger paa en anden enhed eller
+ * ingen.
+ *
+ * Laasen holdes i mikrosekunder, kun om kopieringen af nogle faa felter.
+ * Der laases aldrig mens vi sender.
+ */
+static SemaphoreHandle_t s_laas;
+
+#define LAAS()    do { if (s_laas) { xSemaphoreTake(s_laas, portMAX_DELAY); } } while (0)
+#define SLIP()    do { if (s_laas) { xSemaphoreGive(s_laas); } } while (0)
+
+/*
+ * Naar vi tidligst proever at melde ind igen efter en afvisning.
+ *
+ * Er certifikatet forkert, hjaelper det ikke at proeve igen om tien
+ * sekunder. Uden den her sendte vi det afviste certifikat ved hver
+ * genforbindelse, for evigt, og med tres skaerme bliver det stoej paa
+ * serveren uden at nogen bliver klogere. Ti minutter er nok til at en
+ * rettelse paa serveren bliver opdaget af sig selv, og lidt nok til at
+ * ingen skal ud og genstarte en skaerm.
+ */
+static int64_t s_naeste_forsoeg_ms;
+#define AFVIST_PAUSE_MS   (10 * 60 * 1000)
 
 /* ------------------------------------------------------------------ */
 /* Smaating                                                            */
@@ -183,6 +235,7 @@ static void laes_svar(const char *data, int len)
         const cJSON *asset = cJSON_GetObjectItemCaseSensitive(rod, "asset");
         const cJSON *id = asset ? cJSON_GetObjectItemCaseSensitive(asset, "id") : NULL;
         if (cJSON_IsString(id) && id->valuestring[0] != '\0') {
+            LAAS();
             snprintf(s_asset, sizeof(s_asset), "%s", id->valuestring);
             /*
              * Vi er godkendt, men der maa ikke skrives endnu. Serveren
@@ -192,6 +245,7 @@ static void laes_svar(const char *data, int len)
             s_klar_ms = (esp_timer_get_time() / 1000) + ZS_FLEET_READY_DELAY_MS;
             s_info_sendt = false;
             s_state = ZS_FLEET_READY;
+            SLIP();
             ZS_LOGI(TAG, "indmeldt som %s", s_asset);
         } else {
             ZS_LOGW(TAG, "svaret havde intet enheds-id");
@@ -201,6 +255,8 @@ static void laes_svar(const char *data, int len)
         const cJSON *fejl = cJSON_GetObjectItemCaseSensitive(rod, "error");
         ZS_LOGE(TAG, "serveren afviste os: %s",
                 cJSON_IsString(fejl) ? fejl->valuestring : "ukendt grund");
+        LAAS();
+        s_naeste_forsoeg_ms = (esp_timer_get_time() / 1000) + AFVIST_PAUSE_MS;
         /*
          * Afvist er ikke det samme som en netvaerksfejl. Er
          * certifikatet forkert, hjaelper det ikke at proeve igen om et
@@ -208,6 +264,7 @@ static void laes_svar(const char *data, int len)
          * og den kan ses paa Detaljer-siden.
          */
         s_state = ZS_FLEET_REJECTED;
+        SLIP();
     }
     cJSON_Delete(rod);
 }
@@ -234,9 +291,22 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
         ZS_LOGI(TAG, "forbundet til %s", s_host);
         break;
     }
-    case MQTT_EVENT_SUBSCRIBED:
+    case MQTT_EVENT_SUBSCRIBED: {
+        /*
+         * Blev vi afvist, venter vi. Se AFVIST_PAUSE_MS: uden den
+         * sender vi det samme afviste certifikat ved hver
+         * genforbindelse, for evigt.
+         */
+        LAAS();
+        int64_t vent = s_naeste_forsoeg_ms;
+        SLIP();
+        if (vent > 0 && (esp_timer_get_time() / 1000) < vent) {
+            ZS_LOGI(TAG, "vi blev afvist, venter foer vi proever igen");
+            break;
+        }
         send_indmeldelse();
         break;
+    }
 
     case MQTT_EVENT_DATA:
         laes_svar(e->data, e->data_len);
@@ -249,18 +319,22 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
          * sende maalinger. Glemmer man det, bliver hver skrivning
          * nAEgtet og forbindelsen lukket, i en ring.
          */
+        LAAS();
         if (s_state != ZS_FLEET_REJECTED) {
             s_state = ZS_FLEET_CONNECTING;
         }
         s_asset[0] = '\0';
         s_klar_ms = 0;
+        SLIP();
         ZS_LOGW(TAG, "forbindelsen gik tabt, melder ind igen naar den er tilbage");
         break;
 
     case MQTT_EVENT_ERROR:
+        LAAS();
         if (s_state != ZS_FLEET_REJECTED) {
             s_state = ZS_FLEET_ERROR;
         }
+        SLIP();
         break;
 
     default:
@@ -276,6 +350,13 @@ bool zs_fleet_start(void)
 {
     if (s_klient != NULL) {
         return true;
+    }
+    if (s_laas == NULL) {
+        s_laas = xSemaphoreCreateMutex();
+        if (s_laas == NULL) {
+            ZS_LOGE(TAG, "kunne ikke lave laasen");
+            return false;
+        }
     }
 
     nvs_handle_t h;
@@ -293,8 +374,8 @@ bool zs_fleet_start(void)
     }
     nvs_close(h);
 
-    if (s_cert == NULL || s_key == NULL) {
-        ZS_LOGI(TAG, "certifikat eller noegle mangler, floedestyring springes over");
+    if (s_cert == NULL) {
+        ZS_LOGI(TAG, "intet certifikat, floedestyring springes over");
         free(s_cert); free(s_key); free(s_srv_ca);
         s_cert = s_key = s_srv_ca = NULL;
         s_state = ZS_FLEET_OFF;
@@ -357,12 +438,16 @@ bool zs_fleet_start(void)
     s_klient = esp_mqtt_client_init(&cfg);
     if (s_klient == NULL) {
         ZS_LOGE(TAG, "klienten kunne ikke laves");
+        /* Giv hukommelsen tilbage. Uden det ville et nyt forsoeg laese
+         * certifikaterne igen og laegge endnu et saet i heapen. */
+        zs_fleet_stop();
         s_state = ZS_FLEET_ERROR;
         return false;
     }
     esp_mqtt_client_register_event(s_klient, ESP_EVENT_ANY_ID, paa_haendelse, NULL);
     if (esp_mqtt_client_start(s_klient) != ESP_OK) {
         ZS_LOGE(TAG, "klienten kunne ikke startes");
+        zs_fleet_stop();
         s_state = ZS_FLEET_ERROR;
         return false;
     }
@@ -387,11 +472,11 @@ void zs_fleet_stop(void)
 
 /* Sender ét felt. Fejler den, siger vi ikke fra: naeste runde er om to
  * sekunder, og en tabt maaling er ikke noget at raabe op om. */
-static void send_tal(const char *felt, float vaerdi)
+static void send_tal(const char *felt, const char *asset, float vaerdi)
 {
     char emne[160], krop[32];
     if (zs_fleet_msg_topic(emne, sizeof(emne), ZS_FLEET_REALM,
-                           zs_fleet_unique_id(), felt, s_asset) == 0) {
+                           zs_fleet_unique_id(), felt, asset) == 0) {
         return;
     }
     /* Ét decimal er rigeligt for watt og procent, og det halverer
@@ -400,14 +485,14 @@ static void send_tal(const char *felt, float vaerdi)
     esp_mqtt_client_publish(s_klient, emne, krop, 0, 0, 0);
 }
 
-static void send_tekst(const char *felt, const char *vaerdi)
+static void send_tekst(const char *felt, const char *asset, const char *vaerdi)
 {
     if (vaerdi == NULL || vaerdi[0] == '\0') {
         return;
     }
     char emne[160], krop[72];
     if (zs_fleet_msg_topic(emne, sizeof(emne), ZS_FLEET_REALM,
-                           zs_fleet_unique_id(), felt, s_asset) == 0) {
+                           zs_fleet_unique_id(), felt, asset) == 0) {
         return;
     }
     snprintf(krop, sizeof(krop), "\"%.64s\"", vaerdi);
@@ -425,30 +510,45 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
     }
     s_poll_taeller = 0;
 
-    if (s_state != ZS_FLEET_READY || s_asset[0] == '\0') {
-        return;
+    /*
+     * Tag en KOPI af det vi skal bruge, under laas, og send derefter
+     * uden. Saa kan MQTT-opgaven rydde tilstanden midt i vores
+     * afsendelse uden at vi bygger et emne der peger paa ingenting.
+     */
+    char asset[sizeof(s_asset)];
+    bool send_info;
+    LAAS();
+    bool klar = (s_state == ZS_FLEET_READY) && (s_asset[0] != '\0')
+             && ((esp_timer_get_time() / 1000) >= s_klar_ms);
+    snprintf(asset, sizeof(asset), "%s", s_asset);
+    send_info = klar && !s_info_sendt;
+    if (send_info) {
+        /* Saettes HER, under laasen, saa to runder ikke kan sende
+         * oplysningerne to gange hvis de overlapper. */
+        s_info_sendt = true;
     }
-    if ((esp_timer_get_time() / 1000) < s_klar_ms) {
-        return;   /* serveren er ikke faerdig med at opgradere os */
+    SLIP();
+
+    if (!klar) {
+        return;
     }
 
     /* Kun det vi faktisk har maalt. En tom maaling skal ikke blive til
      * et nul paa en graf. */
-    if (live->solar_w.ok)       { send_tal("solarPower",   live->solar_w.v); }
-    if (live->house_w.ok)       { send_tal("housePower",   live->house_w.v); }
-    if (live->battery_w.ok)     { send_tal("batteryPower", live->battery_w.v); }
-    if (live->grid_w.ok)        { send_tal("gridPower",    live->grid_w.v); }
-    if (live->soc_pct.ok)       { send_tal("batteryLevel", live->soc_pct.v); }
+    if (live->solar_w.ok)       { send_tal("solarPower", asset,   live->solar_w.v); }
+    if (live->house_w.ok)       { send_tal("housePower", asset,   live->house_w.v); }
+    if (live->battery_w.ok)     { send_tal("batteryPower", asset, live->battery_w.v); }
+    if (live->grid_w.ok)        { send_tal("gridPower", asset,    live->grid_w.v); }
+    if (live->soc_pct.ok)       { send_tal("batteryLevel", asset, live->soc_pct.v); }
 
     /* Anlaeggets oplysninger ÉN gang per indmeldelse. De skifter ikke,
      * og at sende dem hvert andet sekund ville fylde databasen med det
      * samme svar. */
-    if (!s_info_sendt && info != NULL && info->has_inverter) {
-        send_tekst("inverterModel",  info->model);
-        send_tekst("inverterSerial", info->serial);
-        send_tal("ratedPower",      info->inverter_rated_kw);
-        send_tal("batteryCapacity", info->battery_capacity_kwh);
-        s_info_sendt = true;
+    if (send_info && info != NULL && info->has_inverter) {
+        send_tekst("inverterModel", asset,  info->model);
+        send_tekst("inverterSerial", asset, info->serial);
+        send_tal("ratedPower", asset,      info->inverter_rated_kw);
+        send_tal("batteryCapacity", asset, info->battery_capacity_kwh);
         ZS_LOGI(TAG, "sendte anlaeggets oplysninger");
     }
 }
