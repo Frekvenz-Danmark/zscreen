@@ -1,3 +1,61 @@
+## 2026-10-05 11:33
+
+### Inverteren bliver fundet igen når den har skiftet IP-adresse
+En IP-adresse er ikke en identitet. Routeren uddeler dem på lån, og en
+inverter der har været slukket længe nok, eller som bliver genstartet
+samtidig med routeren, kan komme tilbage på en anden adresse. Skærmen
+huskede kun adressen, så den stod og bankede på den gamle for evigt, med
+voksende pause, og kunden skulle selv ind i indstillingerne og scanne
+forfra.
+
+Den anden halvdel var værre, og den så ud som om alt virkede: adressen
+kan imens være givet til en **anden** enhed. Er det også en inverter,
+svarer den, skærmen forbinder, og kunden ser en fremmed inverters tal som
+om det var anlægget på taget. Kurverne ser rigtige ud. Man kan se på
+sådan en skærm i måneder uden at opdage noget.
+
+**Identiteten er nu serienummeret**, fra SunSpec model 1 felt SN. Det
+sidder i hardwaren og skifter ikke. Det blev i forvejen læst ved hver
+forbindelse, så det koster ikke et eneste ekstra kald. Afkodningen er
+efterset og er deterministisk: samme registre giver altid samme streng,
+så en sammenligning tegn for tegn er til at stole på.
+
+Hvad der sker nu, i den rækkefølge det koster:
+
+1. Prøv den gemte adresse. Tager under et sekund, og i det almindelige
+   tilfælde, hvor inverteren bare var slukket et øjeblik, er vi færdige.
+2. Svarer der en inverter med et **andet** serienummer, bruges den ikke,
+   og der ledes straks videre. Ikke om tre forsøg: vi ved at adressen er
+   forkert.
+3. Efter tre mislykkede forsøg scannes hele undernettet, med den gemte
+   adresse først.
+4. Der vælges efter serienummer, ikke efter hvad der tilfældigvis svarer.
+5. Ny adresse gemmes med det samme, så en strømafbrydelse bagefter ikke
+   koster en ny søgning.
+
+**Og vi gætter ikke.** Kender vi et serienummer og finder vi det ikke, så
+siges der fra i stedet for at tage den eneste inverter der var. I en
+lejlighed eller et rækkehus kan naboens inverter sagtens svare, og at
+vise naboens produktion som kundens er værre end at sige at anlægget
+ikke kan findes.
+
+Beslutningen ligger for sig selv uden netværk, så den kan prøves af uden
+hardware. Der er 20 nye enhedstest på den, og fire nye ende til ende mod
+den simulerede Fronius over en rigtig TCP-forbindelse, blandt dem den
+farlige: en fremmed inverter på præcis den adresse vi havde gemt bliver
+afvist. Værktøjet `zs-probe --genfind` kan køre motoren i hånden mod et
+rigtigt net.
+
+Vælger kunden selv en inverter i indstillingerne, følger serienummeret
+med fra scanningen. Ellers ville den nye kontrol afvise netop det valg
+kunden lige havde truffet.
+
+**Oprydning:** antallet af invertere vi kan holde på stod to steder, 12 i
+zs_config.h og 8 i zs_discovery.h, og de 12 blev aldrig brugt. Nu ét tal
+ét sted.
+
+506 enhedstest og 40 ende til ende, alle bestået. Version 0.9.0.
+
 ## 2026-10-05 01:36
 
 ### Lasttest med tres skærme, og tre fund i flødestyringen

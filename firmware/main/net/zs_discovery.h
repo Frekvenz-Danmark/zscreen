@@ -27,13 +27,15 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "zs_config.h"
 #include "zs_fronius.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define ZS_DISCOVERY_MAX  8
+/* ZS_DISCOVERY_MAX staar i zs_config.h, sammen med de andre tal man
+ * kan skrue paa. */
 
 typedef struct {
     char         ip[16];

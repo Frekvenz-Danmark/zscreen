@@ -64,6 +64,7 @@ SRC=(
     test_tilegrid.c
     test_demo.c
     test_fleet.c
+    test_locate.c
     ../../firmware/main/net/zs_modbus_tcp.c
     ../../firmware/main/net/zs_sunspec.c
     ../../firmware/main/app/zs_format.c
@@ -72,6 +73,7 @@ SRC=(
     ../../firmware/main/app/zs_demo.c
     ../../firmware/main/net/zs_price_now.c
     ../../firmware/main/net/zs_fleet_msg.c
+    ../../firmware/main/net/zs_locate.c
 )
 
 # Headerne tjekkes foerst. Et navnesammenstoed mellem en konstant og en

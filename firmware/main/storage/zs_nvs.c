@@ -17,6 +17,7 @@ static const char *TAG = "nvs";
 #define K_IP        "inv_ip"
 #define K_PORT      "inv_port"
 #define K_UNIT      "inv_unit"
+#define K_SERIAL    "inv_sn"
 #define K_METERSIGN "meter_pos"
 #define K_ZONE      "pris_zone"
 #define K_BRIGHT    "bright"
@@ -97,6 +98,7 @@ bool zs_nvs_load(zs_settings_t *s)
     get_str(h, K_IP,   s->inverter_ip, sizeof(s->inverter_ip));
     get_u16(h, K_PORT, &s->inverter_port);
     get_u8(h, K_UNIT,  &s->inverter_unit);
+    get_str(h, K_SERIAL, s->inverter_serial, sizeof(s->inverter_serial));
     get_bool(h, K_METERSIGN, &s->meter_import_positive);
     get_str(h, K_ZONE, s->price_zone, sizeof(s->price_zone));
     get_u8(h, K_BRIGHT, &s->brightness);
@@ -181,6 +183,7 @@ bool zs_nvs_save(const zs_settings_t *s)
     ok &= nvs_set_str(h, K_IP,   s->inverter_ip) == ESP_OK;
     ok &= nvs_set_u16(h, K_PORT, s->inverter_port) == ESP_OK;
     ok &= nvs_set_u8(h,  K_UNIT, s->inverter_unit) == ESP_OK;
+    ok &= nvs_set_str(h, K_SERIAL, s->inverter_serial) == ESP_OK;
     ok &= nvs_set_u8(h,  K_METERSIGN, s->meter_import_positive ? 1 : 0) == ESP_OK;
     ok &= nvs_set_str(h, K_ZONE, s->price_zone) == ESP_OK;
     ok &= nvs_set_u8(h,  K_BRIGHT, s->brightness) == ESP_OK;

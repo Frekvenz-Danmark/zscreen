@@ -31,6 +31,8 @@ extern "C" {
 #define ZS_SSID_MAX     33
 #define ZS_PASS_MAX     65
 #define ZS_IP_MAX       16      /* "255.255.255.255" plus afslutning */
+/* SunSpec model 1 SN er 16 registre, altsaa 32 tegn, plus afslutning. */
+#define ZS_SERIAL_MAX   33
 
 typedef struct {
     char     wifi_ssid[ZS_SSID_MAX];
@@ -39,6 +41,29 @@ typedef struct {
     char     inverter_ip[ZS_IP_MAX];
     uint16_t inverter_port;
     uint8_t  inverter_unit;
+
+    /*
+     * Inverterens serienummer. DEN RIGTIGE IDENTITET.
+     *
+     * En IP-adresse er ikke en identitet. Routeren uddeler dem paa laan,
+     * og naar inverteren har vaeret slukket laenge nok, kan den komme
+     * tilbage paa en anden. Saa stod skaermen og bankede paa en adresse
+     * hvor der ikke var nogen, for evigt, og kunden skulle selv ind i
+     * indstillingerne og scanne forfra.
+     *
+     * Vaerre: adressen kan vaere givet til en ANDEN enhed imens. Saa
+     * svarede der noget, og skaermen ville vise en fremmed inverters
+     * tal som om de var kundens.
+     *
+     * Serienummeret kommer fra SunSpec model 1 felt SN og sidder i
+     * hardwaren. Det laeses ved hver forbindelse og sammenlignes. Passer
+     * det ikke, er det ikke vores inverter, uanset hvad adressen siger.
+     *
+     * Tomt betyder at vi ikke kender det endnu: enten en ny skaerm, eller
+     * en der er opdateret fra en udgave der ikke gemte det. Saa tages det
+     * fra den foerste inverter vi faar forbindelse til.
+     */
+    char     inverter_serial[ZS_SERIAL_MAX];
 
     /* Vender elmaalerens fortegn. Se noten i zs_fronius.h om hvorfor
      * det er en indstilling og ikke en konstant. */

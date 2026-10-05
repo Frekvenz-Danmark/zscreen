@@ -16,6 +16,7 @@ idf_component_register(
         "net/zs_fronius.c"
         "net/zs_wifi.c"
         "net/zs_discovery.c"
+        "net/zs_locate.c"
         "net/zs_price.c"
         "net/zs_price_now.c"
         "net/zs_ota.c"

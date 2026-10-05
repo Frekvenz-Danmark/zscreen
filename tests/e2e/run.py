@@ -61,9 +61,10 @@ def suite(navn):
 class Sim:
     """Starter simulatoren og lukker den igen, ogsaa hvis noget gaar galt."""
 
-    def __init__(self, profil, ekstra=None):
+    def __init__(self, profil, ekstra=None, port=None):
         self.profil = profil
-        self.args = ["python3", SIM, "--port", str(PORT), "--profile", profil,
+        self.port = port or PORT
+        self.args = ["python3", SIM, "--port", str(self.port), "--profile", profil,
                      "--start-hour", "13", "--speed", "1", "--print-every", "1"]
         if ekstra:
             self.args += ekstra
@@ -77,7 +78,7 @@ class Sim:
         # Vent paa at porten svarer, hoejst fem sekunder.
         for _ in range(50):
             try:
-                s = socket.create_connection(("127.0.0.1", PORT), timeout=0.3)
+                s = socket.create_connection(("127.0.0.1", self.port), timeout=0.3)
                 s.close()
                 break
             except OSError:
@@ -481,6 +482,67 @@ def test_naar_det_gaar_galt():
         fail("efter nedlukning: siges der fra", r.stdout)
 
 
+def test_genfind():
+    suite("Inverteren har fået en ny IP-adresse")
+
+    # Scanningen leder paa Modbus' egen port, saa simulatoren skal ligge
+    # der og ikke paa den hoeje testport. 502 er over 1024, saa der skal
+    # ikke sudo til.
+    MODBUS_PORT = 502
+    SN = "31234567"          # simulatorens serienummer, se profilen
+
+    # Udfaldene som zs_locate.h definerer dem, brugt som exitkode.
+    SAMME, NY, TAGET, INGEN, FLERE = 0, 1, 2, 3, 4
+
+    def genfind(serial=None, sidste=None):
+        cmd = [PROBE, "--genfind", "127.0.0.0"]
+        if serial:
+            cmd.append(serial)
+            if sidste:
+                cmd.append(sidste)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        if VERBOSE:
+            print(r.stdout)
+        return r.returncode, r.stdout
+
+    try:
+        with Sim("battery", port=MODBUS_PORT):
+            # 1. En ny skaerm der ikke kender noget serienummer. Er der
+            #    praecis én inverter, er det den.
+            kode, ud = genfind()
+            if kode == TAGET and SN in ud and "127.0.0.1" in ud:
+                ok("ny skærm uden serienummer finder den eneste inverter")
+            else:
+                fail("ny skærm uden serienummer finder den eneste inverter", ud)
+
+            # 2. DET DER VAR I STYKKER. Vi kender inverteren, men den stod
+            #    paa en anden adresse sidst. Den skal findes paa sin nye.
+            kode, ud = genfind(SN, "127.0.0.99")
+            if kode == NY and "127.0.0.1" in ud:
+                ok("kendt inverter på ny adresse bliver fundet igen")
+            else:
+                fail("kendt inverter på ny adresse bliver fundet igen", ud)
+
+            # 3. DEN FARLIGE. Vores inverter er vaek, og paa praecis den
+            #    adresse vi havde gemt svarer der en FREMMED inverter. Den
+            #    maa ikke tages, uanset at den er den eneste der er.
+            kode, ud = genfind("39999999", "127.0.0.1")
+            if kode == INGEN:
+                ok("en fremmed inverter på vores gamle adresse bliver afvist")
+            else:
+                fail("en fremmed inverter på vores gamle adresse bliver afvist", ud)
+
+            # 4. Den sidder hvor den plejer. Saa skal der ikke meldes
+            #    flytning, for saa ville adressen blive gemt hver gang.
+            kode, ud = genfind(SN, "127.0.0.1")
+            if kode == SAMME:
+                ok("sidder den hvor den plejer, meldes der ikke flytning")
+            else:
+                fail("sidder den hvor den plejer, meldes der ikke flytning", ud)
+    except RuntimeError as e:
+        fail(f"simulatoren kunne ikke lytte på port {MODBUS_PORT}", str(e))
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -495,6 +557,7 @@ def main():
     test_sunspec_base_40001()
     test_fejlkoder()
     test_naar_det_gaar_galt()
+    test_genfind()
 
     print("\n" + "─" * 40)
     if fejl == 0:

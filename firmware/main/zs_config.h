@@ -73,6 +73,26 @@
 #define ZS_RECONNECT_MIN_MS     2000
 #define ZS_RECONNECT_MAX_MS     60000
 
+/*
+ * Hvornaar vi holder op med at banke paa den gemte adresse og leder
+ * efter inverteren i stedet. Se zs_locate.h.
+ *
+ * Tre mislykkede forsoeg, ikke ét: en inverter der genstarter er vaek i
+ * et halvt minut, og saa skal skaermen ikke sende en scanning ud over
+ * hele nettet. Med den voksende pause er tre forsoeg omkring fjorten
+ * sekunder, altsaa laenge nok til at en genstart er ovre, og kort nok til
+ * at kunden ikke staar og venter.
+ *
+ * Fandt vi den ikke, ventes der FOER vi leder igen. En scanning tager
+ * omkring tyve sekunder, regnet af ZS_SCAN-tallene: 254 adresser, tolv ad
+ * gangen, to runder a 250 ms. Det er ikke noget at lave hvert halve
+ * minut, hverken for nettet eller for stroemmen. Fem minutter betyder at
+ * en inverter der kommer tilbage paa en ny adresse er fundet igen inden
+ * kunden har hentet kaffe.
+ */
+#define ZS_LOCATE_AFTER_FAILS   3
+#define ZS_LOCATE_RETRY_MS      (5 * 60 * 1000)
+
 /* ── Netvaerksscanning ─────────────────────────────────────────────── */
 #define ZS_SCAN_PARALLEL        12      /* samtidige sockets            */
 #define ZS_SCAN_PORT_TIMEOUT_MS 250     /* er der noget paa port 502    */
@@ -127,7 +147,16 @@
  */
 #define ZS_SCAN_TRIES           2
 #define ZS_SCAN_SUNSPEC_TIMEOUT_MS 800  /* taler den SunSpec            */
-#define ZS_SCAN_MAX_FOUND       12      /* invertere vi kan vise        */
+/*
+ * Hvor mange invertere vi kan holde paa ad gangen.
+ *
+ * ÉT tal. Det stod foer to steder: 12 her og 8 i zs_discovery.h, og de 12
+ * blev aldrig brugt til noget. Tallet saetter tre bufferes stoerrelse,
+ * hver zs_found_t er omkring 130 bytes, saa otte er cirka en kilobyte per
+ * styk. Otte er rigeligt: et hus har én inverter, et stort anlaeg to
+ * eller tre.
+ */
+#define ZS_DISCOVERY_MAX        8
 
 /* ── Wifi ─────────────────────────────────────────────────────────── */
 #define ZS_WIFI_SCAN_MAX        20

@@ -11,6 +11,8 @@ CC="${CC:-cc}"
     ../../firmware/main/net/zs_modbus_tcp.c \
     ../../firmware/main/net/zs_sunspec.c \
     ../../firmware/main/net/zs_fronius.c \
+    ../../firmware/main/net/zs_discovery.c \
+    ../../firmware/main/net/zs_locate.c \
     ../../firmware/main/app/zs_format.c \
     ../../firmware/main/app/zs_status.c \
     -lm -o zs-probe

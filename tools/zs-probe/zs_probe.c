@@ -20,6 +20,7 @@
 #include "../../firmware/main/net/zs_fronius.h"
 #include "../../firmware/main/app/zs_format.h"
 #include "../../firmware/main/app/zs_status.h"
+#include "../../firmware/main/net/zs_locate.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -225,6 +226,46 @@ static int do_scan(const char *subnet_base)
     return found > 0 ? 0 : 1;
 }
 
+/*
+ * Proever genfindingsmotoren mod et rigtigt net, med firmwarens EGEN kode.
+ *
+ *   --genfind <undernet> [serienummer] [sidste-ip]
+ *
+ * Uden serienummer svarer det til en ny skaerm. Med et serienummer der
+ * IKKE findes paa nettet svarer det til at vores inverter er vaek og
+ * naboens svarer: saa skal den sige fra og ikke tage den der var.
+ *
+ * Exitkoden er udfaldet som tal, saa en test kan laese det uden at skulle
+ * lede i teksten.
+ */
+static int do_genfind(const char *subnet, const char *serial, const char *sidste)
+{
+    char ip[16] = {0};
+    char sn[33] = {0};
+
+    printf("\n  Leder paa %s", subnet);
+    if (serial != NULL && serial[0] != '\0') {
+        printf(", efter serienummer %s", serial);
+    } else {
+        printf(", uden at kende et serienummer");
+    }
+    if (sidste != NULL && sidste[0] != '\0') {
+        printf(", sidst set paa %s", sidste);
+    }
+    printf("\n");
+
+    zs_loc_t r = zs_locate_find(subnet, serial, sidste,
+                                ZS_MB_DEFAULT_PORT, 1,
+                                ip, sizeof(ip), sn, sizeof(sn), NULL, NULL);
+    printf("  Resultat: %s\n", zs_locate_text(r));
+    if (ip[0] != '\0') {
+        printf("  Adresse:  %s\n", ip);
+        printf("  Serienr:  %s\n", sn[0] ? sn : "(tomt)");
+    }
+    printf("\n");
+    return (int) r;
+}
+
 int main(int argc, char **argv)
 {
     const char *host = NULL;
@@ -232,6 +273,9 @@ int main(int argc, char **argv)
     uint8_t unit = 1;
     bool watch = false;
     const char *scan = NULL;
+    const char *genfind = NULL;
+    const char *g_serial = NULL;
+    const char *g_sidste = NULL;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--watch") == 0) {
@@ -240,6 +284,10 @@ int main(int argc, char **argv)
             zs_log_verbose = 1;
         } else if (strcmp(argv[i], "--scan") == 0 && i + 1 < argc) {
             scan = argv[++i];
+        } else if (strcmp(argv[i], "--genfind") == 0 && i + 1 < argc) {
+            genfind = argv[++i];
+            if (i + 1 < argc && argv[i + 1][0] != '-') { g_serial = argv[++i]; }
+            if (i + 1 < argc && argv[i + 1][0] != '-') { g_sidste = argv[++i]; }
         } else if (strcmp(argv[i], "--unit") == 0 && i + 1 < argc) {
             unit = (uint8_t)atoi(argv[++i]);
         } else if (host == NULL) {
@@ -249,6 +297,9 @@ int main(int argc, char **argv)
         }
     }
 
+    if (genfind != NULL) {
+        return do_genfind(genfind, g_serial, g_sidste);
+    }
     if (scan != NULL) {
         return do_scan(scan);
     }

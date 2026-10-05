@@ -21,6 +21,7 @@
 #include "zs_ui.h"
 #include "zs_wifi.h"
 #include "zs_discovery.h"
+#include "zs_locate.h"
 #include "zs_fronius.h"
 #include "zs_nvs.h"
 #include "zs_display.h"
@@ -66,6 +67,10 @@ static app_state_t     s_state = ST_SETUP;
 static zs_fr_t         s_fr;
 static zs_home_data_t  s_home;
 static zs_found_t      s_found[ZS_DISCOVERY_MAX];
+/* Hvor mange der staar i s_found. Skal vaere her og ikke kun lokalt i
+ * scanningen, fordi valget bagefter skal kunne finde serienummeret paa
+ * den adresse kunden trykkede paa. */
+static int             s_found_n;
 static zs_ap_t         s_aps[ZS_WIFI_MAX_APS];
 static char            s_time_text[8];
 static bool            s_clock_ok;
@@ -291,6 +296,17 @@ static void poll_once(void)
 /* Forbindelse til inverteren                                          */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Genfindingen. Se zs_locate.h.
+ *
+ *   s_fejl_i_traek      hvor mange gange i traek vi ikke kunne forbinde
+ *   s_tving_genfind     der svarede en FREMMED inverter, led straks
+ *   s_naeste_genfind_ms tidligst naar vi leder igen
+ */
+static int     s_fejl_i_traek;
+static bool    s_tving_genfind;
+static int64_t s_naeste_genfind_ms;
+
 static bool inverter_connect(void)
 {
     if (s_cfg.inverter_ip[0] == '\0') {
@@ -307,6 +323,36 @@ static bool inverter_connect(void)
     for (int i = 1; i <= ZS_RECONNECT_BURST; i++) {
         if (zs_fr_connect(&s_fr, s_cfg.inverter_ip, s_cfg.inverter_port,
                           s_cfg.inverter_unit)) {
+            /*
+             * Er det VORES inverter?
+             *
+             * Adressen kan vaere givet videre til en anden enhed mens
+             * vores var slukket. Er det ogsaa en inverter, svarer den, og
+             * uden det her tjek ville skaermen vise en fremmed inverters
+             * tal som om de var kundens. Det er den farligste halvdel af
+             * fejlen, for den ser ud som om alt virker.
+             */
+            if (s_cfg.inverter_serial[0] != '\0'
+                && strcmp(s_fr.info.serial, s_cfg.inverter_serial) != 0) {
+                ESP_LOGW(TAG, "på %s svarer serienummer %s, men vores er %s",
+                         s_cfg.inverter_ip, s_fr.info.serial,
+                         s_cfg.inverter_serial);
+                zs_fr_disconnect(&s_fr);
+                s_tving_genfind = true;     /* led nu, ikke om tre forsøg */
+                return false;
+            }
+            /*
+             * Kender vi den ikke endnu, saa husk den nu. Gaelder en ny
+             * skaerm og en der er opdateret fra en udgave uden feltet.
+             */
+            if (s_cfg.inverter_serial[0] == '\0' && s_fr.info.serial[0] != '\0') {
+                snprintf(s_cfg.inverter_serial, sizeof(s_cfg.inverter_serial),
+                         "%s", s_fr.info.serial);
+                if (zs_nvs_save(&s_cfg)) {
+                    ESP_LOGI(TAG, "husker inverterens serienummer %s",
+                             s_cfg.inverter_serial);
+                }
+            }
             s_fr.meter_import_positive = s_cfg.meter_import_positive;
             if (i > 1) {
                 ESP_LOGI(TAG, "forbundet i forsøg %d", i);
@@ -320,15 +366,69 @@ static bool inverter_connect(void)
     return false;
 }
 
-/* ------------------------------------------------------------------ */
-/* Kommandoer fra brugerfladen                                         */
-/* ------------------------------------------------------------------ */
-
 static void scan_progress(void *ctx, int done, int total, int found)
 {
     (void)ctx;
     zs_ui_set_scan_progress(done, total, found);
 }
+
+/*
+ * Leder efter inverteren og gemmer den nye adresse hvis den er flyttet.
+ *
+ * Returnerer true hvis der er noget at forbinde til nu, saa kalderen kan
+ * droppe ventetiden og proeve med det samme.
+ *
+ * BLOKERER i op til omkring tyve sekunder. Det er i orden her: vi staar
+ * alligevel uden forbindelse, og skaermen bliver tegnet af sin egen
+ * opgave, saa den fryser ikke. Tallene staar som "gamle" imens, hvilket
+ * de ogsaa er.
+ */
+static bool genfind_inverteren(void)
+{
+    char subnet[16];
+    if (!zs_wifi_get_subnet(subnet, sizeof(subnet), NULL)) {
+        return false;
+    }
+
+    char ip[ZS_IP_MAX] = {0};
+    char sn[ZS_SERIAL_MAX] = {0};
+
+    ESP_LOGI(TAG, "leder efter inverteren på %s", subnet);
+    zs_loc_t r = zs_locate_find(subnet, s_cfg.inverter_serial, s_cfg.inverter_ip,
+                                s_cfg.inverter_port, s_cfg.inverter_unit,
+                                ip, sizeof(ip), sn, sizeof(sn),
+                                scan_progress, NULL);
+
+    /* Uanset udfald: vent foer vi leder igen. En scanning er ikke noget
+     * at lave hvert halve minut. Se ZS_LOCATE_RETRY_MS. */
+    s_naeste_genfind_ms = now_ms() + ZS_LOCATE_RETRY_MS;
+    s_tving_genfind = false;
+    ESP_LOGI(TAG, "%s", zs_locate_text(r));
+
+    if (r != ZS_LOC_SAMME && r != ZS_LOC_NY && r != ZS_LOC_TAGET) {
+        return false;
+    }
+
+    bool aendret = (strcmp(ip, s_cfg.inverter_ip) != 0)
+                || (sn[0] != '\0' && strcmp(sn, s_cfg.inverter_serial) != 0);
+    snprintf(s_cfg.inverter_ip, sizeof(s_cfg.inverter_ip), "%s", ip);
+    if (sn[0] != '\0') {
+        snprintf(s_cfg.inverter_serial, sizeof(s_cfg.inverter_serial), "%s", sn);
+    }
+    if (aendret) {
+        /* Gem med det samme. Ryger stroemmen bagefter, skal skaermen ikke
+         * lede forfra naar den kommer tilbage. */
+        if (zs_nvs_save(&s_cfg)) {
+            ESP_LOGI(TAG, "gemt: inverteren står nu på %s", s_cfg.inverter_ip);
+        }
+    }
+    s_fejl_i_traek = 0;
+    return true;
+}
+
+/* ------------------------------------------------------------------ */
+/* Kommandoer fra brugerfladen                                         */
+/* ------------------------------------------------------------------ */
 
 static void do_inverter_scan(void)
 {
@@ -354,6 +454,7 @@ static void do_inverter_scan(void)
     if (n < 0) {
         n = 0;
     }
+    s_found_n = n;
     zs_ui_set_inverter_list(s_found, n);
     zs_ui_show(ZS_SCREEN_INVERTER_LIST);
 }
@@ -447,6 +548,29 @@ static void handle_cmd(const zs_cmd_t *c)
         s_cfg.inverter_port = 502;
         s_cfg.inverter_unit = 1;
         s_cfg.configured = true;
+
+        /*
+         * Tag serienummeret med fra scanningen.
+         *
+         * Vaelger kunden en ANDEN inverter end den vi kendte, SKAL det
+         * gamle serienummer vaek. Ellers ville tjekket i
+         * inverter_connect afvise netop det valg kunden lige har truffet,
+         * og skaermen ville lede efter en inverter kunden ikke vil se.
+         *
+         * Findes adressen ikke i listen, tOEmmes feltet i stedet for at
+         * gaette. Saa tages serienummeret ved foerste forbindelse.
+         */
+        s_cfg.inverter_serial[0] = '\0';
+        for (int i = 0; i < s_found_n; i++) {
+            if (strcmp(s_found[i].ip, c->ip) == 0) {
+                snprintf(s_cfg.inverter_serial, sizeof(s_cfg.inverter_serial),
+                         "%s", s_found[i].info.serial);
+                break;
+            }
+        }
+        s_fejl_i_traek = 0;
+        s_tving_genfind = false;
+        s_naeste_genfind_ms = 0;
         if (!zs_nvs_save(&s_cfg)) {
             /* Skaermen virker videre, men den har glemt valget naar
              * stroemmen har vaeret af. Det skal staa i loggen, ikke
@@ -1017,16 +1141,33 @@ static void app_task(void *arg)
                 if (inverter_connect()) {
                     s_state = ST_RUNNING;
                     s_backoff_ms = ZS_RECONNECT_MIN_MS;
+                    s_fejl_i_traek = 0;
                     s_fr.reconnect_count++;
+                    next_retry = now_ms() + s_backoff_ms;
                 } else {
                     ESP_LOGW(TAG, "inverteren på %s svarer ikke",
                              s_cfg.inverter_ip);
+                    s_fejl_i_traek++;
                     s_backoff_ms *= 2;
                     if (s_backoff_ms > ZS_RECONNECT_MAX_MS) {
                         s_backoff_ms = ZS_RECONNECT_MAX_MS;
                     }
+                    next_retry = now_ms() + s_backoff_ms;
+
+                    /*
+                     * Holder den op med at svare, er den maaske flyttet.
+                     * Se ZS_LOCATE_AFTER_FAILS. Svarede der en FREMMED
+                     * inverter paa adressen, ledes der straks: saa ved vi
+                     * at den gamle adresse er forkert.
+                     */
+                    if ((s_tving_genfind || s_fejl_i_traek >= ZS_LOCATE_AFTER_FAILS)
+                        && now_ms() >= s_naeste_genfind_ms) {
+                        if (genfind_inverteren()) {
+                            next_retry = now_ms();
+                            s_backoff_ms = ZS_RECONNECT_MIN_MS;
+                        }
+                    }
                 }
-                next_retry = now_ms() + s_backoff_ms;
             }
             publish_home();
             continue;
