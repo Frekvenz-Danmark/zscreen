@@ -121,6 +121,27 @@ class ModbusHandler(socketserver.BaseRequestHandler):
                 return self._exception(tid, unit, fc, EXC_ILLEGAL_VALUE)
 
             regs = units[unit]
+
+            # --naegt: en model staar i kaeden, men kan ikke laeses.
+            #
+            # Det sker i virkeligheden. En inverter melder fx model 160 i
+            # sin modelliste og svarer saa med en adressefejl naar man
+            # henter den, typisk efter en firmwareopdatering hvor listen
+            # og indholdet ikke foelges ad. Skaermen skal klare det uden
+            # at miste resten af anlaegget.
+            # Kun paa INVERTERENS unit. Adresserne er forskellige per
+            # unit, og uden det her ramte afvisningen ogsaa elmaaleren.
+            naegtet = (STATE.get("naegt") or set()) if unit == STATE.get("inv_unit") else set()
+            if naegtet:
+                kun_data = STATE.get("naegt_kun_data") or set()
+                for mid, (start, slut, dstart, dslut) in (STATE.get("model_omraader") or {}).items():
+                    if mid not in naegtet:
+                        continue
+                    # Hele modellen, eller kun dataene og ikke hovedet.
+                    a0, a1 = (dstart, dslut) if mid in kun_data else (start, slut)
+                    if not (addr + count <= a0 or addr > a1):
+                        return self._exception(tid, unit, fc, EXC_ILLEGAL_ADDRESS)
+
             values = []
             for i in range(count):
                 a = addr + i
@@ -259,6 +280,8 @@ def ticker(inv_dev, meter_dev, p: Plant, args, inv_unit: int, meter_unit: int,
             update_registers(inv_dev, meter_dev, p, meter_dev is not None,
                              args.profile == "float", fejl)
             STATE["units"][inv_unit] = inv_dev.build_registers()
+            STATE["model_omraader"] = inv_dev.model_omraader()
+            STATE["inv_unit"] = inv_unit
             if meter_dev is not None:
                 STATE["units"][meter_unit] = meter_dev.build_registers()
 
@@ -289,6 +312,16 @@ def main():
                     help="Modbus-port. 502 kraever sudo, men er den eneste "
                          "port skaermens scanning leder efter")
     ap.add_argument("--bind", default="0.0.0.0")
+    ap.add_argument("--maaler-i-kaeden", action="store_true",
+                    dest="maaler_i_kaeden",
+                    help="elmaaleren i inverterens egen kaede i stedet for "
+                         "paa sin egen unit")
+    ap.add_argument("--naegt-kun-data", default="",
+                    help="modeller hvor kun DATAENE naegtes, ikke hovedet. "
+                         "Saa kan kaeden laeses videre")
+    ap.add_argument("--naegt", default="",
+                    help="modelnumre der staar i kaeden men ikke kan laeses, "
+                         "fx 160 eller 124,160")
     ap.add_argument("--inverter-unit", type=int, default=1)
     ap.add_argument("--meter-unit", type=int, default=200)
     ap.add_argument("--base", type=int, default=40000, choices=[40000, 40001],
@@ -308,6 +341,9 @@ def main():
     args = ap.parse_args()
 
     STATE["verbose"] = args.verbose
+    STATE["naegt"] = {int(x) for x in args.naegt.split(",") if x.strip()}
+    STATE["naegt_kun_data"] = {int(x) for x in args.naegt_kun_data.split(",") if x.strip()}
+    STATE["naegt"] |= STATE["naegt_kun_data"]
 
     has_battery = args.profile not in ("nobattery",)
     has_meter = args.profile not in ("nometer",)
@@ -331,9 +367,23 @@ def main():
     fejl = parse_fejl(args.fejl)
     with STATE["lock"]:
         update_registers(inv_dev, meter_dev, p, has_meter, floats, fejl)
-        STATE["units"][args.inverter_unit] = inv_dev.build_registers()
-        if meter_dev is not None:
-            STATE["units"][args.meter_unit] = meter_dev.build_registers()
+        if args.maaler_i_kaeden and meter_dev is not None:
+            # Elmaaleren i INVERTERENS egen kaede i stedet for paa sin
+            # egen unit.
+            #
+            # Det findes i virkeligheden, og firmwaren har en egen
+            # kodevej til det (meter_in_inverter_chain). Den var aldrig
+            # proevet af: simulatoren lagde altid maaleren paa unit 200.
+            # Vi haenger maalerens modeller bagerst i inverterens liste,
+            # og saa er der kun ÉN unit.
+            for m in meter_dev.models:
+                if m.id != 1:
+                    inv_dev.models.append(m)
+            STATE["units"][args.inverter_unit] = inv_dev.build_registers()
+        else:
+            STATE["units"][args.inverter_unit] = inv_dev.build_registers()
+            if meter_dev is not None:
+                STATE["units"][args.meter_unit] = meter_dev.build_registers()
         STATE["plant"] = p
 
     t = threading.Thread(target=ticker,

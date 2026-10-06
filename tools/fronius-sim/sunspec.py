@@ -113,6 +113,22 @@ class Device:
         regs[addr] = 0x0000
         return regs
 
+    def model_omraader(self) -> dict[int, tuple[int, int]]:
+        """
+        Hvor hver model ligger: id -> (foerste, sidste) adresse.
+
+        Bruges af --naegt til at lade en model staa i kaeden men give en
+        adressefejl naar den hentes.
+        """
+        ud: dict[int, tuple[int, int]] = {}
+        addr = self.base + 2
+        for m in self.models:
+            # (hele modellen, kun dataene). Hovedet er de to foerste
+            # registre: id og laengde.
+            ud[m.id] = (addr, addr + 1 + m.length, addr + 2, addr + 1 + m.length)
+            addr += 2 + m.length
+        return ud
+
     def model_data_addr(self, model_id: int) -> int:
         """Adressen paa foerste dataregister i en model."""
         addr = self.base + 2

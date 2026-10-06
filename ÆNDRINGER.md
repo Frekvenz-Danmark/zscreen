@@ -1,3 +1,36 @@
+## 2026-10-06 12:37
+
+### Ti nye ende til ende-tests mod ting der sker i virkeligheden
+Tre scenarier der ikke var dækket, og som kunne gemme en fejl. Ingen af
+dem fandt én, men to af dem prøvede kode af som aldrig havde været rørt.
+
+**Noget andet taler Modbus på samme port.** Et kundenetværk har ofte en
+varmepumpe, en PLC eller en energimåler på 502. De svarer pænt på
+funktionskode 3, men der står ikke "SunS" i registrene. Kaldte søgningen
+dem invertere, ville kunden vælge sin varmepumpe fra listen og undre sig
+over at der aldrig kommer tal. Prøvet med tre slags: lutter nuller,
+skrald, og en der tager imod men aldrig svarer. Alle tre afvises, og den
+tavse hænger ikke søgningen.
+
+**En model står i kæden men kan ikke læses.** Det sker efter en
+firmwareopdatering på inverteren, hvor modellisten og indholdet ikke
+følges ad. Nægtes hele modellen, stopper kæden der, solen står som streg
+i stedet for nul, resten læses, og skærmen siger selv at listen ikke
+kunne læses færdig. Nægtes kun dataene, kan hovedet læses, og så hentes
+hele kæden alligevel: alle fire tal er der, og kun det den model bærer
+forsvinder.
+
+**Elmåleren i inverterens egen kæde.** Den kodevej har ligget i firmwaren
+hele tiden og var aldrig prøvet af, fordi simulatoren altid lagde måleren
+på sin egen unit. Den virker: samme fire tal som når måleren ligger for
+sig, og skærmen ser selv forskellen.
+
+Simulatoren har fået tre nye muligheder til det: `--naegt`,
+`--naegt-kun-data` og `--maaler-i-kaeden`, plus et lille værktøj
+`ikke-inverter.py` der spiller en anden slags Modbus-enhed.
+
+546 enhedstest og 50 ende til ende, alle bestået på både Mac og Linux.
+
 ## 2026-10-06 11:58
 
 ### Gennemgang af hele kodebasen med analyseværktøjer

@@ -562,6 +562,132 @@ def test_genfind():
         fail(f"simulatoren kunne ikke lytte på port {MODBUS_PORT}", str(e))
 
 
+class FalskEnhed:
+    """
+    Noget andet der taler Modbus paa samme port.
+
+    Et kundenetvaerk har ofte andet paa 502: en varmepumpe, en PLC, en
+    energimaaler. De svarer paent paa FC3, men der staar ikke "SunS" i
+    registrene.
+    """
+
+    def __init__(self, svar):
+        self.args = ["python3",
+                     os.path.join(ROOT, "tools", "fronius-sim", "ikke-inverter.py"),
+                     "--port", str(PORT), "--bind", "127.0.0.1", "--svar", svar]
+        self.p = None
+
+    def __enter__(self):
+        self.p = subprocess.Popen(self.args, stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, text=True,
+                                  preexec_fn=os.setsid)
+        for _ in range(50):
+            try:
+                socket.create_connection(("127.0.0.1", PORT), timeout=0.3).close()
+                break
+            except OSError:
+                time.sleep(0.1)
+        else:
+            raise RuntimeError("den falske enhed kom aldrig op")
+        return self
+
+    def __exit__(self, *a):
+        try:
+            os.killpg(os.getpgid(self.p.pid), signal.SIGTERM)
+            self.p.wait(timeout=3)
+        except Exception:
+            pass
+        return False
+
+
+def test_ikke_en_inverter():
+    suite("Noget andet taler Modbus på samme port")
+
+    # Tre maader at vaere besvaerlig paa. Ingen af dem maa blive kaldt en
+    # inverter: saa ville kunden vaelge sin varmepumpe fra listen og
+    # undre sig over at der aldrig kommer tal.
+    for svar, hvad in (("nuller", "svarer med lutter nuller"),
+                       ("skrald", "svarer med skrald"),
+                       ("tavs",   "tager imod men svarer aldrig")):
+        with FalskEnhed(svar):
+            ud, err = probe(forvent_fejl=True)
+            if ud is not None and "SunSpec" in ud and "Kunne ikke" not in ud:
+                fail(f"{hvad}: bliver IKKE kaldt en inverter", ud[:200])
+            else:
+                ok(f"{hvad}: bliver ikke kaldt en inverter")
+
+
+def test_model_kan_ikke_laeses():
+    suite("En model står i kæden men kan ikke læses")
+
+    # Det sker efter en firmwareopdatering paa inverteren, hvor listen og
+    # indholdet ikke foelges ad.
+    with Sim("battery", ["--speed", "0", "--naegt", "160"]):
+        ud, err = probe()
+        if ud is None:
+            fail("hele modellen nægtet: der kan stadig læses", err)
+        else:
+            k = parse_kort(ud)
+            if k and k["sol"] is None and k["forbrug"] is not None \
+                    and k["net"] is not None:
+                ok("hele modellen nægtet: solen står som streg, resten læses")
+            else:
+                fail("hele modellen nægtet: solen står som streg", str(k))
+            if "ufuldstaendig" in ud or "ufuldstændig" in ud:
+                ok("og skærmen siger selv at listen ikke kunne læses færdig")
+            else:
+                fail("skærmen siger at listen er ufuldstændig", ud[:200])
+
+    # Naegtes kun DATAENE, kan hovedet laeses, og saa skal resten af
+    # kaeden stadig komme med. Ellers mistede vi batteri og solstrenge
+    # fordi maerkeeffekten ikke kunne hentes.
+    with Sim("battery", ["--speed", "0", "--naegt-kun-data", "120"]):
+        ud, err = probe()
+        if ud is None:
+            fail("kun dataene nægtet: der kan stadig læses", err)
+        else:
+            k = parse_kort(ud)
+            if k and all(v is not None for v in k.values()):
+                ok("kun dataene nægtet: alle fire tal er der endnu")
+            else:
+                fail("kun dataene nægtet: alle fire tal", str(k))
+            if "160" in ud and "124" in ud:
+                ok("og kæden blev læst helt til ende")
+            else:
+                fail("kæden blev læst helt til ende", ud[:200])
+
+
+def test_maaler_i_kaeden():
+    suite("Elmåleren ligger i inverterens egen kæde")
+
+    # Den kodevej fandtes i firmwaren men var aldrig proevet af:
+    # simulatoren lagde altid maaleren paa sin egen unit.
+    with Sim("battery", ["--speed", "0", "--maaler-i-kaeden"]) as sim:
+        ud, err = probe()
+        if ud is None:
+            fail("der kan læses når måleren ligger i kæden", err)
+            return
+        if "i inverterens egen kaede" in ud:
+            ok("skærmen ser at måleren ligger i inverterens egen kæde")
+        else:
+            fail("skærmen ser at måleren ligger i kæden", ud[:200])
+        k = parse_kort(ud)
+        if k and all(v is not None for v in k.values()):
+            ok("og alle fire tal læses")
+        else:
+            fail("alle fire tal læses", str(k))
+        t = sim.tilstand()
+        # I STOERRELSE. Skaermen viser altid et positivt tal med
+        # retningen som ord under, saa fortegnet kan ikke sammenlignes
+        # direkte. Det er samme maade som i den foerste suite.
+        if t and taet_paa(k["net"], abs(t.get("net", 0)),
+                          max(80.0, abs(t.get("net", 0)) * 0.1)):
+            ok("og nettet stemmer i størrelse med simulatoren")
+        else:
+            fail("nettet stemmer i størrelse med simulatoren",
+                 f'skaerm {k["net"]}, sim {t}')
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -577,6 +703,9 @@ def main():
     test_fejlkoder()
     test_naar_det_gaar_galt()
     test_genfind()
+    test_ikke_en_inverter()
+    test_model_kan_ikke_laeses()
+    test_maaler_i_kaeden()
 
     print("\n" + "─" * 40)
     if fejl == 0:
