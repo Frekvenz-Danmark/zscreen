@@ -256,6 +256,31 @@
 #define ZS_FLEET_READY_DELAY_MS 2000
 
 /*
+ * Plads til at samle et svar der kommer i stykker.
+ *
+ * HVORFOR DEN FINDES, og det er den dyreste fejl vi har haft.
+ *
+ * esp-mqtt har en modtagebuffer paa 1024 bytes. Er en besked stoerre,
+ * kommer den i FLERE stykker, og kun det FOERSTE har et emne paa sig.
+ * Foer samlede vi dem ikke: hvert stykke blev laest som om det var en
+ * hel besked.
+ *
+ * MAALT mod vores egen OpenRemote: svaret paa en indmeldelse er
+ * 2604 bytes, fordi det indeholder hele enheden med alle tretten
+ * attributter. Det kommer altsaa i tre stykker, ingen af dem er gyldig
+ * JSON alene, og alle tre blev forkastet. Skaermen fik derfor aldrig sit
+ * enheds-id, og uden det maa den ikke skrive en eneste maaling.
+ *
+ * Det passer med hvad serveren har set: enheden findes, men nul af dens
+ * tretten attributter har nogensinde faaet en vaerdi.
+ *
+ * Otte kilobyte og ikke fire: svaret vokser med antallet af attributter,
+ * og vi vil hellere have luft end at skulle rette det igen naar der
+ * kommer et felt mere. Den ligger i PSRAM, hvor der er otte megabyte.
+ */
+#define ZS_FLEET_SVAR_MAX       8192
+
+/*
  * Tilfaeldig ventetid foer skaermen melder sig ind foerste gang.
  *
  * Alle skaerme paa samme gade faar stroem tilbage i samme sekund efter

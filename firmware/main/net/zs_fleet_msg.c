@@ -119,3 +119,135 @@ bool zs_fleet_enroll_due(bool abonneret, bool har_asset,
     }
     return nu_ms >= naeste_forsoeg_ms;
 }
+
+/* ------------------------------------------------------------------ */
+/* Beskeder der kommer i stykker. Se zs_fleet_msg.h for hvorfor.       */
+/* ------------------------------------------------------------------ */
+
+void zs_fleet_saml_init(zs_fleet_saml_t *s, char *buf, size_t buf_len)
+{
+    if (s == NULL) {
+        return;
+    }
+    memset(s, 0, sizeof(*s));
+    s->buf = buf;
+    s->buf_len = buf_len;
+}
+
+zs_saml_t zs_fleet_saml_tag(zs_fleet_saml_t *s,
+                            const char *emne, int emne_len,
+                            const char *data, int data_len,
+                            int offset, int total)
+{
+    if (s == NULL || s->buf == NULL || s->buf_len == 0) {
+        return ZS_SAML_USAMMENHAENG;
+    }
+    if (data_len < 0 || offset < 0 || total < 0) {
+        return ZS_SAML_USAMMENHAENG;
+    }
+
+    if (offset == 0) {
+        /*
+         * Et nyt stykke nummer ét. Vi starter forfra, OGSAA hvis der laa
+         * en halv besked. En forbindelse der falder midt i en besked
+         * efterlader netop det, og den halve maa ikke blandes ind i den
+         * naeste.
+         */
+        s->har = 0;
+        s->dropper = false;
+        s->emne[0] = '\0';
+        if (emne != NULL && emne_len > 0) {
+            size_t n = (size_t)emne_len;
+            if (n > sizeof(s->emne) - 1) {
+                n = sizeof(s->emne) - 1;
+            }
+            memcpy(s->emne, emne, n);
+            s->emne[n] = '\0';
+        }
+        /*
+         * total er hele beskedens laengde, ogsaa naar den kommer i ét
+         * stykke. Er den nul, men der ER data, saa stol paa data_len:
+         * saadan opfoerer en enkeltstykket besked sig.
+         */
+        s->venter = (total > 0) ? (size_t)total : (size_t)data_len;
+        if (s->venter > s->buf_len - 1) {
+            /*
+             * Den kan ikke vaere der. Vi siger det ÉN gang og smider
+             * resten vaek i stilhed, i stedet for at skrive uden for
+             * bufferen eller klage tre gange om den samme besked.
+             */
+            s->dropper = true;
+            return ZS_SAML_FOR_STOR;
+        }
+    } else {
+        if (s->dropper) {
+            return ZS_SAML_FOR_STOR;    /* resten af en vi har opgivet */
+        }
+        /*
+         * Stykkerne skal komme i raekkefoelge og haenge sammen. Gaar der
+         * et tabt, er det vi har samlet ikke en besked, og saa skal det
+         * smides vaek frem for at blive sendt videre som om det var hel.
+         */
+        if ((size_t)offset != s->har || s->venter == 0) {
+            s->har = 0;
+            s->venter = 0;
+            s->emne[0] = '\0';
+            return ZS_SAML_USAMMENHAENG;
+        }
+    }
+
+    if (data_len > 0) {
+        if (s->har + (size_t)data_len > s->venter ||
+            s->har + (size_t)data_len > s->buf_len - 1) {
+            /* Mere end der blev lovet. Vi gemmer ikke paa noget vi ikke
+             * forstaar. */
+            s->har = 0;
+            s->venter = 0;
+            s->emne[0] = '\0';
+            return ZS_SAML_USAMMENHAENG;
+        }
+        if (data != NULL) {
+            memcpy(s->buf + s->har, data, (size_t)data_len);
+        }
+        s->har += (size_t)data_len;
+    }
+
+    if (s->har >= s->venter) {
+        s->buf[s->har] = '\0';
+        return ZS_SAML_KLAR;
+    }
+    return ZS_SAML_VENTER;
+}
+
+bool zs_fleet_emne_har_led(const char *emne, const char *led)
+{
+    if (emne == NULL || led == NULL) {
+        return false;
+    }
+    size_t nl = strlen(led);
+    if (nl == 0) {
+        return false;
+    }
+    size_t ne = strlen(emne);
+    /*
+     * Graensen er ikke pynt. Foerste udgave kaldte memcmp med laengden
+     * paa ordet uden at se paa hvor meget der var TILBAGE af emnet, og
+     * saa laeste den ud over strengens ende. Det faldt med det samme i
+     * enhedstesten, og paa en skaerm ville det vaere en fejl der kommer
+     * og gaar efter hvad der tilfaeldigvis ligger i hukommelsen bagefter.
+     */
+    for (size_t i = 0; i + nl <= ne; i++) {
+        /* Starten af et led: begyndelsen, eller lige efter en skraastreg. */
+        if (i != 0 && emne[i - 1] != '/') {
+            continue;
+        }
+        if (memcmp(emne + i, led, nl) != 0) {
+            continue;
+        }
+        /* Og det skal SLUTTE her, ellers er det et laengere ord. */
+        if (emne[i + nl] == '\0' || emne[i + nl] == '/') {
+            return true;
+        }
+    }
+    return false;
+}

@@ -17,6 +17,7 @@
 #include "esp_mac.h"
 #include "esp_timer.h"
 #include "esp_random.h"
+#include "esp_heap_caps.h"
 #include "nvs.h"
 #include "cJSON.h"
 
@@ -88,6 +89,16 @@ static char  *s_key;
 static char  *s_srv_ca;
 static int64_t s_klar_ms;          /* naar vi tidligst maa skrive       */
 static bool   s_info_sendt;
+/*
+ * Plads til at samle et svar der kommer i stykker, og samleren selv.
+ *
+ * Se ZS_FLEET_SVAR_MAX for hvorfor den findes: svaret paa en indmeldelse
+ * er maalt til 2604 bytes mod esp-mqtt's modtagebuffer paa 1024, saa det
+ * kommer i tre stykker. Pladsen tages i PSRAM, for otte kilobyte er
+ * mange i den interne hukommelse og ingenting i PSRAM.
+ */
+static char  *s_svar_plads;
+static zs_fleet_saml_t s_saml;
 static int    s_poll_taeller;
 
 /*
@@ -286,29 +297,6 @@ static void send_indmeldelse(void)
     }
 }
 
-/*
- * Staar ordet i emnet?
- *
- * Emnet fra esp-mqtt er IKKE nulafsluttet, det er en laengde og en
- * peger ind i modtagebufferen. Derfor ingen strstr: den ville laese
- * videre ud over emnet og ind i selve beskeden.
- */
-static bool emne_er(const char *emne, int emne_len, const char *ord)
-{
-    if (emne == NULL || emne_len <= 0 || ord == NULL) {
-        return false;
-    }
-    size_t n = strlen(ord);
-    if (n == 0 || (size_t)emne_len < n) {
-        return false;
-    }
-    for (size_t i = 0; i + n <= (size_t)emne_len; i++) {
-        if (memcmp(emne + i, ord, n) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
 
 /*
  * Serveren har sat en maalversion. Se ZS_FLEET_TARGET_FELT og zs_ota.h.
@@ -460,19 +448,59 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
         break;
     }
 
-    case MQTT_EVENT_DATA:
+    case MQTT_EVENT_DATA: {
         /*
-         * To slags beskeder kommer ind her nu: svaret paa indmeldelsen,
-         * og en maalversion fra serveren. De skal skilles ad paa emnet.
-         * Gjorde vi det ikke, ville en maalversion blive laest som et
-         * indmeldelsessvar og give "svaret kunne ikke laeses" i loggen.
+         * SAML FOERST, laes bagefter.
+         *
+         * En besked der er stoerre end esp-mqtt's modtagebuffer kommer i
+         * flere stykker, og kun det FOERSTE har et emne paa sig. Foer blev
+         * hvert stykke laest som om det var en hel besked, og svaret paa
+         * en indmeldelse er maalt til 2604 bytes mod en buffer paa 1024.
+         * Altsaa tre stykker, ingen af dem gyldig JSON, alle tre
+         * forkastet, og skaermen fik aldrig sit enheds-id. Se
+         * ZS_FLEET_SVAR_MAX.
          */
-        if (emne_er(e->topic, e->topic_len, ZS_FLEET_TARGET_FELT)) {
-            laes_maalversion(e->data, e->data_len);
+        if (s_svar_plads == NULL) {
+            break;              /* ingen plads, intet at samle i */
+        }
+        zs_saml_t r = zs_fleet_saml_tag(&s_saml, e->topic, e->topic_len,
+                                        e->data, e->data_len,
+                                        e->current_data_offset,
+                                        e->total_data_len);
+        if (r == ZS_SAML_FOR_STOR) {
+            /* Kun paa det foerste stykke, resten tier samleren om. */
+            if (e->current_data_offset == 0) {
+                ZS_LOGW(TAG, "en besked paa %d bytes er for stor, den springes over",
+                        e->total_data_len);
+            }
+            break;
+        }
+        if (r == ZS_SAML_USAMMENHAENG) {
+            ZS_LOGW(TAG, "en besked kom i stykker der ikke hang sammen");
+            break;
+        }
+        if (r != ZS_SAML_KLAR) {
+            break;              /* der mangler mere endnu */
+        }
+
+        /*
+         * Hel besked, og emnet er det fra det foerste stykke.
+         *
+         * Vi kender beskeden paa hvad den ER, ikke paa hvad den ikke er.
+         * Foer var reglen "alt der ikke indeholder targetVersion er et
+         * indmeldelsessvar", og saa ville en tredje slags besked en dag
+         * blive laest som et svar.
+         */
+        if (zs_fleet_emne_har_led(s_saml.emne, ZS_FLEET_TARGET_FELT)) {
+            laes_maalversion(s_saml.buf, (int)s_saml.har);
+        } else if (zs_fleet_emne_har_led(s_saml.emne, "response")) {
+            laes_svar(s_saml.buf, (int)s_saml.har);
         } else {
-            laes_svar(e->data, e->data_len);
+            ZS_LOGW(TAG, "en besked paa et emne vi ikke kender: %s",
+                    s_saml.emne);
         }
         break;
+    }
 
     case MQTT_EVENT_DISCONNECTED:
         /*
@@ -584,6 +612,30 @@ bool zs_fleet_start(void)
         s_state = ZS_FLEET_OFF;
         return false;
     }
+
+    /*
+     * Plads til at samle et svar der kommer i stykker.
+     *
+     * PSRAM foerst, intern hukommelse hvis der ikke er PSRAM: otte
+     * kilobyte er mange af de godt tre hundrede interne og ingenting af
+     * de otte megabyte i PSRAM. Lykkes ingen af dem, koerer vi videre
+     * uden floedestyring frem for at vaelte: skaermen skal vise
+     * solcellerne selv om serveren ikke kan naas.
+     */
+    if (s_svar_plads == NULL) {
+        s_svar_plads = heap_caps_malloc(ZS_FLEET_SVAR_MAX, MALLOC_CAP_SPIRAM);
+        if (s_svar_plads == NULL) {
+            s_svar_plads = malloc(ZS_FLEET_SVAR_MAX);
+        }
+    }
+    if (s_svar_plads == NULL) {
+        ZS_LOGE(TAG, "ikke plads til at samle svaret, floedestyring springes over");
+        free(s_cert); free(s_key); free(s_srv_ca);
+        s_cert = s_key = s_srv_ca = NULL;
+        s_state = ZS_FLEET_OFF;
+        return false;
+    }
+    zs_fleet_saml_init(&s_saml, s_svar_plads, ZS_FLEET_SVAR_MAX);
 
     /*
      * Eget genforbindelsesinterval per skaerm, se
@@ -720,6 +772,12 @@ void zs_fleet_stop(void)
     }
     free(s_cert); free(s_key); free(s_srv_ca);
     s_cert = s_key = s_srv_ca = NULL;
+    /* Samleren peger ind i pladsen, saa den skal nulstilles FOER
+     * pladsen gives tilbage. Ellers staar der en peger til hukommelse
+     * der ikke er vores laengere. */
+    memset(&s_saml, 0, sizeof(s_saml));
+    free(s_svar_plads);
+    s_svar_plads = NULL;
 
     LAAS();
     s_asset[0] = '\0';

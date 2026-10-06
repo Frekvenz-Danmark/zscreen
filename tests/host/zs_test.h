@@ -82,5 +82,6 @@ void test_sunspec_for_lang(void);
 void test_pris_time(void);
 void test_pris_dato(void);
 void test_modbus_skriv(void);
+void test_fleet_stykker(void);
 
 #endif /* ZS_TEST_H */

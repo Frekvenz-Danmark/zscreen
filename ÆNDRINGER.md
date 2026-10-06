@@ -1,3 +1,71 @@
+## 2026-10-07 01:12
+
+### Skærmen kunne aldrig melde sig ind på flåden. Målt, ikke gættet
+Den dyreste fejl indtil nu, og den sad i den ende ingen test rørte.
+
+esp-mqtt læser ind i en buffer på **1024 bytes**. Er en besked større,
+kommer den i **flere stykker**, og kun det **første** har et emne på sig.
+De næste har `topic_len` nul. Det står i deres egen kilde, omkring
+`post_data_event` i `mqtt_client.c`.
+
+Vi samlede dem ikke. Hvert stykke blev læst som om det var en hel
+besked.
+
+**Målt mod vores egen OpenRemote:** svaret på en indmeldelse er
+**2604 bytes**, fordi det indeholder hele enheden med alle tretten
+attributter. Det kommer altså i tre stykker. Ingen af dem er gyldig JSON
+alene, så alle tre blev forkastet med "svaret kunne ikke læses". Skærmen
+fik derfor aldrig sit enheds-id, og uden det må den ikke skrive en eneste
+måling.
+
+**Og det passer med hvad serveren har set.** Skærmens enhed findes på
+serveren, men **nul af dens tretten attributter** har nogensinde fået en
+værdi. I serverens egen log står svaret som 2762 bytes på tråden, sendt,
+læst og kvitteret, igen og igen.
+
+Grunden til at det ikke blev fanget: indmeldelsen er altid blevet prøvet
+med Python-scripter, og paho har ingen sådan grænse. Firmwarens egen vej
+gennem svaret var aldrig kørt af nogen.
+
+**Rettet ved roden.** Stykkerne samles nu, emnet fra det første huskes, og
+beskeden læses først når den er hel. Samleren er en ren funktion uden
+noget fra ESP-IDF, så den kan prøves af på en almindelig maskine, og det
+er den: 25 nye tjek med de rigtige tal, altså 2604 bytes i tre stykker
+hvor kun det første har et emne.
+
+Pladsen er otte kilobyte i PSRAM. Fire ville være nok i dag, men svaret
+vokser med antallet af attributter, og vi vil ikke rette det igen når der
+kommer et felt mere.
+
+### Og en besked blev kendt på hvad den ikke var
+Samme sted: beskederne blev sorteret efter reglen "indeholder emnet ordet
+targetVersion et eller andet sted? ellers er det et indmeldelsessvar".
+
+Det er den forkerte vej rundt. Kommer der en tredje slags besked en dag,
+bliver den læst som et svar. Og ordet blev søgt **hvor som helst** i
+emnet, så et emne der tilfældigvis indeholdt ordet som del af et andet ord
+ville tælle.
+
+Nu kendes en besked på et helt **led** mellem skråstregerne, og den skal
+matche positivt. Kender vi ikke emnet, siger vi det i loggen i stedet for
+at gætte.
+
+Halen kunne ikke bruges i stedet, og det er værd at skrive ned: lytte-emnet
+**slutter** på enhedens id, så `targetVersion` står i midten.
+
+### En fejl jeg selv lavede, og hvad der fangede den
+Første udgave af led-sammenligningen kaldte `memcmp` med ordets længde
+uden at se på hvor meget der var **tilbage** af emnet. Den læste altså ud
+over strengens ende.
+
+Enhedstesten kørte med adressesanitizer og afbrød med det samme. På en
+skærm ville den have været en fejl der kommer og går efter hvad der
+tilfældigvis ligger i hukommelsen bagefter, altså den slags der ikke kan
+fejlsøges. Grænsen står nu eksplicit i koden med en note om hvorfor.
+
+664 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.16.0.
+
 ## 2026-10-07 00:18
 
 ### Vagthunden lovede at skærmen kom sig selv, men gjorde det ikke
