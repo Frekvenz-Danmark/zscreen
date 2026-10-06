@@ -423,3 +423,89 @@ void test_fleet_stykker(void)
     CHECK("et led der er laengere end emnet taeller ikke",
           !zs_fleet_emne_har_led("kort", "meget langt"));
 }
+
+/*
+ * Det RIGTIGE svar fra vores egen server, samlet igen.
+ *
+ * Proeven ovenfor bruger et opdigtet svar i den rigtige stoerrelse. Den
+ * her bruger det faktiske svar, gemt fra serveren den 7. oktober 2026:
+ * 2604 bytes, type success, en enhed med tretten attributter. Saa kan
+ * ingen paastaa at fejlen kun fandtes i en test.
+ */
+void test_fleet_svar_rigtigt(void)
+{
+    ZS_SUITE("Flådestyring: serverens eget svar, samlet igen");
+
+    const char *sti = ZS_FIXTURES "/indmeldelsessvar.json";
+    FILE *f = fopen(sti, "rb");
+    if (f == NULL) {
+        CHECK("prøvekluden kunne åbnes", false);
+        return;
+    }
+    static char rigtigt[ZS_FLEET_SVAR_MAX];
+    size_t n = fread(rigtigt, 1, sizeof(rigtigt) - 1, f);
+    fclose(f);
+    rigtigt[n] = '\0';
+
+    CHECK("svaret er stadig for stort til esp-mqtt's buffer", n > 1024);
+    CHECK("og det er den stoerrelse vi maalte", n == 2604);
+
+    /*
+     * Del det praecis som esp-mqtt gOEr, se mqtt_client.c omkring
+     * post_data_event: foerste stykke er det der blev plads til i
+     * bufferen ved siden af emnet og headeren, resten er hele buffere.
+     */
+    const char *EMNE = "provisioning/zscreen-load01/response";
+    enum { MQTT_BUF = 1024 };
+    size_t foerste = MQTT_BUF - strlen(EMNE) - 7;
+
+    static char plads[ZS_FLEET_SVAR_MAX];
+    zs_fleet_saml_t s;
+    zs_fleet_saml_init(&s, plads, sizeof(plads));
+
+    size_t sendt = 0;
+    int stykker = 0;
+    zs_saml_t r = ZS_SAML_VENTER;
+    while (sendt < n) {
+        size_t bid = (sendt == 0) ? foerste : MQTT_BUF;
+        if (sendt + bid > n) {
+            bid = n - sendt;
+        }
+        r = zs_fleet_saml_tag(&s,
+                              sendt == 0 ? EMNE : NULL,
+                              sendt == 0 ? (int)strlen(EMNE) : 0,
+                              rigtigt + sendt, (int)bid,
+                              (int)sendt, (int)n);
+        sendt += bid;
+        stykker++;
+        if (sendt < n) {
+            CHECK("undervejs mangler der mere", r == ZS_SAML_VENTER);
+        }
+    }
+    CHECK("det kom i tre stykker, som maalt", stykker == 3);
+    CHECK("og til sidst er beskeden hel", r == ZS_SAML_KLAR);
+    CHECK("og den er byte for byte den samme som serverens",
+          s.har == n && memcmp(plads, rigtigt, n) == 0);
+    CHECK("emnet fra foerste stykke staar endnu", strcmp(s.emne, EMNE) == 0);
+
+    /*
+     * Og det der var hele pointen: nu ER det gyldig JSON. Vi har ikke
+     * cJSON her, saa vi tjekker det der kunne laeses af koden bagefter:
+     * at beskeden starter og slutter rigtigt, og at enheds-id'et staar
+     * der helt. Ingen af de tre stykker alene har alt det.
+     */
+    CHECK("beskeden starter som JSON", plads[0] == '{');
+    CHECK("og slutter som JSON", plads[n - 1] == '}');
+    CHECK("enheds-id'et staar helt i den samlede besked",
+          strstr(plads, "\"id\":\"3K9OPrDLrIX5ZppDTxWYqz\"") != NULL);
+    CHECK("og typen ogsaa", strstr(plads, "\"type\":\"success\"") != NULL);
+
+    /* Det afgoerende: id'et kan IKKE findes i det foerste stykke alene,
+     * altsaa var det umuligt for koden at faa det foer. */
+    static char kun_foerste[MQTT_BUF + 1];
+    memcpy(kun_foerste, rigtigt, foerste);
+    kun_foerste[foerste] = '\0';
+    CHECK("og det stod ikke i foerste stykke, saa foer var det umuligt",
+          strstr(kun_foerste, "\"id\":\"3K9OPrDLrIX5ZppDTxWYqz\"") == NULL
+          || kun_foerste[foerste - 1] != '}');
+}

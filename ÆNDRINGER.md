@@ -1,3 +1,24 @@
+## 2026-10-07 01:28
+
+### Serverens eget svar ligger nu i testene
+Prøven for samleren brugte et opdigtet svar i den rigtige størrelse. Nu
+ligger det **faktiske** svar fra vores egen server med som prøveklud:
+2604 bytes, type success, en enhed med tretten attributter.
+
+Testen deler det præcis som esp-mqtt gør, samler det igen, og kræver at
+resultatet er **byte for byte** det samme som serverens. Den tjekker også
+det der var hele pointen: enheds-id'et står i den samlede besked, og det
+stod **ikke** i det første stykke alene. Altså var det umuligt for koden at
+få det før.
+
+Så kan ingen sige at fejlen kun fandtes i en test.
+
+Prøvekluden er fra en kasseret test-enhed og indeholder hverken
+certifikater, nøgler eller kodeord. Det er tjekket.
+
+677 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Version 0.16.1.
+
 ## 2026-10-07 01:12
 
 ### Skærmen kunne aldrig melde sig ind på flåden. Målt, ikke gættet

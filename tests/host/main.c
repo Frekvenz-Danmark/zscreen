@@ -45,6 +45,7 @@ int main(int argc, char **argv)
     test_pris_dato();
     test_modbus_skriv();
     test_fleet_stykker();
+    test_fleet_svar_rigtigt();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

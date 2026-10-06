@@ -43,6 +43,9 @@ CFLAGS=(
     -I../../firmware/main/net
     -I../../firmware/main/ui
     -I../../firmware/main/storage
+    # Hvor proevekludene ligger. Eksplicit, saa en test ikke skal gaette
+    # paa hvilken mappe den bliver koert fra.
+    -DZS_FIXTURES=\"../fixtures\"
 )
 
 # Sanitizers fanger laesning uden for bufferen og heltalsoverloeb.
