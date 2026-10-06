@@ -1,3 +1,25 @@
+## 2026-10-06 09:54
+
+### Genfindingen stjæler ikke længere skærmen fra brugeren
+To fejl i det jeg selv skrev i går, fundet ved at læse efter.
+
+**Knaptryk forsvandt.** En søgning efter inverteren tager omkring tyve
+sekunder, og i det tidsrum læser hovedopgaven ikke kommandoer. Køen
+venter aldrig: de første otte tryk lagde sig i kø og blev udført alle på
+én gang bagefter, og tryk nummer ni og frem forsvandt i stilhed. Og det
+er ikke et opfundet tilfælde: søgningen går i gang netop når skærmen
+siger at der ikke er forbindelse, hvilket er præcis når man går ind i
+indstillingerne for at se hvorfor.
+
+Nu giver søgningen op så snart der ligger et tryk i kø. Brugeren vinder,
+og vi prøver igen af os selv.
+
+**Baggrundssøgningen skrev i opsætningsskærmen.** Den brugte samme
+fremdriftsvisning som søgningen under opsætning, altså en skærm brugeren
+slet ikke står på. Den har nu sin egen, der ikke rører brugerfladen.
+
+539 enhedstest og 40 ende til ende, alle bestået.
+
 ## 2026-10-06 03:01
 
 ### Vi kan altid nå skærmene, og en dårlig opdatering rammer ikke alle

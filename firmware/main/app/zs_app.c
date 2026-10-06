@@ -383,6 +383,31 @@ static void scan_progress(void *ctx, int done, int total, int found)
  * opgave, saa den fryser ikke. Tallene staar som "gamle" imens, hvilket
  * de ogsaa er.
  */
+/*
+ * Fremdrift under en genfinding i baggrunden.
+ *
+ * To ting, og begge er fejl der blev rettet efter at de blev fundet:
+ *
+ * Den roerer IKKE brugerfladen. Foer brugte genfindingen samme
+ * tilbagekald som soegningen i opsaetningen, og saa skrev en
+ * baggrundssoegning fremdrift ind i en skaerm brugeren slet ikke staar
+ * paa.
+ *
+ * Og den giver op hvis brugeren trykker paa noget. En scanning tager
+ * omkring tyve sekunder, og i det tidsrum laeser hovedopgaven ikke
+ * kommandoer. Koeen venter aldrig: de foerste otte tryk laegger sig i
+ * kOE og bliver udfoert alle paa én gang bagefter, og resten forsvinder
+ * i stilhed. Brugeren skal vinde. Vi proever igen senere af os selv, se
+ * ZS_LOCATE_RETRY_MS.
+ */
+static void genfind_fremdrift(void *ctx, int done, int total, int found)
+{
+    (void)ctx; (void)done; (void)total; (void)found;
+    if (s_queue != NULL && uxQueueMessagesWaiting(s_queue) > 0) {
+        zs_discovery_abort();
+    }
+}
+
 static bool genfind_inverteren(void)
 {
     char subnet[16];
@@ -397,7 +422,7 @@ static bool genfind_inverteren(void)
     zs_loc_t r = zs_locate_find(subnet, s_cfg.inverter_serial, s_cfg.inverter_ip,
                                 s_cfg.inverter_port, s_cfg.inverter_unit,
                                 ip, sizeof(ip), sn, sizeof(sn),
-                                scan_progress, NULL);
+                                genfind_fremdrift, NULL);
 
     /* Uanset udfald: vent foer vi leder igen. En scanning er ikke noget
      * at lave hvert halve minut. Se ZS_LOCATE_RETRY_MS. */
@@ -405,6 +430,12 @@ static bool genfind_inverteren(void)
     s_tving_genfind = false;
     ESP_LOGI(TAG, "%s", zs_locate_text(r));
 
+    if (r == ZS_LOC_AFBRUDT) {
+        /* Brugeren trykkede paa noget. Vi venter IKKE de fem minutter:
+         * naeste gang der er ro, proever vi igen. */
+        s_naeste_genfind_ms = 0;
+        return false;
+    }
     if (r != ZS_LOC_SAMME && r != ZS_LOC_NY && r != ZS_LOC_TAGET) {
         return false;
     }
