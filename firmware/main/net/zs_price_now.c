@@ -16,7 +16,33 @@
 
 #include "zs_price.h"
 
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
+
+bool zs_price_date_is_today(const char *dato, int tm_year, int tm_mon, int tm_mday)
+{
+    if (dato == NULL || dato[0] == '\0') {
+        return false;
+    }
+    char i_dag[11];
+    /*
+     * Modulo, ikke pynt.
+     *
+     * tm_year er en fortegnet int, saa oversaetteren kan hverken vide at
+     * aarstallet er fire cifre eller at dagen er positiv. Et negativt tal
+     * ville fylde ét tegn mere paa grund af minusset.
+     *
+     * Med unsigned og modulo er graensen bevislig: 0 til 9999 og 0 til
+     * 99, altsaa praecis fire og to tegn. En enhed med et vildt ur
+     * skriver saa en forkert dato i stedet for uden for bufferen.
+     */
+    snprintf(i_dag, sizeof(i_dag), "%04u-%02u-%02u",
+             (unsigned)(tm_year + 1900) % 10000u,
+             (unsigned)(tm_mon + 1) % 100u,
+             (unsigned)tm_mday % 100u);
+    return strcmp(i_dag, dato) == 0;
+}
 
 int8_t zs_price_find_hour(const zs_price_day_t *d, int lokal_time, int offset_h)
 {

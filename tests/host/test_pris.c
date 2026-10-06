@@ -133,3 +133,56 @@ void test_pris_time(void)
         CHECK_INT("tom dag giver minus én", zs_price_find_hour(&d, 5, 2), -1);
     }
 }
+
+/*
+ * Er priserne fra i dag?
+ *
+ * Gamle priser er FARLIGE, fordi de ser rigtige ud. Siden viser ingen
+ * dato, og den fremhaevede time peger paa gaarsdagens tal. Fejlede
+ * hentningen efter midnat, fx fordi nettet var nede klokken halv et,
+ * stod gaarsdagens priser paa vaeggen hele dagen uden at nogen kunne se
+ * det.
+ *
+ * Datoen gives ind som tal, praecis som struct tm har dem: aar minus
+ * 1900 og maaned 0 til 11.
+ */
+void test_pris_dato(void)
+{
+    ZS_SUITE("Er priserne fra i dag");
+
+    /* 6. oktober 2026 er tm_year 126, tm_mon 9, tm_mday 6. */
+    CHECK("samme dag", zs_price_date_is_today("2026-10-06", 126, 9, 6) == true);
+    CHECK("i går er ikke i dag",
+          zs_price_date_is_today("2026-10-05", 126, 9, 6) == false);
+    CHECK("i morgen er ikke i dag",
+          zs_price_date_is_today("2026-10-07", 126, 9, 6) == false);
+    CHECK("samme dag sidste måned",
+          zs_price_date_is_today("2026-09-06", 126, 9, 6) == false);
+    CHECK("samme dag sidste år",
+          zs_price_date_is_today("2025-10-06", 126, 9, 6) == false);
+
+    /* Nytaarsnat, hvor baade dag, maaned og aar skifter. */
+    CHECK("nytårsaften", zs_price_date_is_today("2026-12-31", 126, 11, 31) == true);
+    CHECK("nytårsdag er ikke nytårsaften",
+          zs_price_date_is_today("2026-12-31", 127, 0, 1) == false);
+
+    /* Enkeltcifrede dage og maaneder skal have nul foran. */
+    CHECK("første januar", zs_price_date_is_today("2026-01-01", 126, 0, 1) == true);
+    CHECK("uden nul foran passer ikke",
+          zs_price_date_is_today("2026-1-1", 126, 0, 1) == false);
+
+    /* Ingenting er ikke i dag. */
+    CHECK("tom dato", zs_price_date_is_today("", 126, 9, 6) == false);
+    CHECK("NULL", zs_price_date_is_today(NULL, 126, 9, 6) == false);
+    CHECK("skrald", zs_price_date_is_today("i morgen", 126, 9, 6) == false);
+
+    /*
+     * En enhed med et vildt ur maa ikke kunne skrive uden for bufferen.
+     * Tallene her er umulige, og det eneste krav er at der ikke sker
+     * noget grimt, og at svaret er nej.
+     */
+    CHECK("år 12000 giver nej, og ikke et nedbrud",
+          zs_price_date_is_today("2026-10-06", 10100, 9, 6) == false);
+    CHECK("negativt år giver nej",
+          zs_price_date_is_today("2026-10-06", -3000, 9, 6) == false);
+}

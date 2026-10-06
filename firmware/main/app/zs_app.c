@@ -1079,6 +1079,24 @@ static void app_task(void *arg)
                 !s_net_igang && t >= s_price_next_try &&
                 (!s_price.ok || zs_price_is_stale(&s_price))) {
 
+                /*
+                 * Gamle priser maa IKKE blive staaende.
+                 *
+                 * Efter midnat er gaarsdagens priser ikke dagens, men de
+                 * ser praecis lige saa rigtige ud: siden viser ingen dato,
+                 * og den fremhaevede time peger paa gaarsdagens tal.
+                 * Fejler hentningen, fx fordi nettet er nede klokken
+                 * halv et om natten, stod de der hele dagen.
+                 *
+                 * Hellere sige at vi henter end at vise noget forkert.
+                 */
+                if (s_price.ok && zs_price_is_stale(&s_price)) {
+                    s_price.ok = false;
+                    snprintf(s_price.fejl, sizeof(s_price.fejl),
+                             "Henter dagens priser ...");
+                    zs_ui_set_price(&s_price);
+                }
+
                 snprintf(s_price_zone, sizeof(s_price_zone), "%.3s",
                          s_cfg.price_zone);
                 s_price_klar = false;

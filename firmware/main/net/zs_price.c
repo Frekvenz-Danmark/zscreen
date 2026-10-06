@@ -197,23 +197,7 @@ bool zs_price_is_stale(const zs_price_day_t *d)
     }
     struct tm lt;
     localtime_r(&t, &lt);
-    char i_dag[11];
-    /*
-     * Modulo, ikke pynt.
-     *
-     * tm_year er en fortegnet int, saa oversaetteren kan hverken vide
-     * at aarstallet er fire cifre eller at dagen er positiv. Et
-     * negativt tal ville fylde ét tegn mere paa grund af minusset.
-     *
-     * Med unsigned og modulo er graensen bevislig: 0 til 9999 og 0 til
-     * 99, altsaa praecis fire og to tegn. En enhed med et vildt ur
-     * skriver saa en forkert dato i stedet for uden for bufferen.
-     */
-    snprintf(i_dag, sizeof(i_dag), "%04u-%02u-%02u",
-             (unsigned)(lt.tm_year + 1900) % 10000u,
-             (unsigned)(lt.tm_mon + 1) % 100u,
-             (unsigned)lt.tm_mday % 100u);
-    return strcmp(i_dag, d->dato) != 0;
+    return !zs_price_date_is_today(d->dato, lt.tm_year, lt.tm_mon, lt.tm_mday);
 }
 
 bool zs_price_fetch(const char *zone, zs_price_day_t *ud)

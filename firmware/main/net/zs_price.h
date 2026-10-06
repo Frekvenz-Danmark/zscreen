@@ -96,6 +96,19 @@ typedef struct {
 int8_t zs_price_find_hour(const zs_price_day_t *d, int lokal_time, int offset_h);
 
 /*
+ * Er de her priser fra I DAG?
+ *
+ * Ren sammenligning uden ur, saa den kan proeves af. Datoen gives ind som
+ * tal, praecis som struct tm har dem, altsaa aar-1900 og maaned 0 til 11.
+ *
+ * Den findes fordi gamle priser er FARLIGE: de ser rigtige ud. Fejler
+ * hentningen efter midnat, stod gaarsdagens priser paa vaeggen som om de
+ * var dagens, og den fremhaevede time var ogsaa forkert. Ingen dato paa
+ * siden, saa intet at opdage det paa.
+ */
+bool zs_price_date_is_today(const char *dato, int tm_year, int tm_mon, int tm_mday);
+
+/*
  * Henter dagens priser. Blokerer i op til nogle sekunder, saa den skal
  * koeres fra app-opgaven og ikke fra LVGL's.
  *

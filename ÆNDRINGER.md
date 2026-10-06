@@ -1,3 +1,31 @@
+## 2026-10-06 14:00
+
+### Gårsdagens elpriser kunne blive stående hele dagen
+Samme slags fejl som den forrige, og den slags kommer sjældent alene.
+
+Efter midnat er gårsdagens priser ikke dagens. Skærmen opdagede godt at
+de var gamle og gik i gang med at hente nye, men **den fjernede dem
+ikke imens**. Lykkedes hentningen ikke, for eksempel fordi nettet var
+nede klokken halv et om natten, blev gårsdagens priser stående. Og man
+kunne ikke se det: siden viser ingen dato, og den fremhævede time pegede
+på gårsdagens tal. De så præcis lige så rigtige ud som rigtige priser.
+
+Prøves der igen hvert tiende minut, så en API der er nede i timevis
+betød gårsdagens priser på væggen hele formiddagen.
+
+**Rettet:** er priserne ikke fra i dag, bliver de fjernet med det samme,
+og siden siger "Henter dagens priser ...". Den tekstboks fandtes i
+forvejen, den blev bare ikke brugt til det her. Hellere sige at vi henter
+end at vise noget forkert.
+
+Datosammenligningen er flyttet ud i den fil der kan prøves af på en
+almindelig maskine, og har fået 14 tests: samme dag, i går, i morgen,
+samme dag sidste måned og sidste år, nytårsnat hvor dag, måned og år
+skifter på én gang, enkeltcifrede datoer der skal have nul foran, tom
+dato, NULL, skrald, og et ur der er gået helt galt i byen.
+
+581 enhedstest og 55 ende til ende, alle bestået på Mac og Linux.
+
 ## 2026-10-06 13:42
 
 ### Elprisen var forkert i en time, én nat om året
