@@ -154,7 +154,8 @@ zs_mb_err_t zs_mb_parse_read_response(const uint8_t *frame, size_t frame_len,
 
     uint8_t bc = frame[8];
     if (bc != (uint8_t)(expect_count * 2)) {
-        ZS_LOGW(TAG, "byte-taeller %u, forventede %u", bc, expect_count * 2);
+        ZS_LOGW(TAG, "byte-taeller %u, forventede %u",
+                 (unsigned)bc, (unsigned)(expect_count * 2));
         return ZS_MB_ERR_FRAME;
     }
     /* Baelte og seler: bc er allerede bundet af laengdetjekket ovenfor,

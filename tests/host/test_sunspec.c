@@ -414,3 +414,43 @@ void test_sunspec(void)
         CHECK("og siger det", map.truncated);
     }
 }
+
+/*
+ * En streng der er LAENGERE end bufferen.
+ *
+ * cppcheck paastod at graensen i zs_ss_dec_string aldrig rammes. Det er
+ * netop den graense der staar mellem et serienummer fra inverteren og
+ * en buffer paa stakken, saa paastanden skal afgoeres og ikke diskuteres.
+ */
+void test_sunspec_for_lang(void)
+{
+    ZS_SUITE("Strenge der er længere end der er plads til");
+
+    /* 16 registre, altsaa 32 tegn, ned i en buffer paa 8. */
+    uint16_t r[16];
+    for (int i = 0; i < 16; i++) {
+        r[i] = (uint16_t)(('A' << 8) | 'B');      /* "ABABAB..." */
+    }
+
+    char lille[8];
+    memset(lille, 0x7F, sizeof(lille));
+    size_t n = zs_ss_dec_string(r, 16, 0, 16, lille, sizeof(lille));
+
+    CHECK("der skrives højst plads minus afslutningen", n == sizeof(lille) - 1);
+    CHECK("og der er en afslutning", lille[sizeof(lille) - 1] == '\0');
+    CHECK("og indholdet er begyndelsen af strengen",
+          strncmp(lille, "ABABABA", 7) == 0);
+
+    /* En buffer paa ÉT tegn kan kun rumme afslutningen. */
+    char et[1];
+    et[0] = 0x7F;
+    CHECK("plads til ét tegn giver nul skrevet",
+          zs_ss_dec_string(r, 16, 0, 16, et, sizeof(et)) == 0);
+    CHECK("og en tom streng", et[0] == '\0');
+
+    /* Nul plads maa ikke skrive noget overhovedet. */
+    char vagt[2] = { 0x7F, 0x7F };
+    CHECK("nul plads skriver ingenting",
+          zs_ss_dec_string(r, 16, 0, 16, vagt, 0) == 0);
+    CHECK("og roerer ikke bufferen", vagt[0] == 0x7F);
+}

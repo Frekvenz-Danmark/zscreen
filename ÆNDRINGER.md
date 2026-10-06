@@ -1,3 +1,44 @@
+## 2026-10-06 11:58
+
+### Gennemgang af hele kodebasen med analyseværktøjer
+Kørt `cppcheck` over al firmware og gcc's egen analysator over hvert
+modul der kan oversættes på en almindelig maskine. Fire fund, og to af
+dem var værktøjerne der tog fejl.
+
+**Formatfejl i Modbus-laget.** `%u` med et fortegnsbehæftet tal:
+`expect_count` er `uint16_t`, og `* 2` gør den til `int`. Harmløs i
+praksis, men det er en rigtig uoverensstemmelse. Rettet.
+
+**Afkortning af strenge var ikke testet.** cppcheck påstod at grænsen i
+`zs_ss_dec_string` aldrig rammes. Det er netop den grænse der står mellem
+et serienummer fra inverteren og en buffer på stakken, så påstanden blev
+afgjort med en test i stedet for en diskussion: grænsen rammes, den
+virker, og nu er den beskyttet mod at forsvinde igen. Syv nye tests.
+
+**Påstået lækket filbeskrivelse i scanningen.** gcc's analysator mente at
+en socket slap væk. På en ESP32 med en håndfuld sockets ville det slå
+søgningen ud efter få forsøg, så det blev målt: tre fulde scanninger,
+samme antal åbne filbeskrivelser før og efter. Falsk alarm, fordi
+analysatoren ikke kan følge en filbeskrivelse der gemmes i et array.
+
+**Duplikeret include-blok.** `zs_config.h`, `zs_app.h` og
+`zs_screen_setup.h` stod to gange i indstillingssiden. Hele kodebasen
+gennemgået for det samme bagefter: ingen flere.
+
+### Flådens status vises nu på skærmen
+Fire funktioner i flåde-modulet var aldrig blevet taget i brug, og det
+var grunden: en tekniker kunne stå foran skærmen uden at kunne se om den
+var med i flåden, for svaret lå kun i en log han ikke kan nå. Detaljer
+viser nu "Flåde" og, når den er indmeldt, dens flåde-id. Er den slået fra
+eller mangler certifikatet, står der "Slået fra" og ikke en fejl, for det
+er to forskellige ting.
+
+Struktur målt samtidig: ingen TODO eller FIXME nogen steder, ingen løse
+tal uden for den centrale konfiguration i det der kan skrues på, og 184
+offentlige funktioner hvoraf 13 ikke bruges uden for deres egen fil.
+
+546 enhedstest og 40 ende til ende, alle bestået.
+
 ## 2026-10-06 09:54
 
 ### Genfindingen stjæler ikke længere skærmen fra brugeren

@@ -3,12 +3,9 @@
 #include "zs_theme.h"
 #include "zs_app.h"
 #include "zs_config.h"
-#include "zs_app.h"
 #include "zs_screen_setup.h"
 #include "zs_format.h"
-#include "zs_config.h"
-#include "zs_app.h"
-#include "zs_screen_setup.h"
+#include "../net/zs_fleet.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -683,6 +680,26 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
     }
     snprintf(buf, sizeof(buf), "%s %s", ZS_PRODUCT_NAME, zs_version());
     detail_line(s_det_col, "Version", buf);
+
+    /*
+     * Floedestyringen.
+     *
+     * Staar her fordi den hoerer til skaermen og ikke til anlaegget. Uden
+     * den kunne en tekniker staa foran skaermen uden at kunne se om den
+     * er med i flaaden, og saa er svaret kun at finde i en log han ikke
+     * kan naa.
+     *
+     * Er den slaaet fra, eller er der intet certifikat, staar der
+     * "Slaaet fra" og ikke en fejl. Det er to forskellige ting.
+     */
+    detail_line(s_det_col, "Flåde", zs_fleet_state_text());
+    {
+        char asset[32];
+        zs_fleet_asset_id(asset, sizeof(asset));
+        if (asset[0] != '\0') {
+            detail_line(s_det_col, "Flåde-id", asset);
+        }
+    }
 
     /* Lidt luft i bunden, saa den sidste linje ikke klistrer til kanten
      * naar man har rullet helt ned. */

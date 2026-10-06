@@ -39,6 +39,7 @@ int main(int argc, char **argv)
     test_locate();
     test_version_tag();
     test_fleet_lyt();
+    test_sunspec_for_lang();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {
