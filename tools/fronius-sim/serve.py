@@ -39,6 +39,7 @@ EXC_ILLEGAL_VALUE = 0x03
 EXC_GATEWAY_NO_RESPONSE = 0x0B
 
 FC_READ_HOLDING = 0x03
+FC_WRITE_MULTI  = 0x10
 
 STATE = {
     "lock": threading.Lock(),
@@ -101,10 +102,10 @@ class ModbusHandler(socketserver.BaseRequestHandler):
             STATE["requests"] += 1
             units = STATE["units"]
 
+            if fc == FC_WRITE_MULTI:
+                return self._skriv(tid, unit, fc, payload, units)
+
             if fc != FC_READ_HOLDING:
-                # zScreen sender kun funktionskode 3. Alt andet er enten
-                # en fejl eller nogen der proever at skrive, og begge
-                # dele skal afvises tydeligt.
                 return self._exception(tid, unit, fc, EXC_ILLEGAL_FUNCTION)
 
             if unit not in units:
@@ -152,6 +153,48 @@ class ModbusHandler(socketserver.BaseRequestHandler):
             data = b"".join(struct.pack(">H", v) for v in values)
             pdu = struct.pack(">BB", fc, len(data)) + data
             return struct.pack(">HHH", tid, 0, len(pdu) + 1) + bytes([unit]) + pdu
+
+    def _skriv(self, tid, unit, fc, payload, units):
+        """
+        Funktionskode 16.
+
+        Tre maader at opfoere sig paa, og den midterste er den vigtige:
+
+          skriv   helt normalt, registrene aendrer sig
+          tavs    svarer PAENT og aendrer INGENTING
+          naegt   svarer med en rigtig exception
+
+        Den tavse er ikke opfundet. Fronius skriver selv i sin manual:
+        "If an attempt is made to write to such registers, the inverter
+        does not return an exception code!" Det sker fx naar "Inverter
+        control via Modbus" ikke er slaaet til paa inverterens webside.
+        Uden tilbagelaesning kan den ikke skelnes fra en skrivning der
+        lykkedes, og det er praecis det der skal kunne proeves af.
+        """
+        # payload begynder EFTER funktionskoden, praecis som i laesevejen.
+        if len(payload) < 5:
+            return self._exception(tid, unit, fc, EXC_ILLEGAL_VALUE)
+        addr, antal = struct.unpack(">HH", payload[0:4])
+        bc = payload[4]
+        data = payload[5:5 + bc]
+        if antal < 1 or antal > 123 or bc != antal * 2 or len(data) != bc:
+            return self._exception(tid, unit, fc, EXC_ILLEGAL_VALUE)
+
+        maade = STATE.get("skrivemaade", "skriv")
+        if maade == "naegt":
+            return self._exception(tid, unit, fc, EXC_ILLEGAL_ADDRESS)
+        if maade != "tavs":
+            regs = units[unit]
+            skrevet = STATE.setdefault("skrevet", {})
+            for i in range(antal):
+                v = struct.unpack(">H", data[i * 2:i * 2 + 2])[0]
+                regs[addr + i] = v
+                if unit == STATE.get("inv_unit"):
+                    skrevet[addr + i] = v
+
+        # Svaret er et EKKO af adresse og antal, ogsaa naar vi intet gjorde.
+        pdu = struct.pack(">BHH", fc, addr, antal)
+        return struct.pack(">HHH", tid, 0, len(pdu) + 1) + bytes([unit]) + pdu
 
     @staticmethod
     def _exception(tid: int, unit: int, fc: int, code: int) -> bytes:
@@ -282,7 +325,17 @@ def ticker(inv_dev, meter_dev, p: Plant, args, inv_unit: int, meter_unit: int,
         with STATE["lock"]:
             update_registers(inv_dev, meter_dev, p, meter_dev is not None,
                              args.profile == "float", fejl)
-            STATE["units"][inv_unit] = inv_dev.build_registers()
+            nye = inv_dev.build_registers()
+            # Behold hvad der er SKREVET udefra.
+            #
+            # Tickeren bygger registrene om hver runde ud af anlaeggets
+            # tilstand. Uden det her blev en skrivning overskrevet et
+            # oejeblik senere, og saa kunne man ikke se forskel paa en
+            # skrivning der virkede og en der blev ignoreret. Det er
+            # praecis den forskel det hele handler om.
+            for adr in STATE.get("skrevet", ()):
+                nye[adr] = STATE["skrevet"][adr]
+            STATE["units"][inv_unit] = nye
             STATE["model_omraader"] = inv_dev.model_omraader()
             STATE["inv_unit"] = inv_unit
             if meter_dev is not None:
@@ -315,6 +368,11 @@ def main():
                     help="Modbus-port. 502 kraever sudo, men er den eneste "
                          "port skaermens scanning leder efter")
     ap.add_argument("--bind", default="0.0.0.0")
+    ap.add_argument("--skrivemaade", choices=["skriv", "tavs", "naegt"],
+                    default="skriv", dest="skrivemaade",
+                    help="hvordan simulatoren tager imod en skrivning. tavs "
+                         "svarer paent og aendrer ingenting, praecis som en "
+                         "Fronius hvor styring ikke er slaaet til")
     ap.add_argument("--loegn-kanaler", type=int, default=0,
                     dest="loegn_kanaler",
                     help="lad model 160 paastaa flere kanaler end den er "
@@ -349,6 +407,7 @@ def main():
 
     STATE["verbose"] = args.verbose
     STATE["naegt"] = {int(x) for x in args.naegt.split(",") if x.strip()}
+    STATE["skrivemaade"] = args.skrivemaade
     STATE["naegt_kun_data"] = {int(x) for x in args.naegt_kun_data.split(",") if x.strip()}
     STATE["naegt"] |= STATE["naegt_kun_data"]
 

@@ -210,3 +210,103 @@ void test_modbus(void)
                   "Inverteren svarede ikke i tide");
     }
 }
+
+/*
+ * Rammerne til at SKRIVE.
+ *
+ * Vi har kun laest indtil nu. At skrive paa en kundes inverter er en
+ * anden slags ansvar, og rammen skal vaere rigtig foer noget som helst
+ * andet. Fronius' egen manual siger at en afvist skrivning IKKE giver en
+ * exception, saa et paent svar beviser ingenting. Derfor er ekko-tjekket
+ * her, og derfor laeses der tilbage bagefter i zs_mb_write_verified.
+ */
+void test_modbus_skriv(void)
+{
+    ZS_SUITE("Modbus-rammer til at skrive");
+
+    uint8_t buf[64];
+    const uint16_t to[2] = { 0x1234, 0xABCD };
+
+    {
+        size_t n = zs_mb_build_write_request(buf, sizeof(buf), 0x0007, 1,
+                                             40000, to, 2);
+        CHECK_INT("forespørgsel med to registre er 17 bytes", (int)n, 17);
+        CHECK_INT("transaktions-ID", (int)((buf[0] << 8) | buf[1]), 7);
+        CHECK_INT("protokol-ID er nul", (int)((buf[2] << 8) | buf[3]), 0);
+        CHECK_INT("længdefelt dækker resten", (int)((buf[4] << 8) | buf[5]), 11);
+        CHECK_INT("unit", (int)buf[6], 1);
+        CHECK_INT("funktionskode er 16", (int)buf[7], 0x10);
+        CHECK_INT("adresse", (int)((buf[8] << 8) | buf[9]), 40000);
+        CHECK_INT("antal", (int)((buf[10] << 8) | buf[11]), 2);
+        CHECK_INT("byte-tæller er dobbelt så stor", (int)buf[12], 4);
+        CHECK_INT("første værdi", (int)((buf[13] << 8) | buf[14]), 0x1234);
+        CHECK_INT("anden værdi", (int)((buf[15] << 8) | buf[16]), 0xABCD);
+    }
+
+    {
+        /* Graenserne. FC16 kan hoejst 123, ikke 125 som laesning, og det
+         * er en nem fejl at lave. */
+        uint16_t mange[130];
+        for (int i = 0; i < 130; i++) { mange[i] = (uint16_t)i; }
+        uint8_t stor[13 + 123 * 2];
+        CHECK_INT("123 registre giver den rigtige længde",
+                  (int)zs_mb_build_write_request(stor, sizeof(stor), 1, 1, 0, mange, 123),
+                  13 + 123 * 2);
+        CHECK_INT("124 registre afvises",
+                  (int)zs_mb_build_write_request(stor, sizeof(stor), 1, 1, 0, mange, 124), 0);
+        CHECK_INT("0 registre afvises",
+                  (int)zs_mb_build_write_request(buf, sizeof(buf), 1, 1, 0, to, 0), 0);
+        CHECK_INT("NULL-buffer afvises",
+                  (int)zs_mb_build_write_request(NULL, 64, 1, 1, 0, to, 2), 0);
+        CHECK_INT("NULL-værdier afvises",
+                  (int)zs_mb_build_write_request(buf, sizeof(buf), 1, 1, 0, NULL, 2), 0);
+        CHECK_INT("for lille buffer afvises",
+                  (int)zs_mb_build_write_request(buf, 16, 1, 1, 0, to, 2), 0);
+        CHECK_INT("hen over kanten af adresserummet afvises",
+                  (int)zs_mb_build_write_request(buf, sizeof(buf), 1, 1, 65535, to, 2), 0);
+    }
+
+    {
+        /* Svaret er et ekko af adresse og antal, ikke data. */
+        uint8_t svar[12] = { 0x00, 0x07, 0x00, 0x00, 0x00, 0x06, 0x01, 0x10,
+                             0x9C, 0x40, 0x00, 0x02 };
+        uint8_t exc = 0xFF;
+        CHECK_INT("gyldigt ekko accepteres",
+                  zs_mb_parse_write_response(svar, sizeof(svar), 7, 1, 40000, 2, &exc),
+                  ZS_MB_OK);
+        CHECK_INT("og der er ingen exception", (int)exc, 0);
+
+        /* DET VIGTIGSTE: et ekko der ikke passer. Saa har inverteren
+         * skrevet et andet sted end vi bad om. */
+        CHECK("forkert adresse i ekkoet afvises",
+              zs_mb_parse_write_response(svar, sizeof(svar), 7, 1, 40002, 2, &exc)
+              != ZS_MB_OK);
+        CHECK("forkert antal i ekkoet afvises",
+              zs_mb_parse_write_response(svar, sizeof(svar), 7, 1, 40000, 3, &exc)
+              != ZS_MB_OK);
+        CHECK("forkert transaktions-ID afvises",
+              zs_mb_parse_write_response(svar, sizeof(svar), 8, 1, 40000, 2, &exc)
+              != ZS_MB_OK);
+        CHECK("forkert unit afvises",
+              zs_mb_parse_write_response(svar, sizeof(svar), 7, 2, 40000, 2, &exc)
+              != ZS_MB_OK);
+
+        uint8_t kort[11];
+        memcpy(kort, svar, sizeof(kort));
+        CHECK("for kort svar afvises",
+              zs_mb_parse_write_response(kort, sizeof(kort), 7, 1, 40000, 2, &exc)
+              != ZS_MB_OK);
+    }
+
+    {
+        /* En rigtig exception, fx "det register maa du ikke skrive i". */
+        uint8_t exc_svar[9] = { 0x00, 0x07, 0x00, 0x00, 0x00, 0x03,
+                                0x01, 0x90, 0x02 };
+        uint8_t exc = 0;
+        CHECK_INT("exception genkendes",
+                  zs_mb_parse_write_response(exc_svar, sizeof(exc_svar), 7, 1,
+                                             40000, 2, &exc),
+                  ZS_MB_ERR_EXCEPTION);
+        CHECK_INT("og koden læses", (int)exc, 2);
+    }
+}

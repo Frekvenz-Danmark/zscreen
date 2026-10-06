@@ -20,6 +20,7 @@ static const char *TAG = "modbus";
 
 /* Funktionskode 3, den eneste vi bruger. */
 #define FC_READ_HOLDING     0x03
+#define FC_WRITE_MULTI      0x10    /* skriv flere registre        */
 /* Serveren saetter hoejeste bit naar den svarer med en fejl. */
 #define FC_EXCEPTION_BIT    0x80
 
@@ -54,6 +55,9 @@ const char *zs_mb_strerror(zs_mb_err_t err)
     case ZS_MB_ERR_CLOSED:    return "Forbindelsen blev lukket";
     case ZS_MB_ERR_FRAME:     return "Ugyldigt svar fra inverteren";
     case ZS_MB_ERR_EXCEPTION: return "Inverteren afviste forespørgslen";
+    case ZS_MB_ERR_NOT_WRITTEN:
+        return "Inverteren tog ikke imod ændringen. "
+               "Er \"Inverter control via Modbus\" slået til på den?";
     }
     return "Ukendt fejl";
 }
@@ -87,6 +91,111 @@ size_t zs_mb_build_read_request(uint8_t *buf, size_t buf_len, uint16_t tid,
     wr_u16(buf + 10, count);
     return 12;
 }
+
+size_t zs_mb_build_write_request(uint8_t *buf, size_t buf_len, uint16_t tid,
+                                 uint8_t unit_id, uint16_t address,
+                                 const uint16_t *values, uint16_t count)
+{
+    if (buf == NULL || values == NULL || count == 0) {
+        return 0;
+    }
+    /*
+     * FC16 kan hoejst 123 registre, ikke 125 som FC3. Grunden er at
+     * rammen ogsaa skal rumme adresse, antal og en byte-taeller. Tallet
+     * staar i Modbus-standarden, og det er ikke det samme som for
+     * laesning, hvilket er en nem fejl at lave.
+     */
+    if (count > 123) {
+        return 0;
+    }
+    if ((uint32_t)address + (uint32_t)count > 0x10000u) {
+        return 0;
+    }
+    size_t brug = 13 + (size_t)count * 2;
+    if (buf_len < brug) {
+        return 0;
+    }
+
+    wr_u16(buf + 0, tid);
+    wr_u16(buf + 2, 0);
+    /* Laengden daekker alt efter de foerste 6 bytes: unit, fc, adresse,
+     * antal, byte-taeller og selve dataene. */
+    wr_u16(buf + 4, (uint16_t)(7 + count * 2));
+    buf[6] = unit_id;
+    buf[7] = FC_WRITE_MULTI;
+    wr_u16(buf + 8, address);
+    wr_u16(buf + 10, count);
+    buf[12] = (uint8_t)(count * 2);
+    for (uint16_t i = 0; i < count; i++) {
+        wr_u16(buf + 13 + i * 2, values[i]);
+    }
+    return brug;
+}
+
+zs_mb_err_t zs_mb_parse_write_response(const uint8_t *frame, size_t frame_len,
+                                       uint16_t expect_tid, uint8_t expect_unit,
+                                       uint16_t expect_address,
+                                       uint16_t expect_count,
+                                       uint8_t *out_exception)
+{
+    if (out_exception != NULL) {
+        *out_exception = 0;
+    }
+    if (frame == NULL) {
+        return ZS_MB_ERR_FRAME;
+    }
+    /* Korteste lovlige svar er en exception: MBAP(7) + fc(1) + kode(1). */
+    if (frame_len < 9) {
+        return ZS_MB_ERR_FRAME;
+    }
+
+    uint16_t tid = rd_u16(frame + 0);
+    uint16_t pid = rd_u16(frame + 2);
+    uint16_t len = rd_u16(frame + 4);
+    uint8_t  unit = frame[6];
+    uint8_t  fc  = frame[7];
+
+    if (pid != 0) {
+        return ZS_MB_ERR_FRAME;
+    }
+    if ((size_t)len + MBAP_LEN != frame_len) {
+        return ZS_MB_ERR_FRAME;
+    }
+    if (tid != expect_tid) {
+        return ZS_MB_ERR_FRAME;
+    }
+    if (unit != expect_unit) {
+        return ZS_MB_ERR_FRAME;
+    }
+    if (fc == (FC_WRITE_MULTI | FC_EXCEPTION_BIT)) {
+        uint8_t code = frame[8];
+        if (out_exception != NULL) {
+            *out_exception = code;
+        }
+        ZS_LOGD(TAG, "exception-kode %u ved skrivning", code);
+        return ZS_MB_ERR_EXCEPTION;
+    }
+    if (fc != FC_WRITE_MULTI) {
+        return ZS_MB_ERR_FRAME;
+    }
+    /* Et normalt svar er praecis MBAP + fc + adresse + antal. */
+    if (frame_len != 12) {
+        return ZS_MB_ERR_FRAME;
+    }
+    /*
+     * Ekkoet skal passe. Svarer inverteren med en anden adresse eller et
+     * andet antal, har den skrevet et andet sted end vi bad om, og saa
+     * er et "ok" vaerre end en fejl.
+     */
+    if (rd_u16(frame + 8) != expect_address) {
+        return ZS_MB_ERR_FRAME;
+    }
+    if (rd_u16(frame + 10) != expect_count) {
+        return ZS_MB_ERR_FRAME;
+    }
+    return ZS_MB_OK;
+}
+
 
 zs_mb_err_t zs_mb_parse_read_response(const uint8_t *frame, size_t frame_len,
                                       uint16_t expect_tid, uint8_t expect_unit,
@@ -483,6 +592,108 @@ zs_mb_err_t zs_mb_read_holding(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
     }
     return ZS_MB_OK;
 }
+
+zs_mb_err_t zs_mb_write_verified(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
+                                 const uint16_t *values, uint16_t count,
+                                 uint32_t timeout_ms)
+{
+    if (mb == NULL || values == NULL || count == 0 || count > 123) {
+        return ZS_MB_ERR_ARG;
+    }
+    if (mb->fd < 0) {
+        return ZS_MB_ERR_NOT_OPEN;
+    }
+
+    if (timeout_ms == 0) {
+        timeout_ms = mb->timeout_ms ? mb->timeout_ms : 1500;
+    }
+    if (timeout_ms != mb->timeout_ms) {
+        struct timeval tv;
+        tv.tv_sec  = (long)(timeout_ms / 1000u);
+        tv.tv_usec = (long)((timeout_ms % 1000u) * 1000u);
+        setsockopt(mb->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        setsockopt(mb->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+        mb->timeout_ms = timeout_ms;
+    }
+
+    uint16_t tid = mb->next_tid++;
+    if (mb->next_tid == 0) {
+        mb->next_tid = 1;
+    }
+
+    uint8_t req[13 + 123 * 2];
+    size_t req_len = zs_mb_build_write_request(req, sizeof(req), tid, unit_id,
+                                               address, values, count);
+    if (req_len == 0) {
+        return ZS_MB_ERR_ARG;
+    }
+
+    mb->stat_requests++;
+    zs_mb_err_t err = send_all(mb->fd, req, req_len);
+    if (err != ZS_MB_OK) {
+        mb->stat_errors++;
+        zs_mb_close(mb);
+        return err;
+    }
+
+    uint8_t frame[ZS_MB_MAX_FRAME];
+    err = recv_exact(mb->fd, frame, MBAP_LEN);
+    if (err != ZS_MB_OK) {
+        mb->stat_errors++;
+        zs_mb_close(mb);
+        return err;
+    }
+    uint16_t len = rd_u16(frame + 4);
+    if (len < 1 || MBAP_LEN + (size_t)len > sizeof(frame)) {
+        mb->stat_errors++;
+        zs_mb_close(mb);
+        return ZS_MB_ERR_FRAME;
+    }
+    err = recv_exact(mb->fd, frame + MBAP_LEN, len);
+    if (err != ZS_MB_OK) {
+        mb->stat_errors++;
+        zs_mb_close(mb);
+        return err;
+    }
+
+    err = zs_mb_parse_write_response(frame, MBAP_LEN + (size_t)len, tid, unit_id,
+                                     address, count, &mb->last_exception);
+    if (err != ZS_MB_OK) {
+        mb->stat_errors++;
+        if (err != ZS_MB_ERR_EXCEPTION) {
+            zs_mb_close(mb);
+        }
+        return err;
+    }
+
+    /*
+     * Og saa det vigtigste: LAES TILBAGE.
+     *
+     * Fronius skriver selv i sin manual at en afvist skrivning IKKE giver
+     * en exception. Et paent svar ovenfor beviser altsaa kun at rammen kom
+     * frem, ikke at inverteren gjorde noget. Afvisning sker fx naar
+     * "Inverter control via Modbus" ikke er slaaet til paa inverterens
+     * webside, eller naar en anden styring har forrang.
+     *
+     * Uden det her ville skaermen melde "sendt" mens inverteren gjorde som
+     * den plejede, og vi ville lede efter fejlen alle de forkerte steder.
+     */
+    uint16_t tilbage[123];
+    err = zs_mb_read_holding(mb, unit_id, address, count, tilbage, timeout_ms);
+    if (err != ZS_MB_OK) {
+        return err;
+    }
+    for (uint16_t i = 0; i < count; i++) {
+        if (tilbage[i] != values[i]) {
+            ZS_LOGW(TAG, "skrev %u i register %u, men der staar %u",
+                    (unsigned)values[i], (unsigned)(address + i),
+                    (unsigned)tilbage[i]);
+            return ZS_MB_ERR_NOT_WRITTEN;
+        }
+    }
+    return ZS_MB_OK;
+}
+
 
 bool zs_mb_probe_port(const char *host, uint16_t port, uint32_t timeout_ms)
 {

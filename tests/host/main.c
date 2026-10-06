@@ -42,6 +42,7 @@ int main(int argc, char **argv)
     test_sunspec_for_lang();
     test_pris_time();
     test_pris_dato();
+    test_modbus_skriv();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

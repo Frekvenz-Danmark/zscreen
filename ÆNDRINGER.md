@@ -1,3 +1,50 @@
+## 2026-10-06 15:13
+
+### Fase 1 af at kunne styre inverteren: fundamentet, og kun det
+Vi har kun læst indtil nu. At skrive på en kundes inverter er et andet
+ansvar, så her er kun fundamentet. Firmwaren sender ingen kommandoer af
+sig selv, og intet har rørt en rigtig inverter.
+
+**Research først, og den ændrede planen to gange.**
+
+Fra Fronius' egen manual: *"If an attempt is made to write to such
+registers, the inverter does not return an exception code!"* En afvist
+skrivning ser altså **præcis** ud som en der lykkedes. Det sker når
+"Inverter control via Modbus" ikke er slået til på inverterens webside,
+eller når en anden styring har forrang.
+
+Derfor læses der **altid tilbage** efter en skrivning. Et pænt svar
+beviser kun at rammen kom frem, ikke at inverteren gjorde noget.
+
+Om tilbagerulningsuret, som skulle have været sikkerhedsnettet, er
+beviserne modstridende. Manualen beskriver det som den rigtige måde.
+evcc fjernede det i PR #18386 fordi Fronius selv fortalte dem at det
+udløste en spændingsfejl på GEN24, og vores egen Zbox har det derfor
+slået fra med netop den begrundelse. Et tredje projekt bruger det som
+designet. Vi har ingen inverter at måle på, så jeg vælger ikke side: uret
+bliver en central knap der er slået fra, og beslutningen tages den dag vi
+kan prøve det af.
+
+**Hvad der er bygget**
+- Funktionskode 16 til at skrive, med ekko-kontrol af adresse og antal.
+  Svarer inverteren med en anden adresse, har den skrevet et andet sted
+- Tilbagelæsning efter hver skrivning, og en egen fejlkode til det
+  tilfælde hvor alt ser rigtigt ud og registret alligevel ikke ændrede
+  sig. Teksten peger på inverterens indstillingsside, ikke på netværket
+- Simulatoren kan nu tage imod skrivninger på tre måder: normalt, tavst
+  ignoreret, og en rigtig afvisning
+- `zs-probe --skriv` til at prøve det i hånden mod simulatoren
+
+**Prøvet af:** 24 nye enhedstest på rammerne, og fem ende til ende hvor
+den vigtigste er at en tavst ignoreret skrivning bliver fanget. Uden
+tilbagelæsningen ville den have set ud som en succes.
+
+Vores læsevej følger i forvejen Fronius' anbefaling: fire sekventielle
+kald per runde, ikke parallelt, og mindst ét sekunds timeout.
+
+608 enhedstest og 63 ende til ende, alle bestået på Mac og Linux.
+Version 0.12.0.
+
 ## 2026-10-06 14:27
 
 ### Fejlsøgningsværktøjet tav om fejl der ikke var plads til

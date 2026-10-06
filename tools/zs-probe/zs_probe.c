@@ -267,6 +267,46 @@ static int do_genfind(const char *subnet, const char *serial, const char *sidste
     return (int) r;
 }
 
+/*
+ * Skriver ét register og laeser tilbage. Kun til afproevning mod
+ * simulatoren.
+ *
+ *   --skriv <adresse> <vaerdi>
+ *
+ * Den findes fordi Fronius IKKE melder fejl naar en skrivning bliver
+ * afvist. Et paent svar beviser ingenting, saa hele pointen er at se at
+ * tilbagelaesningen fanger det.
+ */
+static int do_skriv(const char *host, uint16_t port, uint8_t unit,
+                    uint16_t adresse, uint16_t vaerdi)
+{
+    static zs_mb_t mb;
+    zs_mb_init(&mb);
+    if (zs_mb_connect(&mb, host, port, 2000) != ZS_MB_OK) {
+        fprintf(stderr, "\n  Kunne ikke forbinde til %s:%u\n\n", host, port);
+        return 1;
+    }
+
+    uint16_t foer = 0;
+    bool har_foer = (zs_mb_read_holding(&mb, unit, adresse, 1, &foer, 2000) == ZS_MB_OK);
+
+    printf("\n  Skriver %u i register %u paa %s:%u unit %u\n",
+           (unsigned)vaerdi, (unsigned)adresse, host, port, unit);
+    if (har_foer) {
+        printf("  Foer:     %u\n", (unsigned)foer);
+    }
+
+    zs_mb_err_t err = zs_mb_write_verified(&mb, unit, adresse, &vaerdi, 1, 2000);
+    uint16_t efter = 0;
+    if (zs_mb_read_holding(&mb, unit, adresse, 1, &efter, 2000) == ZS_MB_OK) {
+        printf("  Efter:    %u\n", (unsigned)efter);
+    }
+    printf("  Resultat: %s\n\n", err == ZS_MB_OK ? "SKREVET OG BEKRAEFTET"
+                                                  : zs_mb_strerror(err));
+    zs_mb_close(&mb);
+    return err == ZS_MB_OK ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     const char *host = NULL;
@@ -275,6 +315,7 @@ int main(int argc, char **argv)
     bool watch = false;
     const char *scan = NULL;
     const char *genfind = NULL;
+    long skriv_adr = -1, skriv_val = -1;
     const char *g_serial = NULL;
     const char *g_sidste = NULL;
 
@@ -289,6 +330,9 @@ int main(int argc, char **argv)
             genfind = argv[++i];
             if (i + 1 < argc && argv[i + 1][0] != '-') { g_serial = argv[++i]; }
             if (i + 1 < argc && argv[i + 1][0] != '-') { g_sidste = argv[++i]; }
+        } else if (strcmp(argv[i], "--skriv") == 0 && i + 2 < argc) {
+            skriv_adr = atol(argv[++i]);
+            skriv_val = atol(argv[++i]);
         } else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
             /* Eksplicit, fordi --genfind tager to frie argumenter og
              * ellers sluger et portnummer som om det var et serienummer. */
@@ -305,6 +349,14 @@ int main(int argc, char **argv)
     if (genfind != NULL) {
         return do_genfind(genfind, g_serial, g_sidste, port);
     }
+    if (skriv_adr >= 0) {
+        if (skriv_adr > 65535 || skriv_val < 0 || skriv_val > 65535) {
+            fprintf(stderr, "\n  Adresse og vaerdi skal vaere 0 til 65535\n\n");
+            return 2;
+        }
+        return do_skriv(host != NULL ? host : "127.0.0.1", port, unit,
+                        (uint16_t)skriv_adr, (uint16_t)skriv_val);
+    }
     if (scan != NULL) {
         return do_scan(scan);
     }
@@ -312,7 +364,9 @@ int main(int argc, char **argv)
         fprintf(stderr,
             "\nBrug:\n"
             "  zs-probe <ip> [port] [--unit N] [--watch] [-v]\n"
-            "  zs-probe --scan 192.168.1.0\n\n"
+            "  zs-probe --scan 192.168.1.0\n"
+            "  zs-probe --genfind 192.168.1.0 [serienr] [sidste-ip] [--port N]\n"
+            "  zs-probe <ip> [port] --skriv <adresse> <vaerdi>\n\n"
             "Eksempler:\n"
             "  zs-probe 127.0.0.1 5020          laes én gang fra simulatoren\n"
             "  zs-probe 192.168.1.50 --watch    foelg et rigtigt anlaeg\n\n");

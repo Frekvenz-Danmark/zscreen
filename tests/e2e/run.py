@@ -779,6 +779,56 @@ def test_mange_fejl():
                  (ud or "")[-200:])
 
 
+def test_skriv_modbus():
+    suite("At skrive på Modbus, og at opdage når det ikke virker")
+
+    # FUNDAMENTET til at styre inverteren. Intet herinde roerer en rigtig
+    # inverter, og firmwaren sender ingen kommandoer af sig selv.
+    #
+    # Det hele staar og falder med én saetning fra Fronius' egen manual:
+    # "If an attempt is made to write to such registers, the inverter does
+    # not return an exception code!" En afvist skrivning ser altsaa
+    # PRAECIS ud som en der lykkedes. Derfor laeses der tilbage, og derfor
+    # er den midterste proeve her den vigtigste af dem alle.
+    ADR, VAERDI = 40100, 1234
+
+    def skriv(maade):
+        with Sim("battery", ["--speed", "0", "--skrivemaade", maade]):
+            r = subprocess.run([PROBE, "127.0.0.1", str(PORT),
+                                "--skriv", str(ADR), str(VAERDI)],
+                               capture_output=True, text=True, timeout=60)
+            if VERBOSE:
+                print(r.stdout)
+            return r.returncode, r.stdout
+
+    kode, ud = skriv("skriv")
+    if kode == 0 and "SKREVET OG BEKRAEFTET" in ud:
+        ok("en skrivning der virker bliver bekræftet")
+    else:
+        fail("en skrivning der virker bliver bekræftet", ud[-200:])
+    if f"Efter:    {VAERDI}" in ud:
+        ok("og registret står med den nye værdi bagefter")
+    else:
+        fail("registret står med den nye værdi", ud[-200:])
+
+    # DEN VIGTIGSTE. Inverteren svarer paent og gOEr ingenting.
+    kode, ud = skriv("tavs")
+    if kode != 0 and "tog ikke imod" in ud:
+        ok("en skrivning der TAVST ignoreres bliver fanget af tilbagelæsningen")
+    else:
+        fail("en tavst ignoreret skrivning bliver fanget", ud[-200:])
+    if "Inverter control via Modbus" in ud:
+        ok("og teksten peger på inverterens egen indstilling")
+    else:
+        fail("teksten peger på inverterens indstilling", ud[-200:])
+
+    kode, ud = skriv("naegt")
+    if kode != 0 and "afviste" in ud:
+        ok("en rigtig afvisning siges der også fra om")
+    else:
+        fail("en rigtig afvisning siges der fra om", ud[-200:])
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -800,6 +850,7 @@ def main():
     test_loegn_om_kanaler()
     test_inverter_paa_anden_unit()
     test_mange_fejl()
+    test_skriv_modbus()
 
     print("\n" + "─" * 40)
     if fejl == 0:

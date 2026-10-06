@@ -62,6 +62,22 @@ typedef enum {
     ZS_MB_ERR_CLOSED,       /* modparten lukkede forbindelsen          */
     ZS_MB_ERR_FRAME,        /* svaret var ikke et gyldigt Modbus-svar  */
     ZS_MB_ERR_EXCEPTION,    /* serveren svarede med en exception-kode  */
+    /*
+     * Skrivningen kom frem, svaret var paent, og registret staar
+     * ALLIGEVEL med den gamle vaerdi.
+     *
+     * Den har sin egen kode fordi den betyder noget helt andet end en
+     * daarlig ramme: forbindelsen er sund, inverteren forstod os, og den
+     * valgte at lade vaere. Fronius' manual siger det direkte: "If an
+     * attempt is made to write to such registers, the inverter does not
+     * return an exception code!" Det sker naar "Inverter control via
+     * Modbus" ikke er slaaet til paa inverterens webside, eller naar en
+     * anden styring har forrang.
+     *
+     * Uden den her kode ville vi melde "ugyldigt svar" og lede efter
+     * fejlen i netvaerket i stedet for paa inverterens indstillingsside.
+     */
+    ZS_MB_ERR_NOT_WRITTEN,
 } zs_mb_err_t;
 
 typedef struct {
@@ -117,6 +133,21 @@ bool zs_mb_is_open(const zs_mb_t *mb);
 zs_mb_err_t zs_mb_read_holding(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
                                uint16_t count, uint16_t *out, uint32_t timeout_ms);
 
+/*
+ * Skriver registre og LAESER TILBAGE for at se at det blev til noget.
+ *
+ * Det er ikke baelte og seler, det er den eneste maade at vide det paa.
+ * Fronius svarer uden fejl ogsaa naar en skrivning bliver afvist, fx
+ * fordi "Inverter control via Modbus" ikke er slaaet til paa inverterens
+ * webside, eller fordi en anden styring har forrang. Uden tilbagelaesning
+ * ville skaermen melde "sendt" mens inverteren gjorde som den ville.
+ *
+ * Returnerer ZS_MB_OK kun hvis alle registre staar med det vi skrev.
+ */
+zs_mb_err_t zs_mb_write_verified(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
+                                 const uint16_t *values, uint16_t count,
+                                 uint32_t timeout_ms);
+
 /* Tekst til logning og til Detaljer-siden. Altid en gyldig streng. */
 const char *zs_mb_strerror(zs_mb_err_t err);
 
@@ -136,6 +167,40 @@ bool zs_mb_probe_port(const char *host, uint16_t port, uint32_t timeout_ms);
  * ved ugyldige argumenter. buf skal have plads til 12 bytes. */
 size_t zs_mb_build_read_request(uint8_t *buf, size_t buf_len, uint16_t tid,
                                 uint8_t unit_id, uint16_t address, uint16_t count);
+
+/*
+ * Bygger en SKRIVNING, funktionskode 16.
+ *
+ * Hvorfor 16 og ikke 6, selv til ét register: 16 skriver flere registre i
+ * ÉN ramme, og flere af SunSpecs styrefelter skal saettes sammen for at
+ * give mening. Saetter man dem ét ad gangen, staar inverteren i en halv
+ * tilstand imellem. Og med kun én kode at vedligeholde er der kun ét sted
+ * der kan vaere forkert.
+ *
+ * Returnerer antal bytes, eller 0 hvis noget ikke kan lade sig goere.
+ */
+size_t zs_mb_build_write_request(uint8_t *buf, size_t buf_len, uint16_t tid,
+                                 uint8_t unit_id, uint16_t address,
+                                 const uint16_t *values, uint16_t count);
+
+/*
+ * Laeser svaret paa en skrivning.
+ *
+ * Svaret er et EKKO af adresse og antal, ikke data. Passer ekkoet ikke med
+ * det vi bad om, har inverteren skrevet et andet sted, og saa maa vi ikke
+ * tro paa at det gik godt.
+ *
+ * VIGTIGT, og det staar i Fronius' egen manual: "If an attempt is made to
+ * write to such registers, the inverter does not return an exception
+ * code!" En skrivning der bliver ignoreret ser altsaa praecis ud som en
+ * der lykkedes. Derfor er et godt svar her IKKE bevis for noget. Man SKAL
+ * laese tilbage bagefter, se zs_mb_write_verified.
+ */
+zs_mb_err_t zs_mb_parse_write_response(const uint8_t *frame, size_t frame_len,
+                                       uint16_t expect_tid, uint8_t expect_unit,
+                                       uint16_t expect_address,
+                                       uint16_t expect_count,
+                                       uint8_t *out_exception);
 
 /*
  * Tjekker og pakker et FC3-svar ud.
