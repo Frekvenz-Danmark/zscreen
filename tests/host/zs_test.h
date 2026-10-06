@@ -75,6 +75,7 @@ void test_demo(void);
 void test_fleet(void);
 void test_fleet_igen(void);
 void test_locate(void);
+void test_locate_blokke(void);
 void test_version_tag(void);
 void test_fleet_lyt(void);
 void test_sunspec_for_lang(void);

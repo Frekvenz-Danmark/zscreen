@@ -86,7 +86,17 @@ static int probe_batch(const char base[static 12], int first, int count,
                 continue;   /* svarede allerede */
             }
             char ip[16];
-            snprintf(ip, sizeof(ip), "%s.%d", base, first + i);
+            /*
+             * %.11s og ikke %s.
+             *
+             * base er en peger nu, ikke et array, saa oversaetteren kan
+             * ikke laengere SE at raekken hoejst er elleve tegn
+             * ("255.255.255"). Uden graensen her antager den 191 og
+             * standser byggeriet med en advarsel om afkortning, og den
+             * har ret i at den ikke kan vide det. Elleve plus punktum
+             * plus tre cifre plus afslutning er praecis 16.
+             */
+            snprintf(ip, sizeof(ip), "%.11s.%d", base, first + i);
 
             struct sockaddr_in addr;
             memset(&addr, 0, sizeof(addr));
@@ -174,32 +184,59 @@ static int probe_batch(const char base[static 12], int first, int count,
     return hits;
 }
 
-/*
- * Klipper "192.168.1.0" ned til "192.168.1".
- *
- * Resultatet er hoejst 11 tegn ("255.255.255"), og derfor er base
- * netop 12 bytes. Det er ikke smaaligt: naar der bagefter skrives
- * "%s.%d" ind i en buffer paa 16, skal oversaetteren kunne SE at det
- * ikke kan loebe over. Var base 16 bytes, kunne den ikke, og saa
- * standser den byggeriet med en advarsel om afkortning.
- *     11 + 1 + 3 + afslutning = 16. Det passer praecis.
- */
-static bool split_subnet(const char *subnet, char *base, size_t len)
+size_t zs_discovery_blokke(const char *egen_ip, uint8_t praefiks,
+                           char ud[][12], size_t maks)
 {
-    if (subnet == NULL || base == NULL || len == 0) {
-        return false;
+    if (egen_ip == NULL || ud == NULL || maks == 0) {
+        return 0;
     }
-    const char *dot = strrchr(subnet, '.');
-    if (dot == NULL) {
-        return false;
+    unsigned a = 0, b = 0, c = 0, d = 0;
+    if (sscanf(egen_ip, "%u.%u.%u.%u", &a, &b, &c, &d) != 4) {
+        return 0;
     }
-    size_t n = (size_t)(dot - subnet);
-    if (n == 0 || n >= len) {
-        return false;
+    if (a > 255 || b > 255 || c > 255 || d > 255) {
+        return 0;
     }
-    memcpy(base, subnet, n);
-    base[n] = '\0';
-    return true;
+    /* Et praefiks vi ikke forstaar behandles som et almindeligt /24.
+     * Hellere ét hug det rigtige sted end mange de forkerte. */
+    if (praefiks == 0 || praefiks > 32) {
+        praefiks = 24;
+    }
+
+    /* Vores EGEN raekke foerst. Der er inverteren naesten altid, og en
+     * soegning der finder den paa de foerste sekunder er en anden
+     * oplevelse end en der finder den efter fire minutter. */
+    snprintf(ud[0], 12, "%u.%u.%u", a, b, c);
+    size_t n = 1;
+
+    if (praefiks >= 24 || maks == 1) {
+        return n;                 /* et almindeligt hjemmenet */
+    }
+
+    /*
+     * Resten af nettet, raekke for raekke.
+     *
+     * Antallet af raekker i et net er 2 opløftet i (24 minus praefiks):
+     * et /23 har to, et /20 har seksten, et /16 har 256. Vi tager dem
+     * fra nettets foerste og opad og springer vores egen over, saa der
+     * ikke scannes dobbelt.
+     */
+    unsigned raekker = 1u << (24 - praefiks);
+    unsigned maske_c = (unsigned)(~(raekker - 1)) & 0xFFu;
+    unsigned foerste_c = c & maske_c;
+
+    for (unsigned i = 0; i < raekker && n < maks; i++) {
+        unsigned denne = foerste_c + i;
+        if (denne > 255) {
+            break;
+        }
+        if (denne == c) {
+            continue;             /* vores egen, og den er allerede med */
+        }
+        snprintf(ud[n], 12, "%u.%u.%u", a, b, denne);
+        n++;
+    }
+    return n;
 }
 
 static bool already_found(const zs_found_t *out, size_t n, const char *ip)
@@ -212,7 +249,8 @@ static bool already_found(const zs_found_t *out, size_t n, const char *ip)
     return false;
 }
 
-int zs_discovery_scan(const char *subnet, const char *prefer, uint16_t port,
+int zs_discovery_scan(const char *egen_ip, uint8_t praefiks,
+                      const char *prefer, uint16_t port,
                       zs_found_t *out, size_t max,
                       zs_discovery_progress_fn progress, void *ctx)
 {
@@ -224,16 +262,20 @@ int zs_discovery_scan(const char *subnet, const char *prefer, uint16_t port,
     if (out == NULL || max == 0) {
         return -1;
     }
-    char base[12];
-    if (!split_subnet(subnet, base, sizeof(base))) {
-        ZS_LOGE(TAG, "ugyldigt undernet: %s", subnet ? subnet : "(ingen)");
+
+    char blokke[ZS_SCAN_MAX_BLOKKE][12];
+    size_t n_blokke = zs_discovery_blokke(egen_ip, praefiks, blokke,
+                                          ZS_SCAN_MAX_BLOKKE);
+    if (n_blokke == 0) {
+        ZS_LOGE(TAG, "kan ikke laese vores egen adresse: %s",
+                egen_ip ? egen_ip : "(ingen)");
         return -1;
     }
 
     s_abort = false;
     s_was_aborted = false;
     size_t found = 0;
-    const int total = 254;
+    const int total = (int)(254 * n_blokke);
     int done = 0;
 
     /* Trin 1: den adresse vi kender i forvejen. */
@@ -253,47 +295,72 @@ int zs_discovery_scan(const char *subnet, const char *prefer, uint16_t port,
     }
 
     /* Trin 2 og 3: gennemgaa undernettet. */
-    for (int first = 1; first <= 254 && found < max; first += ZS_SCAN_PARALLEL) {
-        if (s_abort) {
-            ZS_LOGI(TAG, "søgningen blev afbrudt");
-            s_was_aborted = true;
-            break;
-        }
-        int count = ZS_SCAN_PARALLEL;
-        if (first + count - 1 > 254) {
-            count = 254 - first + 1;
-        }
 
-        bool alive[ZS_SCAN_PARALLEL];
-        probe_batch(base, first, count, port, alive);
-
-        for (int i = 0; i < count && found < max; i++) {
-            if (!alive[i]) {
-                continue;
-            }
-            char ip[16];
-            snprintf(ip, sizeof(ip), "%s.%d", base, first + i);
-            if (already_found(out, found, ip)) {
-                continue;
-            }
-
-            /* Noget lytter paa Modbus-porten. Er det en inverter? */
-            zs_fr_info_t info;
-            if (zs_fr_probe(ip, port,
-                            ZS_SCAN_SUNSPEC_TIMEOUT_MS, &info)) {
-                snprintf(out[found].ip, sizeof(out[found].ip), "%s", ip);
-                out[found].info = info;
-                found++;
-                ZS_LOGI(TAG, "fandt %s %s paa %s",
-                        info.manufacturer, info.model, ip);
-            } else {
-                ZS_LOGD(TAG, "%s lytter paa 502, men taler ikke SunSpec", ip);
-            }
+    /*
+     * Raekke for raekke. Vores egen foerst, se zs_discovery_blokke.
+     *
+     * Paa et almindeligt /24 er der kun én, og saa er det her praecis som
+     * foer. Paa et /20 er der seksten, og saa leder vi videre i stedet
+     * for at melde at der ingen inverter var.
+     */
+    for (size_t blok = 0; blok < n_blokke && found < max && !s_abort; blok++) {
+        const char *base = blokke[blok];
+        if (blok > 0) {
+            ZS_LOGI(TAG, "videre til raekken %s.x", base);
         }
 
-        done += count;
-        if (progress != NULL) {
-            progress(ctx, done, total, (int)found);
+        for (int first = 1; first <= 254 && found < max; first += ZS_SCAN_PARALLEL) {
+            if (s_abort) {
+                ZS_LOGI(TAG, "søgningen blev afbrudt");
+                s_was_aborted = true;
+                break;
+            }
+            int count = ZS_SCAN_PARALLEL;
+            if (first + count - 1 > 254) {
+                count = 254 - first + 1;
+            }
+
+            bool alive[ZS_SCAN_PARALLEL];
+            probe_batch(base, first, count, port, alive);
+
+            for (int i = 0; i < count && found < max; i++) {
+                if (!alive[i]) {
+                    continue;
+                }
+                char ip[16];
+                /*
+             * %.11s og ikke %s.
+             *
+             * base er en peger nu, ikke et array, saa oversaetteren kan
+             * ikke laengere SE at raekken hoejst er elleve tegn
+             * ("255.255.255"). Uden graensen her antager den 191 og
+             * standser byggeriet med en advarsel om afkortning, og den
+             * har ret i at den ikke kan vide det. Elleve plus punktum
+             * plus tre cifre plus afslutning er praecis 16.
+             */
+            snprintf(ip, sizeof(ip), "%.11s.%d", base, first + i);
+                if (already_found(out, found, ip)) {
+                    continue;
+                }
+
+                /* Noget lytter paa Modbus-porten. Er det en inverter? */
+                zs_fr_info_t info;
+                if (zs_fr_probe(ip, port,
+                                ZS_SCAN_SUNSPEC_TIMEOUT_MS, &info)) {
+                    snprintf(out[found].ip, sizeof(out[found].ip), "%s", ip);
+                    out[found].info = info;
+                    found++;
+                    ZS_LOGI(TAG, "fandt %s %s paa %s",
+                            info.manufacturer, info.model, ip);
+                } else {
+                    ZS_LOGD(TAG, "%s lytter paa 502, men taler ikke SunSpec", ip);
+                }
+            }
+
+            done += count;
+            if (progress != NULL) {
+                progress(ctx, done, total, (int)found);
+            }
         }
     }
 

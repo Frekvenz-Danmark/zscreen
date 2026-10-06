@@ -158,6 +158,23 @@
  */
 #define ZS_DISCOVERY_MAX        8
 
+/*
+ * Hvor mange raekker a 254 adresser vi hoejst gennemsoeger.
+ *
+ * Et almindeligt hjemmenet er et /24, altsaa ÉN raekke, og saa aendrer
+ * det her ingenting. Men et /20 er helt almindeligt hos erhverv og i
+ * nyere routere, og der er seksten raekker. Vores egen maskine sidder
+ * paa et /20 i dag.
+ *
+ * Seksten raekker er omkring fire minutter med de maalte tal: 254
+ * adresser tager cirka seksten sekunder. Det er for laenge til at staa og
+ * se paa under opsaetning, men det er ikke der det betyder noget: den
+ * raekke skaermen SELV sidder i bliver scannet foerst, og der er
+ * inverteren naesten altid. De oevrige er for den baggrundssoegning der
+ * leder efter en inverter der er flyttet, og der maa det godt tage tid.
+ */
+#define ZS_SCAN_MAX_BLOKKE      16
+
 /* ── Wifi ─────────────────────────────────────────────────────────── */
 #define ZS_WIFI_SCAN_MAX        20
 #define ZS_WIFI_CONNECT_TIMEOUT_MS 20000

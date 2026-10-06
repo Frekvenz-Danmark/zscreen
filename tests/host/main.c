@@ -37,6 +37,7 @@ int main(int argc, char **argv)
     test_fleet();
     test_fleet_igen();
     test_locate();
+    test_locate_blokke();
     test_version_tag();
     test_fleet_lyt();
     test_sunspec_for_lang();

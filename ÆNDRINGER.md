@@ -1,3 +1,49 @@
+## 2026-10-06 17:47
+
+### Søgningen ledte det forkerte sted på alt andet end et /24
+Den vigtigste fejl indtil nu, og den sad på vores egen maskine.
+
+Søgningen tog et **netværk**, for eksempel `10.1.0.0`, og gennemsøgte de
+tre første tal plus 1 til 254. På et almindeligt hjemmenet med /24 er det
+rigtigt. Men vores eget net er et **/20**: netværket hedder 10.1.0.0 mens
+enhederne sidder på 10.1.4.x. Vi ledte altså i rækken 10.1.0.x, hvor der
+ikke var nogen, og skærmen meldte at der ingen inverter var.
+
+På det net kunne inverteren **aldrig** findes. /20 og /16 er helt
+almindelige hos erhverv og i nyere routere.
+
+**Rettet ved roden.** Søgningen tager nu skærmens **egen** adresse og
+netmaskens længde, og regner selv ud hvilke rækker der skal gennemsøges.
+Vores egen række kommer først, for der er inverteren næsten altid, og en
+søgning der finder den på få sekunder er en anden oplevelse end en der
+finder den efter fire minutter. Derefter resten af nettet, op til seksten
+rækker. Et /24 er uændret ét hug.
+
+Beslutningen om hvilke rækker ligger for sig selv uden netværk og har 21
+tests: /24, vores eget /20 hvor alle seksten rækker skal være med uden
+dubletter, /23 hvor naboen skal være den rigtige, /16 der stopper ved
+grænsen, et præfiks vi ikke forstår, plads til kun én række, og det der
+ikke giver mening.
+
+**En fælde i min egen rettelse.** `zs_wifi_get_subnet` returnerede `false`
+med det samme hvis man gav NULL for bufferen, og jeg kaldte den netop
+sådan for kun at få præfikset. Så var præfikset blevet stående på nul,
+nul regnes som /24, og alt ville have opført sig præcis som før uden at
+det kunne ses. Bufferen er nu valgfri.
+
+**Og en til, som kun Linux fangede.** Oversætteren kunne bevise
+længdegrænsen da rækken var et array, men ikke da den blev en peger. Den
+advarsel står der en kommentar om i filen i forvejen, fra sidste gang.
+Grænsen er gjort bevislig igen.
+
+### Inverteren hopper af og på nettet
+Ny ende til ende-test: tre gange af og på, og svaret skal være det samme
+hver gang. Og når den er væk, må der ikke stå en adresse tilbage som om
+den var fundet.
+
+629 enhedstest og 65 ende til ende, alle bestået på Mac og Linux.
+Version 0.14.0.
+
 ## 2026-10-06 16:22
 
 ### Lysstyrkeskyderen skrev i flashen op mod hundrede gange per træk

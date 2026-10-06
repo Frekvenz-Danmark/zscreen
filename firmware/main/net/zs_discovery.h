@@ -55,15 +55,45 @@ typedef void (*zs_discovery_progress_fn)(void *ctx, int done, int total, int fou
  * Leder efter invertere. Blokerer, saa den skal koeres fra en egen
  * opgave og ikke fra LVGL's.
  *
- * subnet er fx "192.168.1.0". prefer maa vaere NULL, ellers en adresse
- * der proeves foerst. port er Modbus-porten, og nul betyder standarden
- * 502. Den SKAL kunne saettes: kundens indstillinger har et portfelt, og
- * foer det her ledte scanningen alligevel kun paa 502, saa en inverter
- * paa en anden port kunne vaelges i haanden men aldrig findes.
+ * egen_ip er SKAERMENS EGEN adresse, fx "10.1.4.140", og praefiks er
+ * netmaskens laengde, fx 20. Begge dele skal med, og det er ikke en
+ * finesse:
+ *
+ *   Foer tog den her funktion et NETVAERK, fx "10.1.0.0", og scannede de
+ *   tre foerste tal plus 1 til 254. Paa et almindeligt /24 er det
+ *   rigtigt. Paa et /20, som er helt almindeligt hos erhverv og i nyere
+ *   routere, er netvaerket 10.1.0.0 mens enhederne sidder paa 10.1.4.x,
+ *   og saa ledte vi i en raekke hvor der ikke var noget. Inverteren blev
+ *   ALDRIG fundet, og det lignede at der ikke var nogen.
+ *
+ *   Nu scannes skaermens EGEN raekke foerst, for der plejer naboerne at
+ *   vaere, og derefter de oevrige raekker i nettet indtil
+ *   ZS_SCAN_MAX_BLOKKE. Et /24 er uaendret ét hug.
+ *
+ * prefer maa vaere NULL, ellers en adresse der proeves foerst. port er
+ * Modbus-porten, og nul betyder standarden 502.
  *
  * Returnerer antallet der blev fundet, eller -1 ved fejl.
  */
-int zs_discovery_scan(const char *subnet, const char *prefer, uint16_t port,
+/*
+ * Hvilke raekker a 254 adresser skal gennemsoeges, og i hvilken orden?
+ *
+ * Ren beslutning uden netvaerk, saa den kan proeves af. Skriver mindst
+ * ÉN raekke, nemlig den skaermen selv sidder i, og den kommer foerst
+ * fordi inverteren naesten altid er der. Derefter de oevrige raekker i
+ * nettet, indtil der ikke er flere eller maks er naaet.
+ *
+ *   egen_ip   skaermens egen adresse, fx "10.1.4.140"
+ *   praefiks  netmaskens laengde, fx 20. Nul eller over 32 regnes som 24
+ *   ud        hver raekke som de tre foerste tal, fx "10.1.4"
+ *
+ * Returnerer antal raekker, eller 0 hvis adressen ikke kan laeses.
+ */
+size_t zs_discovery_blokke(const char *egen_ip, uint8_t praefiks,
+                           char ud[][12], size_t maks);
+
+int zs_discovery_scan(const char *egen_ip, uint8_t praefiks,
+                      const char *prefer, uint16_t port,
                       zs_found_t *out, size_t max,
                       zs_discovery_progress_fn progress, void *ctx);
 

@@ -364,10 +364,21 @@ bool zs_wifi_get_ip(char *buf, size_t len)
 
 bool zs_wifi_get_subnet(char *buf, size_t len, uint8_t *prefix_bits)
 {
-    if (buf == NULL || len < 8) {
+    /*
+     * buf er VALGFRI. Vil man kun vide hvor langt praefikset er, giver
+     * man NULL.
+     *
+     * Uden det her returnerede funktionen false med det samme naar nogen
+     * bad om praefikset alene, og saa blev det staaende paa nul. Nul
+     * regnes som /24, og saa var vi praecis lige saa galt afmarcheret som
+     * foer, bare uden at det kunne ses.
+     */
+    if (buf != NULL && len < 8) {
         return false;
     }
-    buf[0] = '\0';
+    if (buf != NULL) {
+        buf[0] = '\0';
+    }
     if (s_netif == NULL || s_state != ZS_WIFI_CONNECTED) {
         return false;
     }
@@ -388,9 +399,11 @@ bool zs_wifi_get_subnet(char *buf, size_t len, uint8_t *prefix_bits)
         *prefix_bits = bits;
     }
 
-    snprintf(buf, len, "%u.%u.%u.%u",
-             (unsigned)((net >> 24) & 0xFF), (unsigned)((net >> 16) & 0xFF),
-             (unsigned)((net >> 8) & 0xFF),  (unsigned)(net & 0xFF));
+    if (buf != NULL) {
+        snprintf(buf, len, "%u.%u.%u.%u",
+                 (unsigned)((net >> 24) & 0xFF), (unsigned)((net >> 16) & 0xFF),
+                 (unsigned)((net >> 8) & 0xFF),  (unsigned)(net & 0xFF));
+    }
     return true;
 }
 

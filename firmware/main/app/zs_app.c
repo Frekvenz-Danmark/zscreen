@@ -423,16 +423,27 @@ static void genfind_fremdrift(void *ctx, int done, int total, int found)
 
 static bool genfind_inverteren(void)
 {
-    char subnet[16];
-    if (!zs_wifi_get_subnet(subnet, sizeof(subnet), NULL)) {
+    /*
+     * Vores EGEN adresse og netmaskens laengde, ikke undernettet.
+     *
+     * Et net er ikke altid et /24. Paa et /20 er undernettet fx 10.1.0.0
+     * mens enhederne sidder paa 10.1.4.x, og foer ledte vi i raekken
+     * 10.1.0.x hvor der ikke var nogen. Se zs_discovery_blokke.
+     */
+    char egen[ZS_IP_MAX];
+    uint8_t praefiks = 0;
+    if (!zs_wifi_get_ip(egen, sizeof(egen))) {
         return false;
     }
+    (void)zs_wifi_get_subnet(NULL, 0, &praefiks);
 
     char ip[ZS_IP_MAX] = {0};
     char sn[ZS_SERIAL_MAX] = {0};
 
-    ESP_LOGI(TAG, "leder efter inverteren på %s", subnet);
-    zs_loc_t r = zs_locate_find(subnet, s_cfg.inverter_serial, s_cfg.inverter_ip,
+    ESP_LOGI(TAG, "leder efter inverteren, vi sidder selv på %s/%u",
+             egen, (unsigned)praefiks);
+    zs_loc_t r = zs_locate_find(egen, praefiks,
+                                s_cfg.inverter_serial, s_cfg.inverter_ip,
                                 s_cfg.inverter_port, s_cfg.inverter_unit,
                                 ip, sizeof(ip), sn, sizeof(sn),
                                 genfind_fremdrift, NULL);
@@ -476,18 +487,20 @@ static bool genfind_inverteren(void)
 
 static void do_inverter_scan(void)
 {
-    char subnet[16];
-    if (!zs_wifi_get_subnet(subnet, sizeof(subnet), NULL)) {
+    char egen[ZS_IP_MAX];
+    uint8_t praefiks = 0;
+    if (!zs_wifi_get_ip(egen, sizeof(egen))) {
         zs_ui_set_inverter_list(NULL, 0);
         zs_ui_show(ZS_SCREEN_INVERTER_LIST);
         return;
     }
+    (void)zs_wifi_get_subnet(NULL, 0, &praefiks);
     zs_ui_show(ZS_SCREEN_INVERTER_SCAN);
     zs_ui_set_scan_progress(0, 254, 0);
 
     const char *prefer = s_cfg.inverter_ip[0] ? s_cfg.inverter_ip : NULL;
     /* Kundens egen port, hvis der er valgt en. Nul betyder standarden. */
-    int n = zs_discovery_scan(subnet, prefer, s_cfg.inverter_port,
+    int n = zs_discovery_scan(egen, praefiks, prefer, s_cfg.inverter_port,
                               s_found, ZS_DISCOVERY_MAX,
                               scan_progress, NULL);
     if (zs_discovery_was_aborted()) {

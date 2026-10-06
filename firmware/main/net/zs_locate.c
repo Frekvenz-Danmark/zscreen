@@ -108,7 +108,7 @@ static void skriv_ud(const zs_found_t *f,
     }
 }
 
-zs_loc_t zs_locate_find(const char *subnet,
+zs_loc_t zs_locate_find(const char *egen_ip, uint8_t praefiks,
                         const char *gemt_serial, const char *sidste_ip,
                         uint16_t port, uint8_t unit,
                         char *ip_ud, size_t ip_len,
@@ -118,7 +118,7 @@ zs_loc_t zs_locate_find(const char *subnet,
     (void) unit;    /* identiteten laeses paa model 1, som ligger samme
                      * sted uanset hvilken unit vi senere taler med */
 
-    if (tom(subnet)) {
+    if (tom(egen_ip)) {
         return ZS_LOC_INTET_NET;
     }
 
@@ -159,7 +159,8 @@ zs_loc_t zs_locate_find(const char *subnet,
      * scanningen, saa den ligger foerst i listen hvis den svarer, og
      * "foerste traeffer vinder" i valget foretraekker den.
      */
-    int n = zs_discovery_scan(subnet, tom(sidste_ip) ? NULL : sidste_ip, port,
+    int n = zs_discovery_scan(egen_ip, praefiks,
+                              tom(sidste_ip) ? NULL : sidste_ip, port,
                               s_fundet, ZS_DISCOVERY_MAX, frem, ctx);
     if (zs_discovery_was_aborted()) {
         return ZS_LOC_AFBRUDT;

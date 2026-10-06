@@ -506,12 +506,14 @@ def test_genfind():
     SAMME, NY, TAGET, INGEN, FLERE = 0, 1, 2, 3, 4
 
     def genfind(serial=None, sidste=None):
-        cmd = [PROBE, "--genfind", "127.0.0.0"]
+        # Vores EGEN adresse, ikke undernettet. Scanningen regner selv
+        # raekkerne ud af den og netmasken, se zs_discovery_blokke.
+        cmd = [PROBE, "--genfind", "127.0.0.1", "--praefiks", "24",
+               "--port", str(MODBUS_PORT)]
         if serial:
-            cmd.append(serial)
+            cmd += ["--serienr", serial]
             if sidste:
-                cmd.append(sidste)
-        cmd += ["--port", str(MODBUS_PORT)]
+                cmd += ["--sidste", sidste]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if VERBOSE:
             print(r.stdout)
@@ -829,6 +831,56 @@ def test_skriv_modbus():
         fail("en rigtig afvisning siges der fra om", ud[-200:])
 
 
+def test_inverter_hopper():
+    suite("Inverteren hopper af og på nettet")
+
+    # En inverter der genstarter, en router der taber den, en kontakt der
+    # bliver slaaet fra og til. Soegningen skal give samme svar hver gang
+    # og ikke ende i en halv tilstand fordi den fandt den midt i et hop.
+    SN = "31234567"
+    MODBUS_PORT = PORT
+
+    def genfind(serial=None, sidste=None):
+        cmd = [PROBE, "--genfind", "127.0.0.1", "--praefiks", "24",
+               "--port", str(MODBUS_PORT)]
+        if serial:
+            cmd += ["--serienr", serial]
+            if sidste:
+                cmd += ["--sidste", sidste]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        if VERBOSE:
+            print(r.stdout)
+        return r.returncode, r.stdout
+
+    # Tre gange af og paa. Hver gang den er vaek skal svaret vaere "ikke
+    # fundet", og hver gang den er der skal den findes paa serienummeret.
+    stabil = True
+    detaljer = []
+    for runde in range(3):
+        kode, ud = genfind(SN, "127.0.0.1")
+        if kode != 3:          # 3 = ZS_LOC_INGEN
+            stabil = False
+            detaljer.append(f"runde {runde}, vaek: kode {kode}")
+        with Sim("battery", ["--speed", "0", "--bind", "127.0.0.1"]):
+            kode, ud = genfind(SN, "127.0.0.1")
+            if kode != 0 or SN not in ud:     # 0 = ZS_LOC_SAMME
+                stabil = False
+                detaljer.append(f"runde {runde}, paa: kode {kode}")
+
+    if stabil:
+        ok("tre gange af og på giver samme svar hver gang")
+    else:
+        fail("tre gange af og på giver samme svar", "; ".join(detaljer))
+
+    # Og naar den er vaek, maa der ikke staa en adresse tilbage som om
+    # den var fundet.
+    kode, ud = genfind(SN, "127.0.0.1")
+    if "Adresse:" not in ud:
+        ok("når den er væk, står der ingen adresse tilbage")
+    else:
+        fail("når den er væk, står der ingen adresse", ud[-200:])
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -851,6 +903,7 @@ def main():
     test_inverter_paa_anden_unit()
     test_mange_fejl()
     test_skriv_modbus()
+    test_inverter_hopper()
 
     print("\n" + "─" * 40)
     if fejl == 0:

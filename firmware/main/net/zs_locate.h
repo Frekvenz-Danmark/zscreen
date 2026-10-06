@@ -93,14 +93,19 @@ typedef enum {
  *   serial_ud      inverterens serienummer som vi laeste det. Skrives de
  *                  samme tre steder, saa kalderen kan gemme det foerste
  *                  gang. Maa vaere NULL.
- *   subnet         fx "192.168.1.0". Gives UDEFRA og hentes ikke herinde,
- *                  saa modulet ikke afhaenger af wifi-laget og kan
- *                  proeves af paa en almindelig maskine. Tom eller NULL
- *                  giver INTET_NET.
+ *   egen_ip        SKAERMENS egen adresse, og praefiks netmaskens
+ *                  laengde. Gives UDEFRA og hentes ikke herinde, saa
+ *                  modulet ikke afhaenger af wifi-laget og kan proeves af
+ *                  paa en almindelig maskine. Tom eller NULL giver
+ *                  INTET_NET.
+ *
+ *                  Det er skaermens EGEN adresse og ikke undernettet,
+ *                  fordi et net kan vaere stoerre end et /24. Se
+ *                  zs_discovery_blokke.
  *   frem/ctx       kaldes undervejs saa skaermen kan vise at der sker
  *                  noget. Maa vaere NULL.
  */
-zs_loc_t zs_locate_find(const char *subnet,
+zs_loc_t zs_locate_find(const char *egen_ip, uint8_t praefiks,
                         const char *gemt_serial, const char *sidste_ip,
                         uint16_t port, uint8_t unit,
                         char *ip_ud, size_t ip_len,

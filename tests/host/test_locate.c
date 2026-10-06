@@ -17,19 +17,12 @@
 #include <string.h>
 
 /*
- * Scanningen og den korte afproevning hoerer til netvaerkslaget og er
- * ikke med her. zs_locate_find kaldes derfor ikke fra disse tests, og de
- * her to findes kun for at kunne linke.
+ * Den rigtige zs_discovery.c bygges med nu, saa der er ingen stubbe
+ * laengere. Den blev taget med fordi beslutningen om HVILKE raekker der
+ * skal gennemsoeges hoerer til her, og den skal kunne proeves af.
+ *
+ * zs_locate_find kaldes stadig ikke herfra: den vil ud paa netvaerket.
  */
-int zs_discovery_scan(const char *subnet, const char *prefer, uint16_t port,
-                      zs_found_t *out, size_t max,
-                      zs_discovery_progress_fn progress, void *ctx)
-{
-    (void)subnet; (void)prefer; (void)port;
-    (void)out; (void)max; (void)progress; (void)ctx;
-    return -1;
-}
-bool zs_discovery_was_aborted(void) { return false; }
 
 /* Laver et fund med en adresse og et serienummer. */
 static zs_found_t fund(const char *ip, const char *serial)
@@ -196,5 +189,102 @@ void test_locate(void)
             if (t == NULL || t[0] == '\0') { alle_ok = false; }
         }
         CHECK("alle udfald har en dansk tekst", alle_ok);
+    }
+}
+
+/*
+ * Hvilke raekker skal gennemsoeges?
+ *
+ * DET HER VAR EN RIGTIG FEJL, og den sad paa vores egen maskine.
+ *
+ * Foer tog scanningen et NETVAERK, fx "10.1.0.0", og gennemsoegte de tre
+ * foerste tal plus 1 til 254. Paa et almindeligt /24 er det rigtigt. Men
+ * vores eget net er et /20: netvaerket hedder 10.1.0.0 mens enhederne
+ * sidder paa 10.1.4.x. Vi ledte altsaa i raekken 10.1.0.x, hvor der ikke
+ * var nogen, og skaermen meldte at der ingen inverter var. Den kunne
+ * aldrig findes.
+ */
+void test_locate_blokke(void)
+{
+    ZS_SUITE("Hvilke rækker skal gennemsøges");
+
+    char b[ZS_SCAN_MAX_BLOKKE][12];
+
+    {
+        /* Det almindelige hjemmenet. Én raekke, og den er vores egen. */
+        size_t n = zs_discovery_blokke("192.168.1.50", 24, b, ZS_SCAN_MAX_BLOKKE);
+        CHECK_INT("et /24 giver én række", (int)n, 1);
+        CHECK_STR("og det er vores egen", b[0], "192.168.1");
+    }
+
+    {
+        /* DET DER VAR GALT. Vores eget net. */
+        size_t n = zs_discovery_blokke("10.1.4.140", 20, b, ZS_SCAN_MAX_BLOKKE);
+        CHECK_INT("et /20 giver seksten rækker", (int)n, 16);
+        CHECK_STR("vores EGEN række kommer først", b[0], "10.1.4");
+
+        /* Og alle seksten raekker i nettet skal vaere der, 10.1.0 til
+         * 10.1.15, uden dubletter. */
+        bool har_alle = true, dublet = false;
+        for (int i = 0; i < 16; i++) {
+            char vent[12];
+            /* %u og en graense. Oversaetteren kan ikke se at i er
+             * lille, og med %d regner den med et minustegn og ti cifre. */
+            snprintf(vent, sizeof(vent), "10.1.%u", (unsigned)i % 1000u);
+            int fundet = 0;
+            for (size_t j = 0; j < n; j++) {
+                if (strcmp(b[j], vent) == 0) { fundet++; }
+            }
+            if (fundet == 0) { har_alle = false; }
+            if (fundet > 1)  { dublet = true; }
+        }
+        CHECK("alle seksten rækker i nettet er med", har_alle);
+        CHECK("og ingen af dem står to gange", !dublet);
+    }
+
+    {
+        /* Et /23 er to raekker, og de skal vaere de rigtige to. */
+        size_t n = zs_discovery_blokke("192.168.5.10", 23, b, ZS_SCAN_MAX_BLOKKE);
+        CHECK_INT("et /23 giver to rækker", (int)n, 2);
+        CHECK_STR("vores egen først", b[0], "192.168.5");
+        CHECK_STR("og naboen bagefter", b[1], "192.168.4");
+    }
+
+    {
+        /* Et /16 har 256 raekker, men vi stopper ved graensen. */
+        size_t n = zs_discovery_blokke("172.16.9.3", 16, b, ZS_SCAN_MAX_BLOKKE);
+        CHECK_INT("et /16 stopper ved grænsen", (int)n, ZS_SCAN_MAX_BLOKKE);
+        CHECK_STR("og vores egen er stadig først", b[0], "172.16.9");
+    }
+
+    {
+        /* Et praefiks vi ikke forstaar skal ikke saette tusind raekker i
+         * gang. Hellere ét hug det rigtige sted. */
+        size_t n = zs_discovery_blokke("10.0.0.5", 0, b, ZS_SCAN_MAX_BLOKKE);
+        CHECK_INT("praefiks nul regnes som /24", (int)n, 1);
+        CHECK_STR("og det er vores egen", b[0], "10.0.0");
+        CHECK_INT("praefiks 99 regnes også som /24",
+                  (int)zs_discovery_blokke("10.0.0.5", 99, b, ZS_SCAN_MAX_BLOKKE), 1);
+        CHECK_INT("et /32 er også bare vores egen",
+                  (int)zs_discovery_blokke("10.0.0.5", 32, b, ZS_SCAN_MAX_BLOKKE), 1);
+    }
+
+    {
+        /* Plads til én række skal give præcis vores egen, aldrig mere. */
+        CHECK_INT("plads til én række giver én",
+                  (int)zs_discovery_blokke("10.1.4.140", 20, b, 1), 1);
+        CHECK_STR("og det er vores egen", b[0], "10.1.4");
+    }
+
+    {
+        /* Det der ikke giver mening. */
+        CHECK_INT("NULL-adresse giver nul",
+                  (int)zs_discovery_blokke(NULL, 24, b, ZS_SCAN_MAX_BLOKKE), 0);
+        CHECK_INT("skrald giver nul",
+                  (int)zs_discovery_blokke("ikke en adresse", 24, b, ZS_SCAN_MAX_BLOKKE), 0);
+        CHECK_INT("for store tal giver nul",
+                  (int)zs_discovery_blokke("300.1.2.3", 24, b, ZS_SCAN_MAX_BLOKKE), 0);
+        CHECK_INT("nul plads giver nul",
+                  (int)zs_discovery_blokke("10.0.0.5", 24, b, 0), 0);
     }
 }

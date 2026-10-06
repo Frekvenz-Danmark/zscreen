@@ -238,13 +238,13 @@ static int do_scan(const char *subnet_base)
  * Exitkoden er udfaldet som tal, saa en test kan laese det uden at skulle
  * lede i teksten.
  */
-static int do_genfind(const char *subnet, const char *serial, const char *sidste,
-                      uint16_t port)
+static int do_genfind(const char *egen_ip, uint8_t praefiks,
+                      const char *serial, const char *sidste, uint16_t port)
 {
     char ip[16] = {0};
     char sn[33] = {0};
 
-    printf("\n  Leder paa %s", subnet);
+    printf("\n  Leder fra %s/%u", egen_ip, (unsigned)praefiks);
     if (serial != NULL && serial[0] != '\0') {
         printf(", efter serienummer %s", serial);
     } else {
@@ -255,7 +255,7 @@ static int do_genfind(const char *subnet, const char *serial, const char *sidste
     }
     printf("\n");
 
-    zs_loc_t r = zs_locate_find(subnet, serial, sidste,
+    zs_loc_t r = zs_locate_find(egen_ip, praefiks, serial, sidste,
                                 port, 1,
                                 ip, sizeof(ip), sn, sizeof(sn), NULL, NULL);
     printf("  Resultat: %s\n", zs_locate_text(r));
@@ -316,6 +316,9 @@ int main(int argc, char **argv)
     const char *scan = NULL;
     const char *genfind = NULL;
     long skriv_adr = -1, skriv_val = -1;
+    /* Paa en almindelig maskine kender vi ikke netmasken, saa den gives
+     * med. 24 er det almindelige, og det er hvad testene bruger. */
+    unsigned praefiks = 24;
     const char *g_serial = NULL;
     const char *g_sidste = NULL;
 
@@ -327,9 +330,17 @@ int main(int argc, char **argv)
         } else if (strcmp(argv[i], "--scan") == 0 && i + 1 < argc) {
             scan = argv[++i];
         } else if (strcmp(argv[i], "--genfind") == 0 && i + 1 < argc) {
+            /* Eksplicitte flag til resten. Foer tog --genfind to frie
+             * argumenter, og saa afhang det af raekkefoelgen om et
+             * serienummer blev opsamlet eller forvekslet med en vaert.
+             * Et flag kan ikke staa forkert. */
             genfind = argv[++i];
-            if (i + 1 < argc && argv[i + 1][0] != '-') { g_serial = argv[++i]; }
-            if (i + 1 < argc && argv[i + 1][0] != '-') { g_sidste = argv[++i]; }
+        } else if (strcmp(argv[i], "--serienr") == 0 && i + 1 < argc) {
+            g_serial = argv[++i];
+        } else if (strcmp(argv[i], "--sidste") == 0 && i + 1 < argc) {
+            g_sidste = argv[++i];
+        } else if (strcmp(argv[i], "--praefiks") == 0 && i + 1 < argc) {
+            praefiks = (unsigned)atoi(argv[++i]);
         } else if (strcmp(argv[i], "--skriv") == 0 && i + 2 < argc) {
             skriv_adr = atol(argv[++i]);
             skriv_val = atol(argv[++i]);
@@ -347,7 +358,7 @@ int main(int argc, char **argv)
     }
 
     if (genfind != NULL) {
-        return do_genfind(genfind, g_serial, g_sidste, port);
+        return do_genfind(genfind, praefiks, g_serial, g_sidste, port);
     }
     if (skriv_adr >= 0) {
         if (skriv_adr > 65535 || skriv_val < 0 || skriv_val > 65535) {
@@ -365,7 +376,8 @@ int main(int argc, char **argv)
             "\nBrug:\n"
             "  zs-probe <ip> [port] [--unit N] [--watch] [-v]\n"
             "  zs-probe --scan 192.168.1.0\n"
-            "  zs-probe --genfind 192.168.1.0 [serienr] [sidste-ip] [--port N]\n"
+            "  zs-probe --genfind <egen-ip> [--praefiks N] [--serienr S]\n"
+            "                     [--sidste IP] [--port N]\n"
             "  zs-probe <ip> [port] --skriv <adresse> <vaerdi>\n\n"
             "Eksempler:\n"
             "  zs-probe 127.0.0.1 5020          laes én gang fra simulatoren\n"

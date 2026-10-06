@@ -76,6 +76,13 @@ int zs_wifi_rssi(void);
 bool zs_wifi_get_ip(char *buf, size_t len);
 
 /* Vores eget undernet, fx 192.168.1.0, brugt af inverter-scanningen. */
+/*
+ * Undernettet og hvor langt praefikset er.
+ *
+ * buf er VALGFRI: giv NULL hvis du kun skal bruge praefikset. Det er
+ * netop det scanningen gOEr, for den skal bruge skaermens EGEN adresse
+ * og ikke undernettet.
+ */
 bool zs_wifi_get_subnet(char *buf, size_t len, uint8_t *prefix_bits);
 
 /* Sidste fejl paa dansk. Aldrig NULL. */
