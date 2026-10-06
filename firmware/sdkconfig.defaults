@@ -84,6 +84,29 @@ CONFIG_ESP_TASK_WDT_INIT=y
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=30
 CONFIG_ESP_INT_WDT=y
 
+# Og den linje der faar loeftet ovenfor til at holde.
+#
+# Uden den ADVARER vagthunden bare i loggen og lader opgaven haenge. Det
+# var tilstanden indtil nu: kommentaren lovede at skaermen kom sig selv,
+# men opsaetningen gjorde det ikke. Paa en vaeg hos en kunde betyder det
+# en skaerm der staar frosset til nogen tager stroemmen.
+#
+# ESP-IDF's egen standard er n, altsaa kun advarsel. Vi fravaelger den
+# med vilje.
+#
+# Hvad der saa sker: gaar en tomgangsopgave i staa i 30 sekunder, skriver
+# panikhaandteringen et bagspor ud over serieporten og genstarter.
+CONFIG_ESP_TASK_WDT_PANIC=y
+
+# Panik skal GENSTARTE, ikke standse.
+#
+# Det er ogsaa IDF's standard i dag, men nu afhaenger linjen ovenfor af
+# den, og en standard vi ikke selv har skrevet kan skifte under os ved en
+# opdatering af IDF. Stod der PRINT_HALT i stedet, ville vagthunden goere
+# det MODSATTE af det vi vil: standse skaermen helt i stedet for at
+# advare. Derfor staar den her sort paa hvidt.
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y
+
 # ── Signeret firmware ─────────────────────────────────────────────────
 #
 # Skaermen naegter at installere en opdatering der ikke er underskrevet

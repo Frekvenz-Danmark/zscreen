@@ -1,3 +1,47 @@
+## 2026-10-07 00:18
+
+### Vagthunden lovede at skærmen kom sig selv, men gjorde det ikke
+Kommentaren i opsætningen stod der i forvejen: "En skærm der hænger på en
+væg skal komme sig selv hvis en opgave går i stå. Ingen er i nærheden til
+at trykke reset."
+
+Den gjorde den ikke. `CONFIG_ESP_TASK_WDT_PANIC` var ikke slået til, og
+uden den **advarer** vagthunden bare i loggen og lader opgaven hænge. Så
+en skærm der gik i stå, stod frosset indtil nogen tog strømmen. Intentionen
+var skrevet ned, men ikke slået til.
+
+Nu er den slået til, efter dit valg. Går en tomgangsopgave i stå i 30
+sekunder, skriver panikhåndteringen et bagspor ud over serieporten og
+genstarter.
+
+**Og den linje der skulle skrives med.** Panik betyder ikke automatisk
+genstart: det afhænger af `CONFIG_ESP_SYSTEM_PANIC`. Stod den på
+`PRINT_HALT`, ville vagthunden gøre det **modsatte** af det vi vil, altså
+standse skærmen helt i stedet for bare at advare. Den står på
+`PRINT_REBOOT` i dag, men kun som ESP-IDF's standard, og nu afhænger vores
+valg af den. Derfor står den nu sort på hvidt i `sdkconfig.defaults`, så
+en opdatering af IDF ikke kan flytte den under os.
+
+**Hvorfor det er trygt.** To ting var på plads i forvejen:
+tilbagerulning er slået til, og firmwaren melder sig først rask efter 120
+sekunder. Hænger en **ny** udgave ved opstart, genstarter skærmen, og
+bootloaderen ser at den nye aldrig meldte sig rask og ruller tilbage til
+den der virkede. En dårlig opdatering kan altså ikke lægge flåden ned.
+
+Og hvorfor den ikke vælter af sig selv: vagthunden holder kun øje med
+tomgangsopgaverne, og alle vores ventetider er `select()` eller blokerende
+sokler med timeout, så tomgang kommer til. Også under en søgning på fire
+minutter.
+
+**Den risiko der står tilbage,** så den er sagt højt: hænger en udgave der
+allerede har meldt sig rask, altså efter de 120 sekunder, genstarter
+skærmen i ring i stedet for at stå frosset. Begge tilstande kræver at
+nogen gør noget, men en genstartsløkke er hurtigere at se end en frossen
+skærm.
+
+629 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.15.3.
+
 ## 2026-10-06 19:34
 
 ### LVGL blev rørt uden låsen, og det gik kun godt ved et sammentræf
