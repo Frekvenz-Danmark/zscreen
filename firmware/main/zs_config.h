@@ -273,6 +273,25 @@
 #define ZS_FLEET_RECONNECT_SPREAD_MS  10000
 
 /*
+ * Stak til MQTT-opgaven.
+ *
+ * ESP-IDF's egen standard er 6 KB. Men vores EGEN netvaerksopgave, som
+ * ogsaa laver TLS, har 10 KB, og MQTT-opgaven laver samme slags arbejde:
+ * et mbedTLS-haandtryk, her endda mod Mozillas rodliste naar der ikke er
+ * et eget CA i lageret.
+ *
+ * Og det er den ene vej vi IKKE kan maale, fordi skaermen aldrig har
+ * naaet en MQTT-server. Et stakoverloeb dér ville give en skaerm der
+ * genstarter i ring paa en vaeg, saa her er luft billigere end at have
+ * ret. Der er 184 KB intern hukommelse fri.
+ *
+ * Skaermen maaler selv og skriver det i loggen ved foerste forbindelse,
+ * se ZS_LOGI i zs_fleet.c. Naar vi har et rigtigt tal fra marken, kan
+ * det her saettes efter det i stedet for efter et skoen.
+ */
+#define ZS_FLEET_TASK_STACK      8192
+
+/*
  * Feltnavnene paa serveren. ÉT sted, saa en omdoebning ikke skal findes
  * fem steder i koden.
  *

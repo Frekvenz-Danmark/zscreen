@@ -1,3 +1,35 @@
+## 2026-10-06 16:07
+
+### MQTT efterset mod den vej der aldrig har kørt
+Flødestyringens MQTT har kun kørt mod en simuleret enhed. Den rigtige
+skærm har aldrig nået en server, så alt på den vej er uprøvet, og det er
+præcis der en fejl kan gemme sig uden at nogen opdager det.
+
+**Målt, og det så galt ud:** indmeldelsen sender certifikatet som JSON,
+og det fylder 1286 bytes. esp-mqtt har en standardbuffer på 1024, og vi
+sætter den ikke. Men i deres kode står der direkte *"Provide support for
+sending fragmented message if it doesn't fit buffer"*, og den deler
+beskeden op. Ikke en fejl, men det kunne ingen have vidst uden at kigge.
+
+**Rettet:** MQTT-opgaven havde 6 KB stak, som er ESP-IDF's standard. Men
+vores **egen** netværksopgave, der laver samme slags TLS-arbejde, har 10
+KB. Det er bevis fra vores eget projekt på at 6 KB er knapt, og det er
+netop den vej vi ikke kan måle, fordi skærmen aldrig har nået en
+MQTT-server. Et stakoverløb dér ville give en skærm der genstarter i ring
+på en væg. Nu 8 KB, og skærmen **måler selv** hvor meget der var tilbage
+efter TLS-håndtrykket og skriver det i loggen. Når vi har et rigtigt tal
+fra marken, kan knappen sættes efter det i stedet for efter et skøn.
+
+**Efterset og i orden, så vi ikke bygger noget vi ikke behøver:** vi
+mangler ikke en sidste vilje-besked for at kunne se døde skærme. Hver
+enhed har et tidsstempel på hvert felt, så "sidst hørt fra" kan regnes ud
+direkte, og det er prøvet af på alle 66 enheder i oversigten.
+
+Statisk analyse kørt på det nye skrivelag med både cppcheck og gcc's
+analysator: ingen fund.
+
+608 enhedstest og 63 ende til ende, alle bestået på Mac og Linux.
+
 ## 2026-10-06 15:13
 
 ### Fase 1 af at kunne styre inverteren: fundamentet, og kun det

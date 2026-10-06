@@ -430,7 +430,16 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
         snprintf(emne, sizeof(emne), "provisioning/%s/response",
                  zs_fleet_unique_id());
         esp_mqtt_client_subscribe(s_klient, emne, 1);
-        ZS_LOGI(TAG, "forbundet til %s", s_host);
+        /*
+         * Hvor meget af stakken der var tilbage efter TLS-haandtrykket.
+         *
+         * Vi koerer paa MQTT-opgaven lige her, saa NULL er den selv.
+         * Haandtrykket er det tungeste der sker paa den, saa tallet her
+         * er det taetteste vi kommer paa sandheden. Staar der faa hundrede
+         * bytes, er ZS_FLEET_TASK_STACK for lille.
+         */
+        ZS_LOGI(TAG, "forbundet til %s, %u bytes stak tilbage", s_host,
+                (unsigned)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t)));
         break;
     }
     case MQTT_EVENT_SUBSCRIBED: {
@@ -635,7 +644,7 @@ bool zs_fleet_start(void)
             /* Under hovedopgaven. En langsom server maa aldrig
              * forsinke aflaesningen fra inverteren. */
             .priority = 4,
-            .stack_size = 6144,
+            .stack_size = ZS_FLEET_TASK_STACK,
         },
     };
 
