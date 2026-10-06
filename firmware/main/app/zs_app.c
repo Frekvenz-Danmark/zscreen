@@ -885,7 +885,8 @@ static void app_task(void *arg)
      * minut ville vaere godkendt paa det foerste sekund, og saa er der
      * ingen vej tilbage for en skaerm paa en vaeg.
      */
-    int64_t ota_ok_at = zs_ota_pending_verify() ? (now_ms() + 120 * 1000) : 0;
+    int64_t ota_ok_at = zs_ota_pending_verify()
+                        ? (now_ms() + ZS_OTA_OK_AFTER_MS) : 0;
     if (ota_ok_at != 0) {
         ESP_LOGI(TAG, "ny firmware, meldes i orden om to minutter hvis alt går godt");
     }

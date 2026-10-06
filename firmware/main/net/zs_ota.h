@@ -32,6 +32,7 @@
 #define ZS_OTA_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -42,6 +43,40 @@ extern "C" {
  * noegle eller adgangskode ligge i enheden. */
 #define ZS_OTA_OWNER   "Frekvenz-Danmark"
 #define ZS_OTA_REPO    "zscreen"
+
+/*
+ * Den version skaermen SKAL koere. Tom streng betyder "foelg nyeste",
+ * som er standard og det alle skaerme goer indtil nogen siger andet.
+ *
+ * HVORFOR DEN FINDES.
+ *
+ * Uden den tager hver eneste skaerm den nyeste udgivelse inden for en
+ * halv time. En udgave der starter fint, koerer sine to minutter og
+ * FOERST derefter er ubrugelig, fx sort skaerm eller intet wifi, rammer
+ * dermed hele flaaden, og tilbagerulningen redder os ikke, for den naaede
+ * at blive godkendt. Med en maalversion kan vi rulle ud til én skaerm,
+ * se at den stadig lever, og saa resten.
+ *
+ * Den maa gaa BEGGE veje. Uden maal opdaterer vi kun opad, saa en
+ * udgivelse med et forkert nummer ikke kan sende flaaden baglaens og
+ * frem og tilbage for evigt. MED et maal er der ingen ring: naar den
+ * koerende udgave er lig maalet, sker der ikke mere. Derfor er en
+ * bevidst nedgradering kun mulig her, og det er netop det der goer den
+ * til en noedbremse.
+ *
+ * Teksten kommer udefra, fra serveren, og ender i en URL. Den bliver
+ * derfor efterset tegn for tegn: kun cifre og punktummer, med et
+ * valgfrit v foran, og en laengde der passer i feltet. Alt andet
+ * forkastes og vi bliver ved med at foelge nyeste.
+ *
+ * Traad: kaldes fra MQTT-opgaven, laeses af netvaerksopgaven. Der er en
+ * laas om de faa bytes.
+ */
+void zs_ota_set_target(const char *version);
+
+/* Hvad maalet er lige nu. Kopieres ind i ud. Tom streng = foelg nyeste. */
+void zs_ota_get_target(char *ud, size_t ud_len);
+
 
 typedef enum {
     ZS_OTA_IDLE = 0,

@@ -1,5 +1,7 @@
 #include "zs_version.h"
 
+#include <string.h>
+
 #include <stddef.h>
 
 /* Hoejeste tal vi accepterer i et led. Et versionsnummer der er stoerre
@@ -73,4 +75,40 @@ int zs_version_cmp(const char *a, const char *b)
         if (av[i] < bv[i]) { return -1; }
     }
     return 0;
+}
+
+bool zs_version_tag_ok(const char *version)
+{
+    if (version == NULL) {
+        return false;
+    }
+    /* Et valgfrit v foran, som i maerket v0.9.0. */
+    if (*version == 'v' || *version == 'V') {
+        version++;
+    }
+    size_t n = strlen(version);
+    if (n == 0 || n >= ZS_VERSION_MAX) {
+        return false;
+    }
+
+    /*
+     * Praecis tre tal med punktum imellem. Vi er strenge med vilje:
+     * teksten kommer fra serveren og ender i en URL, saa en skraastreg
+     * eller et punktum-punktum maa aldrig slippe igennem. Alt der ikke
+     * er noejagtig tal.tal.tal bliver forkastet.
+     */
+    int tal = 0, cifre = 0;
+    for (size_t i = 0; i < n; i++) {
+        char c = version[i];
+        if (c >= '0' && c <= '9') {
+            if (++cifre > 5) { return false; }
+        } else if (c == '.') {
+            if (cifre == 0) { return false; }   /* ".." eller ".1" */
+            cifre = 0;
+            if (++tal > 2) { return false; }    /* hoejst to punktummer */
+        } else {
+            return false;
+        }
+    }
+    return tal == 2 && cifre > 0;
 }

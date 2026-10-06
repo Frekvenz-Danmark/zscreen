@@ -195,3 +195,45 @@ void test_fleet_igen(void)
     CHECK("nul i baade ur og tid: lad vaere",
           zs_fleet_enroll_due(true, false, 0, 0) == false);
 }
+
+/*
+ * Emnet vi LYTTER paa, altsaa den vej serveren sender ned til skaermen.
+ *
+ * Det er den eneste vej udefra og ind i enheden, saa det skal pege
+ * praecis paa vores egen enhed og ikke paa en andens. Et afkortet emne
+ * ville i vaerste fald lytte paa en nabo.
+ */
+void test_fleet_lyt(void)
+{
+    ZS_SUITE("Emnet vi lytter på");
+
+    char e[160];
+    size_t n = zs_fleet_msg_lyt_topic(e, sizeof(e), "master",
+                                      "zscreen-2884858b4bb0", "targetVersion",
+                                      "2jbChXAO768eclHSf5BpVZ");
+    CHECK("der kommer et emne", n > 0);
+    CHECK("og det er det rigtige",
+          strcmp(e, "master/zscreen-2884858b4bb0/attributevalue/"
+                    "targetVersion/2jbChXAO768eclHSf5BpVZ") == 0);
+    CHECK("der står IKKE write i det", strstr(e, "write") == NULL);
+
+    /* Skrive-emnet til samme felt skal stadig have write. De to maa
+     * ikke kunne forveksles. */
+    char w[160];
+    zs_fleet_msg_topic(w, sizeof(w), "master", "zscreen-2884858b4bb0",
+                       "targetVersion", "2jbChXAO768eclHSf5BpVZ");
+    CHECK("skrive-emnet har write", strstr(w, "/writeattributevalue/") != NULL);
+    CHECK("de to er ikke ens", strcmp(e, w) != 0);
+
+    /* Samme strenghed som skrive-emnet: hellere ingenting end et halvt. */
+    char kort[30];
+    CHECK("for lille buffer giver nul",
+          zs_fleet_msg_lyt_topic(kort, sizeof(kort), "master",
+                                 "zscreen-2884858b4bb0", "targetVersion",
+                                 "2jbChXAO768eclHSf5BpVZ") == 0);
+    CHECK("og en tom streng", kort[0] == '\0');
+    CHECK("manglende enheds-id giver nul",
+          zs_fleet_msg_lyt_topic(e, sizeof(e), "master", "x", "y", "") == 0);
+    CHECK("NULL giver nul",
+          zs_fleet_msg_lyt_topic(e, sizeof(e), "master", "x", "y", NULL) == 0);
+}

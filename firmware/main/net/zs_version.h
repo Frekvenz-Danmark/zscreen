@@ -17,6 +17,21 @@
 extern "C" {
 #endif
 
+/* Laengste versionsstreng vi tager imod, inklusive afslutning. */
+#define ZS_VERSION_MAX  24
+
+/*
+ * Er teksten et versionsnummer vi kan slaa op som et maerke paa GitHub?
+ *
+ * Godtager "0.9.0" og "v0.9.0". Forkaster tom, for lang, bogstaver,
+ * skraastreger, punktum-punktum og alt andet.
+ *
+ * Den er STRENG med vilje: teksten kommer udefra, fra serveren, og
+ * ender inde i en URL. En skraastreg eller et punktum-punktum maa
+ * aldrig slippe igennem. Se ZS_FLEET_TARGET_FELT.
+ */
+bool zs_version_tag_ok(const char *version);
+
 /*
  * Laeser "1.2.3" eller "v1.2.3" til tre tal.
  *

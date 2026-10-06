@@ -1,3 +1,64 @@
+## 2026-10-06 03:01
+
+### Vi kan altid nå skærmene, og en dårlig opdatering rammer ikke alle
+Skærmen hentede allerede selv ny firmware fra GitHub hvert 30. minut, og
+den ringer **ud**, så den virker bag kundens router uden at vi skal ind.
+Men alle skærme tog nyeste version. En udgave der starter fint, kører sine
+to minutter og **først derefter** er ubrugelig, for eksempel sort skærm
+eller intet WiFi, ville ramme hele flåden inden for en halv time, og
+tilbagerulningen redder os ikke, for den nåede at blive godkendt.
+
+**Nu kan vi sætte en målversion per skærm.** Vi skriver den i
+dashboardet, skærmen lytter og retter sig efter den. Tomt betyder "følg
+nyeste", som alle gør indtil nogen siger andet. Dermed kan en opdatering
+rulles ud til én skærm først, og man kan se at den stadig lever, før
+resten får den.
+
+**Og den må gå begge veje.** Uden et mål opdaterer vi kun opad, så en
+udgivelse med et forkert nummer ikke kan sende flåden baglæns og frem og
+tilbage for evigt. Med et mål er der ingen ring: når den kørende udgave
+er lig målet, sker der ikke mere. Derfor er en bevidst nedgradering kun
+mulig her, og det er netop det der gør den til en nødbremse.
+
+**Skærmen melder nu hvilken version den kører.** Uden det kunne vi sætte
+en målversion, men ikke se om den nåede frem.
+
+Målversionen er den eneste vej fra serveren og ned i skærmen, og den
+ender inde i en adresse vi henter firmware fra. Derfor efterses teksten
+tegn for tegn: nøjagtig tal.tal.tal med et valgfrit v foran. Skråstreg,
+punktum-punktum, spørgsmålstegn, kolon og alt andet forkastes, og så
+bliver det gamle mål stående. 22 nye tests på netop det.
+
+**Rettigheder, så ingen kan sætte sin egen målversion.** Skærmen må læse
+feltet men ikke skrive det, og omvendt for versionsfeltet. Målt på en
+rigtig server: skærmen forsøgte at sætte sig selv til 9.9.9 og blev
+afvist.
+
+**En fælde der kostede en halv time.** Ved allerførste indmeldelse af en
+ny skærm lukker serveren forbindelsen et sekund efter at den har sagt
+success. I loggen står "User asset links have changed for a connected
+user with active subscriptions". Derfor skal alt der hænger på
+forbindelsen, også abonnementet på målversionen, sættes op inde i
+indmeldelsen og ikke én gang ved opstart. Det står nu i zs_fleet.h som
+den sjette fælde.
+
+**Oprydning undervejs**
+- De to minutter før en ny firmware meldes i orden stod som et løst tal
+  midt i koden. Nu i den centrale konfiguration med begrundelsen
+- Lyt-emnet blev lavet ved at klippe "write" ud af skrive-emnet med
+  memmove. Nu bygges begge samme sted af samme funktion, og der er tests
+  på at de ikke kan forveksles
+- Valideringen af versionsnumre lå i en fil der ikke kan testes på en
+  almindelig maskine. Flyttet til versionsmodulet, som er rent
+- En ende til ende-test fejlede en gang imellem uden at der var noget
+  galt: solen nåede at flytte sig mellem at simulatoren sagde hvad den
+  havde, og skærmen nåede at læse det. Simulatoren kan nu stå stille, og
+  sammenligningen bruger det. Tre kørsler i træk uden fejl
+- To nye testrækker om versioner dublerede noget der allerede fandtes.
+  Fjernet igen
+
+539 enhedstest og 40 ende til ende, alle bestået. Version 0.10.0.
+
 ## 2026-10-05 11:33
 
 ### Inverteren bliver fundet igen når den har skiftet IP-adresse

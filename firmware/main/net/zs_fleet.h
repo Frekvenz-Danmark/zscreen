@@ -51,6 +51,18 @@
  *   ZS_FLEET_START_SPREAD_MS. Det betyder at en skaerm kan vaere op til
  *   et minut om at vise sig i flaadeoversigten efter en genstart.
  *   Tallene paa vaeggen kommer med det samme uanset hvad.
+ *
+ * Og en sjette, som koster en halv time hvis man ikke ved den:
+ *
+ *   Ved ALLERFOERSTE indmeldelse af en ny skaerm lukker serveren
+ *   forbindelsen et sekund efter at den har sagt success. I loggen staar
+ *   "User asset links have changed for a connected user with active
+ *   subscriptions": enheden er lige blevet knyttet til en ny asset, og
+ *   serveren kaster abonnementerne vaek for at regne rettighederne ud
+ *   paa ny. Vi melder ind igen af os selv, og anden gang bliver den
+ *   staaende. Derfor skal ALT der haenger paa forbindelsen, ogsaa
+ *   abonnementet paa maalversionen, saettes op inde i indmeldelsen og
+ *   ikke én gang ved opstart.
  */
 
 #ifndef ZS_FLEET_H

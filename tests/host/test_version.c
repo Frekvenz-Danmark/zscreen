@@ -75,6 +75,8 @@ void test_version(void)
             { "0.9.0",  "0.10.0", -1, "og 0.9.0 er aeldre end 0.10.0" },
             { "1.0.0",  "0.99.99", 1, "stoerste led vejer tungest" },
             { "0.1.10", "0.1.9",   1, "ogsaa i sidste led" },
+            { "0.10.0", "0.10.0", 0, "lige store giver nul" },
+            { "v0.10.0", "0.9.0", 1, "et v foran aendrer ingenting" },
 
             /* Kan én af dem ikke laeses, opdaterer vi ikke. */
             { "hvadsomhelst", "0.1.0", -1, "ulaeselig ny version" },
@@ -96,3 +98,51 @@ void test_version(void)
         CHECK_STR("uden v roeres den ikke", zs_version_strip_v("1.2.3"), "1.2.3");
     }
 }
+
+/*
+ * Maalversionen kommer fra SERVEREN og ender inde i en URL.
+ *
+ * Det gOEr den til det eneste sted hvor en tekst udefra bliver til en
+ * adresse skaermen henter firmware fra. Slipper en skraastreg eller et
+ * punktum-punktum igennem, kan den peges et andet sted hen. Underskriften
+ * ville stadig redde os, for en fremmed firmware bliver afvist, men en
+ * skaerm der henter fra et forkert sted igen og igen er ogsaa en fejl.
+ *
+ * Derfor er den streng: noejagtig tal.tal.tal, med et valgfrit v foran.
+ */
+void test_version_tag(void)
+{
+    ZS_SUITE("Målversionen fra serveren");
+
+    CHECK("almindelig version", zs_version_tag_ok("0.9.0") == true);
+    CHECK("med v foran, som mærket på GitHub", zs_version_tag_ok("v0.9.0") == true);
+    CHECK("stort V virker også", zs_version_tag_ok("V1.2.3") == true);
+    CHECK("flercifret", zs_version_tag_ok("10.20.30") == true);
+    CHECK("nuller", zs_version_tag_ok("0.0.0") == true);
+
+    CHECK("tom afvises", zs_version_tag_ok("") == false);
+    CHECK("NULL afvises", zs_version_tag_ok(NULL) == false);
+    CHECK("kun v afvises", zs_version_tag_ok("v") == false);
+    CHECK("to tal er ikke nok", zs_version_tag_ok("1.2") == false);
+    CHECK("fire tal er for mange", zs_version_tag_ok("1.2.3.4") == false);
+    CHECK("bogstaver afvises", zs_version_tag_ok("1.2.3a") == false);
+    CHECK("mellemrum afvises", zs_version_tag_ok("1.2.3 ") == false);
+
+    /* Det der kunne pille ved adressen. */
+    CHECK("skråstreg afvises", zs_version_tag_ok("1.2.3/evil") == false);
+    CHECK("punktum-punktum afvises", zs_version_tag_ok("../1.2.3") == false);
+    CHECK("to punktummer i træk afvises", zs_version_tag_ok("1..3") == false);
+    CHECK("punktum forrest afvises", zs_version_tag_ok(".1.2") == false);
+    CHECK("punktum bagerst afvises", zs_version_tag_ok("1.2.") == false);
+    CHECK("spørgsmålstegn afvises", zs_version_tag_ok("1.2.3?a=b") == false);
+    CHECK("kolon afvises", zs_version_tag_ok("1.2.3:80") == false);
+    CHECK("procent afvises", zs_version_tag_ok("1.2.%2e") == false);
+
+    /* En uendelig lang streng maa ikke kunne fylde feltet op. */
+    char lang[200];
+    memset(lang, '1', sizeof(lang) - 1);
+    lang[sizeof(lang) - 1] = '\0';
+    CHECK("alt for lang afvises", zs_version_tag_ok(lang) == false);
+    CHECK("for mange cifre i ét tal afvises", zs_version_tag_ok("1234567.1.1") == false);
+}
+

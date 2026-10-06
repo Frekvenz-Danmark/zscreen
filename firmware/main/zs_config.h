@@ -273,6 +273,23 @@
 #define ZS_FLEET_RECONNECT_SPREAD_MS  10000
 
 /*
+ * Feltnavnene paa serveren. ÉT sted, saa en omdoebning ikke skal findes
+ * fem steder i koden.
+ *
+ * ZS_FLEET_TARGET_FELT er det eneste felt der gaar den anden vej, altsaa
+ * fra serveren og ned til skaermen. Vi skriver den i dashboardet, skaermen
+ * lytter og retter sig efter den. Det er den der goer at vi kan rulle en
+ * opdatering ud til ÉN skaerm foerst i stedet for til hele flaaden paa én
+ * gang. Se zs_ota.h.
+ *
+ * ZS_FLEET_VERSION_FELT gaar den almindelige vej og fortaeller hvilken
+ * udgave skaermen faktisk koerer. Uden den kan vi ikke se om en udrulning
+ * gik godt, og saa er en maalversion ikke meget vaerd.
+ */
+#define ZS_FLEET_TARGET_FELT   "targetVersion"
+#define ZS_FLEET_VERSION_FELT  "firmwareVersion"
+
+/*
  * Under den her graense kalder vi det nul.
  *
  * Et anlaeg staar aldrig helt stille. Maaleren svinger nogle faa watt
@@ -328,6 +345,26 @@
  * komme op foerst.
  */
 #define ZS_OTA_CHECK_INTERVAL_MS   (30 * 60 * 1000)
+
+/*
+ * Hvor laenge en ny firmware skal koere uden at gaa ned foer vi melder
+ * den i orden.
+ *
+ * Indtil da staar den som "paa proeve", og gaar skaermen ned inden,
+ * ruller opstarten selv tilbage til den gamle udgave. En skaerm paa en
+ * vaeg har ingen til at trykke reset.
+ *
+ * To minutter er valgt fordi det daekker hele opstarten med god margen:
+ * wifi, ur, foerste aflaesning fra inverteren og foerste tegning af
+ * skaermen er maalt til under tyve sekunder tilsammen. Laengere ville
+ * blot udskyde at vi tager den nye i brug.
+ *
+ * Og vaer klar over hvad den IKKE daekker: en udgave der starter fint og
+ * foerst er ubrugelig bagefter, fx sort skaerm eller intet wifi,
+ * overlever de to minutter og bliver godkendt. Mod den slags hjaelper
+ * kun at rulle ud til én skaerm foerst, se ZS_FLEET_TARGET_FELT.
+ */
+#define ZS_OTA_OK_AFTER_MS         (120 * 1000)
 
 /* ── Hjælp ────────────────────────────────────────────────────────── */
 /*

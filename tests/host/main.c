@@ -37,6 +37,8 @@ int main(int argc, char **argv)
     test_fleet();
     test_fleet_igen();
     test_locate();
+    test_version_tag();
+    test_fleet_lyt();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

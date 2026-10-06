@@ -10,11 +10,78 @@
 #include "esp_heap_caps.h"
 #include "cJSON.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 static const char *TAG = "ota";
+
+/* ------------------------------------------------------------------ */
+/* Maalversionen. Se zs_ota.h for hvorfor den findes.                   */
+/* ------------------------------------------------------------------ */
+
+/* "v" + tre tal a hoejst fem cifre + to punktummer + afslutning. Rigeligt,
+ * og kort nok til at et uendeligt langt svar fra serveren ikke kan fylde
+ * noget op. */
+#define TARGET_MAX  ZS_VERSION_MAX
+
+static char             s_target[TARGET_MAX];
+static SemaphoreHandle_t s_target_laas;
+
+
+static void target_laas_klar(void)
+{
+    if (s_target_laas == NULL) {
+        s_target_laas = xSemaphoreCreateMutex();
+    }
+}
+
+void zs_ota_set_target(const char *version)
+{
+    target_laas_klar();
+    if (s_target_laas == NULL) {
+        return;
+    }
+    xSemaphoreTake(s_target_laas, portMAX_DELAY);
+    if (version == NULL || version[0] == '\0') {
+        s_target[0] = '\0';
+        xSemaphoreGive(s_target_laas);
+        ESP_LOGI(TAG, "ingen målversion, vi følger nyeste igen");
+        return;
+    }
+    if (!zs_version_tag_ok(version)) {
+        xSemaphoreGive(s_target_laas);
+        /* Vi beholder det gamle maal. At falde tilbage til "nyeste"
+         * fordi nogen tastede forkert ville vaere en overraskelse. */
+        ESP_LOGW(TAG, "målversionen \"%.23s\" giver ikke mening, den bruges ikke",
+                 version);
+        return;
+    }
+    /* Gem UDEN v. Maerket paa GitHub har v foran, og det saettes paa igen
+     * naar vi slaar op, saa der kun er ét sted der ved det. */
+    const char *p = (*version == 'v' || *version == 'V') ? version + 1 : version;
+    snprintf(s_target, sizeof(s_target), "%.*s", (int)(TARGET_MAX - 1), p);
+    xSemaphoreGive(s_target_laas);
+    ESP_LOGI(TAG, "målversion sat til %s", p);
+}
+
+void zs_ota_get_target(char *ud, size_t ud_len)
+{
+    if (ud == NULL || ud_len == 0) {
+        return;
+    }
+    target_laas_klar();
+    if (s_target_laas == NULL) {
+        ud[0] = '\0';
+        return;
+    }
+    xSemaphoreTake(s_target_laas, portMAX_DELAY);
+    snprintf(ud, ud_len, "%s", s_target);
+    xSemaphoreGive(s_target_laas);
+}
 
 /* GitHubs svar paa "nyeste udgivelse" fylder omkring 3 KB. Vi giver
  * plads til det tidobbelte og afviser alt derover. */
@@ -63,12 +130,24 @@ static esp_err_t on_api_event(esp_http_client_event_t *e)
  * Fylder tag og url. Returnerer false ved fejl, og saa staar en dansk
  * forklaring i ud->fejl.
  */
-static bool hent_udgivelse(zs_ota_status_t *ud, char *url, size_t url_len)
+static bool hent_udgivelse(zs_ota_status_t *ud, char *url, size_t url_len,
+                           const char *maal)
 {
-    char api[160];
-    snprintf(api, sizeof(api),
-             "https://api.github.com/repos/%s/%s/releases/latest",
-             ZS_OTA_OWNER, ZS_OTA_REPO);
+    char api[200];
+    if (maal != NULL && maal[0] != '\0') {
+        /*
+         * Et bestemt maerke. Maalet er efterset af zs_ota_target_ok foer
+         * det blev gemt, saa der kan kun staa cifre og punktummer her.
+         * Vi saetter v'et paa ét sted, nemlig her.
+         */
+        snprintf(api, sizeof(api),
+                 "https://api.github.com/repos/%s/%s/releases/tags/v%s",
+                 ZS_OTA_OWNER, ZS_OTA_REPO, maal);
+    } else {
+        snprintf(api, sizeof(api),
+                 "https://api.github.com/repos/%s/%s/releases/latest",
+                 ZS_OTA_OWNER, ZS_OTA_REPO);
+    }
 
     hent_t h = { 0 };
     h.buf = heap_caps_malloc(MAX_JSON, MALLOC_CAP_SPIRAM);
@@ -202,17 +281,49 @@ bool zs_ota_check_and_install(zs_ota_status_t *ud)
     ud->state = ZS_OTA_CHECKING;
     ud->har_tjekket = true;
 
+    char maal[24];
+    zs_ota_get_target(maal, sizeof(maal));
+
+    /*
+     * Er maalet det vi allerede koerer, er vi faerdige med det samme.
+     * Saa spoerger vi ikke engang GitHub, og en skaerm der er sat fast
+     * paa sin version bruger ingen trafik paa det.
+     */
+    if (maal[0] != '\0' && zs_version_cmp(maal, ud->koerende) == 0) {
+        snprintf(ud->nyeste, sizeof(ud->nyeste), "%.23s", maal);
+        ud->state = ZS_OTA_UP_TO_DATE;
+        ESP_LOGI(TAG, "vi kører %s, som er målet", ud->koerende);
+        return false;
+    }
+
     char url[256];
-    if (!hent_udgivelse(ud, url, sizeof(url))) {
+    if (!hent_udgivelse(ud, url, sizeof(url), maal)) {
         ud->state = ZS_OTA_FAILED;
         ESP_LOGW(TAG, "%s", ud->fejl);
         return false;
     }
 
     int c = zs_version_cmp(ud->nyeste, ud->koerende);
-    if (c <= 0) {
+    if (maal[0] != '\0') {
         /*
-         * Vi opdaterer KUN opad.
+         * MED et maal gaar vi begge veje. Det er hele pointen: kan vi
+         * ikke gaa ned igen, er en daarlig udgivelse ikke til at komme
+         * af med uden at hente skaermene hjem.
+         *
+         * Der er ingen ring i det: naar den koerende udgave er lig
+         * maalet, stopper vi ovenfor, og maalet skifter kun naar vi
+         * selv skriver et nyt.
+         */
+        if (c == 0) {
+            ud->state = ZS_OTA_UP_TO_DATE;
+            ESP_LOGI(TAG, "vi kører %s, som er målet", ud->koerende);
+            return false;
+        }
+        ESP_LOGI(TAG, "%s til målversion %s",
+                 c > 0 ? "opdaterer" : "går TILBAGE", ud->nyeste);
+    } else if (c <= 0) {
+        /*
+         * UDEN maal opdaterer vi KUN opad.
          *
          * Uden det ville en udgivelse der ved et uheld faar et lavere
          * nummer sende hele flaaden tilbage, og hvis den gamle udgave

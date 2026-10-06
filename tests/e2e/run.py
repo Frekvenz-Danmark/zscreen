@@ -187,7 +187,12 @@ def taet_paa(a, b, tolerance):
 
 def test_almindeligt_anlaeg():
     suite("Almindeligt anlæg: stemmer tallene med simulatoren")
-    with Sim("battery") as sim:
+    # Simulatoren staar STILLE her. Vi sammenligner dens egne tal med
+    # dem skaermen laeser, og loeb tiden imens, naaede solen at flytte
+    # sig mellem de to aflaesninger. Det gav en test der fejlede en gang
+    # imellem uden at der var noget galt, og saadan en er vaerre end
+    # ingen test: man holder op med at tro paa den.
+    with Sim("battery", ["--speed", "0"]) as sim:
         st = sim.tilstand()
         ud, err = probe()
         if ud is None:

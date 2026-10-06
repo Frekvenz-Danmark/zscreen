@@ -375,6 +375,12 @@ def main():
         print(f"  Melder fejl     {fejl}")
     if args.realtime:
         print("  Tid             foelger maskinens ur")
+    elif args.speed <= 0:
+        # Staar stille. Bruges af ende til ende-testene naar de
+        # sammenligner tal: ellers naar solen at flytte sig mellem at
+        # simulatoren siger hvad den har, og skaermen naar at laese det,
+        # og saa fejler en test der er helt i orden.
+        print("  Tid             staar stille")
     else:
         print(f"  Tid             {args.speed:.0f}x, et doegn paa "
               f"{86400 / args.speed / 60:.1f} minutter")

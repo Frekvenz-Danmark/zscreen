@@ -6,6 +6,8 @@
 #include "zs_fleet.h"
 #include "zs_config.h"
 #include "zs_fleet_msg.h"
+#include "zs_ota.h"
+#include "esp_app_desc.h"
 #include "../zs_log.h"
 
 #if ZS_FLEET_ENABLED
@@ -284,6 +286,59 @@ static void send_indmeldelse(void)
     }
 }
 
+/*
+ * Staar ordet i emnet?
+ *
+ * Emnet fra esp-mqtt er IKKE nulafsluttet, det er en laengde og en
+ * peger ind i modtagebufferen. Derfor ingen strstr: den ville laese
+ * videre ud over emnet og ind i selve beskeden.
+ */
+static bool emne_er(const char *emne, int emne_len, const char *ord)
+{
+    if (emne == NULL || emne_len <= 0 || ord == NULL) {
+        return false;
+    }
+    size_t n = strlen(ord);
+    if (n == 0 || (size_t)emne_len < n) {
+        return false;
+    }
+    for (size_t i = 0; i + n <= (size_t)emne_len; i++) {
+        if (memcmp(emne + i, ord, n) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/*
+ * Serveren har sat en maalversion. Se ZS_FLEET_TARGET_FELT og zs_ota.h.
+ *
+ * Kroppen er JSON. Som tekst kommer den i gaasefoedder, og ryddes feltet
+ * i dashboardet kommer der null. Begge dele skal forstaas: null betyder
+ * "foelg nyeste igen", og det er den vej tilbage til normal drift.
+ */
+static void laes_maalversion(const char *data, int len)
+{
+    if (data == NULL || len <= 0) {
+        return;
+    }
+    cJSON *rod = cJSON_ParseWithLength(data, (size_t)len);
+    if (rod == NULL) {
+        ZS_LOGW(TAG, "målversionen kunne ikke læses");
+        return;
+    }
+    if (cJSON_IsNull(rod)) {
+        zs_ota_set_target("");
+    } else if (cJSON_IsString(rod)) {
+        /* Tom streng betyder ogsaa "foelg nyeste". zs_ota_set_target
+         * efterser resten og forkaster det der ikke giver mening. */
+        zs_ota_set_target(rod->valuestring);
+    } else {
+        ZS_LOGW(TAG, "målversionen var ikke tekst, den bruges ikke");
+    }
+    cJSON_Delete(rod);
+}
+
 static void laes_svar(const char *data, int len)
 {
     cJSON *rod = cJSON_ParseWithLength(data, (size_t)len);
@@ -309,6 +364,27 @@ static void laes_svar(const char *data, int len)
             s_naeste_forsoeg_ms = 0;        /* vi er inde, intet at proeve */
             SLIP();
             ZS_LOGI(TAG, "indmeldt som %s", s_asset);
+
+            /*
+             * Lyt efter en maalversion.
+             *
+             * SKAL ske her og ikke ved forbindelsen: emnet indeholder
+             * enhedens id, og det kender vi foerst nu. Og det skal ske
+             * ved HVER indmeldelse, for abonnementet haenger paa
+             * forbindelsen praecis som godkendelsen gOEr.
+             *
+             * Maalt: serveren naegter abonnementet i stilhed hvis feltet
+             * ikke er markeret laesbart for en begraenset bruger. Der
+             * kommer ingen fejl, der kommer bare aldrig noget.
+             */
+            char lyt[160];
+            if (zs_fleet_msg_lyt_topic(lyt, sizeof(lyt), ZS_FLEET_REALM,
+                                       zs_fleet_unique_id(),
+                                       ZS_FLEET_TARGET_FELT,
+                                       id->valuestring) > 0) {
+                esp_mqtt_client_subscribe(s_klient, lyt, 0);
+                ZS_LOGI(TAG, "lytter efter målversion");
+            }
         } else {
             ZS_LOGW(TAG, "svaret havde intet enheds-id");
             LAAS();
@@ -376,7 +452,17 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
     }
 
     case MQTT_EVENT_DATA:
-        laes_svar(e->data, e->data_len);
+        /*
+         * To slags beskeder kommer ind her nu: svaret paa indmeldelsen,
+         * og en maalversion fra serveren. De skal skilles ad paa emnet.
+         * Gjorde vi det ikke, ville en maalversion blive laest som et
+         * indmeldelsessvar og give "svaret kunne ikke laeses" i loggen.
+         */
+        if (emne_er(e->topic, e->topic_len, ZS_FLEET_TARGET_FELT)) {
+            laes_maalversion(e->data, e->data_len);
+        } else {
+            laes_svar(e->data, e->data_len);
+        }
         break;
 
     case MQTT_EVENT_DISCONNECTED:
@@ -746,6 +832,20 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
      * og at sende dem hvert andet sekund ville fylde databasen med det
      * samme svar. */
     if (send_info && info != NULL && info->has_inverter) {
+        /*
+         * Hvilken udgave vi faktisk koerer.
+         *
+         * Uden den kan vi ikke se om en udrulning gik godt, og saa er en
+         * maalversion ikke meget vaerd: man kan saette den, men ikke se
+         * om skaermen rent faktisk naaede frem. Den sendes sammen med
+         * anlaeggets oplysninger, altsaa én gang per indmeldelse, og en
+         * ny indmeldelse sker netop efter en genstart. Saa staar der
+         * altid det rigtige kort efter en opdatering.
+         */
+        const esp_app_desc_t *mig = esp_app_get_description();
+        if (mig != NULL) {
+            send_tekst(ZS_FLEET_VERSION_FELT, asset, mig->version);
+        }
         send_tekst("inverterModel", asset,  info->model);
         send_tekst("inverterSerial", asset, info->serial);
         send_tal("ratedPower", asset,      info->inverter_rated_kw);

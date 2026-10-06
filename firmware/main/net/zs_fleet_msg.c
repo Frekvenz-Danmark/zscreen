@@ -60,9 +60,19 @@ size_t zs_fleet_msg_enroll(char *ud, size_t ud_len, const char *cert_pem)
     return o;
 }
 
-size_t zs_fleet_msg_topic(char *ud, size_t ud_len, const char *realm,
-                          const char *unik, const char *felt,
-                          const char *asset_id)
+/*
+ * Begge emner bygges her, med samme tjek. Forskellen er ét ord:
+ *
+ *   writeattributevalue   vi skriver op til serveren
+ *   attributevalue        vi lytter efter noget den sender ned
+ *
+ * De to stod foer kun ét sted hver, og det ene blev lavet ved at klippe
+ * "write" ud af det andet med memmove. Det virkede, men det var ikke til
+ * at laese, og en aendring i formen ville kun blive rettet det ene sted.
+ */
+static size_t byg_emne(char *ud, size_t ud_len, const char *verbum,
+                       const char *realm, const char *unik, const char *felt,
+                       const char *asset_id)
 {
     if (ud == NULL || ud_len == 0) {
         return 0;
@@ -73,8 +83,8 @@ size_t zs_fleet_msg_topic(char *ud, size_t ud_len, const char *realm,
         || asset_id[0] == '\0') {
         return 0;
     }
-    int n = snprintf(ud, ud_len, "%s/%s/writeattributevalue/%s/%s",
-                     realm, unik, felt, asset_id);
+    int n = snprintf(ud, ud_len, "%s/%s/%s/%s/%s",
+                     realm, unik, verbum, felt, asset_id);
     if (n < 0 || (size_t)n >= ud_len) {
         /* Et afkortet emne ville skrive i et andet felt eller i en
          * anden enhed. Hellere ingenting. */
@@ -82,6 +92,20 @@ size_t zs_fleet_msg_topic(char *ud, size_t ud_len, const char *realm,
         return 0;
     }
     return (size_t)n;
+}
+
+size_t zs_fleet_msg_topic(char *ud, size_t ud_len, const char *realm,
+                          const char *unik, const char *felt,
+                          const char *asset_id)
+{
+    return byg_emne(ud, ud_len, "writeattributevalue", realm, unik, felt, asset_id);
+}
+
+size_t zs_fleet_msg_lyt_topic(char *ud, size_t ud_len, const char *realm,
+                              const char *unik, const char *felt,
+                              const char *asset_id)
+{
+    return byg_emne(ud, ud_len, "attributevalue", realm, unik, felt, asset_id);
 }
 
 bool zs_fleet_enroll_due(bool abonneret, bool har_asset,
