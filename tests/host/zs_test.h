@@ -78,5 +78,6 @@ void test_locate(void);
 void test_version_tag(void);
 void test_fleet_lyt(void);
 void test_sunspec_for_lang(void);
+void test_pris_time(void);
 
 #endif /* ZS_TEST_H */

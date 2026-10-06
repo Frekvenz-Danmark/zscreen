@@ -84,6 +84,42 @@ static esp_err_t on_http_event(esp_http_client_event_t *e)
 /* Timetallet ud af "2026-08-25T13:00:00+02:00". Vi tager den LOKALE
  * time direkte fra teksten. Saa passer den ogsaa de to naetter om
  * aaret hvor doegnet er 23 eller 25 timer langt. */
+/*
+ * Forskydningen fra UTC ud af halen paa "2026-08-25T13:00:00+02:00".
+ *
+ * Returnerer hele timer, fx 2 om sommeren og 1 om vinteren, eller
+ * ZS_PRICE_OFFSET_UKENDT hvis halen ikke ser ud som forventet.
+ *
+ * Den er noedvendig fordi klokketimen alene ikke er entydig den nat
+ * sommertiden slutter. Se zs_price_find_hour.
+ */
+static int8_t offset_of(const char *ts)
+{
+    if (ts == NULL) {
+        return ZS_PRICE_OFFSET_UKENDT;
+    }
+    size_t n = strlen(ts);
+    /* Mindst "...+02:00", altsaa seks tegn i halen. */
+    if (n < 6) {
+        return ZS_PRICE_OFFSET_UKENDT;
+    }
+    if (ts[n - 1] == 'Z') {
+        return 0;                       /* UTC skrevet med Z */
+    }
+    const char *p = ts + n - 6;         /* peger paa '+' eller '-' */
+    if ((*p != '+' && *p != '-') || p[3] != ':') {
+        return ZS_PRICE_OFFSET_UKENDT;
+    }
+    if (p[1] < '0' || p[1] > '9' || p[2] < '0' || p[2] > '9') {
+        return ZS_PRICE_OFFSET_UKENDT;
+    }
+    int t = (p[1] - '0') * 10 + (p[2] - '0');
+    if (t > 14) {                       /* ingen tidszone er laengere vaek */
+        return ZS_PRICE_OFFSET_UKENDT;
+    }
+    return (int8_t)(*p == '-' ? -t : t);
+}
+
 static int hour_of(const char *ts)
 {
     if (ts == NULL || strlen(ts) < 13 || ts[10] != 'T') {
@@ -127,6 +163,7 @@ static bool parse(const char *json, zs_price_day_t *ud)
             continue;
         }
         ud->timer[ud->antal].hour = (uint8_t)h;
+        ud->timer[ud->antal].utc_offset_h = offset_of(start->valuestring);
         ud->timer[ud->antal].dkk  = (float)pris->valuedouble;
         sum += ud->timer[ud->antal].dkk;
         ud->antal++;

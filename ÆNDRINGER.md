@@ -1,3 +1,44 @@
+## 2026-10-06 13:42
+
+### Elprisen var forkert i en time, én nat om året
+En rigtig fejl, fundet ved at lede efter den.
+
+Den nat sommertiden slutter, sidste søndag i oktober, findes klokken to
+**to gange**: én gang i sommertid og én gang i normaltid. Filen fra
+elprisenligenu.dk har begge, 25 poster i alt, og de to timer har som
+regel vidt forskellige priser.
+
+Opslaget sammenlignede kun klokketimen og tog den første der passede. Så
+i den anden time stod der den første times pris. En hel time med et
+forkert tal på væggen, én gang om året, og umuligt at opdage uden at vide
+det.
+
+Koden vidste godt at døgnet kan have 25 timer, der er plads til dem og
+der står en note om det. Det var kun selve opslaget der ikke vidste det.
+
+**Rettet** ved at gemme forskydningen fra UTC sammen med hver time.
+Tidsstemplet fra kilden har den i forvejen, `+02:00` eller `+01:00`, vi
+smed den bare væk. Opslaget kræver nu at både klokketimen og
+forskydningen passer, og falder tilbage til kun klokketimen hvis en
+kilde ikke oplyser den, så gemte priser fra før stadig virker.
+
+Vores egen forskydning regnes ud af forskellen mellem lokal tid og UTC.
+Ikke med `tm_gmtoff`: den er en udvidelse, og den findes ikke i ESP-IDF's
+newlib. Efterset, ikke antaget.
+
+Beslutningen ligger nu for sig selv uden ur, så den kan prøves af, og der
+er 21 tests på den: den almindelige dag, natten med 25 timer hvor begge
+toere skal rammes rigtigt, natten med 23 timer hvor klokken to slet ikke
+findes, gamle data uden forskydning, og det der ikke giver mening.
+Testene er prøvet ved at sætte den gamle opførsel tilbage, og de fanger
+den.
+
+Prissiden blev efterset for det samme og er i orden: den placerer kun
+akse-tallene 0, 6, 12 og 18, og ingen af dem er dobbelt den nat.
+
+567 enhedstest og 55 ende til ende, alle bestået på Mac og Linux.
+Version 0.11.0.
+
 ## 2026-10-06 13:25
 
 ### Fem tests mere, og en grænse vi skal kende

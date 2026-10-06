@@ -302,6 +302,11 @@ void zs_demo_price(zs_price_day_t *ud)
             pris = 0.05f;
         }
         ud->timer[h].hour = h;
+        /* UKENDT og ikke nul. Nul betyder UTC, og saa ville opslaget
+         * lede efter en forskydning demoens tal ikke har. Det ville
+         * stadig virke, fordi der er en anden runde paa klokketimen
+         * alene, men det ville vaere rigtigt af den forkerte grund. */
+        ud->timer[h].utc_offset_h = ZS_PRICE_OFFSET_UKENDT;
         ud->timer[h].dkk = pris;
         sum += pris;
     }

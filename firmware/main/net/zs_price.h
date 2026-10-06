@@ -43,10 +43,25 @@ extern "C" {
 
 #define ZS_PRICE_ZONE_LEN    4     /* "DK1" plus afslutning */
 
+
 typedef struct {
     uint8_t hour;    /* lokal time, 0 til 23 */
+    /*
+     * Forskydningen fra UTC i hele timer, fx 2 om sommeren og 1 om
+     * vinteren. ZS_PRICE_OFFSET_UKENDT hvis den ikke kunne laeses.
+     *
+     * Den er HER fordi klokketimen alene ikke er nok. Den nat
+     * sommertiden slutter findes klokken to to gange, én gang med
+     * forskydning 2 og én gang med 1, og filen har begge. Uden det her
+     * felt tog opslaget den foerste begge gange, og saa viste skaermen
+     * den forkerte times pris i en hel time. Én gang om aaret, og helt
+     * umuligt at opdage uden at vide det.
+     */
+    int8_t  utc_offset_h;
     float   dkk;     /* kroner pr. kWh, spotpris uden afgifter */
 } zs_price_hour_t;
+
+#define ZS_PRICE_OFFSET_UKENDT  ((int8_t)127)
 
 typedef struct {
     bool    ok;                       /* er der brugbare priser        */
@@ -63,6 +78,22 @@ typedef struct {
 
     char    fejl[72];    /* dansk tekst naar ok er false */
 } zs_price_day_t;
+
+/*
+ * Hvilken plads i timer[] svarer til den time vi er i?
+ *
+ * Ren beslutning, uden ur og uden netvaerk, saa den kan proeves af paa en
+ * almindelig maskine. Netop den beslutning var forkert i et aar: den saa
+ * kun paa klokketimen.
+ *
+ *   lokal_time   0 til 23
+ *   offset_h     vores egen forskydning fra UTC i hele timer
+ *
+ * Returnerer pladsen, eller -1 hvis timen ikke findes. Har en post
+ * ZS_PRICE_OFFSET_UKENDT, taeller kun klokketimen for den, saa gamle
+ * data og kilder uden forskydning virker som foer.
+ */
+int8_t zs_price_find_hour(const zs_price_day_t *d, int lokal_time, int offset_h);
 
 /*
  * Henter dagens priser. Blokerer i op til nogle sekunder, saa den skal

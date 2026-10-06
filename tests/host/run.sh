@@ -65,6 +65,7 @@ SRC=(
     test_demo.c
     test_fleet.c
     test_locate.c
+    test_pris.c
     ../../firmware/main/net/zs_modbus_tcp.c
     ../../firmware/main/net/zs_sunspec.c
     ../../firmware/main/app/zs_format.c
