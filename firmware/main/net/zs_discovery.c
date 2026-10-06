@@ -52,8 +52,16 @@ bool zs_discovery_was_aborted(void)
  * kunden og kigger paa en bjaelke der ikke rykker sig.
  *
  * I stedet aabner vi et bundt sockets uden at vente paa hver enkelt,
- * og spoerger med select() hvem der er kommet igennem. Hele
- * undernettet er saa klaret paa omkring fem sekunder.
+ * og spoerger med select() hvem der er kommet igennem.
+ *
+ * MAALT, ikke gaettet: en raekke hvor ingenting svarer tager omkring
+ * seksten sekunder. Her stod foer "omkring fem sekunder", og det var
+ * fra foer hver adresse blev proevet to gange (ZS_SCAN_TRIES) og foer
+ * pusten mellem hvert kald (ZS_SCAN_CONNECT_GAP_MS). Regnestykket er
+ * 22 bundter gange to runder gange (250 ms + 12 gange 10 ms pust).
+ *
+ * Svarer der noget, gaar det hurtigere, for en aaben port melder sig
+ * med det samme i stedet for at bruge hele taalmodigheden.
  *
  * Antallet er sat efter hvor mange sockets lwIP har (16 i vores
  * opsaetning, se sdkconfig.defaults). Vi bruger ikke dem alle: der

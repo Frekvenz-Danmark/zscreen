@@ -125,7 +125,7 @@ zs_loc_t zs_locate_find(const char *egen_ip, uint8_t praefiks,
     /*
      * Trin 1: proev den gemte adresse alene.
      *
-     * Det tager under et sekund mod de omkring tyve en hel scanning
+     * Det tager hoejst et par sekunder mod de omkring tyve en hel scanning
      * koster, og i det almindelige tilfaelde, hvor inverteren bare var
      * slukket et oejeblik, er vi faerdige her.
      */

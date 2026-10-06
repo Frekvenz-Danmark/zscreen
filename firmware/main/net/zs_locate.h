@@ -23,7 +23,7 @@
  * sammenligning tegn for tegn er til at stole paa.
  *
  * REDUNDANS, i den raekkefoelge det koster:
- *   1. proev den gemte adresse, det tager under et sekund
+ *   1. proev den gemte adresse, det tager hoejst et par sekunder
  *   2. scan hele undernettet, med den gemte adresse foerst
  *   3. vaelg efter serienummer, ikke efter hvad der tilfaeldigvis svarer
  *
@@ -85,8 +85,29 @@ typedef enum {
 } zs_loc_t;
 
 /*
- * Leder efter inverteren. BLOKERER i op til omkring tyve sekunder, saa
- * den skal kaldes fra aflaesningsopgaven og aldrig fra skaermens.
+ * Leder efter inverteren.
+ *
+ * BLOKERER LAENGE. Skal kaldes fra aflaesningsopgaven og aldrig fra
+ * skaermens.
+ *
+ * Hvor laenge, maalt og ikke gaettet, paa et net hvor ingenting svarer:
+ *
+ *      /24     omkring 16 sekunder
+ *      /20     omkring 3 minutter og 50 sekunder
+ *
+ * Her stod foer "op til omkring tyve sekunder". Det passede dengang vi
+ * kun ledte i vores eget /24. Da soegningen blev udvidet til hele
+ * praefikset, se ZS_SCAN_MAX_BLOKKE, blev kontrakten her staaende, og en
+ * kalder der troede paa de tyve sekunder ville blive snydt med faktor
+ * elleve.
+ *
+ * Svarer der noget undervejs, gaar det hurtigere. Og kalderen kan
+ * afbryde med zs_discovery_abort fra en anden opgave, hvilket er det
+ * skaermen goer naar kunden trykker paa noget imens.
+ *
+ * Fordi den tager saa lang tid: faa det der venter paa at blive gemt af
+ * vejen FOER kaldet. Opgaven naar ikke tilbage til sin egen gemmeprik
+ * foer soegningen er faerdig.
  *
  *   ip_ud          den adresse der skal bruges. Skrives ved SAMME, NY
  *                  og TAGET.

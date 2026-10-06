@@ -13,7 +13,15 @@ static const char *TAG = "fronius";
 /* Timeouts. Fronius' egen manual anbefaler mindst 1 sekund under drift.
  * Under scanning vil vi hellere give hurtigt op og proeve naeste adresse. */
 #define TMO_NORMAL_MS   1500
-#define TMO_PROBE_MS     600
+/*
+ * Standard naar en kalder ikke selv siger hvor laenge.
+ *
+ * Var 600 ms, altsaa under Fronius' egen anbefaling om mindst ét sekund
+ * per forespoergsel. Ingen kalder ramte den i dag, men den sad og ventede
+ * paa den naeste der skrev 0, og saa ville soegningen springe langsomme
+ * invertere over uden at nogen forstod hvorfor.
+ */
+#define TMO_PROBE_MS    2000
 
 /* Prioriteret raekkefoelge. Heltal med skalafaktor foerst, fordi det er
  * Fronius' standardindstilling og fordi de modeller er kortere at laese. */

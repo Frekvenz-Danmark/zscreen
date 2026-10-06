@@ -881,6 +881,58 @@ def test_inverter_hopper():
         fail("når den er væk, står der ingen adresse", ud[-200:])
 
 
+def test_scan_vaerktoej():
+    suite("Fejlsøgningsværktøjet søger som skærmen, ikke på sin egen måde")
+
+    # HVORFOR DEN HER PROEVE FINDES.
+    #
+    # zs-probe --scan havde sin EGEN loekke: én adresse ad gangen, med sin
+    # egen taalmodighed paa 200 ms. Skaermen aabner tolv paa én gang,
+    # venter 250 ms, og proever hver adresse to gange.
+    #
+    # Det ligner det samme og er det ikke. Melder en kunde at skaermen ikke
+    # kan finde inverteren, og finder vaerktoejet den saa alligevel, har vi
+    # ikke fundet fejlen. Vi har maalt to forskellige ting og draget den
+    # forkerte slutning.
+    #
+    # Nu kalder --scan zs_discovery_scan, altsaa den samme kode skaermen
+    # koerer. Proeven her holder det fast: skrider de fra hinanden igen,
+    # falder den.
+    SN = "31234567"
+
+    def scan(port):
+        r = subprocess.run([PROBE, "--scan", "127.0.0.0", "--port", str(port)],
+                           capture_output=True, text=True, timeout=180)
+        if VERBOSE:
+            print(r.stdout)
+        return r.returncode, r.stdout
+
+    try:
+        # Bind til én adresse. Paa Linux svarer hele 127-omraadet ellers,
+        # se noten i test_genfind.
+        with Sim("battery", ["--bind", "127.0.0.1"], port=PORT):
+            kode, ud = scan(PORT)
+            if kode == 0 and "127.0.0.1" in ud:
+                ok("værktøjet finder inverteren med skærmens egen motor")
+            else:
+                fail("værktøjet finder inverteren", f"kode {kode}: {ud}")
+
+            if SN in ud:
+                ok("og læser serienummeret, så man kan se at det er den rigtige")
+            else:
+                fail("serienummeret vises", ud)
+
+            # Porten skal virke. Foer blev --port ignoreret ved en
+            # soegning, saa vaerktoejet ledte paa 502 uanset hvad der stod.
+            kode, ud = scan(PORT + 1)
+            if kode != 0 and "0 invertere" in ud:
+                ok("og på en port hvor der ikke er noget, findes der ingen")
+            else:
+                fail("tom port giver ingen fund", f"kode {kode}: {ud}")
+    except Exception as e:
+        fail("scanningen kunne køres", str(e))
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -904,6 +956,7 @@ def main():
     test_mange_fejl()
     test_skriv_modbus()
     test_inverter_hopper()
+    test_scan_vaerktoej()
 
     print("\n" + "─" * 40)
     if fejl == 0:

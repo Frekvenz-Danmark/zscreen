@@ -316,6 +316,53 @@ static void gem_snart(void)
     s_cfg_gem_ms = now_ms() + ZS_SETTINGS_SAVE_DELAY_MS;
 }
 
+/*
+ * DEN ENE VEJ TIL FLASHEN for indstillingerne.
+ *
+ * Alle gemninger gaar herigennem, og det er derfor den findes: naar der
+ * er skrevet, passer flashen med s_cfg, og saa skal "der venter noget"
+ * vaere slaaet af. Foer stod kaldene spredt ud, og en udskudt gemning
+ * blev ikke kvitteret naar noget andet gemte i mellemtiden. Saa skrev vi
+ * i flashen to gange for én aendring. Det er den samme slags spild som
+ * lysstyrkeskyderen havde.
+ *
+ * Kalderen faar svaret og bestemmer selv hvad der skal staa i loggen,
+ * for det er ikke lige alvorligt at glemme et prisomraade og at glemme
+ * hvilken inverter man hoerer til.
+ */
+static bool gem_konfiguration(void)
+{
+    bool ok = zs_nvs_save(&s_cfg);
+    if (ok) {
+        s_cfg_beskidt = false;
+    }
+    return ok;
+}
+
+/*
+ * Gemmer med det samme hvis der venter noget.
+ *
+ * Kaldes foer vi gaar ind i noget der blokerer laenge. Den udskudte
+ * gemning ligger tidligt i loekken, og en netvaerkssoegning ligger
+ * senere i den SAMME omgang: paa et /20 hvor ingenting svarer er den
+ * maalt til naesten fire minutter. Aendrede kunden lysstyrken lige foer,
+ * ville den altsaa ligge ugemt hele vejen, og ryger stroemmen i
+ * mellemtiden er indstillingen vaek.
+ *
+ * Et halvt sekunds udskydelse er til for at spare paa flashen naar en
+ * skyder traekkes. Den grund gaelder ikke her: der kommer ikke flere
+ * aendringer mens vi staar stille.
+ */
+static void gem_nu_hvis_noget_venter(void)
+{
+    if (!s_cfg_beskidt) {
+        return;
+    }
+    if (!gem_konfiguration()) {
+        ESP_LOGW(TAG, "indstillingerne kunne ikke gemmes");
+    }
+}
+
 static int     s_fejl_i_traek;
 static bool    s_tving_genfind;
 static int64_t s_naeste_genfind_ms;
@@ -361,7 +408,7 @@ static bool inverter_connect(void)
             if (s_cfg.inverter_serial[0] == '\0' && s_fr.info.serial[0] != '\0') {
                 snprintf(s_cfg.inverter_serial, sizeof(s_cfg.inverter_serial),
                          "%s", s_fr.info.serial);
-                if (zs_nvs_save(&s_cfg)) {
+                if (gem_konfiguration()) {
                     ESP_LOGI(TAG, "husker inverterens serienummer %s",
                              s_cfg.inverter_serial);
                 }
@@ -423,6 +470,9 @@ static void genfind_fremdrift(void *ctx, int done, int total, int found)
 
 static bool genfind_inverteren(void)
 {
+    /* Soegningen kan tage minutter. Faa det gemte af vejen foerst. */
+    gem_nu_hvis_noget_venter();
+
     /*
      * Vores EGEN adresse og netmaskens laengde, ikke undernettet.
      *
@@ -473,7 +523,7 @@ static bool genfind_inverteren(void)
     if (aendret) {
         /* Gem med det samme. Ryger stroemmen bagefter, skal skaermen ikke
          * lede forfra naar den kommer tilbage. */
-        if (zs_nvs_save(&s_cfg)) {
+        if (gem_konfiguration()) {
             ESP_LOGI(TAG, "gemt: inverteren står nu på %s", s_cfg.inverter_ip);
         }
     }
@@ -588,7 +638,7 @@ static void handle_cmd(const zs_cmd_t *c)
          * skal ikke tastes igen bare fordi stroemmen gik mens man
          * ledte efter inverteren.
          */
-        if (!zs_nvs_save(&s_cfg)) {
+        if (!gem_konfiguration()) {
             ESP_LOGW(TAG, "netværket kunne ikke gemmes");
         }
 
@@ -630,7 +680,7 @@ static void handle_cmd(const zs_cmd_t *c)
         s_fejl_i_traek = 0;
         s_tving_genfind = false;
         s_naeste_genfind_ms = 0;
-        if (!zs_nvs_save(&s_cfg)) {
+        if (!gem_konfiguration()) {
             /* Skaermen virker videre, men den har glemt valget naar
              * stroemmen har vaeret af. Det skal staa i loggen, ikke
              * forsvinde i stilhed. */
@@ -770,7 +820,7 @@ static void handle_cmd(const zs_cmd_t *c)
         /* Praecis tre tegn. Feltet er 4 bytes, og z kommer fra en
          * besked hvor strengen kan vaere op til 32. */
         snprintf(s_cfg.price_zone, sizeof(s_cfg.price_zone), "%.3s", z);
-        if (!zs_nvs_save(&s_cfg)) {
+        if (!gem_konfiguration()) {
             ESP_LOGW(TAG, "prisområdet kunne ikke gemmes");
         }
         ESP_LOGI(TAG, "prisområde sat til %s", z);
@@ -978,10 +1028,7 @@ static void app_task(void *arg)
          * ZS_SETTINGS_SAVE_DELAY_MS.
          */
         if (s_cfg_beskidt && t >= s_cfg_gem_ms) {
-            s_cfg_beskidt = false;
-            if (!zs_nvs_save(&s_cfg)) {
-                ESP_LOGW(TAG, "indstillingerne kunne ikke gemmes");
-            }
+            gem_nu_hvis_noget_venter();
         }
 
         if (s_ui_genopfrisk) {

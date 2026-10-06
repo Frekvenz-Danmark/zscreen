@@ -146,7 +146,31 @@
  * paa et almindeligt hjemmenet svarer de faerreste.
  */
 #define ZS_SCAN_TRIES           2
-#define ZS_SCAN_SUNSPEC_TIMEOUT_MS 800  /* taler den SunSpec            */
+/*
+ * Hvor laenge vi venter paa et SunSpec-svar under en soegning.
+ *
+ * Var 800 ms, og det var UNDER Fronius' egen anbefaling. Deres manual
+ * siger: "Perform the requests with a timeout of at least 1 second."
+ * Vores egen konfiguration citerer netop den saetning nogle linjer
+ * laengere oppe, ved aflaesningstakten, saa vi vidste det godt ét sted og
+ * ikke det andet.
+ *
+ * Hvad det betoed: en inverter der havde travlt, fx fordi den samtidig
+ * serverede sin egen webside eller sendte til Solar.web, kunne bruge mere
+ * end 800 ms paa det foerste svar. Saa kaldte vi den "taler ikke SunSpec"
+ * og sprang den over. Resultatet paa skaermen var "der blev ikke fundet
+ * nogen inverter", af og til, hvilket er den vaerste slags.
+ *
+ * To sekunder giver margen oven i deres minimum. Det koster ingenting i
+ * det normale tilfaelde, hvor svaret kommer paa faa millisekunder:
+ * timeouten bider kun naar noget ER langsomt, og der vil vi hellere vente
+ * end at overse anlaegget.
+ *
+ * Bemaerk at ZS_SCAN_PORT_TIMEOUT_MS er noget andet: det er en TCP-
+ * forbindelse, ikke en Modbus-forespoergsel, og den gaelder 254 adresser
+ * ad gangen. Den skal blive hvor den er.
+ */
+#define ZS_SCAN_SUNSPEC_TIMEOUT_MS 2000
 /*
  * Hvor mange invertere vi kan holde paa ad gangen.
  *

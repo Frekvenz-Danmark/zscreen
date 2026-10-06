@@ -21,6 +21,9 @@
 #include "../../firmware/main/app/zs_format.h"
 #include "../../firmware/main/app/zs_status.h"
 #include "../../firmware/main/net/zs_locate.h"
+/* Selv om zs_discovery.h ogsaa traekker den ind, henter vi den her:
+ * vi bruger ZS_SCAN_SUNSPEC_TIMEOUT_MS direkte, og saa skal det staa. */
+#include "../../firmware/main/zs_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -170,7 +173,15 @@ static void print_channels(const zs_fr_live_t *lv)
     }
 }
 
-static int do_scan(const char *subnet_base)
+static void scan_frem(void *ctx, int done, int total, int found)
+{
+    (void) ctx;
+    /* Samme linje hver gang, saa der ikke ruller 254 linjer forbi. */
+    printf("\r    %d af %d adresser, %d fundet   ", done, total, found);
+    fflush(stdout);
+}
+
+static int do_scan(const char *subnet_base, uint16_t port)
 {
     /*
      * subnet_base er fx "192.168.1.0". Vi proever .1 til .254.
@@ -202,28 +213,66 @@ static int do_scan(const char *subnet_base)
     }
     *last = '\0';
 
-    printf("\n  Scanner %s.1 til %s.254 paa port 502 ...\n\n", base, base);
-    int found = 0;
-    for (int host = 1; host <= 254; host++) {
-        char ip[24];    /* base op til 15, punktum, tre cifre */
-        snprintf(ip, sizeof(ip), "%s.%d", base, host);
-        if (!zs_mb_probe_port(ip, ZS_MB_DEFAULT_PORT, 200)) {
-            continue;
-        }
-        zs_fr_info_t info;
-        if (zs_fr_probe(ip, ZS_MB_DEFAULT_PORT, 800, &info)) {
-            printf("    %-16s %s %s%s%s\n", ip,
-                   info.manufacturer[0] ? info.manufacturer : "(ukendt)",
-                   info.model,
-                   info.serial[0] ? "  serienr " : "",
-                   info.serial);
-            found++;
-        } else {
-            printf("    %-16s port 502 er aaben, men taler ikke SunSpec\n", ip);
-        }
+    /*
+     * HER KOERER FIRMWARENS EGEN MOTOR, og det er hele pointen.
+     *
+     * Foer stod der en loekke herinde som proevede én adresse ad gangen
+     * med sin egen taalmodighed paa 200 ms. Den lignede firmwarens
+     * soegning, men var den ikke: firmwaren aabner tolv sockets ad
+     * gangen, venter 250 ms, og proever hver adresse to gange.
+     *
+     * Det er den slags forskel der gaar ud over en kunde. Melder
+     * skaermen at der ikke er nogen inverter, og finder vaerktoejet den
+     * saa alligevel, har vi ikke fundet fejlen, vi har bare maalt to
+     * forskellige ting. Derfor kalder vi nu zs_discovery_scan, saa
+     * vaerktoejet og skaermen soeger ens, ogsaa naar tallene bliver
+     * rettet i zs_config.h.
+     *
+     * Vi giver den ".1" som vores egen adresse og et /24, saa den
+     * gennemgaar praecis den raekke brugeren skrev, og ikke mere.
+     */
+    char egen_ip[20];
+    snprintf(egen_ip, sizeof(egen_ip), "%s.1", base);
+
+    /* Nul betyder standarden, praecis som i firmwaren. --port findes, og
+     * uden den her ledning blev den ignoreret ved en soegning: saa kunne
+     * en inverter paa en anden port ikke findes med vaerktoejet, selv om
+     * skaermen kan. */
+    if (port == 0) {
+        port = ZS_MB_DEFAULT_PORT;
     }
-    printf("\n  %d inverter%s fundet.\n\n", found, found == 1 ? "" : "e");
-    return found > 0 ? 0 : 1;
+
+    printf("\n  Scanner %s.1 til %s.254 paa port %u ...\n\n",
+           base, base, (unsigned)port);
+
+    zs_found_t fundet[ZS_DISCOVERY_MAX];
+    int n = zs_discovery_scan(egen_ip, 24, NULL, port,
+                              fundet, ZS_DISCOVERY_MAX, scan_frem, NULL);
+    printf("\r%60s\r", "");     /* ryd fremgangslinjen */
+
+    if (n < 0) {
+        fprintf(stderr, "  Søgningen kunne ikke starte.\n\n");
+        return 1;
+    }
+    for (int i = 0; i < n; i++) {
+        printf("    %-16s %s %s%s%s\n", fundet[i].ip,
+               fundet[i].info.manufacturer[0] ? fundet[i].info.manufacturer
+                                              : "(ukendt)",
+               fundet[i].info.model,
+               fundet[i].info.serial[0] ? "  serienr " : "",
+               fundet[i].info.serial);
+    }
+    printf("\n  %d inverter%s fundet.\n", n, n == 1 ? "" : "e");
+    if (n == 0) {
+        /* Den gamle udgave skrev en linje per vaert der havde port 502
+         * aaben uden at tale SunSpec. Den slags hoerer til paa én
+         * adresse ad gangen, hvor der er plads til at vise hvorfor:
+         * koer "zs-probe <adresse>" paa den du har mistanke til. */
+        printf("  Har du en mistanke om en bestemt adresse, så kør\n"
+               "  zs-probe <adresse> og se hvad den svarer.\n");
+    }
+    printf("\n");
+    return n > 0 ? 0 : 1;
 }
 
 /*
@@ -369,7 +418,7 @@ int main(int argc, char **argv)
                         (uint16_t)skriv_adr, (uint16_t)skriv_val);
     }
     if (scan != NULL) {
-        return do_scan(scan);
+        return do_scan(scan, port);
     }
     if (host == NULL) {
         fprintf(stderr,

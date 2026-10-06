@@ -14,9 +14,12 @@ tilstande hvor noget mangler.
     sudo python3 serve.py --profile float      inverter i float-tilstand
     python3 serve.py --port 5020               uden sudo, paa hoej port
 
-Port 502 kraever sudo paa macOS og Linux. Skal netvaerksscanningen i
-skaermen kunne finde simulatoren, SKAL den ligge paa 502, for det er
-den port der scannes efter.
+Port 502 kraever sudo paa macOS og Linux. Skaermen leder paa 502 som
+standard, men porten kan saettes i indstillingerne, og zs-probe --scan
+tager ogsaa --port. Saa en hoej port er nok til at proeve soegningen af:
+
+    python3 serve.py --port 5502 --bind 127.0.0.1
+    ../zs-probe/zs-probe --scan 127.0.0.0 --port 5502
 """
 
 import argparse
@@ -365,8 +368,9 @@ def main():
                              "float", "onestring"],
                     help="hvilket slags anlaeg der simuleres")
     ap.add_argument("--port", type=int, default=502,
-                    help="Modbus-port. 502 kraever sudo, men er den eneste "
-                         "port skaermens scanning leder efter")
+                    help="Modbus-port. 502 kraever sudo. Skaermen leder "
+                         "paa 502 som standard, men baade den og "
+                         "zs-probe --scan kan saettes til en anden")
     ap.add_argument("--bind", default="0.0.0.0")
     ap.add_argument("--skrivemaade", choices=["skriv", "tavs", "naegt"],
                     default="skriv", dest="skrivemaade",

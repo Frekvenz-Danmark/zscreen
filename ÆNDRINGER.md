@@ -1,3 +1,105 @@
+## 2026-10-06 18:31
+
+### Vi gav inverteren mindre tid end Fronius selv beder om
+Fronius' egen manual siger: udfør forespørgslerne med en timeout på
+**mindst ét sekund**. Den sætning står citeret i vores egen opsætning,
+lige over aflæsningstakten. Alligevel ventede søgningen kun **800 ms** på
+svar, altså under grænsen.
+
+Hvad det betød i praksis: en inverter der havde travlt, for eksempel
+fordi den samtidig serverede sin egen hjemmeside eller sendte til
+Solar.web, kunne bruge mere end 800 ms på det første svar. Så blev den
+afskrevet som "taler ikke SunSpec" og sprunget over, og skærmen meldte at
+der ikke blev fundet nogen inverter. **Af og til**, hvilket er den
+værste slags fejl, fordi den ser ud som et netværksproblem.
+
+Nu er grænsen **2 sekunder**. Det koster ingenting når alt er normalt:
+en timeout bider kun når noget faktisk er langsomt, og der vil vi hellere
+vente et øjeblik end at overse anlægget.
+
+To steder mere havde deres eget tal. Standarden i `zs_fronius.c` var
+600 ms, og den ramte ingen i dag, men den sad og ventede på den næste der
+ikke selv angav en grænse. Og fejlsøgningsværktøjet havde 800 skrevet
+direkte i koden, så værktøjet og skærmen søgte forskelligt. Alle fire
+steder bruger nu den **ene** knap i `zs_config.h`.
+
+### Værktøjet søgte på sin egen måde, ikke skærmens
+Den her er værre end den ser ud.
+
+`zs-probe --scan` havde sin egen løkke: én adresse ad gangen, med sin egen
+tålmodighed på 200 ms. Skærmen åbner tolv forbindelser på én gang, venter
+250 ms, og prøver hver adresse to gange.
+
+Det ligner det samme og er det ikke. Melder en kunde at skærmen ikke kan
+finde inverteren, og finder værktøjet den så alligevel, har vi ikke fundet
+fejlen. Vi har målt to forskellige ting og draget den forkerte slutning.
+Et fejlsøgningsværktøj der ikke genskaber fejlen er værre end ingenting.
+
+`--scan` kalder nu `zs_discovery_scan`, altså præcis den kode skærmen
+kører, og følger med når tallene bliver rettet. `--port` virker nu også
+ved en søgning; før blev det stiltiende ignoreret, så en inverter på en
+anden port end 502 kunne vælges i hånden men aldrig findes med værktøjet.
+
+Tre nye ende til ende-tests holder det fast: værktøjet skal finde
+simulatoren med skærmens motor, læse serienummeret, og melde tomt på en
+port hvor der ikke er noget.
+
+### Søgetiden er målt nu, ikke gættet
+Koden lovede tre forskellige ting om hvor længe en søgning tager, og ingen
+af dem passede.
+
+Målt, på et net hvor ingenting svarer:
+
+| Net | Tid |
+|-----|-----|
+| /24 | 16 sekunder |
+| /20 | 3 minutter 50 sekunder |
+
+I `zs_discovery.c` stod "omkring fem sekunder". Det var fra før hver
+adresse blev prøvet to gange og før pusten mellem hvert kald. I
+`zs_locate.h` stod der at søgningen blokerer "op til omkring tyve
+sekunder", og det passede dengang vi kun ledte i vores eget /24. Da
+søgningen blev udvidet til hele nettet, blev kontrakten stående. En
+udvikler der stolede på de tyve sekunder ville blive snydt med faktor
+elleve.
+
+### En ændret indstilling kunne gå tabt i næsten fire minutter
+Fundet fordi målingen ovenfor gav et tal at regne med.
+
+Indstillinger gemmes et halvt sekund efter den sidste ændring, så en
+skyder der trækkes ikke skriver i flashen hundrede gange. Gemmepunktet
+ligger **tidligt** i hovedløkken, og søgningen ligger **senere i samme
+omgang**.
+
+Så: er inverteren væk, og skifter kunden tema eller lysstyrke i netop det
+øjeblik, går vi ind i en søgning der kan tage næsten fire minutter før
+gemningen er nået. Ryger strømmen i det vindue, er ændringen væk.
+
+Rettet ved roden: der gemmes nu **før** vi går ind i noget der blokerer
+længe. Begrundelsen for at udskyde gælder ikke der, for der kommer ikke
+flere ændringer mens vi står stille.
+
+### Én vej til flashen
+Mens jeg var der: seks steder i koden kaldte `zs_nvs_save` direkte, og
+ingen af dem slog "der venter noget" fra. Så hvis en udskudt gemning lå
+og ventede, og noget andet gemte i mellemtiden, blev der skrevet i flashen
+**to gange** for én ændring. Samme slags spild som lysstyrkeskyderen
+havde.
+
+Alle gemninger går nu gennem én funktion, der slår flaget fra når det er
+lykkedes. Kalderen bestemmer stadig selv hvad der skal stå i loggen, for
+det er ikke lige alvorligt at glemme et prisområde og at glemme hvilken
+inverter man hører til.
+
+### Hjælpeteksterne løj
+Simulatoren skrev at port 502 er "den eneste port skærmens scanning leder
+efter". Det passer ikke længere, hverken for skærmen eller for værktøjet.
+Teksten viser nu hvordan man prøver en søgning af på en høj port, uden
+sudo.
+
+629 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.15.0.
+
 ## 2026-10-06 17:47
 
 ### Søgningen ledte det forkerte sted på alt andet end et /24
