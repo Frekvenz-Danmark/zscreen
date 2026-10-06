@@ -1,5 +1,8 @@
 #include "zs_nvs.h"
 #include "zs_config.h"
+/* Kun for de to standardvaerdier nedenfor. Headeren traekker
+ * ingenting andet ind end stdint og stdbool. */
+#include "zs_modbus_tcp.h"
 
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -125,11 +128,14 @@ bool zs_nvs_load(zs_settings_t *s)
             return false;
         }
     }
+    /* Nul betyder "ikke valgt", og saa tager vi standarden. Tallene
+     * staar i zs_modbus_tcp.h og ikke her: en Fronius der skal paa 1502
+     * skal kunne rettes ét sted. */
     if (s->inverter_port == 0) {
-        s->inverter_port = 502;
+        s->inverter_port = ZS_MB_DEFAULT_PORT;
     }
     if (s->inverter_unit == 0) {
-        s->inverter_unit = 1;
+        s->inverter_unit = ZS_MB_DEFAULT_UNIT;
     }
     if (s->brightness < 5 || s->brightness > 100) {
         s->brightness = ZS_BRIGHTNESS_DEFAULT;

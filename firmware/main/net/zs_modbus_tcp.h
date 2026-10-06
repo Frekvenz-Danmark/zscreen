@@ -52,6 +52,16 @@ extern "C" {
 /* Standard Modbus TCP-port. Fronius kan ogsaa saettes til 1502. */
 #define ZS_MB_DEFAULT_PORT      502
 
+/*
+ * Standard unit-id, altsaa hvilken enhed paa den anden ende vi taler med.
+ *
+ * Fronius leverer inverteren paa 1. En elmaaler der sidder for sig selv
+ * kan have sit eget nummer, og det kan kunden saette i indstillingerne.
+ * Nul er ikke en lovlig vaerdi i Modbus TCP, saa den bruges som
+ * "ikke valgt".
+ */
+#define ZS_MB_DEFAULT_UNIT      1
+
 typedef enum {
     ZS_MB_OK = 0,
     ZS_MB_ERR_ARG,          /* ugyldige argumenter fra kalderen        */

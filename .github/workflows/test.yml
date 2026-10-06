@@ -22,11 +22,12 @@ jobs:
       - name: Byg zs-probe
         run: ./tools/zs-probe/build.sh
 
-      - name: Headere, tegnsæt og farver
+      - name: Headere, tegnsæt, farver og LVGL-låsen
         run: |
           ./tools/check-headers.sh
           python3 tools/check-text.py
           python3 tools/check-colors.py
+          python3 tools/check-lvgl-laas.py
 
       - name: Enhedstest
         run: ./tests/host/run.sh

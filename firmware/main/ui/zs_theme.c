@@ -4,6 +4,7 @@
 
 #include "zs_theme.h"
 #include "zs_config.h"
+#include "lv_port.h"
 
 #include <string.h>
 
@@ -309,16 +310,41 @@ void zs_theme_set_mode(zs_theme_mode_t m)
     }
     s_mode = m;
     if (!s_inited) {
-        /* Temaet blev valgt foer brugerfladen blev bygget. Saa er der
-         * ingen stilarter at rette, og den bygges rigtigt fra start. */
+        /*
+         * Temaet blev valgt foer brugerfladen blev bygget. Saa er der
+         * ingen stilarter at rette, og den bygges rigtigt fra start.
+         *
+         * Det er ogsaa derfor laasen tages NEDENFOR og ikke herover:
+         * zs_app_load_settings() kalder den her funktion i main.c foer
+         * lv_port_init(), og der findes mutexen slet ikke endnu. Kom den
+         * foer, ville vi tage en laas der er NULL ved hver opstart.
+         */
         return;
     }
+
+    /*
+     * LAASEN. Den her funktion staar i zs_theme.h og kan kaldes udefra,
+     * og nedenfor roerer vi LVGL tolv steder, blandt andet den aktive
+     * skaerm. Skaermopgaven tegner samtidig.
+     *
+     * Foer laa der ingen laas, og det gik kun godt fordi den ENE kalder
+     * udefra, zs_app_load_settings(), tilfaeldigvis koerer foer
+     * brugerfladen findes. Det er ikke en garanti, det er en sammentraef
+     * man kan oedelaegge ved at flytte en linje i main.c, og fejlen ville
+     * vise sig som en skaerm der fryser en gang om ugen uden moenster.
+     *
+     * Mutexen er rekursiv, og lv_port_sem_take goer desuden ingenting
+     * naar den kaldes fra skaermopgaven selv. Saa det er trygt herfra,
+     * ogsaa naar zs_ui_set_theme() allerede holder den.
+     */
+    lv_port_sem_take();
     fyld_stilarter();
     /* Fortael LVGL at de delte stilarter har aendret sig, saa alt der
      * bruger dem bliver tegnet om. Det daekker kort, knapper og rader.
      * Farver der er sat direkte paa et enkelt objekt sidder fast, og
      * dem tager zs_ui_set_theme() sig af ved at bygge siderne om. */
     lv_obj_report_style_change(NULL);
+    lv_port_sem_give();
 }
 
 lv_obj_t *zs_card_create(lv_obj_t *parent, bool pressable)

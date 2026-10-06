@@ -1,3 +1,73 @@
+## 2026-10-06 19:34
+
+### LVGL blev rørt uden låsen, og det gik kun godt ved et sammentræf
+Den vigtigste i denne runde.
+
+LVGL er ikke bygget til at blive kaldt fra flere opgaver på én gang.
+Skærmopgaven tegner i sit eget tempo, og rører en anden opgave de samme
+objekter imens, kan listerne LVGL går igennem skifte under den. Det viser
+sig som en skærm der fryser eller et billede der går i stykker, en gang om
+ugen uden mønster. Den slags kan ikke fejlsøges bagefter.
+
+Reglen i huset er at alt i `firmware/main/ui` selv tager låsen. Jeg
+efterprøvede den mekanisk i stedet for at stole på den, og **én** faldt
+igennem: `zs_theme_set_mode` rører LVGL tolv steder, blandt andet den
+aktive skærm, og tog ikke låsen. Den kaldes fra `zs_app.c`.
+
+Det har aldrig gået galt, men ikke fordi koden er rigtig. Den eneste
+kalder udefra er `zs_app_load_settings()`, som i `main.c` tilfældigvis
+kører **før** brugerfladen findes, så funktionen når sin tidlige retur og
+rører ingenting. Det er et sammentræf man kan ødelægge ved at flytte en
+linje.
+
+Nu tages låsen om LVGL-delen. Den ligger med vilje **efter** den tidlige
+retur: ved opstart findes mutexen slet ikke endnu, og en lås der er NULL
+ville vælte hver gang. Mutexen er rekursiv, og `lv_port_sem_take` gør
+desuden ingenting når den kaldes fra skærmopgaven selv, så det er trygt
+også når `zs_ui_set_theme` allerede holder den.
+
+### Og en vagt, så reglen ikke kun står som en kommentar
+En kommentar holder ingen i hånden. `tools/check-lvgl-laas.py` tjekker nu
+hver funktion i `ui/`: kaldes den fra app, net eller main, og rører den
+LVGL, skal den tage låsen. Den kører lokalt og i CI.
+
+Jeg prøvede den mod koden **før** rettelsen, og den fangede fejlen med
+exitkode 1. En vagt man ikke har set fejle, ved man ikke virker.
+
+Scriptet skriver selv sine grænser: det læser teksten, ikke programmet, så
+et kald gennem en pegepind ser det ikke. Det er en bund, ikke et bevis.
+
+### To tal i lageret stod skrevet i hånden
+`zs_nvs.c` satte port 502 og unit 1 direkte. Skal en Fronius på 1502
+rettes, skal det kunne gøres ét sted. Standard-unit har fået sin egen knap
+ved siden af porten, hvor Modbus-begreberne hører til.
+
+### Målt, ikke gættet
+Fire ting efterprøvet som faktisk var i orden, så de ikke skal mistænkes
+igen:
+
+- **Filbeskrivelser i søgningen.** `gcc -fanalyzer` melder et læk.
+  Målt over tre søgninger, både hvor intet svarer og hvor simulatoren
+  svarer: samme antal åbne før og efter. Advarslen er falsk.
+- **Delte flag mellem opgaverne.** Alle er `volatile`, og de sættes efter
+  et funktionskald, som oversætteren ikke kan flytte en skrivning hen
+  over. `.bss` ligger i intern SRAM, som er sammenhængende mellem
+  kernerne.
+- **Vagthunden.** Holder kun øje med tomgangsopgaverne, 30 sekunder, og
+  vores opgaver blokerer i `select()` så tomgang kommer til. En søgning på
+  fire minutter kan ikke vælte den.
+- **Listen af invertere.** Kopieres med `memcpy` ind i skærmens egen
+  buffer, og grænsen tjekkes før kopien. Skærmen får ingen pegepind ind i
+  hovedopgavens hukommelse.
+
+Og tre gennemgange uden fund: SunSpec' "ikke understøttet"-værdier er
+dækket for alle de typer vi læser, prisparseren er afgrænset hele vejen og
+har plads til 25 timer så den nat sommertiden slutter holder, og hverken
+signeringsnøgle, logoer eller private nøgler har nogensinde været i git.
+
+629 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.15.2.
+
 ## 2026-10-06 18:52
 
 ### Samme hul som før, men i søgningen fra indstillingerne
