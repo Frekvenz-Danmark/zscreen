@@ -238,7 +238,8 @@ static int do_scan(const char *subnet_base)
  * Exitkoden er udfaldet som tal, saa en test kan laese det uden at skulle
  * lede i teksten.
  */
-static int do_genfind(const char *subnet, const char *serial, const char *sidste)
+static int do_genfind(const char *subnet, const char *serial, const char *sidste,
+                      uint16_t port)
 {
     char ip[16] = {0};
     char sn[33] = {0};
@@ -255,7 +256,7 @@ static int do_genfind(const char *subnet, const char *serial, const char *sidste
     printf("\n");
 
     zs_loc_t r = zs_locate_find(subnet, serial, sidste,
-                                ZS_MB_DEFAULT_PORT, 1,
+                                port, 1,
                                 ip, sizeof(ip), sn, sizeof(sn), NULL, NULL);
     printf("  Resultat: %s\n", zs_locate_text(r));
     if (ip[0] != '\0') {
@@ -288,6 +289,10 @@ int main(int argc, char **argv)
             genfind = argv[++i];
             if (i + 1 < argc && argv[i + 1][0] != '-') { g_serial = argv[++i]; }
             if (i + 1 < argc && argv[i + 1][0] != '-') { g_sidste = argv[++i]; }
+        } else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
+            /* Eksplicit, fordi --genfind tager to frie argumenter og
+             * ellers sluger et portnummer som om det var et serienummer. */
+            port = (uint16_t)atoi(argv[++i]);
         } else if (strcmp(argv[i], "--unit") == 0 && i + 1 < argc) {
             unit = (uint8_t)atoi(argv[++i]);
         } else if (host == NULL) {
@@ -298,7 +303,7 @@ int main(int argc, char **argv)
     }
 
     if (genfind != NULL) {
-        return do_genfind(genfind, g_serial, g_sidste);
+        return do_genfind(genfind, g_serial, g_sidste, port);
     }
     if (scan != NULL) {
         return do_scan(scan);

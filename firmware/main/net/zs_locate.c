@@ -159,7 +159,7 @@ zs_loc_t zs_locate_find(const char *subnet,
      * scanningen, saa den ligger foerst i listen hvis den svarer, og
      * "foerste traeffer vinder" i valget foretraekker den.
      */
-    int n = zs_discovery_scan(subnet, tom(sidste_ip) ? NULL : sidste_ip,
+    int n = zs_discovery_scan(subnet, tom(sidste_ip) ? NULL : sidste_ip, port,
                               s_fundet, ZS_DISCOVERY_MAX, frem, ctx);
     if (zs_discovery_was_aborted()) {
         return ZS_LOC_AFBRUDT;

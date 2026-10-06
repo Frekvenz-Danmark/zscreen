@@ -442,7 +442,9 @@ static void do_inverter_scan(void)
     zs_ui_set_scan_progress(0, 254, 0);
 
     const char *prefer = s_cfg.inverter_ip[0] ? s_cfg.inverter_ip : NULL;
-    int n = zs_discovery_scan(subnet, prefer, s_found, ZS_DISCOVERY_MAX,
+    /* Kundens egen port, hvis der er valgt en. Nul betyder standarden. */
+    int n = zs_discovery_scan(subnet, prefer, s_cfg.inverter_port,
+                              s_found, ZS_DISCOVERY_MAX,
                               scan_progress, NULL);
     if (zs_discovery_was_aborted()) {
         /* Brugeren trykkede tilbage mens vi soegte. Vi viser IKKE

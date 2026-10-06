@@ -490,10 +490,16 @@ def test_naar_det_gaar_galt():
 def test_genfind():
     suite("Inverteren har fået en ny IP-adresse")
 
-    # Scanningen leder paa Modbus' egen port, saa simulatoren skal ligge
-    # der og ikke paa den hoeje testport. 502 er over 1024, saa der skal
-    # ikke sudo til.
-    MODBUS_PORT = 502
+    # Scanningen tager porten som argument, saa simulatoren kan ligge paa
+    # den hoeje testport.
+    #
+    # Foerste forsoeg brugte 502, Modbus' egen port. Det virkede paa Mac
+    # og faldt i CI: 502 er UNDER 1024, altsaa privilegeret, og den kan en
+    # almindelig bruger ikke binde paa Linux. Og det afsloerede et rigtigt
+    # hul: scanningen ledte kun paa 502, selv om kundens indstillinger har
+    # et portfelt. En inverter paa en anden port kunne vaelges i haanden
+    # men aldrig findes.
+    MODBUS_PORT = PORT
     SN = "31234567"          # simulatorens serienummer, se profilen
 
     # Udfaldene som zs_locate.h definerer dem, brugt som exitkode.
@@ -505,6 +511,7 @@ def test_genfind():
             cmd.append(serial)
             if sidste:
                 cmd.append(sidste)
+        cmd += ["--port", str(MODBUS_PORT)]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if VERBOSE:
             print(r.stdout)

@@ -21,11 +21,12 @@
  * ikke med her. zs_locate_find kaldes derfor ikke fra disse tests, og de
  * her to findes kun for at kunne linke.
  */
-int zs_discovery_scan(const char *subnet, const char *prefer,
+int zs_discovery_scan(const char *subnet, const char *prefer, uint16_t port,
                       zs_found_t *out, size_t max,
                       zs_discovery_progress_fn progress, void *ctx)
 {
-    (void)subnet; (void)prefer; (void)out; (void)max; (void)progress; (void)ctx;
+    (void)subnet; (void)prefer; (void)port;
+    (void)out; (void)max; (void)progress; (void)ctx;
     return -1;
 }
 bool zs_discovery_was_aborted(void) { return false; }

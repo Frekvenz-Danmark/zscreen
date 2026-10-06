@@ -56,11 +56,14 @@ typedef void (*zs_discovery_progress_fn)(void *ctx, int done, int total, int fou
  * opgave og ikke fra LVGL's.
  *
  * subnet er fx "192.168.1.0". prefer maa vaere NULL, ellers en adresse
- * der proeves foerst.
+ * der proeves foerst. port er Modbus-porten, og nul betyder standarden
+ * 502. Den SKAL kunne saettes: kundens indstillinger har et portfelt, og
+ * foer det her ledte scanningen alligevel kun paa 502, saa en inverter
+ * paa en anden port kunne vaelges i haanden men aldrig findes.
  *
  * Returnerer antallet der blev fundet, eller -1 ved fejl.
  */
-int zs_discovery_scan(const char *subnet, const char *prefer,
+int zs_discovery_scan(const char *subnet, const char *prefer, uint16_t port,
                       zs_found_t *out, size_t max,
                       zs_discovery_progress_fn progress, void *ctx);
 

@@ -61,6 +61,7 @@ bool zs_discovery_was_aborted(void)
  * inverteren, hvis der er én.
  */
 static int probe_batch(const char base[static 12], int first, int count,
+                       uint16_t port,
                        bool *alive)
 {
     /*
@@ -90,7 +91,7 @@ static int probe_batch(const char base[static 12], int first, int count,
             struct sockaddr_in addr;
             memset(&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
-            addr.sin_port = htons(ZS_MB_DEFAULT_PORT);
+            addr.sin_port = htons(port);
             if (inet_pton(AF_INET, ip, &addr.sin_addr) != 1) {
                 continue;
             }
@@ -211,10 +212,15 @@ static bool already_found(const zs_found_t *out, size_t n, const char *ip)
     return false;
 }
 
-int zs_discovery_scan(const char *subnet, const char *prefer,
+int zs_discovery_scan(const char *subnet, const char *prefer, uint16_t port,
                       zs_found_t *out, size_t max,
                       zs_discovery_progress_fn progress, void *ctx)
 {
+    /* Nul betyder standarden. Saa behoever kalderen ikke kende tallet,
+     * og en gemt indstilling der aldrig blev sat virker alligevel. */
+    if (port == 0) {
+        port = ZS_MB_DEFAULT_PORT;
+    }
     if (out == NULL || max == 0) {
         return -1;
     }
@@ -233,9 +239,9 @@ int zs_discovery_scan(const char *subnet, const char *prefer,
     /* Trin 1: den adresse vi kender i forvejen. */
     if (prefer != NULL && prefer[0] != '\0') {
         ZS_LOGI(TAG, "prøver den kendte adresse %s først", prefer);
-        if (zs_mb_probe_port(prefer, ZS_MB_DEFAULT_PORT, ZS_SCAN_PORT_TIMEOUT_MS)) {
+        if (zs_mb_probe_port(prefer, port, ZS_SCAN_PORT_TIMEOUT_MS)) {
             zs_fr_info_t info;
-            if (zs_fr_probe(prefer, ZS_MB_DEFAULT_PORT,
+            if (zs_fr_probe(prefer, port,
                             ZS_SCAN_SUNSPEC_TIMEOUT_MS, &info)) {
                 snprintf(out[found].ip, sizeof(out[found].ip), "%s", prefer);
                 out[found].info = info;
@@ -259,7 +265,7 @@ int zs_discovery_scan(const char *subnet, const char *prefer,
         }
 
         bool alive[ZS_SCAN_PARALLEL];
-        probe_batch(base, first, count, alive);
+        probe_batch(base, first, count, port, alive);
 
         for (int i = 0; i < count && found < max; i++) {
             if (!alive[i]) {
@@ -273,7 +279,7 @@ int zs_discovery_scan(const char *subnet, const char *prefer,
 
             /* Noget lytter paa Modbus-porten. Er det en inverter? */
             zs_fr_info_t info;
-            if (zs_fr_probe(ip, ZS_MB_DEFAULT_PORT,
+            if (zs_fr_probe(ip, port,
                             ZS_SCAN_SUNSPEC_TIMEOUT_MS, &info)) {
                 snprintf(out[found].ip, sizeof(out[found].ip), "%s", ip);
                 out[found].info = info;

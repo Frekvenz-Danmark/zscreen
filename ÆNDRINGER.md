@@ -42,6 +42,20 @@ forbindelsen, også abonnementet på målversionen, sættes op inde i
 indmeldelsen og ikke én gang ved opstart. Det står nu i zs_fleet.h som
 den sjette fælde.
 
+**Scanningen leder nu på den port kunden har valgt.** Den ledte kun på
+502, selv om indstillingerne altid har haft et portfelt. En inverter på
+en anden port kunne vælges i hånden, men aldrig findes af søgningen. Det
+kom frem fordi CI ikke kunne binde port 502: den er under 1024 og dermed
+privilegeret, og det havde jeg skrevet det modsatte om.
+
+**Tre forsøg på at sove under et sekund.** Scanningen holder en lille
+pause mellem hvert opkald. `usleep` blev fjernet af POSIX i 2008 og er
+skjult på Linux, `nanosleep` findes slet ikke i ESP-IDF, og den første
+rettelse, `_POSIX_C_SOURCE 200809L`, var netop den der tog `usleep` væk.
+Nu bruges `select`, som er der alle tre steder og ikke kræver nogen
+erklæring. Alle tre udfald målt i en gcc-beholder og med en rigtig
+firmware-oversættelse, ikke gættet.
+
 **Oprydning undervejs**
 - De to minutter før en ny firmware meldes i orden stod som et løst tal
   midt i koden. Nu i den centrale konfiguration med begrundelsen
