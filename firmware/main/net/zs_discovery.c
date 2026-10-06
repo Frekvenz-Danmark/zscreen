@@ -1,22 +1,19 @@
 /*
- * nanosleep og ikke usleep.
+ * Pusten mellem to connect-kald laves med select, ikke med usleep.
  *
- * usleep blev FJERNET af POSIX i 2008. Paa glibc er den derfor skjult
- * naar der oversaettes med -std=c11, og filen byggede paa Mac men ikke
- * paa Linux. Det kom foerst frem da scanningen blev lagt ind i zs-probe,
- * som bygges begge steder.
+ * Tre steder skal kunne oversaette den her fil, og de tre er uenige:
  *
- * Og det foerste forsoeg paa en rettelse, _POSIX_C_SOURCE 200809L, gjorde
- * det VAERRE: det er netop den udgave der tog usleep ud. Maalt i en
- * gcc-beholder, ikke gaettet.
+ *   usleep       blev FJERNET af POSIX i 2008 og er skjult paa glibc med
+ *                -std=c11. Byggede paa Mac og paa ESP32, ikke paa Linux
+ *   nanosleep    kraever _POSIX_C_SOURCE for at vaere erklaeret, OG den
+ *                findes slet ikke i ESP-IDF's newlib. Byggede paa Linux,
+ *                ikke paa ESP32
+ *   select       er der alle tre steder, bruges allerede i den her fil,
+ *                og kraever ingen feature-makro overhovedet
  *
- * Svaret er BEGGE dele: makroen giver os POSIX 2008, og nanosleep er den
- * funktion der findes DER. Makroen alene skjuler usleep, og nanosleep
- * alene er ikke erklaeret uden makroen. Linjen skal staa FOER enhver
- * include.
+ * Alle tre udfald er maalt, ikke gaettet: i en gcc-beholder og med en
+ * rigtig firmware-oversaettelse.
  */
-#define _POSIX_C_SOURCE 200809L
-
 #include "zs_discovery.h"
 #include "zs_modbus_tcp.h"
 #include "zs_config.h"
@@ -26,7 +23,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <time.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/select.h>
@@ -122,11 +118,11 @@ static int probe_batch(const char base[static 12], int first, int count,
 
             /* Pust mellem hvert kald, se ZS_SCAN_CONNECT_GAP_MS. */
             if (i + 1 < count) {
-                struct timespec pust = {
+                struct timeval pust = {
                     .tv_sec  = ZS_SCAN_CONNECT_GAP_MS / 1000,
-                    .tv_nsec = (ZS_SCAN_CONNECT_GAP_MS % 1000) * 1000000L,
+                    .tv_usec = (ZS_SCAN_CONNECT_GAP_MS % 1000) * 1000,
                 };
-                nanosleep(&pust, NULL);
+                select(0, NULL, NULL, NULL, &pust);
             }
         }
 
