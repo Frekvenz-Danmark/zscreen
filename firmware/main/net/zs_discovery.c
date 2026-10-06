@@ -1,3 +1,22 @@
+/*
+ * nanosleep og ikke usleep.
+ *
+ * usleep blev FJERNET af POSIX i 2008. Paa glibc er den derfor skjult
+ * naar der oversaettes med -std=c11, og filen byggede paa Mac men ikke
+ * paa Linux. Det kom foerst frem da scanningen blev lagt ind i zs-probe,
+ * som bygges begge steder.
+ *
+ * Og det foerste forsoeg paa en rettelse, _POSIX_C_SOURCE 200809L, gjorde
+ * det VAERRE: det er netop den udgave der tog usleep ud. Maalt i en
+ * gcc-beholder, ikke gaettet.
+ *
+ * Svaret er BEGGE dele: makroen giver os POSIX 2008, og nanosleep er den
+ * funktion der findes DER. Makroen alene skjuler usleep, og nanosleep
+ * alene er ikke erklaeret uden makroen. Linjen skal staa FOER enhver
+ * include.
+ */
+#define _POSIX_C_SOURCE 200809L
+
 #include "zs_discovery.h"
 #include "zs_modbus_tcp.h"
 #include "zs_config.h"
@@ -7,6 +26,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/select.h>
@@ -102,7 +122,11 @@ static int probe_batch(const char base[static 12], int first, int count,
 
             /* Pust mellem hvert kald, se ZS_SCAN_CONNECT_GAP_MS. */
             if (i + 1 < count) {
-                usleep(ZS_SCAN_CONNECT_GAP_MS * 1000);
+                struct timespec pust = {
+                    .tv_sec  = ZS_SCAN_CONNECT_GAP_MS / 1000,
+                    .tv_nsec = (ZS_SCAN_CONNECT_GAP_MS % 1000) * 1000000L,
+                };
+                nanosleep(&pust, NULL);
             }
         }
 
