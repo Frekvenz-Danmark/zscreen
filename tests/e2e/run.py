@@ -518,7 +518,14 @@ def test_genfind():
         return r.returncode, r.stdout
 
     try:
-        with Sim("battery", port=MODBUS_PORT):
+        # Bind til ÉN adresse.
+        #
+        # Simulatoren lytter som standard paa 0.0.0.0, og paa Linux svarer
+        # HELE 127-omraadet paa loopback. Saa fandt scanningen den samme
+        # simulator 254 gange og meldte "flere invertere". Paa Mac er kun
+        # 127.0.0.1 oppe, saa det kunne ikke ses her. En rigtig inverter
+        # har én adresse, og saadan skal proeven ogsaa vaere.
+        with Sim("battery", ["--bind", "127.0.0.1"], port=MODBUS_PORT):
             # 1. En ny skaerm der ikke kender noget serienummer. Er der
             #    praecis én inverter, er det den.
             kode, ud = genfind()
