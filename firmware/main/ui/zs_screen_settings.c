@@ -7,6 +7,9 @@
 #include "zs_format.h"
 #include "../net/zs_fleet.h"
 
+#include "esp_heap_caps.h"
+#include "esp_timer.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -680,6 +683,35 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
     }
     snprintf(buf, sizeof(buf), "%s %s", ZS_PRODUCT_NAME, zs_version());
     detail_line(s_det_col, "Version", buf);
+
+    /*
+     * Ledig hukommelse.
+     *
+     * En langsom laek ville ellers vaere helt usynlig indtil skaermen gik
+     * ned: tallet blev kun skrevet én gang ved opstart, i en log ingen
+     * kan naa paa en vaeg. Her kan en montoer se det, og to besoeg med
+     * maaneder imellem kan sammenlignes.
+     *
+     * Intern hukommelse er den der goer ondt. PSRAM er der rigeligt af.
+     */
+    snprintf(buf, sizeof(buf), "%u KB intern, %u KB PSRAM",
+             (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),
+             (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
+    detail_line(s_det_col, "Ledig hukommelse", buf);
+
+    /* Hvor laenge den har koert. En skaerm der genstarter af sig selv har
+     * et lille tal her, og det er det foerste en montoer skal se. */
+    int64_t oppe_s = esp_timer_get_time() / 1000000;
+    if (oppe_s >= 86400) {
+        snprintf(buf, sizeof(buf), "%u dage %u timer",
+                 (unsigned)(oppe_s / 86400), (unsigned)((oppe_s % 86400) / 3600));
+    } else if (oppe_s >= 3600) {
+        snprintf(buf, sizeof(buf), "%u timer %u min",
+                 (unsigned)(oppe_s / 3600), (unsigned)((oppe_s % 3600) / 60));
+    } else {
+        snprintf(buf, sizeof(buf), "%u min", (unsigned)(oppe_s / 60));
+    }
+    detail_line(s_det_col, "Oppe i", buf);
 
     /*
      * Floedestyringen.

@@ -303,6 +303,19 @@ static void poll_once(void)
  *   s_tving_genfind     der svarede en FREMMED inverter, led straks
  *   s_naeste_genfind_ms tidligst naar vi leder igen
  */
+/*
+ * Indstillinger der venter paa at blive gemt. Se
+ * ZS_SETTINGS_SAVE_DELAY_MS.
+ */
+static bool    s_cfg_beskidt;
+static int64_t s_cfg_gem_ms;
+
+static void gem_snart(void)
+{
+    s_cfg_beskidt = true;
+    s_cfg_gem_ms = now_ms() + ZS_SETTINGS_SAVE_DELAY_MS;
+}
+
 static int     s_fejl_i_traek;
 static bool    s_tving_genfind;
 static int64_t s_naeste_genfind_ms;
@@ -643,13 +656,13 @@ static void handle_cmd(const zs_cmd_t *c)
     case ZS_CMD_SET_BRIGHTNESS:
         s_cfg.brightness = c->u8;
         zs_display_set_brightness(c->u8);
-        zs_nvs_save(&s_cfg);
+        gem_snart();
         break;
 
     case ZS_CMD_SET_NIGHT_DIM:
         s_cfg.night_dimming = c->flag;
         zs_display_set_night_dimming(c->flag);
-        zs_nvs_save(&s_cfg);
+        gem_snart();
         break;
 
     case ZS_CMD_SET_THEME:
@@ -661,9 +674,7 @@ static void handle_cmd(const zs_cmd_t *c)
         }
         s_cfg.theme = c->u8;
         zs_ui_set_theme((zs_theme_mode_t)c->u8);
-        if (!zs_nvs_save(&s_cfg)) {
-            ESP_LOGW(TAG, "temaet kunne ikke gemmes");
-        }
+        gem_snart();
         /* Siderne er nybyggede og tomme. Faa alt ind i dem paa naeste
          * gennemgang, som er hoejst 200 ms vaek. */
         s_ui_genopfrisk = true;
@@ -675,7 +686,7 @@ static void handle_cmd(const zs_cmd_t *c)
         /* Taelleren nulstilles: den gamle vaerdi sagde noget om den
          * gamle indstilling og ville forvirre paa Detaljer-siden. */
         s_fr.negative_house_count = 0;
-        zs_nvs_save(&s_cfg);
+        gem_snart();
         break;
 
 #if ZS_DEMO_ENABLED
@@ -943,6 +954,22 @@ static void app_task(void *arg)
         }
 
         int64_t t = now_ms();
+
+        /*
+         * Gem indstillinger naar der er faldet ro paa.
+         *
+         * Staar FOER alle grene med continue. Laa den laengere nede, blev
+         * den sprunget over i demo-tilstand og under opsaetning, og saa
+         * kunne en aendret lysstyrke eller et nyt tema blive haengende
+         * ugemt indtil noget helt andet skete. Se
+         * ZS_SETTINGS_SAVE_DELAY_MS.
+         */
+        if (s_cfg_beskidt && t >= s_cfg_gem_ms) {
+            s_cfg_beskidt = false;
+            if (!zs_nvs_save(&s_cfg)) {
+                ESP_LOGW(TAG, "indstillingerne kunne ikke gemmes");
+            }
+        }
 
         if (s_ui_genopfrisk) {
             s_ui_genopfrisk = false;

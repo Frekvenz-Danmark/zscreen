@@ -1,3 +1,44 @@
+## 2026-10-06 16:22
+
+### Lysstyrkeskyderen skrev i flashen op mod hundrede gange per træk
+Jeg ledte efter den slags fejl der først viser sig efter måneder, og
+fandt én.
+
+Skyderen lytter på `LV_EVENT_VALUE_CHANGED`, og LVGL sender den **hver
+gang værdien ændrer sig under trækket**. Det er efterprøvet i deres egen
+kilde, `lv_slider.c`: inde i PRESSING sendes hændelsen for hvert skridt.
+Et træk fra 5 til 100 er altså op til 95 hændelser, og hver eneste af dem
+udløste en fuld skrivning af indstillingerne til flash.
+
+To ting var galt. Flash tåler et begrænset antal skrivninger, og en
+skrivning **blokerer** opgaven mens den står på, så aflæsningen fra
+inverteren gik i stå mens nogen trak i en skyder.
+
+**Rettet centralt, ikke kun for skyderen:** ændringer fra brugerfladen
+virker med det samme, og der gemmes én gang når der er faldet ro på, et
+halvt sekund efter sidste ændring. Det vigtige, altså WiFi og valget af
+inverter, gemmes stadig øjeblikkeligt. Der er tab værre end slid.
+
+Undervejs fandt jeg at min første placering af gemningen lå efter
+demo-tilstandens `continue`, så et temaskift i demo aldrig ville blive
+gemt. Flyttet op før alle grene.
+
+### Detaljer viser nu ledig hukommelse og oppetid
+En langsom hukommelseslæk ville have været helt usynlig indtil skærmen
+gik ned: tallet blev kun skrevet én gang ved opstart, i en log ingen kan
+nå på en væg. Nu kan en montør se det, og to besøg med måneder imellem
+kan sammenlignes. Oppetiden står ved siden af, for en skærm der
+genstarter af sig selv har et lille tal der, og det er det første man
+skal se.
+
+**Efterset og i orden, så vi ved det og ikke bare håber:** Detaljer-siden
+rydder med `lv_obj_clean` før den bygger om, og et temaskift river alle
+tre skærme ned før det bygger nye. Ingen af dem lækker objekter. Alle
+andre steder der bygger lister om, rydder også først.
+
+608 enhedstest og 63 ende til ende, alle bestået på Mac og Linux.
+Version 0.13.0.
+
 ## 2026-10-06 16:07
 
 ### MQTT efterset mod den vej der aldrig har kørt

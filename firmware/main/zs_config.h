@@ -292,6 +292,29 @@
 #define ZS_FLEET_TASK_STACK      8192
 
 /*
+ * Hvor laenge vi venter med at gemme en indstilling, regnet fra den
+ * sidste aendring.
+ *
+ * HVORFOR DEN FINDES. Lysstyrken er en skyder, og LVGL sender
+ * LV_EVENT_VALUE_CHANGED hver gang vaerdien aendrer sig under traekket.
+ * Det staar i deres egen kilde, lv_slider.c: inde i PRESSING sendes
+ * haendelsen for hvert skridt. Et traek fra 5 til 100 er altsaa op til 95
+ * haendelser, og foer det her gemte vi i flashen ved hver eneste af dem.
+ *
+ * To ting var galt med det. Flashen tager imod et begraenset antal
+ * skrivninger, og en skrivning BLOKERER opgaven mens den staar paa, saa
+ * aflaesningen fra inverteren gik i staa mens nogen trak i en skyder.
+ *
+ * Nu virker skaermen med det samme, og der gemmes ÉN gang naar der er
+ * faldet ro paa. Et halvt sekund er laenge nok til at daekke et traek og
+ * kort nok til at ingen naar at tage stroemmen imens.
+ *
+ * Det vigtige, altsaa wifi og valget af inverter, gemmes stadig med det
+ * samme. Der er tab vaerre end slid.
+ */
+#define ZS_SETTINGS_SAVE_DELAY_MS  500
+
+/*
  * Feltnavnene paa serveren. ÉT sted, saa en omdoebning ikke skal findes
  * fem steder i koden.
  *
