@@ -9,7 +9,13 @@ on:
 jobs:
   host:
     name: Enhedstest og hele datavejen
-    runs-on: ubuntu-latest
+    # Laast med vilje, ikke ubuntu-latest.
+    #
+    # GitHub flytter "latest" til Ubuntu 26 fra den 19. oktober 2026. Sker
+    # det af sig selv, kan en udgivelse falde paa en maskine ingen har
+    # roert, og firmwaren til skaermene er ikke et sted at blive
+    # overrasket. Vi flytter naar vi selv vil, og proever foerst.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 
@@ -30,7 +36,13 @@ jobs:
 
   firmware:
     name: Byg firmware
-    runs-on: ubuntu-latest
+    # Laast med vilje, ikke ubuntu-latest.
+    #
+    # GitHub flytter "latest" til Ubuntu 26 fra den 19. oktober 2026. Sker
+    # det af sig selv, kan en udgivelse falde paa en maskine ingen har
+    # roert, og firmwaren til skaermene er ikke et sted at blive
+    # overrasket. Vi flytter naar vi selv vil, og proever foerst.
+    runs-on: ubuntu-24.04
     container: espressif/idf:v5.1.7
     steps:
       - uses: actions/checkout@v5

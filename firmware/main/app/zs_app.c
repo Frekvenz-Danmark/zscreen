@@ -537,6 +537,15 @@ static bool genfind_inverteren(void)
 
 static void do_inverter_scan(void)
 {
+    /*
+     * Samme grund som i genfind_inverteren: soegningen blokerer i op til
+     * naesten fire minutter, og koeen af skaermkommandoer laeses FOER
+     * gemmepunktet naas igen. Traekker kunden i lysstyrken og trykker
+     * soeg inden for et halvt sekund, laa aendringen ellers ugemt hele
+     * vejen.
+     */
+    gem_nu_hvis_noget_venter();
+
     char egen[ZS_IP_MAX];
     uint8_t praefiks = 0;
     if (!zs_wifi_get_ip(egen, sizeof(egen))) {

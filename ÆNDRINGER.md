@@ -1,3 +1,35 @@
+## 2026-10-06 18:52
+
+### Samme hul som før, men i søgningen fra indstillingerne
+Da jeg havde lukket hullet hvor en ændret indstilling kunne ligge ugemt
+gennem en søgning, gik jeg efter om der var **flere** steder i samme
+opgave der blokerer længe. Der var ét.
+
+`do_inverter_scan`, altså søgningen kunden selv starter i
+indstillingerne, kører i hovedopgaven og blokerer lige så længe som den
+automatiske. Køen af skærmkommandoer læses i linje 1014, og gemmepunktet
+ligger i linje 1002, altså **før**. Trækker kunden i lysstyrken og
+trykker søg inden for et halvt sekund, lå ændringen ugemt hele søgningen
+igennem.
+
+Begge søgninger gemmer nu først.
+
+Tjekket samtidig, og det var i orden: priser og firmwareopdatering kører
+i deres **egen** opgave, så de blokerer ikke hovedopgaven uanset hvor
+længe de tager.
+
+### CI låst fast, fordi GitHub flytter sig den 19. oktober
+Kørslen gav en advarsel med en dato på: `ubuntu-latest` bliver Ubuntu 26
+fra den 19. oktober 2026. Sker det af sig selv, kan en udgivelse falde på
+en maskine ingen har rørt, og firmwaren til skærmene er ikke et sted at
+blive overrasket.
+
+Alle tre kørsler står nu på `ubuntu-24.04`. Vi flytter når vi selv vil,
+og prøver først.
+
+629 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.15.1.
+
 ## 2026-10-06 18:31
 
 ### Vi gav inverteren mindre tid end Fronius selv beder om
