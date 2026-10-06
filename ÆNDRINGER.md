@@ -1,3 +1,29 @@
+## 2026-10-06 13:25
+
+### Fem tests mere, og en grænse vi skal kende
+**Inverteren lyver om hvor mange DC-kanaler den har.** N-feltet i model
+160 siger otte kanaler, men modellen er kun lang nok til fire. Uden
+vagten i koden ville skærmen læse ud over modellens data og vise gammelt
+indhold fra bufferen som en rigtig solstreng, med et tal der ser helt
+plausibelt ud. Vagten findes og virker: der læses præcis de fire der er
+plads til, og solen er stadig rigtig. Nu har den en test, så den ikke kan
+forsvinde ved et uheld.
+
+**Inverteren sidder ikke på unit 1.** Et anlæg med flere invertere bag én
+Datamanager lægger dem på unit 1, 2, 3. Målt: søgningen finder **kun**
+unit 1. Vælger man unitten i hånden virker alt, inklusive elmåleren på
+sin egen unit ved siden af. Det er en grænse vi skal kende, ikke en fejl:
+at scanne flere units ville gange søgetiden med antallet, og en bedre vej
+er at prøve et par ekstra units på den adresse hvor der ÉR fundet en
+inverter. Det kræver at listen kan rumme en unit per fund, og det er en
+beslutning og ikke en rettelse.
+
+Undervejs rettede jeg to ting i simulatoren: den skrev uden for sin egen
+tabel når N løj, og den lod en nægtet model ramme elmåler-unitten også.
+Begge dele var fejl i testværktøjet, ikke i firmwaren.
+
+546 enhedstest og 55 ende til ende, alle bestået på Mac og Linux.
+
 ## 2026-10-06 12:37
 
 ### Ti nye ende til ende-tests mod ting der sker i virkeligheden

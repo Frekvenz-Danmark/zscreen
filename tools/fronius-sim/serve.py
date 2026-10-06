@@ -225,7 +225,10 @@ def update_registers(inv_dev, meter_dev, p: Plant, has_meter: bool,
     # --- DC-kanaler ---
     m160 = inv_dev.find(160)
     if m160 is not None:
-        n_ch = m160.data[6]
+        # Hvor mange kanaler der FAKTISK er plads til, ikke hvad N
+        # paastaar. Med --loegn-kanaler lyver N med vilje, og saa maa
+        # simulatoren ikke skrive uden for sin egen tabel.
+        n_ch = min(m160.data[6], (len(m160.data) - 8) // 20)
         ACTIVE, SLEEPING = 4, 2
         for i in range(n_ch):
             base = 8 + i * 20
@@ -312,6 +315,10 @@ def main():
                     help="Modbus-port. 502 kraever sudo, men er den eneste "
                          "port skaermens scanning leder efter")
     ap.add_argument("--bind", default="0.0.0.0")
+    ap.add_argument("--loegn-kanaler", type=int, default=0,
+                    dest="loegn_kanaler",
+                    help="lad model 160 paastaa flere kanaler end den er "
+                         "lang til, fx 8")
     ap.add_argument("--maaler-i-kaeden", action="store_true",
                     dest="maaler_i_kaeden",
                     help="elmaaleren i inverterens egen kaede i stedet for "
@@ -355,7 +362,8 @@ def main():
     inv_dev = sunspec.make_inverter(has_battery=has_battery,
                                     pv_strings=strings,
                                     label_channels=labels,
-                                    float_models=floats)
+                                    float_models=floats,
+                                      loegn_kanaler=args.loegn_kanaler)
     inv_dev.base = args.base
     meter_dev = None
     if has_meter:

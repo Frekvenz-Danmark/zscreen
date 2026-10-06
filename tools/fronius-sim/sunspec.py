@@ -148,7 +148,8 @@ def make_inverter(has_battery: bool = True,
                   label_channels: bool = True,
                   float_models: bool = False,
                   model_name: str = "Symo GEN24 10.0",
-                  serial: str = "31234567") -> Device:
+                  serial: str = "31234567",
+                  loegn_kanaler: int = 0) -> Device:
     """Fronius Gen24 som den ser ud paa unit 1."""
     d = Device()
 
@@ -244,7 +245,13 @@ def make_inverter(has_battery: bool = True,
     m160.sf(2, 0)    # DCW_SF
     m160.sf(3, 0)    # DCWH_SF
     m160.acc32(4, 0)  # Evt, fylder BAADE offset 4 og 5
-    m160.u16(6, n_ch)  # N ligger paa offset 6, IKKE 5
+    # N ligger paa offset 6, IKKE 5.
+    #
+    # loegn_kanaler lader N paastaa FLERE kanaler end modellen er lang
+    # til. Det er den situation vagten i zs_fronius.c er sat til at
+    # standse: uden den ville skaermen laese ud over modellens data og
+    # vise gammelt indhold fra bufferen som en rigtig solstreng.
+    m160.u16(6, loegn_kanaler if loegn_kanaler else n_ch)
     m160.u16(7, 0)     # TmsPer
 
     labels = []

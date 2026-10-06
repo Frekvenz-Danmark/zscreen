@@ -688,6 +688,64 @@ def test_maaler_i_kaeden():
                  f'skaerm {k["net"]}, sim {t}')
 
 
+def test_loegn_om_kanaler():
+    suite("Inverteren lyver om hvor mange DC-kanaler den har")
+
+    # N-feltet i model 160 siger otte kanaler, men modellen er kun lang
+    # nok til fire. Uden vagten i zs_fronius.c ville skaermen laese ud
+    # over modellens data og vise gammelt indhold fra bufferen som en
+    # rigtig solstreng, med et tal der ser helt plausibelt ud.
+    with Sim("battery", ["--speed", "0", "--loegn-kanaler", "8"]):
+        ud, err = probe()
+        if ud is None:
+            fail("der kan læses når N lyver", err)
+            return
+        linjer = [l for l in ud.splitlines()
+                  if re.match(r"^\s+\d+\s+\S", l) and ("streng" in l or "batteri" in l)]
+        if len(linjer) == 4:
+            ok("der læses præcis de fire kanaler der er plads til")
+        else:
+            fail("der læses fire kanaler", f"fandt {len(linjer)}: {linjer}")
+
+        k = parse_kort(ud)
+        if k and k["sol"] is not None and k["sol"] > 1000:
+            ok("og solen er stadig rigtig")
+        else:
+            fail("solen er stadig rigtig", str(k))
+
+
+def test_inverter_paa_anden_unit():
+    suite("Inverteren sidder ikke på unit 1")
+
+    # Et anlaeg med flere invertere bag én Datamanager lægger dem paa
+    # unit 1, 2, 3. Det her viser hvad vi kan og ikke kan: soegningen
+    # finder kun unit 1, men vaelger man unitten i haanden, virker alt.
+    with Sim("battery", ["--speed", "0",
+                         "--inverter-unit", "2", "--meter-unit", "201"]):
+        # Det der betyder noget er at der ikke kommer TAL. Selve
+        # fejlbeskeden gaar til stderr, som probe ikke giver videre naar
+        # man forventer en fejl.
+        ud, err = probe(forvent_fejl=True)
+        if ud is None or parse_kort(ud) is None:
+            ok("med standard unit 1 kommer der ingen tal, og den opfinder ingen")
+        else:
+            fail("med unit 1 kommer der ingen tal", ud[:200])
+
+        ud, err = probe(["--unit", "2"])
+        if ud is None:
+            fail("med unit 2 kan den læses", err)
+            return
+        k = parse_kort(ud)
+        if k and all(v is not None for v in k.values()):
+            ok("med unit 2 læses alle fire tal")
+        else:
+            fail("med unit 2 læses alle fire tal", str(k))
+        if "201" in ud:
+            ok("og elmåleren findes på sin egen unit ved siden af")
+        else:
+            fail("elmåleren findes", ud[:200])
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -706,6 +764,8 @@ def main():
     test_ikke_en_inverter()
     test_model_kan_ikke_laeses()
     test_maaler_i_kaeden()
+    test_loegn_om_kanaler()
+    test_inverter_paa_anden_unit()
 
     print("\n" + "─" * 40)
     if fejl == 0:
