@@ -746,6 +746,39 @@ def test_inverter_paa_anden_unit():
             fail("elmåleren findes", ud[:200])
 
 
+def test_mange_fejl():
+    suite("Inverteren melder flere fejl end der er plads til")
+
+    # Flaget der siger at listen blev klippet, blev sat men ALDRIG laest.
+    # Saa viste vaerktoejet de foerste fjorten og tav om resten. En
+    # montoer kunne rette dem og gaa hjem mens aarsagen stod paa plads
+    # femten. Modulets egen header advarer netop mod at tie om noget.
+    with Sim("battery", ["--speed", "0", "--fejl",
+                         "st=7,evtvnd1=0xFFFFFFFF,evtvnd2=0xFFFFFFFF,evt1=0xFFFF"]):
+        ud, err = probe()
+        if ud is None:
+            fail("der kan læses når inverteren melder alt på én gang", err)
+            return
+        linjer = [l for l in ud.splitlines() if re.search(r"\[(FEJL|advarsel|info|ok)", l)]
+        if len(linjer) > 5:
+            ok(f"der vises en liste med fejl ({len(linjer)} linjer)")
+        else:
+            fail("der vises en liste med fejl", f"{len(linjer)} linjer")
+        if "FLERE end der var plads til" in ud:
+            ok("og der siges til om at listen er klippet")
+        else:
+            fail("der siges til om at listen er klippet", ud[-300:])
+
+    # Og med ÉN fejl maa der ikke staa at listen er klippet.
+    with Sim("battery", ["--speed", "0", "--fejl", "evt1=0x0001"]):
+        ud, err = probe()
+        if ud is not None and "FLERE end der var plads til" not in ud:
+            ok("med én fejl står der ikke at listen er klippet")
+        else:
+            fail("med én fejl står der ikke at den er klippet",
+                 (ud or "")[-200:])
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -766,6 +799,7 @@ def main():
     test_maaler_i_kaeden()
     test_loegn_om_kanaler()
     test_inverter_paa_anden_unit()
+    test_mange_fejl()
 
     print("\n" + "─" * 40)
     if fejl == 0:

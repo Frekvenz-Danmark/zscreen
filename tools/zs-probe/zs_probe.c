@@ -364,6 +364,20 @@ int main(int argc, char **argv)
                            sev[st.poster[i].sev],
                            st.poster[i].tekst, st.poster[i].detalje);
                 }
+                /*
+                 * Der var flere end der er plads til.
+                 *
+                 * Flaget blev sat af zs_status_build men aldrig laest, saa
+                 * en inverter med mange samtidige fejl viste de foerste
+                 * fjorten og tav om resten. Det er praecis den fejl modulets
+                 * egen header advarer imod: at tie om noget fordi der ikke
+                 * var plads. En montoer kunne rette de fjorten og gaa hjem
+                 * mens aarsagen stod paa plads femten.
+                 */
+                if (st.afkortet) {
+                    printf("    ... og FLERE end der var plads til "
+                           "(hoejst %d vises)\n", ZS_STATUS_MAX);
+                }
             }
             printf("\n  Batteriets tilstand: %s\n",
                    zs_fr_charge_status_text(lv.charge_status));

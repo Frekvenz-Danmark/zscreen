@@ -1,3 +1,35 @@
+## 2026-10-06 14:27
+
+### Fejlsøgningsværktøjet tav om fejl der ikke var plads til
+Fundet ved at lede efter samme mønster som de to prisfejl: noget koden
+opdager og så ikke gør noget ved.
+
+Jeg målte alle 149 felter i vores strukturer efter om de bliver skrevet
+uden nogensinde at blive læst. Tre gjorde. Det ene var `afkortet` i
+fejllisten: har inverteren flere samtidige fejl end der er plads til,
+sættes flaget, og **ingen læste det**. Så viste `zs-probe` de første
+fjorten og tav om resten. En montør kunne rette dem og køre hjem mens
+årsagen stod på plads femten.
+
+Det er præcis det modulets egen header advarer imod: "At tie om en fejl
+fordi man ikke kender den, er den dårligste af alle muligheder."
+
+Rettet, og prøvet af med en inverter der melder alt på én gang. Nu står
+der at listen er klippet, og med én enkelt fejl står der det ikke.
+
+**To ting jeg undersøgte og som ikke var fejl.** De to andre ubrugte
+felter betyder intet: opdateringssiden skelner allerede mellem "ikke
+søgt endnu" og "nyeste" via sin tilstand, og `has_mppt` er kun
+oplysning. Og fejlmodulet bygges ind i firmwaren uden at blive brugt,
+siden fejlsiden blev taget ud, men linkeren smider det ud af sig selv.
+Målt i den færdige binær: symbolerne er der ikke. Ingen omkostning.
+
+Fejlkodetabellerne blev samtidig gennemgået for dubletter, altså to
+poster med samme bit hvor den anden aldrig kunne nås. Fem tabeller, 95
+poster, ingen dubletter.
+
+581 enhedstest og 58 ende til ende, alle bestået på Mac og Linux.
+
 ## 2026-10-06 14:00
 
 ### Gårsdagens elpriser kunne blive stående hele dagen
