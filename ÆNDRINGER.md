@@ -1,3 +1,78 @@
+## 2026-10-07 05:12
+
+### Et netværksnavn på præcis 32 tegn kunne skærmen aldrig forbinde til
+Den værste slags fejl: navnet stod rigtigt på skærmen hele vejen, og det
+blev først klippet i det allersidste hop.
+
+`snprintf` skriver højst størrelsen **minus ét**, fordi den altid sætter
+en afslutning. ESP-IDF's felter er anderledes: `wifi_sta_config_t` har
+`ssid[32]` og `password[64]`, og de er præcis så store som værdien må
+være. De skal **ikke** have en afslutning når værdien fylder dem helt.
+
+Så vi skrev højst 31 tegn af navnet og 63 af kodeordet. Begge de klippede
+længder er lovlige: 32 er 802.11's grænse for et netværksnavn, og 64 er et
+råt PSK skrevet som hex.
+
+Resultatet for en kunde med et langt netværksnavn: skærmen viser navnet på
+listen, man taster kodeordet, og den forbinder aldrig. Uden en forklaring
+nogen kunne gennemskue.
+
+Nu kopieres der med `memcpy` og en længde, ind i et felt der er nulstillet
+først, så en kortere værdi afsluttes af sig selv.
+
+**Og knappen er bundet til standarden.** To `_Static_assert` kræver at
+vores egne felter er præcis ét tegn større end ESP-IDF's. Ændrer de deres
+felt, fejler **byggeriet** i stedet for at klippe i stilhed hos en kunde.
+
+Jeg prøvede vagten af ved at sætte `ZS_SSID_MAX` til 32 og se byggeriet
+falde. En vagt man ikke har set fejle, ved man ikke virker. Beskeden er
+ren ASCII, for oversætteren skriver æøå ud som rå bytes og så kan den ikke
+læses.
+
+Hele kæden fra søgning til lager er gennemgået: alle mellemled bruger de
+rigtige størrelser, så fejlen sad kun i det sidste hop. Og der findes
+ingen andre steder i koden hvor vi skriver i et af ESP-IDF's faste felter.
+
+### Lysstyrkeskyderen kunne ende et andet sted end den stod
+En skyder er en **kontinuerlig** kontrol. LVGL sender en hændelse for hvert
+trin under et træk, så et træk fra 5 til 100 giver op mod halvfems værdier
+på under et sekund.
+
+De gik gennem kommandokøen, som holder otte, med `xQueueSend` uden
+ventetid. Er køen fuld, smides resten væk, og svaret blev ignoreret af
+alle tien kaldere. Var den **sidste** værdi blandt dem der blev smidt væk,
+stod skyderen på ét og skærmen lyste som noget andet. Og det gemte også.
+
+Rettet ved roden: skyderen skriver nu **én plads** hvor nyeste værdi
+vinder, uden om køen. Hovedopgaven ser efter den i hver runde og retter
+skærmen hvis den er anderledes end den der står nu.
+
+Pladsen nulstilles med vilje **aldrig** efter læsning. I stedet
+sammenlignes den med den lysstyrke der står nu, så der ikke findes et
+øjeblik mellem læsning og nulstilling hvor en ny værdi kan gå tabt. Og at
+skrive den samme værdi to gange koster ingenting.
+
+Kommandoen `ZS_CMD_SET_BRIGHTNESS` er fjernet, for ingen sender den
+længere, og en død vej er en vej nogen kommer til at bruge.
+
+### En tabt kommando kan nu ses i loggen
+Køen er fuld hvis hovedopgaven er optaget af noget der blokerer, og så er
+brugerens tryk væk uden at nogen ved det. Symptomet er "jeg trykkede og
+der skete ingenting", og det kan ikke fejlsøges uden en linje i loggen.
+Nu står den der.
+
+### Tjekket og i orden
+- Statisk analyse på **hele** firmwaren, også brugerfladen, som ikke var
+  kørt før. Intet nyt i vores kode.
+- Alle atten steder hvor en streng klippes på bytes: ingen af dem kan få
+  æøå, fordi SunSpec-strenge renses til printbar ASCII og resten er
+  maskintekst. Så ingen kan blive klippet midt i et tegn.
+- `on_inv_pick` afgrænser sit indeks mod listens længde, så et tryk på en
+  liste der er blevet kortere imens kan ikke læse ved siden af.
+
+690 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.17.0.
+
 ## 2026-10-07 02:41
 
 ### README's sikkerhedsafsnit var forkert på to punkter

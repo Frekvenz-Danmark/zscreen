@@ -12,6 +12,45 @@
 #include <string.h>
 #include <stdio.h>
 
+/*
+ * Vores egne felter skal vaere praecis ét tegn stoerre end ESP-IDF's, saa
+ * de kan holde den FULDE laengde plus en afslutning. Staar det ikke, er
+ * der et netvaerk vi ikke kan gemme, og saa skal det opdages her og ikke
+ * hos en kunde.
+ */
+_Static_assert(ZS_SSID_MAX == sizeof(((wifi_sta_config_t *)0)->ssid) + 1,
+               "ZS_SSID_MAX skal vaere ESP-IDFs ssid-felt plus en til afslutningen");
+_Static_assert(ZS_PASS_MAX == sizeof(((wifi_sta_config_t *)0)->password) + 1,
+               "ZS_PASS_MAX skal vaere ESP-IDFs password-felt plus en til afslutningen");
+
+/*
+ * Kopierer ind i et af ESP-IDF's faste felter.
+ *
+ * HVORFOR IKKE snprintf. Den skriver hoejst stoerrelsen MINUS ÉN, fordi
+ * den altid saetter en afslutning. ESP-IDF's felter er anderledes: de er
+ * praecis saa store som vaerdien maa vaere, og de skal IKKE have en
+ * afslutning naar vaerdien fylder dem helt.
+ *
+ * Det betoed:
+ *   - et netvaerksnavn paa praecis 32 tegn mistede sit sidste tegn
+ *   - et raat PSK paa 64 tegn mistede sit sidste tegn
+ *
+ * Begge er lovlige laengder, 32 er 802.11's graense for et navn og 64 er
+ * et PSK skrevet som hex. Og fejlen var ond: navnet stod rigtigt paa
+ * skaermen hele vejen, det blev foerst klippet i det sidste hop, saa
+ * kunden saa sit eget netvaerk paa listen og fik aldrig forbindelse.
+ *
+ * Kalderen skal have nulstillet feltet foerst. Saa er en kortere vaerdi
+ * afsluttet af sig selv.
+ */
+static void kopier_fast(uint8_t *ud, size_t ud_len, const char *ind)
+{
+    if (ud == NULL || ind == NULL || ud_len == 0) {
+        return;
+    }
+    memcpy(ud, ind, strnlen(ind, ud_len));
+}
+
 static const char *TAG = "wifi";
 
 #define BIT_GOT_IP        BIT0
@@ -259,10 +298,12 @@ bool zs_wifi_connect(const char *ssid, const char *pass, uint32_t timeout_ms)
     s_want_connected = true;
     xEventGroupClearBits(s_events, BIT_GOT_IP | BIT_DISCONNECTED);
 
+    /* Nulstilles helt, saa kopierne nedenfor ikke skal saette en
+     * afslutning. Se kopier_fast. */
     wifi_config_t cfg = { 0 };
-    snprintf((char *)cfg.sta.ssid, sizeof(cfg.sta.ssid), "%s", ssid);
+    kopier_fast(cfg.sta.ssid, sizeof(cfg.sta.ssid), ssid);
     if (pass != NULL && pass[0] != '\0') {
-        snprintf((char *)cfg.sta.password, sizeof(cfg.sta.password), "%s", pass);
+        kopier_fast(cfg.sta.password, sizeof(cfg.sta.password), pass);
         /* WPA2 som mindstekrav. WEP og aabne netvaerk med kodeord er
          * ikke noget vi vil forbinde til: de er brudt, og en skaerm der
          * gaar paa dem giver kunden en falsk tryghed. */

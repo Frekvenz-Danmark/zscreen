@@ -216,11 +216,16 @@ static void on_brightness(lv_event_t *e)
     snprintf(t, sizeof(t), "%d %%", v);
     lv_label_set_text(s_slider_val, t);
 
-    zs_cmd_t c;
-    memset(&c, 0, sizeof(c));
-    c.type = ZS_CMD_SET_BRIGHTNESS;
-    c.u8 = (uint8_t)v;
-    zs_app_send(&c);
+    /*
+     * IKKE gennem koeen.
+     *
+     * LVGL sender en haendelse for hvert trin under et traek, saa et
+     * traek fra 5 til 100 giver op mod halvfems vaerdier paa under et
+     * sekund. Koeen holder otte og smider resten vaek uden at nogen ser
+     * det. Var den sidste vaerdi blandt dem, stod skyderen paa ét og
+     * skaermen lyste som noget andet. Se zs_app_set_brightness.
+     */
+    zs_app_set_brightness((uint8_t)v);
 }
 
 static void on_night(lv_event_t *e)

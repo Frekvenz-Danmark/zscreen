@@ -38,7 +38,6 @@ typedef enum {
     ZS_CMD_INVERTER_SELECT,   /* ip er udfyldt                      */
     ZS_CMD_SETUP_RESTART,     /* gå tilbage til valg af netværk     */
     ZS_CMD_SET_PRICE_ZONE,    /* ssid bruges til "DK1" eller "DK2"   */
-    ZS_CMD_SET_BRIGHTNESS,    /* u8 er 5 til 100                    */
     ZS_CMD_SET_NIGHT_DIM,     /* flag                               */
     ZS_CMD_SET_METER_SIGN,    /* flag: positiv betyder køb          */
     ZS_CMD_SET_THEME,         /* u8 er zs_theme_mode_t              */
@@ -68,6 +67,27 @@ void zs_app_load_settings(void);
 
 /* Den gemte lysstyrke. Kun rigtig efter zs_app_load_settings. */
 uint8_t zs_app_saved_brightness(void);
+
+/*
+ * Lysstyrken fra skyderen. GAAR IKKE GENNEM KOEEN.
+ *
+ * HVORFOR. En skyder er en kontinuerlig kontrol: LVGL sender en
+ * haendelse for hvert trin under et traek, saa et traek fra 5 til 100
+ * giver op mod halvfems vaerdier paa under et sekund. Koeen holder otte,
+ * og xQueueSend uden ventetid smider resten vaek uden at nogen ser det.
+ *
+ * Var den sidste vaerdi blandt dem der blev smidt vaek, stod skyderen paa
+ * ét og skaermen lyste som noget andet. Og det gemte ogsaa.
+ *
+ * Her skrives i stedet ÉN plads, hvor nyeste vaerdi vinder. Hovedopgaven
+ * ser efter den i hver runde og retter skaermen hvis den er anderledes
+ * end den der staar nu. Ingen vaerdi kan gaa tabt, og der er ingen
+ * koetrafik.
+ *
+ * Maa kaldes fra skaermopgaven. En enkelt justeret skrivning er udelelig
+ * paa den her maskine, og der er kun én skriver.
+ */
+void zs_app_set_brightness(uint8_t pct);
 
 /* Starter opgaven. Kaldes fra app_main efter at skaermen er klar. */
 bool zs_app_start(void);

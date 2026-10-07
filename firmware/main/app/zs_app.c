@@ -308,6 +308,16 @@ static void poll_once(void)
  * ZS_SETTINGS_SAVE_DELAY_MS.
  */
 static bool    s_cfg_beskidt;
+/*
+ * Lysstyrken fra skyderen, hvor nyeste vaerdi vinder. Se
+ * zs_app_set_brightness for hvorfor den ikke gaar gennem koeen.
+ *
+ * Minus ét betyder "skyderen har ikke rOErt sig". Vi nulstiller den
+ * ALDRIG efter at have laest den: i stedet sammenligner vi med den
+ * lysstyrke der staar nu. Saa findes der ikke et oejeblik mellem
+ * laesning og nulstilling hvor en ny vaerdi kan gaa tabt.
+ */
+static volatile int16_t s_ui_lys = -1;
 static int64_t s_cfg_gem_ms;
 
 static void gem_snart(void)
@@ -725,12 +735,6 @@ static void handle_cmd(const zs_cmd_t *c)
         }
         break;
 
-    case ZS_CMD_SET_BRIGHTNESS:
-        s_cfg.brightness = c->u8;
-        zs_display_set_brightness(c->u8);
-        gem_snart();
-        break;
-
     case ZS_CMD_SET_NIGHT_DIM:
         s_cfg.night_dimming = c->flag;
         zs_display_set_night_dimming(c->flag);
@@ -902,6 +906,11 @@ uint8_t zs_app_saved_brightness(void)
     return s_cfg_laest ? s_cfg.brightness : ZS_BRIGHTNESS_DEFAULT;
 }
 
+void zs_app_set_brightness(uint8_t pct)
+{
+    s_ui_lys = (int16_t)pct;
+}
+
 static void app_task(void *arg)
 {
     (void)arg;
@@ -1036,6 +1045,22 @@ static void app_task(void *arg)
          * ugemt indtil noget helt andet skete. Se
          * ZS_SETTINGS_SAVE_DELAY_MS.
          */
+        /*
+         * Lysstyrken fra skyderen. Staar FOER alle grene med continue,
+         * af samme grund som gemningen nedenfor: ellers ville skyderen
+         * ikke virke i demo eller under opsaetning.
+         *
+         * Vi sammenligner med den der staar nu i stedet for at nulstille
+         * pladsen. Saa kan en vaerdi der kommer imens ikke gaa tabt, og
+         * at skrive den samme vaerdi to gange koster ingenting.
+         */
+        int16_t lys = s_ui_lys;
+        if (lys >= 0 && (uint8_t)lys != s_cfg.brightness) {
+            s_cfg.brightness = (uint8_t)lys;
+            zs_display_set_brightness((uint8_t)lys);
+            gem_snart();
+        }
+
         if (s_cfg_beskidt && t >= s_cfg_gem_ms) {
             gem_nu_hvis_noget_venter();
         }
@@ -1391,6 +1416,16 @@ bool zs_app_send(const zs_cmd_t *cmd)
     }
     /* Aldrig vente. Kaldes fra LVGL's opgave, og den maa ikke staa
      * stille fordi netvaerksopgaven er optaget. */
-    return xQueueSend(s_queue, cmd, 0) == pdTRUE;
+    if (xQueueSend(s_queue, cmd, 0) != pdTRUE) {
+        /*
+         * Koeen er fuld. Det sker kun hvis hovedopgaven er optaget af
+         * noget der blokerer, og saa er brugerens tryk vaek uden at nogen
+         * ved det. Det skal staa i loggen, for symptomet er "jeg trykkede
+         * og der skete ingenting", og det kan ikke fejlsoeges uden.
+         */
+        ESP_LOGW(TAG, "koeen er fuld, kommando %d blev tabt", (int)cmd->type);
+        return false;
+    }
+    return true;
 }
 
