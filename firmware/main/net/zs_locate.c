@@ -10,6 +10,7 @@
 #include "zs_locate.h"
 #include "zs_fronius.h"
 #include "zs_config.h"
+#include "zs_tekst.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -100,12 +101,11 @@ static void skriv_ud(const zs_found_t *f,
                      char *ip_ud, size_t ip_len,
                      char *serial_ud, size_t serial_len)
 {
-    if (ip_ud != NULL && ip_len > 0) {
-        snprintf(ip_ud, ip_len, "%s", f->ip);
-    }
-    if (serial_ud != NULL && serial_len > 0) {
-        snprintf(serial_ud, serial_len, "%s", f->info.serial);
-    }
+    /* Begge udgange maa vaere NULL, se zs_locate.h. Vagten ligger i
+     * zs_tekst_kopi og staar ikke skrevet forfra her: skrevet forfra
+     * kunne && blive til ||, og saa skrev vi i NULL. */
+    zs_tekst_kopi(ip_ud, ip_len, f->ip);
+    zs_tekst_kopi(serial_ud, serial_len, f->info.serial);
 }
 
 zs_loc_t zs_locate_find(const char *egen_ip, uint8_t praefiks,

@@ -32,7 +32,44 @@ SIM = os.path.join(ROOT, "tools", "fronius-sim", "serve.py")
 # andet sted hen, fx naar man fejlsoeger med den almindelige.
 PROBE = os.environ.get(
     "ZS_PROBE", os.path.join(ROOT, "tools", "zs-probe", "zs-probe-san"))
-PORT = 15020          # hoej port, saa der ikke skal bruges sudo
+def _ledig_port(start=15020, antal=4):
+    """Finder en raekke ledige porte, saa to koersler ikke kan rode i hinanden.
+
+    HVORFOR DEN FINDES.
+
+    Porten stod fast paa 15020. Det gik godt lige indtil en koersel blev
+    afbrudt midtvejs: saa levede dens zs-probe videre som foraeldreloes og
+    blev ved at banke paa 127.0.0.x:15020. Naeste koersel startede sin
+    egen simulator paa samme port, og den gamle scanning aad
+    forbindelserne. Resultatet var en proeve der faldt med en besked der
+    intet havde at goere med sagen, og en halv time brugt paa at lede
+    efter en fejl i koden der ikke var der.
+
+    Nu faar hver koersel sin egen raekke porte, og de bliver proevet af
+    foer de bruges. Testene bruger PORT og PORT + 1, og vi tager fire ad
+    gangen saa der er luft hvis der kommer en mere.
+    """
+    for p in range(start, start + 2000, antal):
+        try:
+            sokler = []
+            for i in range(antal):
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind(("127.0.0.1", p + i))
+                sokler.append(s)
+            for s in sokler:
+                s.close()
+            return p
+        except OSError:
+            for s in sokler:
+                s.close()
+            continue
+    raise RuntimeError("fandt ingen ledige porte mellem 15020 og 17020")
+
+
+# Hoeje porte, saa der ikke skal bruges sudo. ZS_PORT kan laase den fast
+# naar man fejlsoeger og vil kunne se med udefra.
+PORT = int(os.environ["ZS_PORT"]) if os.environ.get("ZS_PORT") else _ledig_port()
 
 VERBOSE = "-v" in sys.argv
 
@@ -62,13 +99,84 @@ def suite(navn):
 
 # ----------------------------------------------------------------------
 
+def _porten_svarer(port, vaert="127.0.0.1", timeout=0.3):
+    """Er der noget der lytter? Bruges baade foer og efter en hjaelpeproces."""
+    try:
+        socket.create_connection((vaert, port), timeout=timeout).close()
+        return True
+    except OSError:
+        return False
+
+
+def luk_ned(p, port, navn):
+    """Lukker en hjaelpeproces HELT ned, og siger fra hvis porten ikke bliver fri.
+
+    HVORFOR DEN FINDES, OG HVORFOR DEN ER SAA GRUNDIG.
+
+    Baade Sim og FalskEnhed havde deres egen nedlukning, og begge
+    lignede hinanden: et SIGTERM, et wait paa tre sekunder, og et
+    "except Exception: pass". Doede processen ikke inden for de tre
+    sekunder, gav oprydningen TAVST op, og processen levede videre paa
+    porten.
+
+    Det er den slags fejl der koster mest, fordi den ikke falder her. Den
+    falder i en senere proeve, som den der tjekker at skaermen siger fra
+    naar inverteren forsvinder: inverteren var ikke forsvundet, den gamle
+    simulator svarede stadig. Saa leder man efter en fejl i firmwaren der
+    ikke findes. Det er praecis sket, og det kostede en halv time.
+
+    Derfor: foerst paent, saa haardt, og til sidst et BEVIS for at porten
+    er fri. Er den ikke det, raaber vi op her, hvor fejlen er opstaaet.
+    """
+    if p is not None:
+        try:
+            gruppe = os.getpgid(p.pid)
+        except OSError:
+            gruppe = None
+
+        for signal_nr in (signal.SIGTERM, signal.SIGKILL):
+            if gruppe is not None:
+                try:
+                    os.killpg(gruppe, signal_nr)
+                except OSError:
+                    pass
+            try:
+                p.wait(timeout=3)
+                break
+            except subprocess.TimeoutExpired:
+                continue
+
+    # Beviset. Et par forsoeg, for kernen er et oejeblik om at lukke en
+    # lyttende socket ned.
+    for _ in range(20):
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.3).close()
+            time.sleep(0.1)
+        except OSError:
+            return
+    raise RuntimeError(
+        f"{navn} svarer stadig paa port {port} efter nedlukning. Der er "
+        f"noget andet der lytter, eller en tidligere koersel blev afbrudt "
+        f"og lever videre. Ryd op med:  pkill -f fronius-sim")
+
+
 class Sim:
     """Starter simulatoren og lukker den igen, ogsaa hvis noget gaar galt."""
 
     def __init__(self, profil, ekstra=None, port=None):
         self.profil = profil
         self.port = port or PORT
-        self.args = ["python3", SIM, "--port", str(self.port), "--profile", profil,
+        # sys.executable og IKKE "python3".
+        #
+        # "python3" er hvad der tilfaeldigvis staar foerst i PATH. Paa
+        # denne maskine er det en anden udgave end den proeverne selv kan
+        # vaere startet med, og saa koerer simulatoren paa én Python og
+        # proeverne paa en anden. Det er to ting at holde styr paa i
+        # stedet for én, og et sted hvor en forskel kan vise sig som en
+        # fejl i firmwaren. Simulatoren skal koere under PRAECIS den samme
+        # udgave som proeverne.
+        self.args = [sys.executable, SIM,
+                     "--port", str(self.port), "--profile", profil,
                      "--start-hour", "13", "--speed", "1", "--print-every", "1"]
         if ekstra:
             self.args += ekstra
@@ -76,29 +184,58 @@ class Sim:
         self.log = []
 
     def __enter__(self):
+        """
+        Starter simulatoren, og er SIKKER paa at det er vores egen der
+        svarer.
+
+        Foer stod der bare "vent til porten svarer". Men svarede porten
+        fordi der laa en simulator tilbage fra en tidligere proeve, saa
+        koerte proeven videre mod DEN, og tallene kom fra et helt andet
+        anlaeg. Det maa ikke kunne ske i tavshed.
+
+        start_new_session og ikke preexec_fn=os.setsid: de to er maalt
+        til at give samme resultat her, men preexec_fn koerer kode i
+        barnet mellem fork og exec, og det er ikke sikkert naar der er
+        traade i spil. Gik det nogensinde fejl, ville barnet havne i
+        VORES egen procesgruppe, og saa sendte nedlukningen SIGTERM til
+        hele testkoerslen i stedet for til simulatoren. start_new_session
+        er den dokumenterede maade at bede om det samme uden den risiko.
+        """
+        if _porten_svarer(self.port):
+            raise RuntimeError(
+                f"port {self.port} var i brug FOER simulatoren "
+                f"({self.profil}) blev startet. Der ligger noget tilbage "
+                f"fra en tidligere koersel. Ryd op med:  pkill -f fronius-sim")
+
         self.p = subprocess.Popen(self.args, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, text=True,
-                                  bufsize=1, preexec_fn=os.setsid)
-        # Vent paa at porten svarer, hoejst fem sekunder.
+                                  bufsize=1, start_new_session=True)
+
+        # Vent paa at porten svarer, hoejst fem sekunder. Og hold oeje med
+        # at vores egen proces stadig lever: doer den med det samme, fordi
+        # den fik et argument den ikke kender, skal der staa DET og ikke
+        # "kom aldrig op".
         for _ in range(50):
-            try:
-                s = socket.create_connection(("127.0.0.1", self.port), timeout=0.3)
-                s.close()
+            if self.p.poll() is not None:
+                ud = ""
+                try:
+                    ud = self.p.stdout.read() or ""
+                except Exception:
+                    pass
+                raise RuntimeError(
+                    f"simulatoren ({self.profil}) stoppede med det samme, "
+                    f"kode {self.p.returncode}:\n{ud.strip()[:600]}")
+            if _porten_svarer(self.port):
                 break
-            except OSError:
-                time.sleep(0.1)
+            time.sleep(0.1)
         else:
             raise RuntimeError(f"simulatoren ({self.profil}) kom aldrig op")
+
         time.sleep(0.8)   # lad den naa at regne en tilstand ud
         return self
 
     def __exit__(self, *a):
-        if self.p is not None:
-            try:
-                os.killpg(os.getpgid(self.p.pid), signal.SIGTERM)
-                self.p.wait(timeout=3)
-            except Exception:
-                pass
+        luk_ned(self.p, self.port, f"simulatoren ({self.profil})")
         return False
 
     def tilstand(self):
@@ -586,31 +723,42 @@ class FalskEnhed:
     """
 
     def __init__(self, svar):
-        self.args = ["python3",
+        # Samme Python som proeverne selv, se Sim.__init__.
+        self.args = [sys.executable,
                      os.path.join(ROOT, "tools", "fronius-sim", "ikke-inverter.py"),
                      "--port", str(PORT), "--bind", "127.0.0.1", "--svar", svar]
         self.p = None
 
     def __enter__(self):
+        """Samme tre regler som Sim.__enter__: fri port foer, egen proces
+        i live undervejs, og haard fejl hvis noget af det ikke holder."""
+        if _porten_svarer(PORT):
+            raise RuntimeError(
+                f"port {PORT} var i brug FOER den falske enhed blev "
+                f"startet. Ryd op med:  pkill -f fronius-sim")
+
         self.p = subprocess.Popen(self.args, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, text=True,
-                                  preexec_fn=os.setsid)
+                                  start_new_session=True)
         for _ in range(50):
-            try:
-                socket.create_connection(("127.0.0.1", PORT), timeout=0.3).close()
+            if self.p.poll() is not None:
+                ud = ""
+                try:
+                    ud = self.p.stdout.read() or ""
+                except Exception:
+                    pass
+                raise RuntimeError(
+                    f"den falske enhed stoppede med det samme, kode "
+                    f"{self.p.returncode}:\n{ud.strip()[:600]}")
+            if _porten_svarer(PORT):
                 break
-            except OSError:
-                time.sleep(0.1)
+            time.sleep(0.1)
         else:
             raise RuntimeError("den falske enhed kom aldrig op")
         return self
 
     def __exit__(self, *a):
-        try:
-            os.killpg(os.getpgid(self.p.pid), signal.SIGTERM)
-            self.p.wait(timeout=3)
-        except Exception:
-            pass
+        luk_ned(self.p, PORT, "den falske enhed")
         return False
 
 
@@ -1030,4 +1178,10 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except RuntimeError as e:
+        # En port der ikke bliver fri poisoner alt bagefter, saa der er
+        # ingen grund til at koere videre og vise falske resultater.
+        print(f"\n\033[1;31mProeverne blev stoppet\033[0m\n  {e}\n")
+        sys.exit(2)

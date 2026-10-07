@@ -1,3 +1,79 @@
+## 2026-10-07 21:00
+
+### Timens energi set hele vejen igennem, og serveren har felterne nu
+De seks felter er oprettet på serveren, og det blev gjort med et skript og
+ikke i hånden. Grunden: skabelonen for en ny skærm findes **to steder**,
+og retter man kun det ene, får halvdelen af skærmene aldrig felterne.
+Skriptet lægger dem på begge og på de enheder der allerede er oprettet,
+68 i alt, og kører man det igen sker der ingenting.
+
+Derefter er hele vejen prøvet af med skærmens **egne formater**: seks
+energital sendt som skærmen sender dem, og læst tilbage på enheden
+bagefter. Alle seks kom igennem.
+
+### Fem fejl fundet ved at ødelægge koden med vilje
+En prøve der ikke kan fejle, er ingen prøve. Derfor blev der sat fejl ind
+i koden med vilje, fem steder hvor **ingen** af de 848 prøver sagde fra.
+Én af dem var en rigtig fejl der bare ikke var sprunget endnu:
+
+**Et mærke med Z i navnet kunne ikke findes.** Søgningen efter fabrikat
+lavede store bogstaver om til små med en grænse der var sat ved siden af,
+så det sidste bogstav i alfabetet gik fri. Det betød ingenting i dag, for
+det eneste mærke i tabellen hedder Fronius. Men **Zeversolar** og **ZCS
+Azzurro** er rigtige fabrikater, og den dag et af dem blev skrevet ind i
+tabellen, ville mærket ikke kunne findes, og vi ville lede efter fejlen i
+afkodningen. Det er præcis den slags fejl tabellen blev lavet for at
+undgå.
+
+De fire andre var ikke fejl endnu, men steder hvor **den samme kode stod
+skrevet forfra** og kun den ene halvdel var prøvet af.
+
+### De små tekstgreb samlet ét sted
+Vagten `hvis ud ikke er NULL og der er plads` stod skrevet forfra **fire
+steder**. Hver gang den skrives forfra, er der en chance for at `og`
+bliver `eller`, og så skriver vi i NULL. Det giver ingen advarsel, det
+giver et nedbrud på en væg hos en kunde. Nu står den ét sted, og det sted
+er prøvet af med NULL, med plads nul og med en tekst der er for lang.
+Samme med ombytningen af store bogstaver: ét sted, og alle 256 byteværdier
+prøvet af.
+
+### To beslutninger trukket ud så de kan prøves
+**Hvad en fejl fra netværket betyder** stod midt i to løkker og kunne
+derfor ikke prøves. Vendte man den om, blev **hver** fejl meldt som
+"svarede ikke i tide", også en forbindelse der var lukket. Så leder kunden
+efter et langsomt netværk i stedet for efter en inverter der har lukket, og
+den slags har kostet en halv dag før. Nu er det en funktion for sig, og
+hele talområdet er prøvet af.
+
+**Om vært og port overhovedet kan forsøges** stod to steder, og de to var
+**ikke ens**: den ene afviste en tom tekst, den anden gjorde ikke. En tom
+tekst er ikke en vært, for nogle maskiners navneopslag svarer "det er dig
+selv", og så kunne vi melde inverteren fundet fordi der stod noget på
+**vores egen** port. Nu er der én vagt.
+
+### Prøverne kunne forurene hinanden
+Her blev en halv time brugt på at lede efter en fejl der ikke fandtes.
+Oprydningen efter en simulator sendte et stopsignal, ventede tre sekunder,
+og **gav så tavst op**. Døde simulatoren ikke i tide, levede den videre på
+porten. Fejlen faldt så i en senere prøve, nemlig den der tjekker at
+skærmen siger fra når inverteren forsvinder: inverteren var ikke
+forsvundet, den gamle simulator svarede stadig.
+
+To ting er rettet. Oprydningen stopper nu hårdt hvis det pæne ikke virker,
+og den **beviser** bagefter at porten er fri, ellers råber den op med det
+samme. Og hver kørsel finder sin egen ledige port, så to kørsler ikke kan
+rode i hinanden.
+
+### Mutationstesten er nu et værktøj
+Den blev lavet i hånden hver gang. Nu ligger den i
+`tools/mutationstest.py`, med de mutanter der ikke betyder noget skrevet
+på en liste med begrundelse, så de ikke skal vurderes forfra. Den arbejder
+på en **kopi** af koden: et værktøj der skriver fejl ind i rigtige
+kildefiler kan efterlade én, og så bygger man en mutant uden at vide det.
+
+**Status:** 941 prøver på maskinen og 70 hele vejen igennem, alle består.
+Firmwaren bygger og signeres.
+
 ## 2026-10-07 17:05
 
 ### Feltnavnene samlet ét sted

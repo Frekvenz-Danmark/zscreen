@@ -91,5 +91,9 @@ void test_maerker(void);
 void test_locate_null(void);
 void test_energi(void);
 void test_feltnavne(void);
+void test_tekst(void);
+void test_maerke_tabel(void);
+void test_sunspec_kanter(void);
+void test_modbus_sokkel(void);
 
 #endif /* ZS_TEST_H */

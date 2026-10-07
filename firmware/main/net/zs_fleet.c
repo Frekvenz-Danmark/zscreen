@@ -4,6 +4,7 @@
  */
 
 #include "zs_fleet.h"
+#include "zs_tekst.h"
 #include "zs_config.h"
 #include "zs_fleet_msg.h"
 #include "zs_ota.h"
@@ -974,7 +975,7 @@ void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
 zs_fleet_state_t zs_fleet_state(void) { return ZS_FLEET_OFF; }
 const char *zs_fleet_state_text(void) { return "Slået fra"; }
 void zs_fleet_asset_id(char *ud, size_t ud_len)
-{ if (ud != NULL && ud_len > 0) { ud[0] = '\0'; } }
+{ zs_tekst_kopi(ud, ud_len, ""); }
 const char *zs_fleet_unique_id(void) { return ""; }
 
 #endif /* ZS_FLEET_ENABLED */

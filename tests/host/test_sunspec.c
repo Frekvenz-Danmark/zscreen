@@ -11,6 +11,7 @@
 #include "zs_test.h"
 #include "../../firmware/main/net/zs_sunspec.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 /* ------------------------------------------------------------------ */
@@ -521,4 +522,93 @@ void test_sunspec_energi(void)
     CHECK("og de nye laengder er stoerre end de gamle",
           ZS_M203_WH_MIN_LEN > ZS_M203_MIN_LEN &&
           ZS_M213_WH_MIN_LEN > ZS_M213_MIN_LEN);
+}
+
+/*
+ * Kanterne paa afkodningen, maalt paa en buffer der er praecis stor nok.
+ *
+ * HVORFOR DET SKAL VAERE EN HEAP-BUFFER.
+ *
+ * En mutationstest aendrede "off >= n" til "off > n" i zs_ss_dec_i16_sf,
+ * og ikke én af de mange proever sagde fra. Med den aendring laeser
+ * afkodningen ét register FOR LANGT naar off er praecis n. Laa bufferen
+ * paa stakken, ligger der tilfaeldigvis noget bagved, og saa kommer der
+ * bare et forkert tal ud. Ligger den paa heapen og er praecis stor nok,
+ * siger ASAN fra med det samme.
+ *
+ * Derfor: ingen faste arrays herinde. Og hver afkoder proeves med off ==
+ * n OG med sf_off == n, for de to vagter er to forskellige steder man kan
+ * tage fejl.
+ */
+void test_sunspec_kanter(void)
+{
+    ZS_SUITE("SunSpec: én for langt ude skal afvises, ikke læses");
+
+    const size_t n = 4;
+    uint16_t *r = malloc(n * sizeof(uint16_t));
+    CHECK("heap-buffer på præcis fire registre", r != NULL);
+    if (r == NULL) { return; }
+    /* r[2] og r[3] er 1.0f som float32, saa en laesning der lykkes kan
+     * holdes op mod et kendt tal og ikke bare mod "den sagde ja". */
+    r[0] = 1234; r[1] = 0; r[2] = 0x3F80; r[3] = 0x0000;
+
+    /* Først: det lovlige. Sidste register skal kunne læses. */
+    CHECK("sidste register er lovligt",
+          zs_ss_dec_i16_sf(r, n, n - 1, 1).ok);
+
+    /* Og så præcis ét for langt ude, på hver vagt for sig. */
+    CHECK("i16: off == n afvises", !zs_ss_dec_i16_sf(r, n, n, 1).ok);
+    CHECK("i16: sf_off == n afvises", !zs_ss_dec_i16_sf(r, n, 0, n).ok);
+    CHECK("u16: off == n afvises", !zs_ss_dec_u16_sf(r, n, n, 1).ok);
+    CHECK("u16: sf_off == n afvises", !zs_ss_dec_u16_sf(r, n, 0, n).ok);
+
+    /* f32 og acc32 læser TO registre, så de skal afvises allerede når der
+     * kun er ét tilbage. Det er en anden kant end de to ovenfor. */
+    CHECK("f32: off == n afvises", !zs_ss_dec_f32(r, n, n).ok);
+    CHECK("f32: ét register tilbage er ikke nok",
+          !zs_ss_dec_f32(r, n, n - 1).ok);
+    zs_val_t to = zs_ss_dec_f32(r, n, n - 2);
+    CHECK("f32: to tilbage er nok", to.ok);
+    CHECK_F("og tallet er det rigtige", to.v, 1.0f, 0.0001);
+
+    uint32_t u = 0;
+    CHECK("acc32: off == n afvises", !zs_ss_dec_acc32(r, n, n, &u));
+    CHECK("acc32: ét register tilbage er ikke nok",
+          !zs_ss_dec_acc32(r, n, n - 1, &u));
+    CHECK("bitfield32: off == n afvises", !zs_ss_dec_bitfield32(r, n, n, &u));
+    CHECK("bitfield32: ét register tilbage er ikke nok",
+          !zs_ss_dec_bitfield32(r, n, n - 1, &u));
+
+    /* Strenge læser et vilkårligt antal registre. En streng der starter
+     * præcis ved n må ikke læse noget som helst. */
+    char tekst[16];
+    CHECK_INT("streng: off == n giver ingenting",
+              (int)zs_ss_dec_string(r, n, n, 2, tekst, sizeof(tekst)), 0);
+    CHECK("og teksten er tom", tekst[0] == '\0');
+    CHECK_INT("streng: længere end der er tilbage giver ingenting",
+              (int)zs_ss_dec_string(r, n, n - 1, 4, tekst, sizeof(tekst)), 0);
+
+    /* Og en buffer på ét enkelt register, hvor n - 1 == 0. Her falder en
+     * vagt der regner med at der altid er mindst to. */
+    uint16_t *en = malloc(sizeof(uint16_t));
+    CHECK("heap-buffer på ét register", en != NULL);
+    if (en != NULL) {
+        /* Nul som baade tal og skalafaktor: en skalafaktor paa nul er
+         * lovlig og betyder gange med én, saa afkodningen SKAL lykkes. */
+        en[0] = 0;
+        zs_val_t ene = zs_ss_dec_i16_sf(en, 1, 0, 0);
+        CHECK("i16 på det ene register lykkes", ene.ok);
+        CHECK_F("og giver nul", ene.v, 0.0f, 0.0001);
+        CHECK("i16: off == 1 afvises", !zs_ss_dec_i16_sf(en, 1, 1, 0).ok);
+        CHECK("f32 kan ikke være der", !zs_ss_dec_f32(en, 1, 0).ok);
+        CHECK("acc32 kan ikke være der", !zs_ss_dec_acc32(en, 1, 0, &u));
+        free(en);
+    }
+
+    /* Nul registre. Alt skal afvises, og ingenting må læses. */
+    CHECK("n == 0: i16 afvises", !zs_ss_dec_i16_sf(r, 0, 0, 0).ok);
+    CHECK("n == 0: f32 afvises", !zs_ss_dec_f32(r, 0, 0).ok);
+    CHECK("n == 0: acc32 afvises", !zs_ss_dec_acc32(r, 0, 0, &u));
+
+    free(r);
 }

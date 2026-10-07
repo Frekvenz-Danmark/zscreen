@@ -11,6 +11,8 @@ idf_component_register(
 
         # Modbus, SunSpec og udregningen af de fire tal. Samme kode
         # koerer i tests/host paa en Mac, uden ESP-IDF.
+        "util/zs_tekst.c"
+
         "net/zs_modbus_tcp.c"
         "net/zs_sunspec.c"
         "net/zs_fronius.c"
@@ -68,6 +70,7 @@ idf_component_register(
         "net"
         "app"
         "storage"
+        "util"
         "ui"
         "ui/widgets"
 

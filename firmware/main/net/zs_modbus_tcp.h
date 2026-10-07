@@ -187,6 +187,46 @@ bool zs_mb_probe_port(const char *host, uint16_t port, uint32_t timeout_ms);
  * enhedstestene banker direkte paa den med forvanskede pakker.
  * --------------------------------------------------------------------- */
 
+/*
+ * Hvad en fejl fra send() eller recv() betyder.
+ *
+ * Vurderingen stod skrevet forfra to steder, i send_all og i recv_exact,
+ * og den kunne ikke proeves af fordi den sad midt i en socket-loekke. En
+ * mutationstest viste hvad det kostede: "errno == EAGAIN" kunne laves om
+ * til "errno != EAGAIN" uden at en eneste proeve sagde fra. Med den
+ * aendring ville ALLE fejl, ogsaa en afbrudt forbindelse, blive meldt som
+ * "svarede ikke i tide". Vi har én gang foer brugt en halv dag paa en
+ * misvisende fejlbesked, saa det skal der vaere en proeve paa.
+ *
+ * EAGAIN og EWOULDBLOCK er samme tal paa baade macOS og Linux, men det
+ * er ikke givet af standarden, saa begge staar der.
+ */
+typedef enum {
+    ZS_SOK_IGEN = 0,    /* afbrudt af et signal, proev igen med det samme */
+    ZS_SOK_TIMEOUT,     /* der kom ingenting inden tiden loeb ud          */
+    ZS_SOK_DOED         /* forbindelsen duer ikke mere                    */
+} zs_sok_t;
+
+zs_sok_t zs_mb_errno_art(int fejlnr);
+
+/*
+ * Er vaert og port noget vi overhovedet kan forsoege?
+ *
+ * Vagten stod to steder, i zs_mb_connect og i zs_mb_probe_port, og de to
+ * var ikke ens: den ene afviste en tom vaert, den anden gjorde ikke. Nu
+ * er der ét sted.
+ *
+ * Og den ligger i headeren fordi den ellers ikke kan proeves af. Udefra
+ * kan man ikke se forskel: fjerner man vagten, fejler maskinens eget
+ * socket-lag alligevel, saa svaret bliver det samme og en mutationstest
+ * siger god for det. Men det er maskinens tilfaeldighed og ikke vores
+ * beslutning. Et navneopslag paa en TOM tekst svarer paa nogle maskiner
+ * "det er dig selv", og saa ville vi melde at inverteren var fundet,
+ * fordi der stod noget paa VORES egen port. Derfor skal vagten vaere der,
+ * og derfor skal der vaere en proeve paa den.
+ */
+bool zs_mb_maal_ok(const char *host, uint16_t port);
+
 /* Bygger en FC3-forespoergsel i buf. Returnerer antal bytes, eller 0
  * ved ugyldige argumenter. buf skal have plads til 12 bytes. */
 size_t zs_mb_build_read_request(uint8_t *buf, size_t buf_len, uint16_t tid,

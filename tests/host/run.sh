@@ -43,6 +43,7 @@ CFLAGS=(
     -I../../firmware/main/net
     -I../../firmware/main/ui
     -I../../firmware/main/storage
+    -I../../firmware/main/util
     # Hvor proevekludene ligger. Eksplicit, saa en test ikke skal gaette
     # paa hvilken mappe den bliver koert fra.
     -DZS_FIXTURES=\"../fixtures\"
@@ -72,7 +73,9 @@ SRC=(
     test_layout.c
     test_layout_800.c
     test_maerker.c
+    test_tekst.c
     test_energi.c
+    ../../firmware/main/util/zs_tekst.c
     ../../firmware/main/net/zs_modbus_tcp.c
     ../../firmware/main/net/zs_sunspec.c
     ../../firmware/main/net/zs_maerker.c

@@ -101,3 +101,63 @@ void test_maerker(void)
         }
     }
 }
+
+/*
+ * Tabellen holdt op mod sig selv.
+ *
+ * Her staar ingen navne skrevet ind. Proeven gaar igennem HVER raekke i
+ * MAERKER og holder den op mod reglerne, saa den ogsaa daekker det maerke
+ * nummer to vi laegger ind, uden at nogen husker at skrive en proeve.
+ *
+ * Grunden: en mutationstest viste at ombytningen af store bogstaver havde
+ * en graense der aldrig blev ramt, fordi det eneste maerke i tabellen
+ * hedder "Fronius" og ikke har et Z. Et maerke som Zeversolar eller ZCS,
+ * der begge findes, kunne ikke findes af koden. Den slags skal fanges af
+ * tabellen selv, ikke af at nogen gaetter rigtigt.
+ */
+void test_maerke_tabel(void)
+{
+    ZS_SUITE("Mærker: hver række i tabellen holdt op mod reglerne");
+
+    size_t antal = zs_maerke_antal();
+    CHECK("der er mindst ét mærke i tabellen", antal > 0);
+
+    int tom = 0, ikke_sig_selv = 0, ikke_smaat = 0, ikke_stort = 0, ikke_del = 0;
+
+    for (size_t i = 0; i < antal; i++) {
+        const zs_maerke_t *m = zs_maerke_nr(i);
+        if (m == NULL || m->maerke == NULL || m->maerke[0] == '\0') {
+            tom++;
+            continue;
+        }
+
+        /* Teksten i tabellen skal finde raekken selv. */
+        if (zs_maerke_find(m->maerke) != m) { ikke_sig_selv++; }
+
+        /* Og den skal findes uanset hvordan inverteren skriver den. Vi
+         * laver kopier med alt smaat og alt stort og leder efter dem. */
+        char smaat[64], stort[64], laengere[96];
+        size_t n = strlen(m->maerke);
+        if (n >= sizeof(smaat)) { n = sizeof(smaat) - 1; }
+        for (size_t k = 0; k < n; k++) {
+            char c = m->maerke[k];
+            smaat[k] = (c >= 'A' && c <= 'Z') ? (char)(c - 'A' + 'a') : c;
+            stort[k] = (c >= 'a' && c <= 'z') ? (char)(c - 'a' + 'A') : c;
+        }
+        smaat[n] = '\0';
+        stort[n] = '\0';
+
+        if (zs_maerke_find(smaat) != m) { ikke_smaat++; }
+        if (zs_maerke_find(stort) != m) { ikke_stort++; }
+
+        /* Som en del af et laengere felt, for det er saadan de skriver. */
+        snprintf(laengere, sizeof(laengere), "  %s International GmbH", smaat);
+        if (zs_maerke_find(laengere) != m) { ikke_del++; }
+    }
+
+    CHECK_INT("ingen række har tom tekst", tom, 0);
+    CHECK_INT("hver række finder sig selv", ikke_sig_selv, 0);
+    CHECK_INT("og findes skrevet med småt", ikke_smaat, 0);
+    CHECK_INT("og skrevet med STORT", ikke_stort, 0);
+    CHECK_INT("og som en del af et længere felt", ikke_del, 0);
+}

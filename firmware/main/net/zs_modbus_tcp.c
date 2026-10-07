@@ -439,7 +439,7 @@ static int connect_with_timeout(const char *host, uint16_t port, uint32_t timeou
 zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
                           uint32_t connect_timeout_ms)
 {
-    if (mb == NULL || host == NULL || host[0] == '\0' || port == 0) {
+    if (mb == NULL || !zs_mb_maal_ok(host, port)) {
         return ZS_MB_ERR_ARG;
     }
     if (strlen(host) >= sizeof(mb->host)) {
@@ -471,6 +471,24 @@ zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
     return ZS_MB_OK;
 }
 
+/* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
+bool zs_mb_maal_ok(const char *host, uint16_t port)
+{
+    return host != NULL && host[0] != '\0' && port != 0;
+}
+
+/* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
+zs_sok_t zs_mb_errno_art(int fejlnr)
+{
+    if (fejlnr == EINTR) {
+        return ZS_SOK_IGEN;
+    }
+    if (fejlnr == EAGAIN || fejlnr == EWOULDBLOCK) {
+        return ZS_SOK_TIMEOUT;
+    }
+    return ZS_SOK_DOED;
+}
+
 /* Sender hele bufferen. send() maa gerne tage mindre end vi bad om. */
 static zs_mb_err_t send_all(int fd, const uint8_t *buf, size_t len)
 {
@@ -485,11 +503,17 @@ static zs_mb_err_t send_all(int fd, const uint8_t *buf, size_t len)
             sent += (size_t)n;
             continue;
         }
-        if (n < 0 && (errno == EINTR)) {
-            continue;
+        if (n == 0) {
+            /* send() tog ingenting, og vi bad om mere end nul. Saa er
+             * errno ikke sat af DETTE kald, og vi maa ikke se paa det:
+             * stod der tilfaeldigvis EINTR fra noget tidligere, ville
+             * loekken koere for evigt. */
+            return ZS_MB_ERR_SEND;
         }
-        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-            return ZS_MB_ERR_TIMEOUT;
+        switch (zs_mb_errno_art(errno)) {
+        case ZS_SOK_IGEN:    continue;
+        case ZS_SOK_TIMEOUT: return ZS_MB_ERR_TIMEOUT;
+        case ZS_SOK_DOED:    break;
         }
         return ZS_MB_ERR_SEND;
     }
@@ -511,11 +535,10 @@ static zs_mb_err_t recv_exact(int fd, uint8_t *buf, size_t len)
         if (n == 0) {
             return ZS_MB_ERR_CLOSED;
         }
-        if (errno == EINTR) {
-            continue;
-        }
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return ZS_MB_ERR_TIMEOUT;
+        switch (zs_mb_errno_art(errno)) {
+        case ZS_SOK_IGEN:    continue;
+        case ZS_SOK_TIMEOUT: return ZS_MB_ERR_TIMEOUT;
+        case ZS_SOK_DOED:    break;
         }
         return ZS_MB_ERR_CLOSED;
     }
@@ -703,7 +726,7 @@ zs_mb_err_t zs_mb_write_verified(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
 
 bool zs_mb_probe_port(const char *host, uint16_t port, uint32_t timeout_ms)
 {
-    if (host == NULL || port == 0) {
+    if (!zs_mb_maal_ok(host, port)) {
         return false;
     }
     int fd = connect_with_timeout(host, port, timeout_ms ? timeout_ms : 300);

@@ -33,7 +33,9 @@ fi
     -Wall -Wextra -Werror -Wshadow -Wpointer-arith -Wstrict-prototypes \
     -Wno-unused-parameter \
     -I../../firmware/main -I../../firmware/main/net -I../../firmware/main/app \
+    -I../../firmware/main/util \
     zs_probe.c \
+    ../../firmware/main/util/zs_tekst.c \
     ../../firmware/main/net/zs_modbus_tcp.c \
     ../../firmware/main/net/zs_sunspec.c \
     ../../firmware/main/net/zs_fronius.c \

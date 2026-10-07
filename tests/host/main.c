@@ -53,6 +53,10 @@ int main(int argc, char **argv)
     test_locate_null();
     test_energi();
     test_feltnavne();
+    test_tekst();
+    test_maerke_tabel();
+    test_sunspec_kanter();
+    test_modbus_sokkel();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

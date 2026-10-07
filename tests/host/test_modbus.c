@@ -9,6 +9,8 @@
 #include "zs_test.h"
 #include "../../firmware/main/net/zs_modbus_tcp.h"
 
+#include <errno.h>
+
 /* Bygger et gyldigt FC3-svar med de opgivne registre. */
 static size_t make_response(uint8_t *buf, uint16_t tid, uint8_t unit,
                             const uint16_t *regs, uint8_t nregs)
@@ -309,4 +311,95 @@ void test_modbus_skriv(void)
                   ZS_MB_ERR_EXCEPTION);
         CHECK_INT("og koden læses", (int)exc, 2);
     }
+}
+
+/*
+ * De to steder i socket-laget der kan proeves af uden et netvaerk.
+ *
+ * Begge kom frem af en mutationstest, og begge var usynlige:
+ *
+ *   1. "port == 0" i zs_mb_probe_port kunne laves om til "port != 0" uden
+ *      at nogen sagde fra. Port nul findes ikke, og et forsoeg paa at
+ *      forbinde dertil opfoerer sig forskelligt fra maskine til maskine.
+ *      Vagten skal vaere der, og den skal vaere proevet af.
+ *
+ *   2. errno-vurderingen i send og modtag stod skrevet forfra to steder,
+ *      midt i en loekke, og kunne derfor ikke proeves. "errno == EAGAIN"
+ *      kunne laves til "errno != EAGAIN", og saa ville hver eneste fejl,
+ *      ogsaa en forbindelse der blev lukket, blive meldt til kunden som
+ *      "svarede ikke i tide". Vi har én gang foer brugt en halv dag paa
+ *      en misvisende fejlbesked, saa den skal holdes paa plads.
+ */
+void test_modbus_sokkel(void)
+{
+    ZS_SUITE("Modbus: hvad en fejl fra soklen betyder");
+
+    /* Afbrudt af et signal er ikke en fejl. Der skal proeves igen med det
+     * samme, ellers taber vi en aflaesning hver gang systemet bliver
+     * forstyrret. */
+    CHECK("EINTR: prøv igen", zs_mb_errno_art(EINTR) == ZS_SOK_IGEN);
+
+    /* Tiden loeb ud. Det er den ENE ting der maa hedde "svarede ikke i
+     * tide" over for kunden. */
+    CHECK("EAGAIN: tiden løb ud", zs_mb_errno_art(EAGAIN) == ZS_SOK_TIMEOUT);
+    CHECK("EWOULDBLOCK: det samme", zs_mb_errno_art(EWOULDBLOCK) == ZS_SOK_TIMEOUT);
+
+    /* Alt andet er en forbindelse der ikke duer. Den skal IKKE kaldes en
+     * timeout, for saa leder man efter et langsomt netvaerk i stedet for
+     * efter en inverter der har lukket. */
+    CHECK("ECONNRESET: forbindelsen duer ikke",
+          zs_mb_errno_art(ECONNRESET) == ZS_SOK_DOED);
+    CHECK("EPIPE: heller ikke", zs_mb_errno_art(EPIPE) == ZS_SOK_DOED);
+    CHECK("EHOSTUNREACH: heller ikke",
+          zs_mb_errno_art(EHOSTUNREACH) == ZS_SOK_DOED);
+    CHECK("ENOTCONN: heller ikke", zs_mb_errno_art(ENOTCONN) == ZS_SOK_DOED);
+    CHECK("EBADF: heller ikke", zs_mb_errno_art(EBADF) == ZS_SOK_DOED);
+    /* Nul betyder at der ikke er sat noget errno. Det er ikke en timeout. */
+    CHECK("nul er ikke en timeout", zs_mb_errno_art(0) == ZS_SOK_DOED);
+
+    /*
+     * Og hele talomraadet: kun de tre vi kender maa give noget andet end
+     * DOED. Ellers kan en graense der er sat ved siden af lade et
+     * vilkaarligt errno slippe igennem som en timeout.
+     */
+    int forkert = 0;
+    for (int e = 0; e < 256; e++) {
+        zs_sok_t a = zs_mb_errno_art(e);
+        bool vented_andet = (e == EINTR || e == EAGAIN || e == EWOULDBLOCK);
+        if (!vented_andet && a != ZS_SOK_DOED) { forkert++; }
+    }
+    CHECK_INT("kun de tre kendte slipper forbi DØD", forkert, 0);
+
+    ZS_SUITE("Modbus: er værten og porten noget vi kan forsøge");
+
+    /*
+     * Vagten proeves DIREKTE og ikke gennem zs_mb_probe_port.
+     *
+     * Grunden: gennem probe_port kan man ikke se forskel. Fjerner man
+     * vagten, fejler maskinens eget socket-lag alligevel, og svaret
+     * bliver det samme. En mutationstest siger saa god for at vagten
+     * ryger ud, og saa staar vi og stoler paa hvad lwIP paa en ESP32
+     * tilfaeldigvis goer med port nul og en tom vaert. Det er ikke en
+     * beslutning vi har taget, det er noget vi haaber paa.
+     */
+    CHECK("almindelig vært og port er i orden",
+          zs_mb_maal_ok("192.168.1.50", 502));
+    CHECK("port nul er ikke en port", !zs_mb_maal_ok("127.0.0.1", 0));
+    CHECK("NULL er ikke en vært", !zs_mb_maal_ok(NULL, 502));
+    /* En tom tekst er IKKE en vært. Nogle maskiners navneopslag svarer
+     * "det er dig selv", og saa ville vi melde inverteren fundet fordi
+     * der stod noget paa vores egen port. */
+    CHECK("tom tekst er ikke en vært", !zs_mb_maal_ok("", 502));
+    CHECK("og begge dele galt på én gang", !zs_mb_maal_ok(NULL, 0));
+    CHECK("tom tekst og port nul", !zs_mb_maal_ok("", 0));
+    /* Højeste port skal være lovlig: en vagt der er sat ved siden af
+     * ville afvise den, og 65535 er en gyldig port. */
+    CHECK("højeste port er lovlig", zs_mb_maal_ok("127.0.0.1", 65535));
+
+    /* Og vejen igennem skal give det samme, saa vagten faktisk ER koblet
+     * paa. Ingen af dem aabner en socket. */
+    CHECK("probe_port falder på den samme vagt",
+          zs_mb_probe_port("127.0.0.1", 0, 50) == false
+          && zs_mb_probe_port(NULL, 502, 50) == false
+          && zs_mb_probe_port("", 502, 50) == false);
 }
