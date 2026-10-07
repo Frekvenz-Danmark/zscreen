@@ -1,3 +1,24 @@
+## 2026-10-07 22:40
+
+### En advarsel der ville fylde loggen 1800 gange i timen
+Advarslen om at timeenergien ikke kan regnes stod i den gren der bliver
+kaldt **hvert andet sekund**. Det er 1800 linjer i timen, og så fylder den
+loggen og skjuler alt andet. En log man ikke kan læse er lige så slem som
+ingen log. Nu siges det én gang, og igen hvis det sker på ny efter at det
+har virket.
+
+### Prøverne rydder op efter sig selv, også når de bliver afbrudt
+Bliver prøverne stoppet midt i, med Ctrl-C eller fordi en ydre tidsgrænse
+løber ud, levede simulatoren og værktøjet videre som forældreløse
+processer og blev ved at banke på porten. Næste kørsel startede sin egen
+simulator, den gamle scanning åd forbindelserne, og en prøve faldt med en
+besked der intet havde at gøre med sagen. **Det er sket to gange i dag**,
+og begge gange blev der ledt efter en fejl i koden der ikke var der.
+
+Nu lukker prøverne deres hjælpeprocesser ned når de bliver afbrudt.
+Efterprøvet ved at stoppe en kørsel midtvejs: der ligger ingenting
+tilbage.
+
 ## 2026-10-07 22:05
 
 ### Timeenergien kunne sende et vildt tal hvis inverteren blev skiftet

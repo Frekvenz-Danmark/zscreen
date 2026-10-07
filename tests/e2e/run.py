@@ -17,6 +17,7 @@ koden og testen gik ud fra det samme forkerte.
 """
 
 import os
+import atexit
 import re
 import signal
 import socket
@@ -132,6 +133,43 @@ def suite(navn):
 
 # ----------------------------------------------------------------------
 
+# Alle hjaelpeprocesser vi har startet, saa de kan lukkes ned selv om
+# proeverne bliver afbrudt.
+#
+# HVORFOR. Bliver run.py stoppet midt i, fx med Ctrl-C eller fordi en
+# ydre tidsgraense loeb ud, saa lever simulatoren og vaerktoejet videre
+# som foraeldreloese processer og bliver ved at banke paa porten. Naeste
+# koersel starter sin egen simulator, den gamle scanning aeder
+# forbindelserne, og en proeve falder med en besked der intet har at goere
+# med sagen. Det er sket to gange, og begge gange blev der ledt efter en
+# fejl i koden der ikke var der.
+_boern = []
+
+
+def _ryd_op(*a):
+    for p in list(_boern):
+        try:
+            if p.poll() is None:
+                os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except OSError:
+            pass
+    _boern.clear()
+
+
+def _afbrudt(signalnr, ramme):
+    _ryd_op()
+    print(f"\n\033[1;33mAfbrudt\033[0m, hjaelpeprocesserne er lukket ned\n")
+    sys.exit(130)
+
+
+atexit.register(_ryd_op)
+for _s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    try:
+        signal.signal(_s, _afbrudt)
+    except (OSError, ValueError):
+        pass
+
+
 def luk_ned(p, port, navn):
     """Lukker en hjaelpeproces HELT ned, og siger fra hvis porten ikke bliver fri.
 
@@ -153,6 +191,8 @@ def luk_ned(p, port, navn):
     er fri. Er den ikke det, raaber vi op her, hvor fejlen er opstaaet.
     """
     if p is not None:
+        if p in _boern:
+            _boern.remove(p)
         try:
             gruppe = os.getpgid(p.pid)
         except OSError:
@@ -243,6 +283,7 @@ class Sim:
         self.p = subprocess.Popen(self.args, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, text=True,
                                   bufsize=1, start_new_session=True)
+        _boern.append(self.p)
 
         # Vent paa at porten svarer, hoejst fem sekunder. Og hold oeje med
         # at vores egen proces stadig lever: doer den med det samme, fordi
@@ -773,6 +814,7 @@ class FalskEnhed:
         self.p = subprocess.Popen(self.args, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, text=True,
                                   start_new_session=True)
+        _boern.append(self.p)
         for _ in range(50):
             if self.p.poll() is not None:
                 ud = ""

@@ -77,6 +77,9 @@ static bool            s_clock_ok;
 /* Timeenergiens udgangspunkt. Laeses fra flashen ved opstart, se
  * zs_nvs_save_energi for hvorfor den skal overleve en genstart. */
 static zs_energi_basis_t s_energi_basis;
+/* Har vi allerede sagt at timeenergien ikke kan regnes. Se ZS_ENERGI_ARG
+ * i energi_tik: der bliver kaldt hvert andet sekund. */
+static bool s_energi_tav;
 
 /* Hvornaar vi sidst fik et helt sæt tal, i millisekunder siden start. */
 static int64_t s_last_good_ms;
@@ -306,13 +309,25 @@ static void energi_tik(const zs_fr_live_t *live, const zs_fr_info_t *info)
          * sige hvilken inverter taellerne kommer fra. Saa sender vi
          * ingenting, og det skal kunne SES i loggen, ellers staar
          * funktionen bare stille og ingen ved hvorfor.
+         *
+         * MEN KUN ÉN GANG. Her bliver kaldt hvert andet sekund, se
+         * ZS_POLL_INTERVAL_MS, saa en advarsel hver gang ville vaere 1800
+         * linjer i timen. Saa fylder den loggen og skjuler alt andet, og
+         * en log man ikke kan laese er lige saa slem som ingen log.
+         * Flaget nulstilles naar det lykkes, saa den siger til igen hvis
+         * det sker en anden gang.
          */
-        ESP_LOGW(TAG, "timeenergien kan ikke regnes: inverteren har "
-                      "ikke oplyst et serienummer");
+        if (!s_energi_tav) {
+            s_energi_tav = true;
+            ESP_LOGW(TAG, "timeenergien kan ikke regnes: inverteren har "
+                          "ikke oplyst et serienummer");
+        }
         return;
     case ZS_ENERGI_VENTER:
         return;     /* samme time endnu, og saa skal der ikke gemmes */
     }
+    s_energi_tav = false;   /* det lykkes igen, saa der maa gerne siges til naeste gang */
+
     /* Udgangspunktet har flyttet sig. Gem det, saa en genstart ikke
      * koster den time vi staar i nu. */
     if (!zs_nvs_save_energi(&s_energi_basis)) {
