@@ -1,3 +1,67 @@
+## 2026-10-07 22:05
+
+### Timeenergien kunne sende et vildt tal hvis inverteren blev skiftet
+Den alvorligste af dagens fund. Udgangspunktet for timens energi ligger i
+flashen, så en genstart ikke koster en time. Det er meningen. Men det
+overlevede også at **inverteren blev skiftet**, at kunden valgte en anden i
+indstillingerne, eller at skærmen blev flyttet til et andet anlæg.
+
+Timens energi er den nye tællerstand minus den gamle. Efter et skift ville
+den altså blive **den nye inverters livstæller minus den gamles**. Er den
+nye højere, fordi anlægget er ældre eller større, sender skærmen et tal på
+mange tusinde kilowattimer for **én time**. Det bliver gemt på serveren for
+evigt og ødelægger hver graf og hver sum bagefter. Og det ser ikke ud som
+en fejl: det sker én gang, det ser ud som et stort tal, og bagefter kan
+ingen sige hvorfor.
+
+Udgangspunktet er nu **bundet til inverterens serienummer**. Er
+serienummeret ikke det samme, er tællerstanden ikke vores, og der startes
+forfra. Prøvet af både med et skift til en inverter med en meget højere
+tæller, med et skift tilbage igen, og med ét tegn galt helt ude i enden af
+serienummeret.
+
+Og uden et serienummer regnes der **ingenting**. Serienummeret læses ved
+hver forbindelse, så er det tomt, er der noget galt, og så er det bedre at
+springe timen over end at tilskrive den en inverter vi ikke kan navngive.
+Det siges nu i loggen; før stod den gren i `default` og blev tiet ihjel.
+
+### Tællerne var slet ikke prøvet hele vejen igennem
+De fem livstællere blev læst af firmwaren, regnet på, og sendt til
+serveren. Men **ikke én prøve** fulgte dem hele vejen fra inverteren og ud.
+Hullet var reelt: da tællerne blev lagt ind, blev batteriets to kun sat i
+den gren der håndterer kanaler **uden navn**. Simulatoren navngiver sine,
+så de to tællere var tomme hele vejen. Det blev fanget ved et tilfælde, ikke
+af en prøve.
+
+Nu er der syv nye prøver hele vejen igennem: at alle fem læses, at ingen
+står på nul, at produktionen er større end det solgte så to tællere ikke er
+byttet om, at de **vokser** mellem to læsninger, at ingen **falder**, og at
+batteriets to ikke står der på et anlæg uden batteri. Prøven er efterprøvet
+ved at sætte den oprindelige fejl ind igen: den falder.
+
+### Værktøjet viser nu tællerne, så de kan ses på et anlæg
+`zs-probe` viste dem ikke. Timens energi er en forskel mellem to
+tællerstande en time fra hinanden, og går noget galt, kan man ikke se det
+på resultatet. Nu står de rå stande i udskriften, så man kan køre to gange
+med en times mellemrum og regne efter. Og står der **nej** ud for en
+tæller, er det den man skal lede efter, i stedet for at bruge en time på
+anlægget med at lede efter en fejl i udregningen.
+
+### En fejl i mutationsværktøjet selv
+Det byggede kun den almindelige `zs-probe`, men prøverne hele vejen
+igennem kører mod den **sanitiserede**. Så prøvede de en binær som
+mutationen aldrig havde rørt, og de kunne derfor ikke fange noget som
+helst. Værktøjet ville melde huller der ikke var der. Det bygger nu begge
+udgaver.
+
+### Og en prøve der ikke kunne fejle
+I min egen nye prøve bestod tjekket "ingen af dem står på nul" selv om alle
+fem manglede, fordi et manglende tal ikke er nul. Rettet: mangler der en
+tæller, stopper prøven der i stedet for at bestå på ingenting.
+
+**Status:** 959 prøver på maskinen og 77 hele vejen igennem, alle består.
+Firmwaren bygger og signeres, 50 procent af pladsen er fri.
+
 ## 2026-10-07 21:22
 
 ### 25 prøver fejlede, og det var ikke koden
