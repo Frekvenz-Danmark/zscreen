@@ -18,6 +18,11 @@ static const char *NAVNE[ZS_E_ANTAL] = {
     "energyBatteryOut",
 };
 
+bool zs_energi_time_ok(int time)
+{
+    return time >= 0 && time < ZS_ENERGI_TIMER_PR_DOEGN;
+}
+
 const char *zs_energi_felt_navn(zs_energi_felt_t f)
 {
     return (f >= 0 && f < ZS_E_ANTAL) ? NAVNE[f] : "";
@@ -43,7 +48,7 @@ zs_energi_t zs_energi_tik(zs_energi_basis_t *basis,
 {
     if (basis == NULL || taeller == NULL || har == NULL
         || ud == NULL || ud_har == NULL || ud_time == NULL
-        || time < 0 || time > 23) {
+        || !zs_energi_time_ok(time)) {
         return ZS_ENERGI_ARG;
     }
 

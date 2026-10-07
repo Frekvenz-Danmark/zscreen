@@ -1,3 +1,40 @@
+## 2026-10-07 17:05
+
+### Feltnavnene samlet ét sted
+Ni af de navne skærmen skriver til serveren stod som **løse tekster midt
+i afsendelsen**, mens to stod centralt og fem i en tabel. Det er den
+værste slags inkonsekvens, for navnet skal matche serverens felt
+**præcis**.
+
+Rammer det ved siden af, sker der **ikke noget synligt**: serveren tager
+imod beskeden og smider den væk, og på dashboardet står feltet tomt for
+evigt. Der kommer ingen fejl nogen steder.
+
+Nu er alle elleve samlet i `zs_config.h`, og energiens fem bliver i deres
+egen tabel fordi de er nummererede og hører til den regning. Skal man
+svare på "hvad skriver skærmen egentlig", er det nu én liste i stedet for
+en funktion man skal læse igennem.
+
+**Og en prøve der fanger de to fejl man faktisk laver.** En **dublet**,
+altså to felter med samme navn, hvor det ene ville overskrive det andet så
+et tal hoppede mellem to værdier uden grund. Og et **ulovligt tegn**, for
+et mellemrum eller en bindestreg bliver taget imod og tiet ihjel. Begge
+prøvet af ved at indsætte fejlen: pakken falder.
+
+### Og det der IKKE skal centraliseres
+`/ 1000` står stadig flere steder, og det skal det blive ved med. De er
+ikke det samme: watt til kilowatt, wattimer til kilowattimer, og
+millisekunder til sekunder. De deler kun tallet, ikke betydningen, og at
+samle dem under ét navn ville binde moduler sammen der ikke har noget med
+hinanden at gøre.
+
+Det der er samlet, er det der kan **være forkert**: et feltnavn der skal
+matche en server, en grænse der stod to steder med hvert sit tal, og et
+tal der skal ændres ét sted den dag noget skifter.
+
+848 enhedstest og 70 ende til ende, bestået på Mac. Firmwaren bygger rent
+uden advarsler og er uændret i størrelse. Version 0.22.1.
+
 ## 2026-10-07 16:20
 
 ### Fase 1: timens energi i kWh, fra inverterens egne tællere

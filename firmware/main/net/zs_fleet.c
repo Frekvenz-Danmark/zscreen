@@ -848,11 +848,11 @@ void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
             continue;       /* vi opfinder ikke et felt vi ikke har */
         }
         send_tal(zs_energi_felt_navn((zs_energi_felt_t)i), asset,
-                 wh[i] / 1000.0f);
+                 wh[i] / ZS_ENERGI_WH_PR_KWH);
     }
 
-    if (time >= 0 && time <= 23) {
-        send_tal("energyHour", asset, (float)time);
+    if (zs_energi_time_ok(time)) {
+        send_tal(ZS_ENERGI_TIME_FELT, asset, (float)time);
     }
 }
 
@@ -931,11 +931,11 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 
     /* Kun det vi faktisk har maalt. En tom maaling skal ikke blive til
      * et nul paa en graf. */
-    if (live->solar_w.ok)       { send_tal("solarPower", asset,   live->solar_w.v); }
-    if (live->house_w.ok)       { send_tal("housePower", asset,   live->house_w.v); }
-    if (live->battery_w.ok)     { send_tal("batteryPower", asset, live->battery_w.v); }
-    if (live->grid_w.ok)        { send_tal("gridPower", asset,    live->grid_w.v); }
-    if (live->soc_pct.ok)       { send_tal("batteryLevel", asset, live->soc_pct.v); }
+    if (live->solar_w.ok)       { send_tal(ZS_FLEET_SOL_FELT, asset,   live->solar_w.v); }
+    if (live->house_w.ok)       { send_tal(ZS_FLEET_FORBRUG_FELT, asset,   live->house_w.v); }
+    if (live->battery_w.ok)     { send_tal(ZS_FLEET_BATTERI_FELT, asset, live->battery_w.v); }
+    if (live->grid_w.ok)        { send_tal(ZS_FLEET_NET_FELT, asset,    live->grid_w.v); }
+    if (live->soc_pct.ok)       { send_tal(ZS_FLEET_SOC_FELT, asset, live->soc_pct.v); }
 
     /* Anlaeggets oplysninger ÉN gang per indmeldelse. De skifter ikke,
      * og at sende dem hvert andet sekund ville fylde databasen med det
@@ -955,10 +955,10 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
         if (mig != NULL) {
             send_tekst(ZS_FLEET_VERSION_FELT, asset, mig->version);
         }
-        send_tekst("inverterModel", asset,  info->model);
-        send_tekst("inverterSerial", asset, info->serial);
-        send_tal("ratedPower", asset,      info->inverter_rated_kw);
-        send_tal("batteryCapacity", asset, info->battery_capacity_kwh);
+        send_tekst(ZS_FLEET_MODEL_FELT, asset,  info->model);
+        send_tekst(ZS_FLEET_SERIENR_FELT, asset, info->serial);
+        send_tal(ZS_FLEET_EFFEKT_FELT, asset,      info->inverter_rated_kw);
+        send_tal(ZS_FLEET_KAPACITET_FELT, asset, info->battery_capacity_kwh);
         ZS_LOGI(TAG, "sendte anlaeggets oplysninger");
     }
 }

@@ -398,6 +398,33 @@
 #define ZS_FLEET_VERSION_FELT  "firmwareVersion"
 
 /*
+ * ALLE DE ANDRE FELTER skaermen skriver til serveren.
+ *
+ * HVORFOR DE STAAR HER OG IKKE I AFSENDELSEN.
+ *
+ * Navnet skal matche serverens felt PRAECIS. Rammer det ved siden af,
+ * sker der ikke noget synligt: serveren tager imod beskeden og smider
+ * den vaek, og paa dashboardet staar feltet bare tomt for evigt. Der
+ * kommer ingen fejl nogen steder.
+ *
+ * Foer laa de ni som loese tekster midt i afsendelsen, mens to af dem
+ * stod heroppe. Skulle man svare paa "hvad skriver skaermen egentlig",
+ * skulle man laese en funktion igennem. Nu er det én liste.
+ *
+ * Energiens fem felter staar for sig i zs_energi.h, fordi de er
+ * nummererede og hoerer sammen med den regning. Se ZS_ENERGI_TIME_FELT.
+ */
+#define ZS_FLEET_SOL_FELT        "solarPower"
+#define ZS_FLEET_FORBRUG_FELT    "housePower"
+#define ZS_FLEET_BATTERI_FELT    "batteryPower"
+#define ZS_FLEET_NET_FELT        "gridPower"
+#define ZS_FLEET_SOC_FELT        "batteryLevel"
+#define ZS_FLEET_MODEL_FELT      "inverterModel"
+#define ZS_FLEET_SERIENR_FELT    "inverterSerial"
+#define ZS_FLEET_EFFEKT_FELT     "ratedPower"
+#define ZS_FLEET_KAPACITET_FELT  "batteryCapacity"
+
+/*
  * Under den her graense kalder vi det nul.
  *
  * Et anlaeg staar aldrig helt stille. Maaleren svinger nogle faa watt

@@ -90,5 +90,6 @@ void test_layout_800(void);
 void test_maerker(void);
 void test_locate_null(void);
 void test_energi(void);
+void test_feltnavne(void);
 
 #endif /* ZS_TEST_H */

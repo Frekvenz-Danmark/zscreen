@@ -52,6 +52,7 @@ int main(int argc, char **argv)
     test_maerker();
     test_locate_null();
     test_energi();
+    test_feltnavne();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

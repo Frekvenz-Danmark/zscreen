@@ -39,6 +39,34 @@
 extern "C" {
 #endif
 
+/* ------------------------------------------------------------------ */
+/* Tallene og navnene, samlet ét sted                                  */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Feltet der siger hvilken time vaerdierne daekker.
+ *
+ * Staar HER sammen med de fem andre feltnavne og ikke nede i
+ * afsendelsen. De seks hoerer sammen: aendrer man ét navn, skal
+ * serveren rettes samme sted, og saa skal de kunne findes samlet.
+ */
+#define ZS_ENERGI_TIME_FELT     "energyHour"
+
+/*
+ * Wattimer til kilowattimer.
+ *
+ * Vi regner i wattimer hele vejen, fordi det er det inverteren svarer,
+ * og laver foerst om lige foer afsendelsen. kWh er det der staar paa en
+ * elregning, og det kunden kan genkende.
+ */
+#define ZS_ENERGI_WH_PR_KWH     1000.0f
+
+/* Sekunder i et doegn. Bruges til dagnummeret, se zs_energi_tik. */
+#define ZS_ENERGI_SEK_PR_DOEGN  86400
+
+/* Timer i et doegn. Graensen for en lovlig klokke er ANTAL minus én. */
+#define ZS_ENERGI_TIMER_PR_DOEGN 24
+
 /* De fem taellere, i den raekkefoelge de staar i alle tabeller her. */
 typedef enum {
     ZS_E_PRODUCERET = 0,   /* inverterens samlede produktion   */
@@ -97,6 +125,10 @@ zs_energi_t zs_energi_tik(zs_energi_basis_t *basis,
                           const float *taeller, const bool *har,
                           int time, uint16_t dagnr,
                           float *ud, bool *ud_har, int8_t *ud_time);
+
+/* Er det en lovlig klokke? Ét sted, saa graensen ikke staar to steder
+ * med hver sit tal. */
+bool zs_energi_time_ok(int time);
 
 /* Navnet paa feltet, som det hedder paa serveren. Aldrig NULL. */
 const char *zs_energi_felt_navn(zs_energi_felt_t f);

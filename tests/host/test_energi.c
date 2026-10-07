@@ -8,6 +8,7 @@
 
 #include "zs_test.h"
 #include "../../firmware/main/net/zs_energi.h"
+#include "../../firmware/main/zs_config.h"
 
 #include <string.h>
 
@@ -141,4 +142,68 @@ void test_energi(void)
     CHECK("uden for listen giver en tom streng, ikke NULL",
           zs_energi_felt_navn((zs_energi_felt_t)99) != NULL
           && zs_energi_felt_navn((zs_energi_felt_t)99)[0] == '\0');
+}
+
+/*
+ * Feltnavnene skaermen skriver til serveren.
+ *
+ * Rammer et navn ved siden af, sker der ikke noget synligt: serveren
+ * tager imod beskeden og smider den vaek, og feltet staar tomt for
+ * evigt. Der kommer ingen fejl nogen steder, og derfor skal den slags
+ * fanges her.
+ */
+void test_feltnavne(void)
+{
+    ZS_SUITE("Feltnavne: alle er der, og ingen går igen");
+
+    const char *navne[] = {
+        ZS_FLEET_TARGET_FELT,  ZS_FLEET_VERSION_FELT,
+        ZS_FLEET_SOL_FELT,     ZS_FLEET_FORBRUG_FELT,
+        ZS_FLEET_BATTERI_FELT, ZS_FLEET_NET_FELT,
+        ZS_FLEET_SOC_FELT,     ZS_FLEET_MODEL_FELT,
+        ZS_FLEET_SERIENR_FELT, ZS_FLEET_EFFEKT_FELT,
+        ZS_FLEET_KAPACITET_FELT,
+        ZS_ENERGI_TIME_FELT,
+        zs_energi_felt_navn(ZS_E_PRODUCERET),
+        zs_energi_felt_navn(ZS_E_KOEBT),
+        zs_energi_felt_navn(ZS_E_SOLGT),
+        zs_energi_felt_navn(ZS_E_BAT_IND),
+        zs_energi_felt_navn(ZS_E_BAT_UD),
+    };
+    const size_t n = sizeof(navne) / sizeof(navne[0]);
+
+    CHECK("der er sytten felter i alt", n == 17);
+
+    for (size_t i = 0; i < n; i++) {
+        CHECK("hvert navn er udfyldt", navne[i] != NULL && navne[i][0] != '\0');
+        /*
+         * OpenRemotes attributnavne skal begynde med et lille bogstav og
+         * kun bestaa af bogstaver og tal. Et mellemrum eller en
+         * bindestreg ville blive taget imod og tiet ihjel.
+         */
+        bool rent = (navne[i][0] >= 'a' && navne[i][0] <= 'z');
+        for (const char *c = navne[i]; *c != '\0' && rent; c++) {
+            if (!((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z')
+                  || (*c >= '0' && *c <= '9'))) {
+                rent = false;
+            }
+        }
+        CHECK("og indeholder kun bogstaver og tal, med lille forbogstav", rent);
+    }
+
+    /*
+     * DEN VIGTIGSTE. To felter med samme navn ville betyde at det ene
+     * overskriver det andet paa serveren, og paa dashboardet ville et
+     * tal hoppe mellem to vaerdier uden grund. En kopieret linje er nem
+     * at lave og umulig at se.
+     */
+    size_t dubletter = 0;
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = i + 1; j < n; j++) {
+            if (strcmp(navne[i], navne[j]) == 0) {
+                dubletter++;
+            }
+        }
+    }
+    CHECK("ingen af dem gaar igen", dubletter == 0);
 }

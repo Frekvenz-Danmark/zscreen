@@ -259,7 +259,7 @@ static void energi_tik(const zs_fr_live_t *live)
      * saa ville dagnummeret kunne skifte midt i et doegn. Timen i
      * soejlen er stadig den lokale, for det er den kunden kender.
      */
-    uint16_t dagnr = (uint16_t)(nu / 86400);
+    uint16_t dagnr = (uint16_t)(nu / ZS_ENERGI_SEK_PR_DOEGN);
 
     const float taeller[ZS_E_ANTAL] = {
         live->prod_wh.v, live->imp_wh.v, live->exp_wh.v,
@@ -280,7 +280,8 @@ static void energi_tik(const zs_fr_live_t *live)
     case ZS_ENERGI_KLAR:
         zs_fleet_publish_energi(ud, ud_har, ud_time);
         ESP_LOGI(TAG, "time %02d sendt: %.2f kWh produceret",
-                 ud_time, (double)(ud[ZS_E_PRODUCERET] / 1000.0f));
+                 ud_time,
+                 (double)(ud[ZS_E_PRODUCERET] / ZS_ENERGI_WH_PR_KWH));
         break;
     case ZS_ENERGI_HUL:
         ESP_LOGW(TAG, "der er gaaet mere end en time, timen springes over");
