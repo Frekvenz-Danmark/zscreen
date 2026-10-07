@@ -4,9 +4,20 @@
  * HVORFOR DEN FINDES.
  *
  * Skaermen sender live-tal hvert andet sekund, saa dashboardet er
- * levende. Men at GEMME hvert andet sekund er noget helt andet: for
- * tusind skaerme er det maalt til 183 gigabyte paa to uger, mod 142
- * megabyte hvis vi gemmer én vaerdi i timen.
+ * levende. Men at GEMME hvert andet sekund er noget helt andet.
+ *
+ * Serveren rydder selv op efter to uger, saa det der betyder noget er
+ * hvad der ligger i de to uger. Raekkerne er det sikre tal, for de
+ * foelger af takten og af ingenting andet:
+ *
+ *   hvert andet sekund:  5 felter * 43.200 * 14 dage = 3.024.000 raekker
+ *   én gang i timen:     6 felter * 24 * 14 dage     =     2.016 raekker
+ *
+ * Altsaa 1500 gange faerre, pr. skaerm. Med en maalt pris paa 298 bytes
+ * pr. raekke er det omkring 900 gigabyte mod under én, for tusind
+ * skaerme, men den pris er maalt paa en lille tabel og er et overslag
+ * opad. Raekkerne er facit, bytesne er et skoen. Se GEMMES i
+ * zScreen-server/scripts/felter.py for hvordan det er maalt.
  *
  * Og en timevaerdi er ikke bare et gennemsnit. Den regnes som
  * taelleren nu minus taelleren ved timens start, og det giver et

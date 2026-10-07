@@ -1,3 +1,61 @@
+## 2026-10-07 23:30
+
+### Fase 2: live-tallene bliver ikke gemt mere
+Skærmen sender alle fem live-tal ved hver aflæsning, altså hvert andet
+sekund, og serveren skrev en række i databasen for **hver** skrivning. Også
+når værdien var uændret: målt ved at skrive den samme værdi tre gange, og
+der kom tre rækker.
+
+Serveren rydder selv op efter to uger, så det der betyder noget er hvad der
+ligger i de to uger:
+
+- **før:** 5 felter gange 43.200 om dagen gange 14 dage = **3.024.000
+  rækker** pr. skærm
+- **efter:** 6 felter gange 24 om dagen gange 14 dage = **2.016 rækker**
+  pr. skærm
+
+1500 gange færre. Rækkerne er facit, for de følger af takten og af
+ingenting andet.
+
+**Live-tallene forsvinder ikke.** De sendes som før og står på enheden som
+før. Det er kun det at gemme hver ændring der holder op, og historikken er
+nu timens energi i rigtige kilowattimer regnet af inverterens egne
+livstællere.
+
+Fremgangsmåden var at prøve på **én** enhed først. Målt at de fem live-tal
+ikke længere gemmes, at energifelterne stadig gemmes, og at live-tallene
+stadig **står** på enheden med de rigtige værdier. Derefter rullet ud på
+begge opsætninger og alle 66 enheder. Kører man igen sker der ingenting.
+
+Politikken står ét sted på serveren, og skriptet rører kun det ene flag:
+enheder, adgang og skrivebeskyttelse bliver stående. Felter der ikke står i
+tabellen bliver slet ikke rørt.
+
+### Serverens egen gennemgang krævede det modsatte
+Den tjekkede at `solarPower` **blev** gemt, og det var rigtigt før. Efter
+fase 2 var den prøve forkert. Nu prøver den begge veje: at timens energi
+bliver gemt, og at live-tallene ikke bliver.
+
+Begge dele skal med. En prøve der kun siger "live gemmes ikke" ville også
+være grøn hvis **ingenting** blev gemt, og så havde vi tabt historikken
+uden at nogen sagde fra. 13 af 13 består, også på en helt nyindmeldt skærm,
+hvilket samtidig beviser at skabelonen til nye skærme er rettet.
+
+### Ingen dashboards eller regler hang på live-historikken
+Tjekket før udrulningen, ikke antaget: der er nul dashboards og nul regler
+på serveren, så ingenting gik i stykker. Når der laves dashboards, skal de
+tegne energifelterne og ikke live-tallene.
+
+### Og et tal i dokumentationen var forkert
+Der stod at live-tal kostede 183 GB mod 142 MB. To ting var galt: tallet var
+gættet og ikke målt, og det var regnet "om året", hvilket ikke findes når
+serveren rydder op efter to uger. Rækketallene står nu, og de er præcise.
+Størrelsen i bytes står med forbehold, for prisen pr. række er målt på en
+lille tabel og er et overslag opad.
+
+**Status:** 8 vagter, 995 prøver på maskinen, 77 hele vejen igennem på
+firmwaren. 13 af 13 i serverens gennemgang. Alt består.
+
 ## 2026-10-07 22:45
 
 ### Mutationstesten arbejdede, men man kunne ikke se det
