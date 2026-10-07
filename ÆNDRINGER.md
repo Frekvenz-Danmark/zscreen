@@ -1,3 +1,57 @@
+## 2026-10-07 09:40
+
+### Revision af mit eget arbejde: testen beviste ikke det den påstod
+Fase et sagde at layoutet går op på **enhver** skærm. Men testene regnede
+kun efter på 480 × 480, altså netop den ene skærm vi har. De beviste at
+tallene er rigtige der, og det var aldrig påstanden.
+
+**Nu kan skærmens mål sættes udefra**, med `#ifndef`. To ting på én gang:
+et board kan give sine egne mål uden at nogen retter i layoutfilen, og
+testene kan faktisk prøve en anden størrelse.
+
+**Og layoutet er prøvet på 800 × 1280**, altså den rigtige skærm fra
+reTerminal D1001. Seksten nye tjek, og alle reglerne holder: siden går op
+i bredden og højden, teksten fylder kortet præcis, og de fysiske mål som
+trykfeltet er uændrede.
+
+**Men den samme test siger også at designet ikke skalerer**, og det skal
+stå der så ingen tror at grønne tests betyder "klar til den nye skærm".
+Kortet bliver mere end dobbelt så højt mens teksten i det er lige så stor,
+så mellemrummet vokser fra 33 til 233 pixels. Det bliver **større end
+tallet selv**. Et kort ville stå næsten tomt med tre små linjer spredt ud.
+På en høj skærm er det rigtige **flere** kort, ikke større kort.
+
+### Reglerne tjekkes nu når der bygges, ikke kun i to tests
+To størrelser er to størrelser. Kommer der en tredje, for eksempel en
+skærm med en **ulige** bredde, ville heltalsdivisionen tabe en pixel, og
+ingen test ville fejle fordi ingen test kender den størrelse.
+
+Seks `_Static_assert` i `zs_layout.h` tjekker nu reglerne for den størrelse
+der **faktisk** bygges med, hver eneste gang. Prøvet af på seks skærme:
+
+| Skærm | |
+|---|---|
+| 480 × 480, den vi har | bygger |
+| 800 × 1280, reTerminal D1001 | bygger |
+| 1024 × 600, en almindelig 7 tommer | bygger |
+| 481 × 1280, ulige bredde | **stoppet** |
+| 800 × 1281, ulige højde | **stoppet** |
+| 100 × 100, for lille til et trykfelt | **stoppet** |
+
+Beskeden viser både regnestykket med de rigtige tal og forklaringen på
+dansk. Den er skrevet i ren ASCII, for oversætteren skriver æøå ud som rå
+bytes og så kan den ikke læses.
+
+### Efterprøvet: kæden er hel
+Jeg påstod at skærmens mål kun står ét sted. Det er nu efterprøvet ved at
+lede efter hvert eneste afledte tal i brugerfladens kode: 480, 456, 408,
+222, 186, 158, 140, 53, 44 og 28. **Ingen af dem står noget sted.** De 44
+faste pixeltal der er tilbage er små lokale afstande og ikonstørrelser,
+som ikke skal skalere.
+
+750 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent, og binæren er uændret i størrelse. Version 0.18.3.
+
 ## 2026-10-07 08:58
 
 ### Fladen gjort klar til en anden skærm, uden at en pixel flytter sig

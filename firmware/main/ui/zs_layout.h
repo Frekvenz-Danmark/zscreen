@@ -10,8 +10,28 @@
 #ifndef ZS_LAYOUT_H
 #define ZS_LAYOUT_H
 
+/*
+ * SKAERMENS MAAL. Kan saettes udefra.
+ *
+ * HVORFOR #ifndef og ikke bare et tal.
+ *
+ * To grunde, og de er lige vigtige:
+ *
+ * 1. ET BOARD SKAL KUNNE SAETTE DEM. Vi har en 480 x 480 i dag. Kommer
+ *    der en anden, fx reTerminal D1001 paa 800 x 1280, skal den kunne
+ *    give sine egne maal uden at nogen retter i den her fil.
+ *
+ * 2. SAA KAN LAYOUTET PROEVES VED ANDRE STOERRELSER. Uden det her kan en
+ *    test kun regne efter paa 480, og saa beviser den kun at regnestykket
+ *    passer der. Hele paastanden er at layoutet gaar op paa ENHVER
+ *    skaerm, og den paastand kan nu faktisk proeves. Se test_layout_800.c.
+ */
+#ifndef ZS_G_SCR_WIDTH
 #define ZS_G_SCR_WIDTH      480
+#endif
+#ifndef ZS_G_SCR_HEIGHT
 #define ZS_G_SCR_HEIGHT     480
+#endif
 #define ZS_G_BAR_HEIGHT     44
 #define ZS_G_DOTS_HEIGHT    28
 #define ZS_G_PAGE_HEIGHT    (ZS_G_SCR_HEIGHT - ZS_G_BAR_HEIGHT - ZS_G_DOTS_HEIGHT)
@@ -90,5 +110,59 @@
 #define ZS_G_ROW_HEIGHT     56
 #define ZS_G_BTN_HEIGHT     52
 #define ZS_G_CHOICE_HEIGHT  92
+
+/* ------------------------------------------------------------------ */
+/* Reglerne, tjekket naar der BYGGES                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HVORFOR HER OG IKKE KUN I EN TEST.
+ *
+ * Testene regner efter paa 480 x 480 og paa 800 x 1280. Det er to
+ * stoerrelser. Kommer der en tredje, fx en skaerm med en ULIGE bredde,
+ * ville heltalsdivisionen tabe en pixel, og ingen test ville fejle, for
+ * ingen test kender den stoerrelse.
+ *
+ * Her tjekkes det derimod for den stoerrelse der FAKTISK bygges med,
+ * hver eneste gang. Rammer nogen en skaerm hvor layoutet ikke gaar op,
+ * stopper byggeriet med en forklaring i stedet for at give en skaev kant
+ * paa en vaeg hos en kunde.
+ *
+ * Beskederne er ren ASCII med vilje: oversaetteren skriver aeoeaa ud som
+ * raa bytes, og saa kan de ikke laeses.
+ */
+
+/* Et kort kan ikke vaere mindre end et trykfelt. */
+_Static_assert(ZS_G_CARD_WIDTH >= ZS_G_TOUCH_MIN &&
+               ZS_G_CARD_HEIGHT >= ZS_G_TOUCH_MIN,
+               "skaermen er for lille: et kort bliver mindre end et trykfelt");
+
+/* Vandret: kant + kort + mellemrum + kort + kant skal vaere hele bredden. */
+_Static_assert(ZS_G_EDGE + ZS_G_CARD_WIDTH + ZS_G_GRID_GAP
+               + ZS_G_CARD_WIDTH + ZS_G_EDGE == ZS_G_SCR_WIDTH,
+               "layoutet gaar ikke op i bredden: skaermbredden minus kanter "
+               "og mellemrum skal kunne deles i to hele kort");
+
+/* Lodret: luft + kort + luft + kort + luft skal vaere sidens hoejde. */
+_Static_assert(ZS_G_GRID_GAP + ZS_G_CARD_HEIGHT + ZS_G_GRID_GAP
+               + ZS_G_CARD_HEIGHT + ZS_G_GRID_GAP == ZS_G_PAGE_HEIGHT,
+               "layoutet gaar ikke op i hoejden: sidehoejden minus tre "
+               "mellemrum skal kunne deles i to hele kort");
+
+/* Linjen foroven, siden og prikkerne skal dele skaermen uden at overlappe. */
+_Static_assert(ZS_G_BAR_HEIGHT + ZS_G_PAGE_HEIGHT + ZS_G_DOTS_HEIGHT
+               == ZS_G_SCR_HEIGHT,
+               "statuslinjen, siden og prikkerne fylder ikke skaermen");
+
+/* Teksten i kortet skal fylde det helt ud, hverken mere eller mindre. */
+_Static_assert(ZS_G_CARD_HEAD_HEIGHT + ZS_G_CARD_TEXT_GAP
+               + ZS_G_CARD_VALUE_HEIGHT + ZS_G_CARD_TEXT_GAP
+               + ZS_G_CARD_SUB_HEIGHT == ZS_G_CARD_IN_HEIGHT,
+               "teksten i kortet gaar ikke op: de tre linjer og de to "
+               "mellemrum skal fylde kortets indvendige hoejde praecis");
+
+/* Og at der er plads til teksten overhovedet. */
+_Static_assert(ZS_G_CARD_TEXT_GAP >= 0,
+               "kortet er for lavt til de tre tekstlinjer");
 
 #endif /* ZS_LAYOUT_H */
