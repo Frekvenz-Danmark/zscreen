@@ -6,7 +6,8 @@
 # rettelser fra dem med én kommando, og det er tydeligt hvad der er
 # vores kode og hvad der er deres.
 #
-# ESP-IDF skal vaere v5.1.x. Se tools/setup-toolchain.sh for hvorfor.
+# ESP-IDF skal vaere v5.1.x paa main. Den her gren proever v5.3, som er
+# det foerste der understoetter ESP32-P4. Se tools/setup-toolchain.sh.
 
 cmake_minimum_required(VERSION 3.16)
 
@@ -83,6 +84,23 @@ set(ZS_VENDOR_RELAX
     -Wno-error=unused-result        -Wno-error=unused-but-set-variable
     -Wno-error=dangling-pointer     -Wno-error=use-after-free
     -Wno-error=infinite-recursion)
+
+# De advarsler der FOERST findes fra GCC 13, altsaa fra ESP-IDF v5.3.
+#
+# De maa ikke staa i listen ovenfor: et navn compileren ikke kender giver
+# en HARD fejl og ikke en advarsel, saa paa GCC 12 ville byggeriet vaelte
+# med det samme. Derfor spoerger vi om versionen foerst.
+#
+# enum-int-mismatch er den der rammer os: Seeeds es8388.c erklaerer
+# es8388_config_dac_output med en enum i headeren og en int i selve
+# funktionen. GCC 13 har ret i at det er uens. Det er lydkode vi slet
+# ikke bruger paa en energiskaerm, og vi retter ikke i deres kode, for
+# saa faar vi konflikter hver gang vi henter en opdatering fra dem.
+if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 13)
+    list(APPEND ZS_VENDOR_RELAX
+        -Wno-error=enum-int-mismatch
+        -Wno-error=incompatible-pointer-types)
+endif()
 
 file(GLOB ZS_VENDOR_DIRS RELATIVE "${SEEED_SDK}/components" "${SEEED_SDK}/components/*")
 idf_build_get_property(ZS_BUILT_COMPONENTS BUILD_COMPONENTS)
