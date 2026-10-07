@@ -32,6 +32,7 @@ koer "Farver"         python3 tools/check-colors.py
 koer "LVGL-låsen"     python3 tools/check-lvgl-laas.py
 koer "Ingen blindgyde" python3 tools/check-flow.py
 koer "Udgivelsen"     python3 tools/check-udgivelse.py
+koer "Dokumentationen" python3 tools/check-dokumentation.py
 koer "Enhedstest"     ./tests/host/run.sh
 # Bygget gaar gennem koer som alt andet.
 #

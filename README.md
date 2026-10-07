@@ -106,16 +106,28 @@ kanalnavne, med flydende tal og med én solstreng:
 sudo python3 serve.py --profile nobattery
 ```
 
-Port 502 kræver `sudo`. Skal skærmens netværksscanning kunne finde
-simulatoren, skal den ligge på 502.
+Port 502 kræver `sudo`, men det er ikke nødvendigt: både skærmen og
+`zs-probe --scan` kan sættes til en anden port.
+
+```bash
+python3 serve.py --port 5502 --bind 127.0.0.1
+./tools/zs-probe/zs-probe --scan 127.0.0.0 --port 5502
+```
+
+Her stod der før at simulatoren **skal** ligge på 502. Det passede dengang
+søgningen kun kiggede der.
 
 ## Mapper
 
 ```
-brand/          logoer og farver
+brand/          logoer og farver, ikke i git
+secure/         signeringsnøglen, ikke i git. Se afsnittet ovenfor
 docs/           registerkort, designsystem, hardware, testplan
 firmware/       koden der kører på skærmen
-tools/          værktøjskæde, simulator, zs-probe
+tools/          værktøjskæde, simulator, zs-probe, vagtscripts
 tests/host/     enhedstest der kører på en Mac
+tests/e2e/      hele datavejen mod en simuleret Fronius
+tests/fuzz/     ødelagte rammer kastet ind i parserne
+tests/fixtures/ serverens eget svar, gemt som prøveklud
 ÆNDRINGER.md    hvad der er lavet, hvornår, og hvorfor
 ```

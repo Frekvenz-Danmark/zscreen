@@ -96,8 +96,12 @@ halvdel af `Evt`, som næsten altid er nul. Så bliver svaret "nul
 kanaler", og hele genkendelsen af sol- og batterikanaler forsvinder
 lydløst, uden en eneste fejl i loggen.
 
-Zbox Raspberry har denne fejl i dag i `app/modbus_controller.py`
-(`M160_N = 5`). Vi har ikke rørt Zbox, men den bør rettes der.
+Zbox Raspberry havde denne fejl, og den **er rettet**: filen
+`app/modbus_controller.py` har nu `M160_N = 6`. Efterprøvet 7. oktober
+2026 på maskinen her. Vores eget tal står i `ZS_M160_N`, og det er
+kontrolleret mod SunSpecs egen definition af model 160, hvor `N` ligger
+på offset 8 regnet med `ID` og `L`, altså 6 regnet fra datablokkens
+start som vi gør.
 
 ### Elmålerens modeller er ikke "float" fordi tallet er over 111
 

@@ -29,7 +29,7 @@ jobs:
       - name: Byg zs-probe med sanitizer
         run: ZS_SANITIZE=1 ./tools/zs-probe/build.sh
 
-      - name: Headere, tegnsæt, farver, LVGL-låsen, flowet og udgivelsen
+      - name: Headere, tegnsæt, farver, LVGL-låsen, flowet, udgivelsen og docs
         run: |
           ./tools/check-headers.sh
           python3 tools/check-text.py
@@ -37,6 +37,7 @@ jobs:
           python3 tools/check-lvgl-laas.py
           python3 tools/check-flow.py
           python3 tools/check-udgivelse.py
+          python3 tools/check-dokumentation.py
 
       - name: Enhedstest
         run: ./tests/host/run.sh

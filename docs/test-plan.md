@@ -11,8 +11,13 @@ simuleret Fronius, og til sidst på et rigtigt anlæg.
 ./tests/host/run.sh
 ```
 
-218 tjek. Kører med address-sanitizer og undefined-behavior-sanitizer,
-og med alle advarsler som fejl. Tager under ti sekunder.
+Kører med address-sanitizer og undefined-behavior-sanitizer, og med alle
+advarsler som fejl. Tager under ti sekunder.
+
+Her stod der engang et antal tjek. Det tal løb fra virkeligheden med
+flere hundrede, og et forkert tal i en testplan er værre end ingen tal:
+man tror man ved hvor meget der er dækket. Kør den og se, den skriver det
+selv til sidst.
 
 Dækker:
 
@@ -37,8 +42,18 @@ cd tools/fronius-sim
 sudo python3 serve.py                    # port 502
 ```
 
-`sudo` er nødvendigt fordi porte under 1024 er beskyttede. Skal skærmens
-netværksscanning kunne finde simulatoren, **skal** den ligge på 502.
+`sudo` er nødvendigt fordi porte under 1024 er beskyttede. Men det er
+**ikke** nødvendigt: både skærmen og `zs-probe --scan` kan sættes til en
+anden port, så en høj port er nok:
+
+```bash
+python3 serve.py --port 5502 --bind 127.0.0.1
+./tools/zs-probe/zs-probe --scan 127.0.0.0 --port 5502
+```
+
+Her stod der før at simulatoren **skal** ligge på 502. Det passede
+dengang søgningen kun kiggede der, og det blev rettet samtidig med at
+portfeltet kom i indstillingerne.
 
 Uden hardware kan hele datavejen prøves med `zs-probe`, som kører
 firmwarens egen kode:
@@ -78,7 +93,8 @@ Sæt skærmen i USB, flash, og gå hele vejen igennem:
 - [ ] Øjet viser og skjuler kodeordet
 - [ ] Forkert kodeord siger "Kodeordet passer ikke", ikke en fejlkode
 - [ ] "Prøv igen" går tilbage til tastaturet med feltet tomt
-- [ ] Søgningen efter inverter når 100 % på under ti sekunder
+- [ ] Søgningen efter inverter når 100 % (målt til omkring 16 sekunder
+      på et /24 hvor kun inverteren svarer, se `zs_discovery.c`)
 - [ ] Simulatoren står på listen med model og serienummer
 - [ ] Valget fører til hovedskærmen
 - [ ] De fire tal stemmer med det simulatoren skriver i sit vindue

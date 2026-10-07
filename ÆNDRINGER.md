@@ -1,3 +1,55 @@
+## 2026-10-07 13:05
+
+### Dokumentationen efterprøvet mod koden, og fem ting var forkerte
+Dokumentation er det eneste i repoet som intet prøver af. Koden har tests,
+farverne har en vagt, layoutet har en. En tabel i en md-fil kan stå forkert
+i et år uden at nogen opdager det.
+
+**Registertabellen var rigtig**, og det er den vigtigste. Alle seksten
+rækker i `docs/fronius-modbus.md` er holdt op mod både vores egne
+konstanter **og** mod SunSpecs egen definition hentet fra `sunspec/models`.
+Dokumentation, kode og specifikation er enige på alle seksten.
+
+**Fem ting var derimod forkerte:**
+
+1. **Opsætningsscriptet sagde at ESP-IDF v5.2 og nyere ikke kan oversætte
+   leverandørens kode.** Det er efterprøvet og passer ikke: firmwaren
+   bygger på **5.3.6**. Der skulle én ting til, og den var ikke i
+   LCD-driveren men i en lydkodek vi ikke bruger. Påstanden ville have
+   stoppet den næste før de prøvede, og ESP32-P4 kræver mindst v5.3.
+
+2. **Testplanen sagde "218 tjek".** Der er **775**. Et forkert tal i en
+   testplan er værre end ingen tal: man tror man ved hvor meget der er
+   dækket. Nu står der at man skal køre den og se.
+
+3. **To steder sagde at simulatoren skal ligge på port 502.** Det passede
+   dengang søgningen kun kiggede der. Både skærmen og `zs-probe --scan`
+   kan sættes til en anden port, og den kommando står der nu.
+
+4. **Testplanen sagde at søgningen når 100 % på under ti sekunder.** Målt
+   til omkring **16** på et /24.
+
+5. **Påstanden om en fejl i Zbox var forældet.** Dokumentationen sagde at
+   `app/modbus_controller.py` har `M160_N = 5`. Den har nu **6**, altså
+   fejlen er rettet der. Efterprøvet på maskinen. Vores eget tal er
+   samtidig kontrolleret mod SunSpecs model 160, hvor `N` ligger på
+   offset 8 regnet med `ID` og `L`, altså 6 som vi regner.
+
+Og mappeoversigten i README manglede `secure/`, hvor signeringsnøglen
+ligger, og nævnte kun én af fire testmapper.
+
+### Og en vagt, så det ikke kan skride igen
+`tools/check-dokumentation.py` holder dokumentationen op mod koden: hver
+række i registertabellen mod konstanterne, hver `ZS_`-konstant der nævnes,
+og hver filhenvisning. Prøvet af på begge fejlmåder, med et forkert offset
+og en konstant der ikke findes.
+
+Den kan **ikke** tjekke om teksten er sand. Det må et menneske læse, og
+det står i scriptet.
+
+775 enhedstest, 68 ende til ende med sanitizer, fuzzing af begge parsere,
+og syv vagter. Alt bestået på Mac og Linux. Version 0.20.1.
+
 ## 2026-10-07 12:15
 
 ### Mærkerne samlet ét sted, så vi kan udvide uden at rode i afkodningen

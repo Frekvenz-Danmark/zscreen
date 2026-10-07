@@ -2,10 +2,24 @@
 #
 # zScreen - installer ESP-IDF vaerktoejskaeden.
 #
-# Seeed SenseCAP Indicator SDK kraever ESP-IDF v5.1.x praecist. Hverken
-# lavere eller hoejere virker: v5.0 mangler RGB-panel-API'et deres BSP
-# bruger, og v5.2+ aendrede LCD-driver-signaturerne saa deres kode ikke
-# oversaetter. Vi pinner v5.1.7, nyeste patch i v5.1-serien.
+# Vi pinner ESP-IDF v5.1.7, nyeste patch i v5.1-serien.
+#
+# v5.0 virker IKKE: den mangler RGB-panel-API'et Seeeds BSP bruger.
+#
+# HER STOD DER FOER at v5.2 og nyere heller ikke virker, fordi
+# LCD-driver-signaturerne blev aendret. Det er EFTERPROEVET og passer
+# ikke: firmwaren bygger paa v5.3.6 i Espressifs eget docker-billede.
+#
+# Der skulle én ting til, og den var ikke i LCD-driveren: GCC 13, som
+# foelger med 5.3, goer et enum-mismatch i Seeeds lydkodek es8388.c til
+# en fejl. Det er kode vi ikke bruger paa en energiskaerm, og det loeses
+# med ét betinget flag, se firmware/CMakeLists.txt. Resultatet er nul
+# advarsler i vores egen kode og en binaer der er 1,7 procent mindre.
+#
+# Arbejdet ligger paa grenen idf-5.3, som bygger groent i CI med 5.3.6.
+# Vi bliver paa 5.1.7 her indtil vi beslutter at flytte, men paastanden
+# om at det ikke KAN lade sig goere skal ikke staa, for den ville stoppe
+# den naeste foer de proevede. Og ESP32-P4 kraever mindst v5.3.
 #
 # Python-faelden (ramt paa Yassins Mac 2026-08-25):
 #   ESP-IDF v5.1 er testet til og med Python 3.12, og bygger sit eget
