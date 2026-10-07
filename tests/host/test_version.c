@@ -144,5 +144,30 @@ void test_version_tag(void)
     lang[sizeof(lang) - 1] = '\0';
     CHECK("alt for lang afvises", zs_version_tag_ok(lang) == false);
     CHECK("for mange cifre i ét tal afvises", zs_version_tag_ok("1234567.1.1") == false);
+
+    /*
+     * De angreb teksten kunne baere, hvis nogen fik fat i dashboardet.
+     *
+     * Maalversionen kommer fra serveren og ender i en URL, saa den her
+     * funktion ER graensen. Vognretur og linjeskift staar foerst, fordi
+     * det er den der kunne lave to HTTP-headere ud af én linje.
+     */
+    CHECK("vognretur og linjeskift afvises",
+          zs_version_tag_ok("1.2.3\r\nHost: evil") == false);
+    CHECK("linjeskift alene afvises", zs_version_tag_ok("1.2.3\nX") == false);
+    CHECK("bagstreg afvises", zs_version_tag_ok("1.2.3\\evil") == false);
+    CHECK("en hel URL afvises", zs_version_tag_ok("http://evil/x.bin") == false);
+    CHECK("tabulator afvises", zs_version_tag_ok("1.2.3\t") == false);
+    CHECK("et tegn over 127 afvises", zs_version_tag_ok("1.2.3\xff") == false);
+    CHECK("semikolon afvises", zs_version_tag_ok("1.2.3;rm -rf") == false);
+    CHECK("havelaage afvises", zs_version_tag_ok("1.2.3#frag") == false);
+    CHECK("minus foran afvises", zs_version_tag_ok("-1.2.3") == false);
+    CHECK("plus foran afvises", zs_version_tag_ok("+1.2.3") == false);
+    CHECK("to v foran afvises", zs_version_tag_ok("vv1.2.3") == false);
+
+    /* Og graensen den anden vej: fem cifre i hvert tal er lovligt. */
+    CHECK("fem cifre i hvert tal er lovligt",
+          zs_version_tag_ok("99999.99999.99999") == true);
+    CHECK("seks cifre er ikke", zs_version_tag_ok("999999.1.1") == false);
 }
 

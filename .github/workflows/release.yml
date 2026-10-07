@@ -10,6 +10,38 @@ name: Udgiv
 # Noeglen ligger KUN i hemmeligheden SIGNING_KEY. Den er aldrig i
 # repoet, og en udgivelse kan derfor ikke laves fra en tilfaeldig
 # maskine.
+#
+# ------------------------------------------------------------------
+# NOEGLEN KAN IKKE SKIFTES OVER LUFTEN. Laes det her foer du roerer den.
+# ------------------------------------------------------------------
+#
+# Vi koerer med CONFIG_SECURE_SIGNED_ON_UPDATE uden sikker opstart. Det
+# betyder at en skaerm efterproever den NAESTE firmware med den
+# offentlige noegle der sidder i den firmware skaermen koerer LIGE NU.
+# ESP-IDF siger det selv i secure_boot.c:
+#
+#     "We rely on the keys used to sign this app to verify the next app
+#      on OTA"
+#
+# Og: naar sikker opstart er fra, bruges KUN den foerste
+# underskriftsblok til at efterproeve en opdatering.
+#
+# Konsekvensen, og den er stor:
+#
+#   * En skaerm der koerer firmware signeret med noegle A tager ALDRIG
+#     imod firmware signeret med noegle B.
+#   * Skiftes noeglen, skal hver enkelt skaerm flashes med ledning.
+#   * Mistes noeglen, kan INGEN skaerm nogensinde opdateres igen. Der er
+#     ingen vej rundt, heller ikke med adgang til serveren.
+#
+# Derfor: noeglen skal ligge et sted der overlever at en maskine doer og
+# at en GitHub-konto bliver utilgaengelig. To steder er ikke to steder
+# hvis det ene er en baerbar og det andet en hemmelighed i samme konto.
+#
+# Til gengaeld er skaermen IKKE laast: sikker opstart er slaaet fra med
+# vilje, saa en skaerm altid kan flashes med ledning. Det er netop det
+# der goer at et tabt noeglepar ikke er en kasseret skaerm, bare en
+# skaerm der skal have besoeg.
 
 on:
   push:

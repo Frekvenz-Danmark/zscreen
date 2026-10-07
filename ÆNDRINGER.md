@@ -1,3 +1,88 @@
+## 2026-10-07 02:14
+
+### Signeringsnøglen lå læsbar for alle på maskinen
+Filen `secure/zscreen-signing.pem` stod med rettigheder 644, altså
+læsbar for enhver bruger på Mac'en, og mappen var 755. Nu er filen 600 og
+mappen 700.
+
+Nøglen har aldrig været i git, det er tjekket hele historikken igennem.
+Men en nøgle der kan læses af enhver proces på maskinen er ikke
+beskyttet.
+
+### Nøglen kan ikke skiftes over luften, og det står der nu
+Jeg gik efter om opdateringerne faktisk er beskyttede, og det er de. Men
+undervejs fandt jeg en egenskab der betyder meget for en flåde, og som
+ikke stod nogen steder.
+
+Vi kører med `CONFIG_SECURE_SIGNED_ON_UPDATE` uden sikker opstart. ESP-IDF
+siger selv i `secure_boot.c` hvad det betyder:
+
+> "We rely on the keys used to sign this app to verify the next app on OTA"
+
+Altså: en skærm efterprøver den **næste** firmware med den offentlige
+nøgle der sidder i den firmware den kører **lige nu**. Og når sikker
+opstart er fra, bruges kun den første underskriftsblok.
+
+Konsekvensen:
+
+- En skærm med firmware signeret med nøgle A tager **aldrig** imod
+  firmware signeret med nøgle B.
+- Skiftes nøglen, skal hver enkelt skærm flashes med ledning.
+- **Mistes nøglen, kan ingen skærm nogensinde opdateres igen.** Der er
+  ingen vej rundt, heller ikke med adgang til serveren.
+
+Til gengæld er skærmen ikke låst: sikker opstart er slået fra med vilje, så
+en skærm altid kan flashes med ledning. Det er netop det der gør at et
+tabt nøglepar ikke er en kasseret skærm, bare en skærm der skal have
+besøg.
+
+Det hele står nu i `release.yml`, hvor den der rører nøglen vil læse det.
+
+### Bevist at en pillet firmware bliver afvist
+Ikke bare tjekket at flaget er sat. Jeg verificerede den byggede fil, vendte
+**én** byte midt i programmet, og verificerede igen:
+
+    Signature block image digest does not match the actual image digest
+
+Så selv hvis dashboardet blev overtaget, kan ingen lægge fremmed firmware
+ind uden nøglen. Porten findes allerede i udgivelsen, og nøglen slettes
+bagefter.
+
+### De angreb målversionen kunne bære
+Målversionen kommer fra serveren og ender i en URL, så `zs_version_tag_ok`
+**er** grænsen. Den var streng i forvejen, men tre angrebsveje manglede i
+testene. Fjorten nye tjek, og vognretur-linjeskift står først, for det er
+den der kunne lave to HTTP-headere ud af én linje.
+
+Alle fjorten blev afvist i forvejen. Nu kan de ikke holde op med det uden
+at en test falder.
+
+### Og en der lignede MQTT-fejlen, men ikke var det
+GitHub sender firmwaren videre til et andet værtsnavn, og jeg målte den
+viderestilling på en rigtig udgivelse: **ét** hop, og adressen er
+**915 tegn**, fordi filen ligger bag en tidsbegrænset underskrift.
+
+`esp_http_client` har en standardbuffer på **512 bytes**, altså under
+halvdelen. Det ser ud præcis som fejlen i flådestyringen, hvor en besked
+større end bufferen kom i stykker.
+
+Men det er det ikke: klienten lægger header-værdien til i heapen stykke
+for stykke, så en lang adresse klarer sig uanset bufferens størrelse.
+Efterset i deres egen kilde. Tallene og begrundelsen står nu i
+`zs_ota.c`, så ingen "retter" det på et gæt senere.
+
+### Tjekket og i orden
+- `zs_fleet_stop` kaldes aldrig, så der er ingen samtidighed mellem den og
+  flåde-opgaven at bekymre sig om.
+- `esp_mqtt_client_publish` og `subscribe` tjekker begge selv for en
+  NULL-klient og svarer pænt. Efterset i deres kilde.
+- Flåden startes kun ved opstart. Kommer certifikatet på bagefter, kommer
+  den først med efter en genstart. Det er fint i dag, hvor certifikatet
+  lægges på ved produktion.
+
+690 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.16.2.
+
 ## 2026-10-07 01:28
 
 ### Serverens eget svar ligger nu i testene

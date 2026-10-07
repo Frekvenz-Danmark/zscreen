@@ -353,7 +353,25 @@ bool zs_ota_check_and_install(zs_ota_status_t *ud)
          * staar der alligevel, fordi det her er det eneste sted hvor en
          * aendret standard ville betyde at ingen skaerm nogensinde fik
          * en opdatering, og fejlen ville se ud som om GitHub var nede.
-         * To er nok: ét hop til filserveren, og ét i reserve.
+         * To er nok: ét hop til filserveren, og ét i reserve. MAALT
+         * 7. oktober 2026 paa en rigtig udgivelse: praecis ét hop.
+         *
+         * OG DET HER ER VAERD AT VIDE, saa ingen "retter" det paa et
+         * gaet: adressen vi bliver sendt videre til er 915 TEGN lang,
+         * fordi filen ligger bag en tidsbegraenset underskrift. Den er
+         * altsaa naesten dobbelt saa lang som esp_http_client's
+         * standardbuffer paa 512 bytes (DEFAULT_HTTP_BUF_SIZE).
+         *
+         * Det ser ud som den fejl vi havde i floedestyringen, hvor en
+         * besked stoerre end bufferen kom i stykker. Men det er det
+         * ikke: esp_http_client laegger header-vaerdien til i heapen med
+         * http_utils_append_string, stykke for stykke, saa en lang
+         * Location klarer sig uanset bufferens stoerrelse. Efterset i
+         * deres kilde, http_on_header_value.
+         *
+         * Derfor saetter vi IKKE buffer_size her. Gjorde vi det, ville
+         * det se ud som om det var noedvendigt, og saa ville den naeste
+         * gaette paa at det var derfor.
          */
         .disable_auto_redirect = false,
         .max_redirection_count = 2,
