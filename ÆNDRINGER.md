@@ -1,3 +1,44 @@
+## 2026-10-07 02:41
+
+### README's sikkerhedsafsnit var forkert på to punkter
+Fundet fordi jeg skulle skrive nøglens opbevaring ned og læste afsnittet
+ved siden af. Det er den tekst en kunde eller en partner ville læse, så
+det er ikke en lille fejl.
+
+Der stod: *"Ingen af Modbus' fem skrive-funktionskoder er implementeret,
+og de må aldrig blive det."* Det passer ikke længere. Funktionskode 16
+findes i det fælles Modbus-lag siden fase 1, og den skal blive der, for
+det var beslutningen.
+
+Og der stod: *"Skærmen lytter ikke på nogen port, sender ingenting ud af
+huset, og har ingen konto eller nøgle."* Den sidste halvdel er direkte
+forkert. Skærmen sender målinger hvert andet sekund, henter priser og
+firmware, og har et klientcertifikat og en privat nøgle i flash.
+
+Nu står der hvad der faktisk sker, og **hver påstand er efterprøvet i
+koden** inden den blev skrevet:
+
+- Firmwaren kalder ikke skrive-vejen nogen steder. Det gør kun `zs-probe`
+  på en bærbar. Så "skærmen ændrer ikke noget på inverteren" holder
+  stadig, men af en anden grund end den der stod.
+- Der findes hverken `bind`, `listen` eller `accept` i koden, så den
+  lytter ikke.
+- Alle fem værtsnavne, porte og takter er læst ud af koden, ikke af
+  hukommelsen. To af mine egne tal var forkerte i første udgave:
+  opdateringer er hvert 30. minut og ikke hver time, og priser hentes en
+  gang i døgnet og ikke "nogle gange".
+
+Tabellen er nu præcis nok til at bruge direkte som en firewall-regel, for
+det er det spørgsmål en kunde med et stramt net stiller.
+
+### Og nøglens opbevaring står nu skrevet
+To steder der ikke kan ryge sammen: en delt hælving i adgangskodeboksen,
+og en krypteret kopi på en USB-nøgle på en anden fysisk adresse. En
+bærbar og en hemmelighed i den samme GitHub-konto er ét sted, ikke to.
+
+690 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Version 0.16.3.
+
 ## 2026-10-07 02:14
 
 ### Signeringsnøglen lå læsbar for alle på maskinen
