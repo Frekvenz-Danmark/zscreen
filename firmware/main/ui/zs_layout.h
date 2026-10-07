@@ -25,6 +25,21 @@
  *    test kun regne efter paa 480, og saa beviser den kun at regnestykket
  *    passer der. Hele paastanden er at layoutet gaar op paa ENHVER
  *    skaerm, og den paastand kan nu faktisk proeves. Se test_layout_800.c.
+ *
+ * HVORDAN et board saetter dem. Fra byggeriet og ikke fra en header:
+ *
+ *     idf_build_set_property(COMPILE_DEFINITIONS
+ *                            "ZS_G_SCR_WIDTH=800" APPEND)
+ *     idf_build_set_property(COMPILE_DEFINITIONS
+ *                            "ZS_G_SCR_HEIGHT=1280" APPEND)
+ *
+ * Det SKAL vaere derfra. Satte et board dem i en header i stedet, ville
+ * den header skulle hentes foer zs_layout.h i hver eneste fil, og den
+ * foerste der glemte det ville stille og roligt faa 480 igen. Fra
+ * byggeriet gaelder de for alt, og saa kan det ikke ske.
+ *
+ * Reglerne nederst i filen tjekkes for den stoerrelse der FAKTISK bygges
+ * med, saa en skaerm hvor layoutet ikke gaar op stopper byggeriet.
  */
 #ifndef ZS_G_SCR_WIDTH
 #define ZS_G_SCR_WIDTH      480

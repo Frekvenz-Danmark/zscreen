@@ -1,3 +1,38 @@
+## 2026-10-07 10:32
+
+### Vi skal sende det vi har testet
+Fundet ved at revidere mit eget arbejde fra fase to. Da ESP-IDF blev løftet
+til 5.3 på grenen, rettede jeg `test.yml` og **glemte** `release.yml`.
+
+Det ville betyde at vi tester med én oversætter og sender en anden ud til
+kunderne. Forskellen er ikke kosmetisk: den er målt til næsten **tredive
+kilobyte** i den færdige fil, og GCC 13 fanger fejl GCC 12 lader ligge. Den
+firmware kunderne hentede, ville være bygget af en oversætter ingen test
+havde set.
+
+`tools/check-udgivelse.py` holder nu de to i trit. Den tjekker også at det
+**ikke** er et flydende mærke som `latest`, så en udgivelse kan bygges igen
+om et år og give det samme. Prøvet af på begge fejlmåder.
+
+På main er begge stadig v5.1.7, og vagten er grøn. På grenen er begge
+v5.3.6.
+
+### Og hvordan et board sætter skærmens mål, efterprøvet
+Headeren sagde at målene "kan sættes udefra", men ikke hvordan. Det er
+præcis den slags den næste gætter sig til.
+
+Nu står fremgangsmåden der, og **den er prøvet af**: jeg satte en ugyldig
+bredde fra byggeriet med `idf_build_set_property(COMPILE_DEFINITIONS ...)`,
+og vagten i headeren stoppede byggeriet med den danske forklaring. Så
+mekanismen virker, den er ikke bare skrevet ned.
+
+Headeren siger også **hvorfor** det skal komme fra byggeriet og ikke fra en
+anden header: en header skulle hentes før `zs_layout.h` i hver eneste fil,
+og den første der glemte det ville stille og roligt få 480 igen.
+
+750 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Version 0.18.4.
+
 ## 2026-10-07 09:40
 
 ### Revision af mit eget arbejde: testen beviste ikke det den påstod
