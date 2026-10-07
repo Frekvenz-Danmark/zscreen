@@ -77,3 +77,6 @@ wifi-credentials.*
 *.wav
 *.mp4
 *.mov
+
+# Den sanitiserede udgave af vaerktoejet, bygget af testene.
+tools/zs-probe/zs-probe-san

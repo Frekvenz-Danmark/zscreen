@@ -22,6 +22,13 @@ jobs:
       - name: Byg zs-probe
         run: ./tools/zs-probe/build.sh
 
+      # Ende til ende koeres mod den SANITISEREDE udgave. Enhedstestene
+      # har altid haft adressesanitizer, men ende til ende koerte uden,
+      # og det er netop dér de interessante fejl ville vaere: rigtige
+      # sockets mod en rigtig simulator i stedet for opdigtede rammer.
+      - name: Byg zs-probe med sanitizer
+        run: ZS_SANITIZE=1 ./tools/zs-probe/build.sh
+
       - name: Headere, tegnsæt, farver, LVGL-låsen, flowet og udgivelsen
         run: |
           ./tools/check-headers.sh

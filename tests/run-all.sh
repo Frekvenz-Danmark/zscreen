@@ -33,7 +33,18 @@ koer "LVGL-låsen"     python3 tools/check-lvgl-laas.py
 koer "Ingen blindgyde" python3 tools/check-flow.py
 koer "Udgivelsen"     python3 tools/check-udgivelse.py
 koer "Enhedstest"     ./tests/host/run.sh
-./tools/zs-probe/build.sh >/dev/null 2>&1 || true
+# Bygget gaar gennem koer som alt andet.
+#
+# Foer stod der "build.sh >/dev/null 2>&1 || true". Baade udskriften og
+# fejlen blev smidt vaek, saa holdt vaerktoejet op med at kunne bygge,
+# sagde testkoerslen ingenting og koerte videre mod en GAMMEL binaer. Et
+# byg der ikke virker skal se ud som en fejl, ikke som ingenting.
+#
+# ZS_SANITIZE=1: ende til ende proeves med adressesanitizer. Det er dér
+# de interessante fejl ville vaere, for her koerer rigtige sockets mod en
+# rigtig simulator og ikke opdigtede rammer.
+koer "Byg værktøjet"  ./tools/zs-probe/build.sh
+koer "Byg med sanitizer" env ZS_SANITIZE=1 ./tools/zs-probe/build.sh
 koer "Hele datavejen" python3 tests/e2e/run.py
 
 echo

@@ -27,7 +27,11 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SIM = os.path.join(ROOT, "tools", "fronius-sim", "serve.py")
-PROBE = os.path.join(ROOT, "tools", "zs-probe", "zs-probe")
+# Hvilken zs-probe der proeves. Testene koerer mod den sanitiserede
+# udgave, se tools/zs-probe/build.sh for hvorfor. ZS_PROBE kan pege et
+# andet sted hen, fx naar man fejlsoeger med den almindelige.
+PROBE = os.environ.get(
+    "ZS_PROBE", os.path.join(ROOT, "tools", "zs-probe", "zs-probe-san"))
 PORT = 15020          # hoej port, saa der ikke skal bruges sudo
 
 VERBOSE = "-v" in sys.argv
