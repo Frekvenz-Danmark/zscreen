@@ -1,3 +1,79 @@
+## 2026-10-07 16:20
+
+### Fase 1: timens energi i kWh, fra inverterens egne tællere
+Først en rettelse af mig selv. Jeg skrev forleden at batteriets energi
+**ikke** findes som tæller i SunSpec, og at den måtte regnes ud af
+effekten. **Det var forkert**, og Yassin havde ret i at det måtte være
+der.
+
+Den findes, bare ikke hvor jeg kiggede. Model 124 er batteriets
+tilstand og har ingen energifelter. Men på en Fronius ligger lade- og
+afladesiden som to ekstra MPPT-kanaler, og **hver kanal har sin egen
+`DCWH`-tæller** i model 160, på offset 12 som `acc32` i wattimer.
+Efterprøvet i SunSpecs egen `model_160.json`.
+
+Så **alle fem tal er præcise tællere**, ikke beregninger:
+
+| | Hvor det står |
+|---|---|
+| Produceret | model 103 `WH` eller 113 `WH` |
+| Købt fra nettet | model 203 eller 213 `TotWhImp` |
+| Solgt til nettet | samme `TotWhExp` |
+| Ind i batteriet | model 160, ladekanalens `DCWH` |
+| Ud af batteriet | model 160, afladekanalens `DCWH` |
+
+En time regnes som tælleren nu minus tælleren ved timens start. Det tæller
+også med hvad der skete mens skærmen var slukket, og det kan sammenlignes
+med en elregning. Et gennemsnit af effekten kan ingen af delene.
+
+### To fejl i prøveudstyret, fundet før jeg byggede noget
+**Simulatoren lagde målerens skalafaktor på offset 40.** Specen siger
+**52**, og 40 er `TotWhExpPhB`, altså en faseopdelt energitæller. Det
+gjorde ingen skade så længe ingen læste tællerne, men det ville have fået
+den første måling af timeforbrug til at se rigtig ud mod et forkert svar.
+
+**Og alle tællerne stod på nul.** Simulatoren skrev `DCWH` som et fast
+nul, og produktionstælleren rørte sig ikke. Så ville enhver time blive nul
+og se helt rigtig ud. Anlægsmodellen tæller nu rigtigt op, hver vej for
+sig, og tallene hænger sammen fysisk: ved middagstid 6,9 kWh produceret,
+hvoraf 1,7 solgt og 4,9 i batteriet, altså 347 W husforbrug.
+
+### Og en fejl i min egen kode, fanget ved at prøve
+Jeg satte batteriets tællere i den gren der bruges når inverteren **ikke**
+navngiver sine kanaler. Simulatoren navngiver dem, så koden tog den anden
+vej og tællerne manglede. Nu sættes de begge steder.
+
+### Timeberegningen, og det den nægter at gætte på
+Regningen ligger som en ren funktion uden ur, net eller lager, så de
+tilfælde der er svære at fremkalde på en skærm kan prøves på et øjeblik.
+32 nye tjek:
+
+- **Hen over midnat.** Fra klokken 23 til 0 er der gået én time, ikke 23
+  baglæns. Uden det ville hver eneste nat blive sprunget over.
+- **Skærmen har været væk.** Er der gået tre timer, springer vi over i
+  stedet for at lægge dem sammen og kalde det én time. En søjle der dækker
+  tre timer ser ud som en time med tre gange forbrug.
+- **Uret bliver stillet tilbage.** Springes over, ikke et negativt tal.
+- **En tæller der løber rundt.** En `acc32` når sin ende ved cirka 4,29
+  milliarder wattimer, og en udskiftet inverter starter forfra. Vi kan
+  ikke se forskel, så feltet springes over i stedet for at vise fire
+  millioner kilowattimer på én time.
+- **En inverter uden elmåler.** Produktionen sendes, og de felter vi ikke
+  har sendes **ikke**. Et nul for "købt" ville se ud som et anlæg der
+  aldrig køber strøm.
+
+### Udgangspunktet overlever en genstart
+Efter dit valg. Tællerstanden ved timens start gemmes i flashen i sit eget
+navnerum, så en strømafbrydelse klokken 14.30 ikke koster timen 14 til 15.
+Det koster én skrivning i timen, og flashen tåler størrelsesordner mere.
+
+812 enhedstest og 70 ende til ende, bestået på Mac. Firmwaren bygger rent
+uden advarsler. Version 0.22.0.
+
+**Ikke færdigt endnu:** felterne skal oprettes på serveren, og hele vejen
+skal ses virke mod den. Docker svarer ikke på maskinen lige nu, så det
+venter.
+
 ## 2026-10-07 14:40
 
 ### Mutationstest: jeg ødelagde koden med vilje og så om testene opdagede det

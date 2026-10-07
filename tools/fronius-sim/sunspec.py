@@ -302,6 +302,14 @@ def make_meter(float_models: bool = False, serial: str = "19123456") -> Device:
         m.sf(25, 0)     # VA_SF
         m.sf(30, 0)     # VAR_SF
         m.sf(35, -3)    # PF_SF
-        m.sf(40, 0)     # TotWh_SF
+        # TotWh_SF staar paa 52, ikke 40.
+        #
+        # Her stod 40, som ifoelge SunSpecs egen model_203.json er
+        # TotWhExpPhB, altsaa en faseopdelt energitaeller. Skalafaktoren
+        # laa saaledes et forkert sted, og den rigtige plads stod paa
+        # nul. Det gjorde ingen skade saa laenge ingen laeste taellerne,
+        # men det ville have faaet den foerste maaling af timeforbrug
+        # til at se rigtig ud mod et forkert svar.
+        m.sf(52, 0)     # TotWh_SF
         m.enum16(104, 0)
     return d

@@ -73,6 +73,7 @@
 #include <stdint.h>
 
 #include "zs_fronius.h"
+#include "zs_energi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -115,6 +116,23 @@ void zs_fleet_stop(void);
  * og det goer vi kun én gang per indmeldelse.
  */
 void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info);
+
+/*
+ * Sender timens energi. Kaldes ÉN gang i timen, ikke ved hver
+ * aflaesning.
+ *
+ *   wh       de fem vaerdier i wattimer, se zs_energi.h
+ *   har      for hver: kunne den regnes. Dem der ikke kunne, sendes IKKE.
+ *   time     hvilken time de daekker, 0 til 23. Sendes med som et felt,
+ *            saa man paa serveren kan se hvilken time en vaerdi hoerer
+ *            til, ogsaa hvis den kommer et oejeblik forsinket.
+ *
+ * VI SENDER IKKE ET FELT VI IKKE HAR. Et nul for "koebt fra nettet" paa
+ * et anlaeg uden elmaaler ville se ud som et anlaeg der aldrig koeber
+ * stroem, og det er en loegn. Mangler feltet, staar der ingenting paa
+ * serveren, og det er til at gennemskue.
+ */
+void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time);
 
 /* Hvor langt vi er. */
 zs_fleet_state_t zs_fleet_state(void);

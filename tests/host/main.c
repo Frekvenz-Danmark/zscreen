@@ -51,6 +51,7 @@ int main(int argc, char **argv)
     test_layout_800();
     test_maerker();
     test_locate_null();
+    test_energi();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

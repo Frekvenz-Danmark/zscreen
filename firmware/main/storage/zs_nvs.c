@@ -238,3 +238,66 @@ bool zs_nvs_factory_reset(void)
     }
     return ok;
 }
+
+/* ------------------------------------------------------------------ */
+/* Timeenergiens udgangspunkt. Se zs_nvs.h for hvorfor.                */
+/* ------------------------------------------------------------------ */
+
+#define NS_ENERGI   "zsenergi"
+#define K_BASIS     "basis"
+
+bool zs_nvs_save_energi(const zs_energi_basis_t *b)
+{
+    if (b == NULL) {
+        return false;
+    }
+    nvs_handle_t h;
+    if (nvs_open(NS_ENERGI, NVS_READWRITE, &h) != ESP_OK) {
+        return false;
+    }
+    /*
+     * Hele strukturen som én klump.
+     *
+     * Felt for felt ville vaere paenere, men det her skrives hver time,
+     * og hvert felt er en skrivning for sig. Som én klump er det ét
+     * slid i timen i stedet for tolv. Og i modsaetning til kundens
+     * indstillinger er der ingen opgraderingssti at tage hensyn til:
+     * passer stoerrelsen ikke, smider vi den vaek og starter forfra, og
+     * saa koster det én time.
+     */
+    esp_err_t err = nvs_set_blob(h, K_BASIS, b, sizeof(*b));
+    if (err == ESP_OK) {
+        err = nvs_commit(h);
+    }
+    nvs_close(h);
+    return err == ESP_OK;
+}
+
+bool zs_nvs_load_energi(zs_energi_basis_t *b)
+{
+    if (b == NULL) {
+        return false;
+    }
+    memset(b, 0, sizeof(*b));
+
+    nvs_handle_t h;
+    if (nvs_open(NS_ENERGI, NVS_READONLY, &h) != ESP_OK) {
+        return false;           /* foerste gang, ikke en fejl */
+    }
+    size_t n = sizeof(*b);
+    esp_err_t err = nvs_get_blob(h, K_BASIS, b, &n);
+    nvs_close(h);
+
+    if (err != ESP_OK || n != sizeof(*b)) {
+        /* Enten ingenting, eller noget fra en aeldre udgave hvor
+         * strukturen saa anderledes ud. Begge dele koster én time. */
+        memset(b, 0, sizeof(*b));
+        return false;
+    }
+    if (b->time < 0 || b->time > 23) {
+        /* Skrald. Hellere starte forfra end at regne paa det. */
+        memset(b, 0, sizeof(*b));
+        return false;
+    }
+    return b->gyldig;
+}

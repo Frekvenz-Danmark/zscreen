@@ -258,7 +258,7 @@ def update_registers(inv_dev, meter_dev, p: Plant, has_meter: bool,
         m = inv_dev.find(113)
         m.f32(20, p.inverter_ac_w)          # W
         m.f32(22, 50.0)                     # Hz
-        m.f32(30, p.total_wh)               # WH
+        m.f32(30, p.wh_pv)                  # WH, stiger
         m.enum16(46, fejl.get("st", 4))     # St
         m.enum16(47, fejl.get("stvnd", 0))  # StVnd
         m.acc32(48, fejl.get("evt1", 0))
@@ -271,7 +271,7 @@ def update_registers(inv_dev, meter_dev, p: Plant, has_meter: bool,
         m = inv_dev.find(103)
         m.i16(12, round(p.inverter_ac_w))   # W, W_SF = 0
         m.u16(14, 5000)                     # Hz, Hz_SF = -2 -> 50,00
-        m.acc32(22, int(p.total_wh))        # WH
+        m.acc32(22, int(p.wh_pv))           # WH, stiger
         m.enum16(36, fejl.get("st", 4))     # St, 4 = MPPT
         m.enum16(37, fejl.get("stvnd", 0))  # StVnd, Fronius' egen kode
         m.acc32(38, fejl.get("evt1", 0))    # Evt1
@@ -297,19 +297,28 @@ def update_registers(inv_dev, meter_dev, p: Plant, has_meter: bool,
         ACTIVE, SLEEPING = 4, 2
         for i in range(n_ch):
             base = 8 + i * 20
+            # DCWH paa base+12 er kanalens EGEN livstaeller, acc32.
+            #
+            # Det er den der goer batteriets energi maalbar: paa en
+            # Fronius ligger lade- og afladesiden som to ekstra kanaler,
+            # og hver kanal har sin egen taeller. Saa batteriets ind og ud
+            # er praecise tal og ikke noget der skal regnes af effekten.
             if i < len(p.string_w):
                 w = p.string_w[i]
                 m160.u16(base + 11, int(round(max(0.0, w))))
+                m160.acc32(base + 12, int(p.wh_string[i]))
                 m160.enum16(base + 17, ACTIVE if w > 5.0 else SLEEPING)
             elif i == len(p.string_w):
                 # ladekanal
                 charge = -p.battery_w if p.battery_w < 0 else 0.0
                 m160.u16(base + 11, int(round(charge)))
+                m160.acc32(base + 12, int(p.wh_bat_ind))
                 m160.enum16(base + 17, ACTIVE if charge > 5.0 else SLEEPING)
             else:
                 # afladekanal
                 dis = p.battery_w if p.battery_w > 0 else 0.0
                 m160.u16(base + 11, int(round(dis)))
+                m160.acc32(base + 12, int(p.wh_bat_ud))
                 m160.enum16(base + 17, ACTIVE if dis > 5.0 else SLEEPING)
 
     # --- elmaaler ---
@@ -317,9 +326,18 @@ def update_registers(inv_dev, meter_dev, p: Plant, has_meter: bool,
         if float_models:
             mm = meter_dev.find(213)
             mm.f32(26, p.grid_w)
+            # Flydende tal baerer selv deres stoerrelse, saa ingen
+            # skalafaktor. Offsets efterset mod model_213.json.
+            mm.f32(58, p.wh_exp)            # TotWhExp
+            mm.f32(66, p.wh_imp)            # TotWhImp
         else:
             mm = meter_dev.find(203)
             mm.i16(16, round(p.grid_w))     # W, positiv = koeb
+            # Taellerne, efterset mod model_203.json: Exp paa 36, Imp paa
+            # 44 og skalafaktoren paa 52, alt regnet fra datablokkens
+            # start som resten af filen.
+            mm.acc32(36, int(p.wh_exp))     # TotWhExp
+            mm.acc32(44, int(p.wh_imp))     # TotWhImp
 
 
 def ticker(inv_dev, meter_dev, p: Plant, args, inv_unit: int, meter_unit: int,

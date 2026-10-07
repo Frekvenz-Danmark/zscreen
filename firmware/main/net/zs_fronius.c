@@ -420,9 +420,39 @@ static bool channel_is_dead(int32_t dcst)
  * bliver til omkring 25 Modbus-kald for fire kanaler. Her henter vi
  * hele modellen i ét kald og pakker ud lokalt.
  */
+/*
+ * En acc32-taeller med skalafaktor, som en zs_val_t.
+ *
+ * SunSpecs taellere er 32-bit uden fortegn, og nul betyder "ikke
+ * implementeret". Skalafaktoren er naesten altid 0, altsaa wattimer, men
+ * den skal med: en inverter maa godt sige -1 og mene tiendedele.
+ */
+static zs_val_t acc32_sf(const uint16_t *regs, size_t n, size_t off,
+                         size_t sf_off)
+{
+    uint32_t raa = 0;
+    if (!zs_ss_dec_acc32(regs, n, off, &raa)) {
+        return ZS_VAL_NONE;
+    }
+    if (raa == ZS_SS_NA_ACC32) {
+        return ZS_VAL_NONE;     /* nul betyder "har den ikke" */
+    }
+    float v = (float)raa;
+    if (sf_off != (size_t)-1 && sf_off < n) {
+        int16_t sf = zs_ss_i16(regs[sf_off]);
+        if (sf != ZS_SS_NA_SUNSSF && sf >= -10 && sf <= 10) {
+            for (int i = 0; i < sf; i++)  { v *= 10.0f; }
+            for (int i = 0; i > sf; i--)  { v /= 10.0f; }
+        }
+    }
+    return zs_val(v);
+}
+
 static void read_channels(zs_fr_t *fr, zs_fr_live_t *live)
 {
     live->channel_count = 0;
+    live->bat_ind_wh = ZS_VAL_NONE;
+    live->bat_ud_wh  = ZS_VAL_NONE;
 
     const zs_ss_model_t *m = zs_ss_find(&fr->inv_map, ZS_SS_MPPT);
     if (m == NULL) {
@@ -487,6 +517,10 @@ static void read_channels(zs_fr_t *fr, zs_fr_live_t *live)
         } else {
             c->dcw = ZS_VAL_NONE;
         }
+
+        /* Kanalens livstaeller. Egen skalafaktor, DCWH_SF, ikke DCW_SF. */
+        c->dcwh = acc32_sf(fr->block, n, base + ZS_M160_CH_DCWH,
+                           ZS_M160_DCWH_SF);
 
         c->dcst   = zs_ss_dec_enum16(fr->block, n, base + ZS_M160_CH_DCST);
         c->active = zs_ss_channel_active(c->dcst);
@@ -555,11 +589,22 @@ static void compute_dc(zs_fr_t *fr, zs_fr_live_t *live)
             if (!channel_is_dead(c->dcst)) {
                 chg += c->dcw.v;
             }
+            /* Kanalens livstaeller er batteriets energi ind. Den
+             * saettes OGSAA her og ikke kun i Fronius-grenen nedenfor:
+             * har inverteren navngivet sine kanaler, naar vi aldrig
+             * derned, og saa ville taellerne mangle. Fanget ved at
+             * proeve mod simulatoren, som netop navngiver dem. */
+            if (c->dcwh.ok) {
+                live->bat_ind_wh = c->dcwh;
+            }
             break;
         case ZS_CH_BATTERY_DISCHARGE:
             dis_seen = true;
             if (!channel_is_dead(c->dcst)) {
                 dis += c->dcw.v;
+            }
+            if (c->dcwh.ok) {
+                live->bat_ud_wh = c->dcwh;
             }
             break;
         default:
@@ -623,6 +668,9 @@ static void compute_dc(zs_fr_t *fr, zs_fr_live_t *live)
 
         const zs_fr_channel_t *c_chg = &live->channels[n_pv];
         const zs_fr_channel_t *c_dis = &live->channels[n_pv + 1];
+        /* Og deres livstaellere, som er batteriets energi ind og ud. */
+        live->bat_ind_wh = c_chg->dcwh;
+        live->bat_ud_wh  = c_dis->dcwh;
         float g = 0.0f;
         bool  got = false;
         if (c_dis->dcw.ok && !channel_is_dead(c_dis->dcst)) { g += c_dis->dcw.v; got = true; }
@@ -666,6 +714,7 @@ static void read_inverter(zs_fr_t *fr, zs_fr_live_t *live)
 {
     live->inverter_ac_w = ZS_VAL_NONE;
     live->grid_hz       = ZS_VAL_NONE;
+    live->prod_wh       = ZS_VAL_NONE;
     live->status_ok     = false;
     live->inverter_state = -1;
     live->vendor_state   = -1;
@@ -684,12 +733,17 @@ static void read_inverter(zs_fr_t *fr, zs_fr_live_t *live)
         if (n < ZS_M113_MIN_LEN) { return; }
         live->inverter_ac_w = zs_ss_dec_f32(fr->block, n, ZS_M113_W);
         live->grid_hz       = zs_ss_dec_f32(fr->block, n, ZS_M113_HZ);
+        /* Livstaelleren. Koster ingen ekstra trafik: hele modellen er
+         * allerede laest ind i fr->block ovenfor. */
+        live->prod_wh       = zs_ss_dec_f32(fr->block, n, ZS_M113_WH);
         o_st = ZS_M113_ST; o_stvnd = ZS_M113_STVND;
         o_evt1 = ZS_M113_EVT1; o_evt2 = ZS_M113_EVT2; o_vnd1 = ZS_M113_EVTVND1;
     } else {
         if (n < ZS_M103_MIN_LEN) { return; }
         live->inverter_ac_w = zs_ss_dec_i16_sf(fr->block, n, ZS_M103_W, ZS_M103_W_SF);
         live->grid_hz       = zs_ss_dec_u16_sf(fr->block, n, ZS_M103_HZ, ZS_M103_HZ_SF);
+        /* Livstaelleren, acc32 med sin egen skalafaktor. */
+        live->prod_wh       = acc32_sf(fr->block, n, ZS_M103_WH, ZS_M103_WH_SF);
         o_st = ZS_M103_ST; o_stvnd = ZS_M103_STVND;
         o_evt1 = ZS_M103_EVT1; o_evt2 = ZS_M103_EVT2; o_vnd1 = ZS_M103_EVTVND1;
     }
@@ -745,6 +799,8 @@ static void read_storage(zs_fr_t *fr, zs_fr_live_t *live)
 static void read_meter(zs_fr_t *fr, zs_fr_live_t *live)
 {
     live->grid_w = ZS_VAL_NONE;
+    live->imp_wh = ZS_VAL_NONE;
+    live->exp_wh = ZS_VAL_NONE;
 
     if (!fr->info.has_meter || fr->info.meter_model_id == 0) {
         return;
@@ -761,9 +817,38 @@ static void read_meter(zs_fr_t *fr, zs_fr_live_t *live)
     if (model_is_float(m->id)) {
         if (n < ZS_M213_MIN_LEN) { return; }
         w = zs_ss_dec_f32(fr->block, n, ZS_M213_W);
+        /*
+         * Taellerne. Modellen er allerede laest hel, saa det koster ingen
+         * ekstra forespoergsel. Er maaleren for kort til dem, staar de
+         * bare som ukendte.
+         */
+        if (n >= ZS_M213_WH_MIN_LEN) {
+            live->exp_wh = zs_ss_dec_f32(fr->block, n, ZS_M213_TOT_WH_EXP);
+            live->imp_wh = zs_ss_dec_f32(fr->block, n, ZS_M213_TOT_WH_IMP);
+        }
     } else {
         if (n < ZS_M203_MIN_LEN) { return; }
         w = zs_ss_dec_i16_sf(fr->block, n, ZS_M203_W, ZS_M203_W_SF);
+        if (n >= ZS_M203_WH_MIN_LEN) {
+            live->exp_wh = acc32_sf(fr->block, n, ZS_M203_TOT_WH_EXP,
+                                    ZS_M203_TOT_WH_SF);
+            live->imp_wh = acc32_sf(fr->block, n, ZS_M203_TOT_WH_IMP,
+                                    ZS_M203_TOT_WH_SF);
+        }
+    }
+
+    /*
+     * BYTTER OM hvis stroemtangen sidder omvendt.
+     *
+     * Samme indstilling som fortegnet paa effekten, og det SKAL vaere
+     * den samme: sidder tangen omvendt, er det maalerens "koebt" der er
+     * kundens salg. Gjorde vi kun det ene, ville en kunde se sit forbrug
+     * som produktion og omvendt, og tallene ville se helt plausible ud.
+     */
+    if (!fr->meter_import_positive) {
+        zs_val_t byt = live->exp_wh;
+        live->exp_wh = live->imp_wh;
+        live->imp_wh = byt;
     }
 
     /* Vend fortegnet hvis stroemtangen sidder omvendt. Se noten i

@@ -20,6 +20,8 @@
 #define ZS_NVS_H
 
 #include <stdbool.h>
+
+#include "zs_energi.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -107,6 +109,36 @@ bool zs_nvs_save(const zs_settings_t *s);
  * skaermen saettes op forfra, inklusive wifi.
  */
 bool zs_nvs_factory_reset(void);
+
+/* ------------------------------------------------------------------ */
+/* Timeenergiens udgangspunkt                                          */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Taellerstanden da den igangvaerende time begyndte.
+ *
+ * HVORFOR DEN SKAL I FLASHEN. En times forbrug er taelleren nu minus
+ * taelleren ved timens start. Laa udgangspunktet kun i hukommelsen,
+ * ville enhver genstart koste den igangvaerende time: en
+ * stroemafbrydelse eller en firmwareopdatering klokken 14.30 ville give
+ * et hul i historikken netop der.
+ *
+ * Gemt i flashen bliver timen 14 til 15 stadig rigtig, for inverterens
+ * egne taellere har taelt videre imens.
+ *
+ * Det koster én skrivning i timen, altsaa cirka 8800 om aaret. NVS
+ * fordeler slid selv, og flashen paa den her skaerm taaler
+ * stoerrelsesordner mere.
+ *
+ * Gemmes i sit EGET navnerum, ikke sammen med kundens indstillinger. De
+ * to har helt forskellig levetid: indstillingerne aendrer sig naesten
+ * aldrig, det her hver time.
+ */
+bool zs_nvs_save_energi(const zs_energi_basis_t *b);
+
+/* Laeser udgangspunktet. false betyder at der ikke er et, fx foerste
+ * gang eller efter en nulstilling. Saa staar b som ugyldig. */
+bool zs_nvs_load_energi(zs_energi_basis_t *b);
 
 #ifdef __cplusplus
 }

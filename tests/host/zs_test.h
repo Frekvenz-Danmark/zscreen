@@ -89,5 +89,6 @@ void test_layout(void);
 void test_layout_800(void);
 void test_maerker(void);
 void test_locate_null(void);
+void test_energi(void);
 
 #endif /* ZS_TEST_H */

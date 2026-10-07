@@ -74,6 +74,9 @@ static int             s_found_n;
 static zs_ap_t         s_aps[ZS_WIFI_MAX_APS];
 static char            s_time_text[8];
 static bool            s_clock_ok;
+/* Timeenergiens udgangspunkt. Laeses fra flashen ved opstart, se
+ * zs_nvs_save_energi for hvorfor den skal overleve en genstart. */
+static zs_energi_basis_t s_energi_basis;
 
 /* Hvornaar vi sidst fik et helt sæt tal, i millisekunder siden start. */
 static int64_t s_last_good_ms;
@@ -228,6 +231,72 @@ static void clock_update(void)
 /* ------------------------------------------------------------------ */
 /* Aflaesning                                                          */
 /* ------------------------------------------------------------------ */
+
+/*
+ * Timens energi: regn, gem og send naar en time er gaaet.
+ *
+ * Kaldes ved hver aflaesning. Den gOEr ingenting de fleste gange, for
+ * der er kun noget at sende én gang i timen.
+ *
+ * KRAEVER ET UR. Uden et rigtigt klokkeslaet ved vi ikke hvornaar timen
+ * skifter, og saa ville soejlerne i en graf ligge forkert. Vi venter
+ * hellere til uret er sat end at sende noget der ligger et tilfaeldigt
+ * sted paa doegnet.
+ */
+static void energi_tik(const zs_fr_live_t *live)
+{
+    if (!s_clock_ok || live == NULL) {
+        return;
+    }
+    time_t nu = time(NULL);
+    struct tm lt;
+    localtime_r(&nu, &lt);
+
+    /*
+     * Dagnummeret regnes af UTC og ikke af lokal tid.
+     *
+     * Lokal tid springer en time frem og tilbage to gange om aaret, og
+     * saa ville dagnummeret kunne skifte midt i et doegn. Timen i
+     * soejlen er stadig den lokale, for det er den kunden kender.
+     */
+    uint16_t dagnr = (uint16_t)(nu / 86400);
+
+    const float taeller[ZS_E_ANTAL] = {
+        live->prod_wh.v, live->imp_wh.v, live->exp_wh.v,
+        live->bat_ind_wh.v, live->bat_ud_wh.v,
+    };
+    const bool har[ZS_E_ANTAL] = {
+        live->prod_wh.ok, live->imp_wh.ok, live->exp_wh.ok,
+        live->bat_ind_wh.ok, live->bat_ud_wh.ok,
+    };
+
+    float  ud[ZS_E_ANTAL];
+    bool   ud_har[ZS_E_ANTAL];
+    int8_t ud_time = -1;
+
+    zs_energi_t r = zs_energi_tik(&s_energi_basis, taeller, har,
+                                  lt.tm_hour, dagnr, ud, ud_har, &ud_time);
+    switch (r) {
+    case ZS_ENERGI_KLAR:
+        zs_fleet_publish_energi(ud, ud_har, ud_time);
+        ESP_LOGI(TAG, "time %02d sendt: %.2f kWh produceret",
+                 ud_time, (double)(ud[ZS_E_PRODUCERET] / 1000.0f));
+        break;
+    case ZS_ENERGI_HUL:
+        ESP_LOGW(TAG, "der er gaaet mere end en time, timen springes over");
+        break;
+    case ZS_ENERGI_FOERSTE:
+        ESP_LOGI(TAG, "udgangspunkt for timeenergi sat");
+        break;
+    default:
+        return;     /* intet nyt, og saa skal der heller ikke gemmes */
+    }
+    /* Udgangspunktet har flyttet sig. Gem det, saa en genstart ikke
+     * koster den time vi staar i nu. */
+    if (!zs_nvs_save_energi(&s_energi_basis)) {
+        ESP_LOGW(TAG, "udgangspunktet for timeenergi kunne ikke gemmes");
+    }
+}
 
 static void publish_home(void)
 {
@@ -982,6 +1051,13 @@ static void app_task(void *arg)
      * certifikatet, siger den bare nej og vi gaar videre. Skaermen
      * virker uanset.
      */
+    /* Udgangspunktet for timeenergi, saa en genstart ikke koster den
+     * igangvaerende time. */
+    if (zs_nvs_load_energi(&s_energi_basis)) {
+        ESP_LOGI(TAG, "timeenergi fortsaetter fra time %d",
+                 s_energi_basis.time);
+    }
+
     zs_fleet_start();
 
     /* Netvaerksopgaven. Se noten ved net_task om hvorfor der kun er én.
@@ -1399,6 +1475,9 @@ static void app_task(void *arg)
              * intet at tjekke her.
              */
             zs_fleet_publish(&s_home.live, &s_fr.info);
+
+            /* Og timens energi, som kun sender én gang i timen. */
+            energi_tik(&s_home.live);
 
             /*
              * Har vi ikke faaet et brugbart svar laenge, saa luk og

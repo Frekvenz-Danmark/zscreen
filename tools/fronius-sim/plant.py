@@ -58,6 +58,34 @@ class Plant:
         self.inverter_ac_w = 0.0
         self.string_w = [0.0] * self.pv_strings
 
+        # ------------------------------------------------------------
+        # LIVSTAELLERE i wattimer. De taeller kun opad, som paa en rigtig
+        # inverter.
+        #
+        # HVORFOR DE FINDES. Skaermen regner en times forbrug som
+        # taelleren nu minus taelleren ved timens start. Uden taellere
+        # der STIGER her, kunne den regning slet ikke proeves af:
+        # simulatoren skrev nul i dem alle, og saa ville enhver time
+        # blive nul og se rigtig ud.
+        #
+        # De fem er dem SunSpec faktisk har som taellere:
+        #   wh_pv       inverterens samlede produktion, model 103 WH
+        #   wh_imp      koebt fra nettet, model 203 TotWhImp
+        #   wh_exp      solgt til nettet, model 203 TotWhExp
+        #   wh_bat_ind  ind i batteriet, model 160 kanalens DCWH
+        #   wh_bat_ud   ud af batteriet, samme men den anden kanal
+        #
+        # De starter paa noget der ligner et anlaeg der har koert i et
+        # stykke tid, saa vi ogsaa proever store tal. En acc32 kan
+        # taelle til godt fire milliarder, og et anlaeg paa ti aar naar
+        # nemt titusinder af kilowattimer.
+        self.wh_pv = 4_512_000.0
+        self.wh_imp = 2_130_000.0
+        self.wh_exp = 1_880_000.0
+        self.wh_bat_ind = 640_000.0
+        self.wh_bat_ud = 590_000.0
+        self.wh_string = [self.wh_pv / max(1, self.pv_strings)] * self.pv_strings
+
         # Forbruget vandrer langsomt i stedet for at hoppe hvert sekund.
         self._house_drift = 0.0
 
@@ -138,6 +166,27 @@ class Plant:
         # --- resten foelger af de tre ovenfor ---
         self.inverter_ac_w = self.solar_w + self.battery_w
         self.grid_w = self.house_w - self.solar_w - self.battery_w
+
+        # --- livstaellerne taeller op ---
+        #
+        # Hver vej for sig, som paa en rigtig maaler: den har ét tal for
+        # koebt og ét for solgt, og de taeller begge kun opad. Trak man
+        # dem fra hinanden i ét tal, kunne man ikke se forskel paa et
+        # anlaeg der hverken koeber eller saelger, og et der goer begge
+        # dele lige meget.
+        t = dt_s / 3600.0
+        for i, w in enumerate(self.string_w):
+            if i < len(self.wh_string):
+                self.wh_string[i] += max(0.0, w) * t
+        self.wh_pv += max(0.0, self.solar_w) * t
+        if self.grid_w > 0:
+            self.wh_imp += self.grid_w * t
+        else:
+            self.wh_exp += -self.grid_w * t
+        if self.battery_w < 0:
+            self.wh_bat_ind += -self.battery_w * t
+        else:
+            self.wh_bat_ud += self.battery_w * t
 
         if self.inverter_ac_w > 0:
             self.total_wh += self.inverter_ac_w * (dt_s / 3600.0)

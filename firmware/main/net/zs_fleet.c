@@ -814,6 +814,48 @@ static void send_tekst(const char *felt, const char *asset, const char *vaerdi)
     esp_mqtt_client_publish(s_klient, emne, krop, 0, 0, 0);
 }
 
+void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
+{
+    if (wh == NULL || har == NULL) {
+        return;
+    }
+    char asset[sizeof(s_asset)];
+    LAAS();
+    bool klar = (s_state == ZS_FLEET_READY) && (s_asset[0] != '\0')
+             && ((esp_timer_get_time() / 1000) >= s_klar_ms);
+    snprintf(asset, sizeof(asset), "%s", s_asset);
+    SLIP();
+    if (!klar) {
+        /*
+         * Ikke indmeldt endnu. Timen gaar tabt, og det er med vilje det
+         * rigtige: vi kan ikke gemme den til senere, for om en time
+         * kommer den naeste, og saa ville de hobe sig op.
+         */
+        ZS_LOGW(TAG, "time %d kunne ikke sendes, vi er ikke indmeldt endnu",
+                time);
+        return;
+    }
+
+    /*
+     * I KILOWATTTIMER, ikke wattimer.
+     *
+     * Det er den enhed der staar paa en elregning, og den kunden kan
+     * genkende. Feltet paa serveren faar samme enhed, saa ingen skal
+     * regne om.
+     */
+    for (size_t i = 0; i < ZS_E_ANTAL; i++) {
+        if (!har[i]) {
+            continue;       /* vi opfinder ikke et felt vi ikke har */
+        }
+        send_tal(zs_energi_felt_navn((zs_energi_felt_t)i), asset,
+                 wh[i] / 1000.0f);
+    }
+
+    if (time >= 0 && time <= 23) {
+        send_tal("energyHour", asset, (float)time);
+    }
+}
+
 void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 {
     if (s_klient == NULL || live == NULL) {
@@ -927,6 +969,8 @@ bool zs_fleet_start(void) { return false; }
 void zs_fleet_stop(void) {}
 void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 { (void)live; (void)info; }
+void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
+{ (void)wh; (void)har; (void)time; }
 zs_fleet_state_t zs_fleet_state(void) { return ZS_FLEET_OFF; }
 const char *zs_fleet_state_text(void) { return "Slået fra"; }
 void zs_fleet_asset_id(char *ud, size_t ud_len)

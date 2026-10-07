@@ -29,6 +29,7 @@ idf_component_register(
         "app/zs_selftest.c"
         "app/zs_demo.c"
         "net/zs_maerker.c"
+        "net/zs_energi.c"
         "app/zs_status.c"
 
         "storage/zs_nvs.c"

@@ -84,6 +84,12 @@ typedef struct {
     char         label[17];
     zs_ch_role_t role;
     zs_val_t     dcw;
+    /* Kanalens EGEN livstaeller i wattimer, model 160 DCWH.
+     *
+     * Paa en Fronius med batteri er lade- og afladesiden to af de her
+     * kanaler, saa det er HER batteriets energi staar. Et praecist tal,
+     * ikke noget der skal regnes af effekten. */
+    zs_val_t     dcwh;
     int32_t      dcst;
     uint32_t     dcevt;      /* fejl paa netop denne kanal */
     bool         active;
@@ -99,6 +105,36 @@ typedef struct {
     zs_val_t grid_hz;
 
     int32_t  charge_status;  /* Model 124 ChaSt, -1 = ukendt        */
+
+    /*
+     * LIVSTAELLERE i wattimer. De taeller kun opad.
+     *
+     * HVORFOR DE ER HER. En times forbrug er taelleren nu minus
+     * taelleren ved timens start. Det er et PRAECIST tal: det taeller
+     * ogsaa med hvis skaermen var slukket et kvarter, og det kan
+     * sammenlignes med en elregning. Et gennemsnit af effekten kan ikke
+     * nogen af delene.
+     *
+     * Alle fem findes som rigtige taellere i SunSpec:
+     *   prod_wh      model 103 WH eller 113 WH, inverterens produktion
+     *   imp_wh       model 203 eller 213 TotWhImp, koebt fra nettet
+     *   exp_wh       samme TotWhExp, solgt til nettet
+     *   bat_ind_wh   model 160, ladekanalens egen DCWH
+     *   bat_ud_wh    model 160, afladekanalens egen DCWH
+     *
+     * Batteriets to var jeg ved at regne ud af effekten, fordi model
+     * 124 ikke har energifelter. Det var forkert: paa en Fronius ligger
+     * lade- og afladesiden som to ekstra MPPT-kanaler, og HVER kanal har
+     * sin egen DCWH-taeller. Efterset i SunSpecs model_160.json, hvor
+     * DCWH staar paa offset 12 i kanalblokken som acc32 i wattimer.
+     *
+     * ok er false naar inverteren ikke har taelleren.
+     */
+    zs_val_t prod_wh;
+    zs_val_t imp_wh;
+    zs_val_t exp_wh;
+    zs_val_t bat_ind_wh;
+    zs_val_t bat_ud_wh;
 
     /*
      * Inverterens tilstand og fejl.
