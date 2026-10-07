@@ -37,6 +37,22 @@ typedef enum {
     ZS_CMD_INVERTER_SCAN,     /* gennemgå undernettet               */
     ZS_CMD_INVERTER_SELECT,   /* ip er udfyldt                      */
     ZS_CMD_SETUP_RESTART,     /* gå tilbage til valg af netværk     */
+    /*
+     * Fortryd opsaetningen.
+     *
+     * HVORFOR DEN FINDES. Trykker en kunde paa Netvaerk i
+     * indstillingerne og fortryder, skal de kunne komme hjem igen. Foer
+     * foerte tilbage-knappen til velkomstsiden, hvor den eneste knap er
+     * "Kom i gang", som foerer tilbage til netvaerkslisten. Saa var der
+     * ingen vej hjem uden at gaa hele opsaetningen igennem, inklusive en
+     * ny soegning efter inverteren.
+     *
+     * Og brugerfladen kan ikke bare vise hovedskaermen selv: appen staar
+     * i ST_SETUP, hvor den hverken forbinder eller aflaeser, saa
+     * skaermen ville staa doed. Derfor gaar fortryd gennem appen, som
+     * ejer tilstanden.
+     */
+    ZS_CMD_SETUP_CANCEL,
     ZS_CMD_SET_PRICE_ZONE,    /* ssid bruges til "DK1" eller "DK2"   */
     ZS_CMD_SET_NIGHT_DIM,     /* flag                               */
     ZS_CMD_SET_METER_SIGN,    /* flag: positiv betyder køb          */

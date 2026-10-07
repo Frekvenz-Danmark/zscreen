@@ -723,6 +723,37 @@ static void handle_cmd(const zs_cmd_t *c)
         break;
     }
 
+    case ZS_CMD_SETUP_CANCEL:
+        /*
+         * Kunden fortrak. Hvor de skal hen, afhaenger af om skaermen var
+         * sat op i forvejen.
+         *
+         * ST_SETUP skal ogsaa SLIPPES, ikke kun skaermen skiftes: i den
+         * tilstand staar der continue i loekken, saa appen hverken
+         * forbinder eller aflaeser. Viste vi bare hovedskaermen, ville
+         * den staa doed med gamle tal for evigt.
+         *
+         * Vi kraever baade flaget OG at der er et netvaerk og en inverter
+         * at gaa tilbage til. Ellers er der ingenting at vise, og saa er
+         * velkomstsiden det rigtige sted.
+         */
+        if (s_cfg.configured && s_cfg.wifi_ssid[0] != '\0'
+            && s_cfg.inverter_ip[0] != '\0') {
+            s_state = ST_CONNECTING;
+            /*
+             * Ingen nulstilling af ventetiden er noedvendig. Mens vi stod
+             * i ST_SETUP sprang loekken forbindelsesgrenen over, saa
+             * tidspunktet for naeste forsoeg er for laengst passeret, og
+             * loekken forbinder i den foerste runde efter det her.
+             */
+            zs_ui_show(ZS_SCREEN_HOME);
+            ESP_LOGI(TAG, "opsætningen blev afbrudt, tilbage til skærmen");
+        } else {
+            s_state = ST_SETUP;
+            zs_ui_show(ZS_SCREEN_WELCOME);
+        }
+        break;
+
     case ZS_CMD_SETUP_RESTART:
         zs_fr_disconnect(&s_fr);
         s_state = ST_SETUP;
@@ -1021,6 +1052,27 @@ static void app_task(void *arg)
 
     for (;;) {
         /*
+         * Lysstyrken fra skyderen. ALLERFOERST i runden.
+         *
+         * Den staar foer koeen og ikke efter. Grenen nedenfor slutter med
+         * continue, saa saa laenge der staar kommandoer i koeen, naar vi
+         * aldrig til resten af runden. Laa lysstyrken dernede, ville den
+         * blive sprunget over netop naar skaermen havde travlt.
+         *
+         * Vi sammenligner med den der staar nu i stedet for at nulstille
+         * pladsen. Saa findes der ikke et oejeblik mellem laesning og
+         * nulstilling hvor en ny vaerdi kan gaa tabt, og at skrive den
+         * samme vaerdi to gange koster ingenting. Se
+         * zs_app_set_brightness.
+         */
+        int16_t lys = s_ui_lys;
+        if (lys >= 0 && (uint8_t)lys != s_cfg.brightness) {
+            s_cfg.brightness = (uint8_t)lys;
+            zs_display_set_brightness((uint8_t)lys);
+            gem_snart();
+        }
+
+        /*
          * Vent paa en besked, men aldrig laengere end 200 ms.
          *
          * Det er hjerteslaget: uden det ville en skaerm der ikke bliver
@@ -1045,22 +1097,6 @@ static void app_task(void *arg)
          * ugemt indtil noget helt andet skete. Se
          * ZS_SETTINGS_SAVE_DELAY_MS.
          */
-        /*
-         * Lysstyrken fra skyderen. Staar FOER alle grene med continue,
-         * af samme grund som gemningen nedenfor: ellers ville skyderen
-         * ikke virke i demo eller under opsaetning.
-         *
-         * Vi sammenligner med den der staar nu i stedet for at nulstille
-         * pladsen. Saa kan en vaerdi der kommer imens ikke gaa tabt, og
-         * at skrive den samme vaerdi to gange koster ingenting.
-         */
-        int16_t lys = s_ui_lys;
-        if (lys >= 0 && (uint8_t)lys != s_cfg.brightness) {
-            s_cfg.brightness = (uint8_t)lys;
-            zs_display_set_brightness((uint8_t)lys);
-            gem_snart();
-        }
-
         if (s_cfg_beskidt && t >= s_cfg_gem_ms) {
             gem_nu_hvis_noget_venter();
         }

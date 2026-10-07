@@ -1,3 +1,73 @@
+## 2026-10-07 06:02
+
+### En blindgyde: kunden kunne ikke komme hjem fra netværkssiden
+Fundet ved at kortlægge hele vejen fra kunden tænder til skærmen er
+forbundet, side for side, og lede efter en side uden vej videre.
+
+Trykker en kunde på **Netværk** i indstillingerne, for eksempel fordi de
+har skiftet routerens kodeord, og så fortryder: tilbage-knappen førte til
+**velkomstsiden**. Og velkomstsiden har kun én knap, "Kom i gang", som
+fører tilbage til netværkslisten.
+
+Der var altså **ingen vej hjem**. Kunden skulle gå hele opsætningen
+igennem igen, inklusive en ny søgning efter inverteren, som er målt til 16
+sekunder på et /24 og 3 minutter 50 på et /20. Og det for en skærm hvor
+intet var gået i stykker.
+
+**Og det kunne ikke rettes i brugerfladen alene.** Appen står i `ST_SETUP`
+mens opsætningen er åben, og der står `continue` i løkken, så den hverken
+forbinder eller aflæser. Viste brugerfladen bare hovedskærmen igen, ville
+den stå død med gamle tal for evigt.
+
+Derfor går fortryd nu gennem appen, som ejer tilstanden og er den eneste
+der ved om der er en opsætning at gå tilbage til. Er der et netværk og en
+inverter gemt, slippes `ST_SETUP` og kunden kommer hjem. Er der ikke, er
+velkomstsiden det rigtige sted.
+
+Opsætningen blev i øvrigt aldrig slettet undervejs, det er tjekket:
+`SETUP_RESTART` rører ikke kundens gemte valg.
+
+### Og en vagt, så en side ikke kan komme ind uden vej tilbage
+`tools/check-flow.py` kræver at hver side har en tilbage-knap.
+Undtagelser skal skrives i scriptet **med en grund**, og der er præcis én:
+velkomstsiden, hvor der ikke er noget før.
+
+Prøvet af ved at fjerne tilbage-knappen fra netværkslisten og se den falde
+med exitkode 1. En skærm på en væg har kun én slags input, en finger. Er
+der ingen vej tilbage, er der ingen tast, ingen mus og ingen menu, og den
+eneste udvej er at tage strømmen.
+
+### Teksten pegede på en knap der ikke fandtes
+Stod der ingen netværk, sagde hintet "Prøv igen" mens knappen nedenfor
+hedder "Søg igen". To ord for det samme. Nu peger teksten på den knap der
+faktisk er der.
+
+### Lysstyrken flyttet først i runden
+Mens jeg var i løkken: lysstyrkens plads blev læst **efter** kølæsningen,
+og den gren slutter med `continue`. Så længe der stod kommandoer i køen,
+blev lysstyrken altså sprunget over, netop når skærmen havde travlt. Nu
+står den allerførst.
+
+Og gemningens kommentar var kommet til at stå over den forkerte kode efter
+min egen ændring i går. Rettet.
+
+### Hele flowet gennemgået, og det der var i orden
+- Alle elleve sider er nåelige, og ni af ti har en tilbage-knap. Den tiende
+  er velkomstsiden.
+- **Intet skærmskift ligger i hovedløkken.** Hvert skift er ét ved
+  opstart, ét per tryk eller ét per søgning. Så appen kan ikke rive
+  kunden tilbage til en side de lige forlod, og der findes ingen ring.
+- Prisområdets tilbage-knap har et mål der sættes af den der åbner den,
+  så fra indstillingerne fører den til indstillingerne og fra opsætningen
+  til inverterlisten. Ikke en blindgyde.
+- Netværkslisten har en "Søg igen"-knap, og inverterlisten har også en, så
+  en tom liste er ikke en blindgyde.
+- Opstarten lander rigtigt: er skærmen sat op, går den direkte til
+  hovedskærmen i `ST_CONNECTING`, ellers til velkomstsiden i `ST_SETUP`.
+
+690 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.17.1.
+
 ## 2026-10-07 05:12
 
 ### Et netværksnavn på præcis 32 tegn kunne skærmen aldrig forbinde til

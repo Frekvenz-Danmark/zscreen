@@ -149,7 +149,21 @@ static void build_welcome(void)
 static void on_wifi_back(lv_event_t *e)
 {
     (void)e;
-    zs_ui_show(ZS_SCREEN_WELCOME);
+    /*
+     * Vi vaelger IKKE siden selv. Appen gOEr.
+     *
+     * Trykker en kunde paa Netvaerk i indstillingerne og fortryder, skal
+     * de hjem til skaermen igen. Foer foerte den her knap til
+     * velkomstsiden, hvor den eneste knap er "Kom i gang", som foerer
+     * tilbage hertil. Saa var der ingen vej hjem uden at gaa hele
+     * opsaetningen igennem, inklusive en ny soegning efter inverteren.
+     *
+     * Og vi kan ikke bare vise hovedskaermen herfra: appen staar i
+     * ST_SETUP, hvor den hverken forbinder eller aflaeser, saa skaermen
+     * ville staa doed med gamle tal. Kun appen kan slippe tilstanden, og
+     * kun den ved om der er en opsaetning at gaa tilbage til.
+     */
+    send_cmd(ZS_CMD_SETUP_CANCEL);
 }
 
 static void on_wifi_rescan(lv_event_t *e)
@@ -537,7 +551,7 @@ void zs_setup_set_wifi_list(const zs_ap_t *aps, int n)
 
     if (n <= 0) {
         lv_label_set_text(s_wifi_hint,
-            "Der blev ikke fundet nogen netværk. Prøv igen.");
+            "Der blev ikke fundet nogen netværk.\nTryk \"Søg igen\" nedenfor.");
         return;
     }
     if (n > ZS_WIFI_MAX_APS) {
