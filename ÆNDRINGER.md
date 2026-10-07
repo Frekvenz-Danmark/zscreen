@@ -1,3 +1,36 @@
+## 2026-10-07 23:36
+
+### Tre huller i socket-laget, fundet ved at ødelægge koden med vilje
+Mutationstesten arbejder sig gennem 374 mutanter. Tre af dem overlevede i
+`zs_modbus_tcp.c`, og alle tre var reelle.
+
+**At lukke kunne gå ned.** Vagten i `zs_mb_close` var `mb er NULL eller fd
+under nul`. Blev `eller` lavet om til `og`, bliver `fd` læst selv om
+pointeren er NULL. Og vi lukker ved **enhver** fejl, så det er den sti der
+bliver gået oftest af alle når noget er i vejen. Ingen prøve nævnte den.
+Nu prøves at lukke NULL, at lukke en der aldrig var åben, og at lukke to
+gange i træk.
+
+**En timeout kunne blive regnet som en forbindelse.** `if (rc <= 0)` stod
+midt i `connect_with_timeout` og kunne derfor ikke prøves. Laves den til
+`rc < 0`, bliver nul regnet som succes, og nul betyder at **tiden løb ud**.
+På en scanning af 254 adresser ville vi melde en inverter på hver af dem.
+Beslutningen ligger nu for sig, og hele området fra -50 til 50 er prøvet af.
+
+**To tjek stod som ét.** `flags < 0 eller fcntl(...) < 0` gav ingenting og
+var et sted at tage fejl: blev `eller` lavet til `og`, slap en mislykket
+`F_SETFL` igennem, og vi kørte videre med en sokkel der **blokerer**. Så
+ville `connect` hænge i stedet for at give op, og hele timeouten ville ikke
+virke. De står hver for sig nu, så den fejl findes ikke længere. Det er
+den bedste slags rettelse: fejlen kan ikke laves, i stedet for at blive
+fanget.
+
+Alle tre mutanter er sat ind igen og dør. Samme fremgangsmåde som før: en
+prøve der ikke er efterprøvet mod den fejl den skal fange, er et gæt.
+
+**Status:** 8 vagter, 1005 prøver på maskinen, 77 hele vejen igennem,
+fuzzerne rent.
+
 ## 2026-10-07 23:30
 
 ### Fase 2: live-tallene bliver ikke gemt mere

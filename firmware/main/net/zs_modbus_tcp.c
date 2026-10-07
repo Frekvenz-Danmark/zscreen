@@ -393,8 +393,19 @@ static int connect_with_timeout(const char *host, uint16_t port, uint32_t timeou
         return -1;
     }
 
+    /* To uafhaengige tjek, skrevet hver for sig.
+     *
+     * Foer stod de som ÉN betingelse med ||. Det gav ingenting og var et
+     * sted at tage fejl: blev || lavet til &&, slap en mislykket F_SETFL
+     * igennem, og vi ville koere videre med en sokkel der BLOKERER. Saa
+     * ville connect haenge i stedet for at give op, og timeouten her ville
+     * ikke virke. Delt op findes den fejl ikke laengere. */
     int flags = fcntl(fd, F_GETFL, 0);
-    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+    if (flags < 0) {
+        close(fd);
+        return -1;
+    }
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
         close(fd);
         return -1;
     }
@@ -413,8 +424,9 @@ static int connect_with_timeout(const char *host, uint16_t port, uint32_t timeou
         tv.tv_usec = (long)((timeout_ms % 1000u) * 1000u);
 
         rc = select(fd + 1, NULL, &wset, NULL, &tv);
-        if (rc <= 0) {
-            /* 0 = timeout, under 0 = fejl. Begge dele: giv op. */
+        if (zs_mb_select_art(rc) != ZS_CON_KLAR) {
+            /* Timeout og fejl: begge dele betyder giv op. Se
+             * zs_mb_select_art for hvorfor det ligger som egen funktion. */
             close(fd);
             return -1;
         }
@@ -469,6 +481,18 @@ zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
     }
     ZS_LOGI(TAG, "forbundet til %s:%u", host, port);
     return ZS_MB_OK;
+}
+
+/* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
+zs_con_t zs_mb_select_art(int rc)
+{
+    if (rc < 0) {
+        return ZS_CON_FEJL;
+    }
+    if (rc == 0) {
+        return ZS_CON_TIMEOUT;
+    }
+    return ZS_CON_KLAR;
 }
 
 /* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */

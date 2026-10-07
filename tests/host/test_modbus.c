@@ -413,6 +413,51 @@ void test_modbus_sokkel(void)
     mb.fd = -1;
     CHECK("fd minus ét er lukket", !zs_mb_is_open(&mb));
 
+    ZS_SUITE("Modbus: at lukke må aldrig kunne gå ned");
+
+    /*
+     * zs_mb_close havde vagten "mb == NULL || mb->fd < 0". Blev || lavet
+     * om til &&, bliver mb->fd laest selv om mb er NULL, og saa gaar
+     * skaermen ned. Vi lukker ved ENHVER fejl, saa det er den sti der
+     * bliver gaaet oftest af alle naar noget er i vejen. Ingen proeve
+     * naevnte den.
+     */
+    zs_mb_close(NULL);
+    CHECK("close(NULL) går ikke ned", true);
+
+    zs_mb_t luk;
+    zs_mb_init(&luk);
+    zs_mb_close(&luk);                 /* aldrig aabnet */
+    CHECK_INT("at lukke en der aldrig var åben: fd er stadig -1", luk.fd, -1);
+    zs_mb_close(&luk);                 /* og to gange */
+    CHECK_INT("og to gange i træk gør ingen skade", luk.fd, -1);
+    CHECK("og den regnes stadig som lukket", !zs_mb_is_open(&luk));
+
+    ZS_SUITE("Modbus: hvad select sagde da vi ventede på forbindelsen");
+
+    /*
+     * NUL er det farlige. Nul betyder at tiden loeb ud, altsaa INGEN
+     * forbindelse. Blev "rc <= 0" lavet om til "rc < 0", ville en timeout
+     * blive regnet som en forbindelse der kom op, og en scanning af 254
+     * adresser ville melde en inverter paa hver af dem.
+     */
+    CHECK("nul er en timeout, ikke en forbindelse",
+          zs_mb_select_art(0) == ZS_CON_TIMEOUT);
+    CHECK("under nul er en fejl", zs_mb_select_art(-1) == ZS_CON_FEJL);
+    CHECK("og enhver anden negativ", zs_mb_select_art(-99) == ZS_CON_FEJL);
+    CHECK("én er klar", zs_mb_select_art(1) == ZS_CON_KLAR);
+    CHECK("og flere end én er også klar", zs_mb_select_art(2) == ZS_CON_KLAR);
+
+    /* Hele området, så en grænse der er sat ved siden af bliver fanget. */
+    int galt = 0;
+    for (int rc = -50; rc <= 50; rc++) {
+        zs_con_t a = zs_mb_select_art(rc);
+        zs_con_t vented = (rc < 0) ? ZS_CON_FEJL
+                        : (rc == 0) ? ZS_CON_TIMEOUT : ZS_CON_KLAR;
+        if (a != vented) { galt++; }
+    }
+    CHECK_INT("hele området fra -50 til 50 opfører sig som aftalt", galt, 0);
+
     ZS_SUITE("Modbus: er værten og porten noget vi kan forsøge");
 
     /*

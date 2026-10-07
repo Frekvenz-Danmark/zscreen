@@ -210,6 +210,24 @@ typedef enum {
 zs_sok_t zs_mb_errno_art(int fejlnr);
 
 /*
+ * Hvad select() sagde, da vi ventede paa at forbindelsen kom op.
+ *
+ * Vurderingen stod som "if (rc <= 0)" midt i connect_with_timeout og kunne
+ * derfor ikke proeves. En mutationstest aendrede den til "rc < 0", og ikke
+ * én proeve sagde fra. Med den aendring bliver en TIMEOUT regnet som en
+ * forbindelse der kom op: nul betyder at tiden loeb ud, og saa ville vi
+ * fortsaette som om vi var forbundet. Paa en scanning af 254 adresser
+ * ville vi melde at der sad en inverter paa dem alle.
+ */
+typedef enum {
+    ZS_CON_KLAR = 0,    /* soklen er skrivbar, forbindelsen kan proeves */
+    ZS_CON_TIMEOUT,     /* nul: tiden loeb ud                          */
+    ZS_CON_FEJL         /* under nul: select selv gik galt              */
+} zs_con_t;
+
+zs_con_t zs_mb_select_art(int rc);
+
+/*
  * Er vaert og port noget vi overhovedet kan forsoege?
  *
  * Vagten stod to steder, i zs_mb_connect og i zs_mb_probe_port, og de to
