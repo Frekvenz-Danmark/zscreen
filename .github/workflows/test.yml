@@ -44,6 +44,12 @@ jobs:
       - name: Hele datavejen mod en simuleret Fronius
         run: python3 tests/e2e/run.py
 
+      # Modbus og SunSpec laeser data fra en enhed vi ikke styrer.
+      # Enhedstestene proever de tilfaelde vi har taenkt paa, fuzzeren
+      # dem vi ikke har.
+      - name: Ødelagte rammer i parserne
+        run: ./tests/fuzz/koer.sh 20000
+
   firmware:
     name: Byg firmware
     # Laast med vilje, ikke ubuntu-latest.

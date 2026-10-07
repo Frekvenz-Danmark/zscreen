@@ -47,6 +47,10 @@ koer "Byg værktøjet"  ./tools/zs-probe/build.sh
 koer "Byg med sanitizer" env ZS_SANITIZE=1 ./tools/zs-probe/build.sh
 koer "Hele datavejen" python3 tests/e2e/run.py
 
+# Kort koersel, saa fuzzerne BLIVER ved at virke. En laengere kampagne
+# koeres i haanden: ./tests/fuzz/koer.sh 500000
+koer "Ødelagte rammer" ./tests/fuzz/koer.sh 20000
+
 echo
 echo "════════════════════════════════════════════════════════════"
 if [ "${FEJL}" -eq 0 ]; then

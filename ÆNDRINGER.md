@@ -1,3 +1,56 @@
+## 2026-10-07 11:20
+
+### Fuzzing af parserne, og et hul i testopsætningen
+To fund med værktøjer jeg ikke havde brugt endnu.
+
+**Ende til ende kørte uden sanitizer.** Enhedstestene har altid haft
+adressesanitizer, men ende til ende-testene kørte mod den almindelige
+binær. Og det er netop dér de interessante fejl ville være: enhedstestene
+fodrer opdigtede rammer, mens ende til ende kører rigtige sockets mod en
+rigtig simulator, altså den vej netværksdata faktisk tager.
+
+Prøvet: alle 68 består med sanitizer, nul fund. Men det skal **blive**
+prøvet sådan, så der bygges nu en `zs-probe-san` som testene kører mod.
+Den almindelige bliver stående, for den er værktøjet vi fejlsøger med.
+
+**Og et byg der fejlede blev slugt.** I `tests/run-all.sh` stod der
+`build.sh >/dev/null 2>&1 || true`. Både udskriften og fejlen blev smidt
+væk, så holdt værktøjet op med at kunne bygge, sagde testkørslen
+ingenting og kørte videre mod en **gammel** binær. Prøvet af ved at bryde
+kilden med vilje: nu exitkode 1 og "Noget fejlede", hvor den før var grøn.
+
+### Ødelagte rammer kastet ind i parserne
+Modbus- og SunSpec-koden læser data direkte fra en enhed vi ikke styrer.
+En inverter med en fejl i firmwaren, eller noget helt andet der svarer på
+port 502, kan sende hvad som helst. Enhedstestene prøver de tilfælde vi
+har tænkt på. Fuzzeren prøver dem vi ikke har.
+
+Kørt med adressesanitizer over otte frø:
+
+| | |
+|---|---|
+| Modbus-rammer | 900.000 |
+| SunSpec-kædevandringer | 500.000 |
+| Fund | **nul** |
+
+Halvdelen af Modbus-rammerne er **muterede gyldige**, ikke rent
+tilfældige, for rent tilfældige bliver afvist i headeren og når aldrig
+ind. Og SunSpec-fuzzeren bygger en rigtig enhed med markør og modeller og
+ødelægger så en håndfuld registre, herunder længdefelterne, som er dem der
+kan få en vandring til at løbe løbsk.
+
+**En grøn fuzzer der ikke når koden er værre end ingen fuzzer**, og det
+lærte jeg på den hårde måde: min første udgave svarede med rent skrald og
+nåede **aldrig** ind i kæden. Nul af 200.000 runder gav et kort, og den
+var grøn. Den siger nu fra hvis den ikke kom ind, og i den færdige udgave
+når 98,8 % af vandringerne ind, hvoraf 7,9 % rammer afkortnings-vejen.
+
+Begge kører nu kort i testpakken og i CI, så de bliver ved at virke. En
+længere kampagne køres i hånden med `./tests/fuzz/koer.sh 500000`.
+
+750 enhedstest, 68 ende til ende med sanitizer, og fuzzing af begge
+parsere. Alt bestået på Mac og Linux. Version 0.19.0.
+
 ## 2026-10-07 10:32
 
 ### Vi skal sende det vi har testet
