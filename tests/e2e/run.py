@@ -42,68 +42,47 @@ def _porten_svarer(port, vaert="127.0.0.1", timeout=0.3):
         return False
 
 
-def _ledig_port(start=15020, antal=4):
-    """Finder en raekke ledige porte, saa to koersler ikke kan rode i hinanden.
+def hold_en_fri_port():
+    """Giver (socket, port) hvor der GARANTERET ikke lytter noget.
 
-    HVORFOR DEN FINDES.
+    Vi beholder socket'en, saa ingen anden kan tage porten imens, og vi
+    kalder med vilje IKKE listen(): et forsoeg paa at forbinde bliver
+    afvist praecis som naar der slet ikke er noget. Det er forskellen paa
+    en proeve der altid proever det samme, og en der haaber at ingen havde
+    taget den port vi gættede paa.
 
-    Porten stod fast paa 15020. Det gik godt lige indtil en koersel blev
-    afbrudt midtvejs: saa levede dens zs-probe videre som foraeldreloes og
-    blev ved at banke paa 127.0.0.x:15020. Naeste koersel startede sin
-    egen simulator paa samme port, og den gamle scanning aad
-    forbindelserne. Resultatet var en proeve der faldt med en besked der
-    intet havde at goere med sagen, og en halv time brugt paa at lede
-    efter en fejl i koden der ikke var der.
-
-    Nu faar hver koersel sin egen raekke porte, og de bliver proevet af
-    foer de bruges. Testene bruger PORT og PORT + 1, og vi tager fire ad
-    gangen saa der er luft hvis der kommer en mere.
+    Kalderen lukker socket'en naar den er faerdig.
     """
-    kandidater = list(range(start, start + 2000, antal))
-
-    # Hver proces begynder sit EGET sted i raekken.
-    #
-    # Foer begyndte alle ved 15020. Koerte to ting paa maskinen samtidig,
-    # for eksempel mutationstesten og en haandholdt koersel, saa saa de
-    # BEGGE 15020 som fri i det samme oejeblik og tog den begge to. Saa
-    # laa to simulatorer og sloges om porten, og proeverne maalte paa den
-    # forkerte. Det gav fem og tyve proever der fejlede med tal fra et
-    # helt andet anlaeg, og fejlen pegede paa firmwaren.
-    skub = os.getpid() % len(kandidater)
-    kandidater = kandidater[skub:] + kandidater[:skub]
-
-    for p in kandidater:
-        sokler = []
-        try:
-            for i in range(antal):
-                # 0.0.0.0 og ikke 127.0.0.1: en bindning paa den ene
-                # adresse siger ingenting om den anden, og vi vil vide at
-                # porten er fri HELE vejen.
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                s.bind(("", p + i))
-                sokler.append(s)
-        except OSError:
-            for s in sokler:
-                s.close()
-            continue
-
-        for s in sokler:
-            s.close()
-
-        # Og saa et sidste tjek: svarer der noget alligevel? En bindning
-        # kan lykkes paa en port der er i TIME_WAIT, og vi vil kun have
-        # porte hvor der ikke ligger noget og lytter.
-        if any(_porten_svarer(p + i, timeout=0.1) for i in range(antal)):
-            continue
-        return p
-
-    raise RuntimeError("fandt ingen ledige porte mellem 15020 og 17020")
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    return s, s.getsockname()[1]
 
 
-# Hoeje porte, saa der ikke skal bruges sudo. ZS_PORT kan laase den fast
-# naar man fejlsoeger og vil kunne se med udefra.
-PORT = int(os.environ["ZS_PORT"]) if os.environ.get("ZS_PORT") else _ledig_port()
+# PORTEN DEN HJAELPEPROCES DER KOERER NU LYTTER PAA.
+#
+# HVORFOR DEN IKKE STAAR FAST, OG HVORFOR VI IKKE LEDER EFTER EN LEDIG.
+#
+# Foer stod porten fast paa 15020. Det faldt fra hinanden den dag der
+# koerte to ting paa maskinen samtidig: mutationstesten koerer ogsaa hele
+# vejen igennem, saa to koersler saa 15020 som fri i det SAMME oejeblik og
+# tog den begge to. To simulatorer paa én port, og proeverne laeste paa
+# den forkerte. Fem og tyve proever fejlede med tal fra et helt andet
+# anlaeg, og fejlen pegede paa firmwaren. Den var ikke der.
+#
+# Saa blev der ledt efter en ledig port i stedet. Det er bedre, men det er
+# stadig et gaet: mellem at vi ser porten fri og at simulatoren binder
+# den, kan en anden have taget den. Et vindue paa et par millisekunder er
+# stadig et vindue, og den slags fejl kommer igen naar man mindst har tid
+# til den.
+#
+# Nu bliver simulatoren startet med --port 0. Saa vaelger STYRESYSTEMET,
+# og det er den eneste der kan garantere at ingen anden har porten.
+# Simulatoren skriver den den fik, og vi laeser den. To koersler kan ikke
+# laengere komme til at tage den samme, uanset hvor mange der koerer.
+#
+# ZS_PORT kan stadig laase den fast naar man fejlsoeger og vil kunne se
+# med udefra.
+PORT = int(os.environ["ZS_PORT"]) if os.environ.get("ZS_PORT") else None
 
 VERBOSE = "-v" in sys.argv
 
@@ -229,7 +208,8 @@ class Sim:
 
     def __init__(self, profil, ekstra=None, port=None):
         self.profil = profil
-        self.port = port or PORT
+        # None betyder "lad styresystemet vaelge", se noten ved PORT.
+        self.port = port if port is not None else PORT
         # sys.executable og IKKE "python3".
         #
         # "python3" er hvad der tilfaeldigvis staar foerst i PATH. Paa
@@ -248,7 +228,8 @@ class Sim:
         # kan godt binde 127.0.0.1:P mens en anden proces lytter paa
         # 0.0.0.0:P, saa porten saa fri ud og var det ikke.
         self.args = [sys.executable, SIM,
-                     "--port", str(self.port), "--profile", profil,
+                     "--port", str(self.port if self.port else 0),
+                     "--profile", profil,
                      "--bind", "127.0.0.1",
                      "--start-hour", "13", "--speed", "1", "--print-every", "1"]
         if ekstra:
@@ -274,7 +255,10 @@ class Sim:
         hele testkoerslen i stedet for til simulatoren. start_new_session
         er den dokumenterede maade at bede om det samme uden den risiko.
         """
-        if _porten_svarer(self.port):
+        # Er porten laast fast med ZS_PORT, skal den vaere fri FOER vi
+        # starter. Vaelger styresystemet selv, kan den ikke vaere i brug,
+        # og saa er der ingenting at tjekke.
+        if self.port and _porten_svarer(self.port):
             raise RuntimeError(
                 f"port {self.port} var i brug FOER simulatoren "
                 f"({self.profil}) blev startet. Der ligger noget tilbage "
@@ -285,28 +269,61 @@ class Sim:
                                   bufsize=1, start_new_session=True)
         _boern.append(self.p)
 
-        # Vent paa at porten svarer, hoejst fem sekunder. Og hold oeje med
-        # at vores egen proces stadig lever: doer den med det samme, fordi
-        # den fik et argument den ikke kender, skal der staa DET og ikke
-        # "kom aldrig op".
+        self.port = self._laes_porten()
+
+        # Og saa bekraeftes det udefra: svarer den paa den port den sagde?
+        # Den siger porten FOER den begynder at tage imod, saa der kan gaa
+        # et oejeblik.
         for _ in range(50):
-            if self.p.poll() is not None:
-                ud = ""
-                try:
-                    ud = self.p.stdout.read() or ""
-                except Exception:
-                    pass
-                raise RuntimeError(
-                    f"simulatoren ({self.profil}) stoppede med det samme, "
-                    f"kode {self.p.returncode}:\n{ud.strip()[:600]}")
+            self._lever()
             if _porten_svarer(self.port):
                 break
             time.sleep(0.1)
         else:
-            raise RuntimeError(f"simulatoren ({self.profil}) kom aldrig op")
+            raise RuntimeError(
+                f"simulatoren ({self.profil}) sagde port {self.port}, "
+                f"men svarer ikke paa den")
+
+        # Og saa ved resten af proeverne hvor den er, se noten ved PORT.
+        global PORT
+        PORT = self.port
 
         time.sleep(0.8)   # lad den naa at regne en tilstand ud
         return self
+
+    def _lever(self):
+        """Doede den med det samme? Saa skal der staa HVORFOR, ikke bare at
+        den ikke kom op. Et ukendt argument er den typiske grund."""
+        if self.p.poll() is None:
+            return
+        ud = ""
+        try:
+            ud = self.p.stdout.read() or ""
+        except Exception:
+            pass
+        raise RuntimeError(
+            f"simulatoren ({self.profil}) stoppede med det samme, "
+            f"kode {self.p.returncode}:\n{ud.strip()[:600]}")
+
+    def _laes_porten(self):
+        """Laeser linjen "PORT=<n>" som simulatoren skriver foerst.
+
+        Det er det eneste vi kan stole paa: med --port 0 er det
+        styresystemet der har valgt, og kun simulatoren ved hvad den fik.
+        """
+        slut = time.time() + 10
+        while time.time() < slut:
+            self._lever()
+            linje = self.p.stdout.readline()
+            if not linje:
+                time.sleep(0.05)
+                continue
+            self.log.append(linje)
+            if linje.startswith("PORT="):
+                return int(linje.strip().split("=", 1)[1])
+        raise RuntimeError(
+            f"simulatoren ({self.profil}) sagde aldrig hvilken port den "
+            f"fik:\n" + "".join(self.log[-10:]))
 
     def __exit__(self, *a):
         luk_ned(self.p, self.port, f"simulatoren ({self.profil})")
@@ -629,9 +646,18 @@ def test_fejlkoder():
 def test_naar_det_gaar_galt():
     suite("Når det går galt")
 
-    # Ingen der lytter
-    r = subprocess.run([PROBE, "127.0.0.1", "15999"], capture_output=True,
-                       text=True, timeout=20)
+    # Ingen der lytter.
+    #
+    # Porten stod foer fast paa 15999. Den er sandsynligvis fri, men
+    # "sandsynligvis" er ikke godt nok: var der noget, ville proeven fejle
+    # af en grund der intet havde med sagen at goere. Nu holder vi en port
+    # vi VED er tom, se hold_en_fri_port.
+    tom_sok, tom_port = hold_en_fri_port()
+    try:
+        r = subprocess.run([PROBE, "127.0.0.1", str(tom_port)],
+                           capture_output=True, text=True, timeout=20)
+    finally:
+        tom_sok.close()
     if r.returncode != 0 and "Kunne ikke" in (r.stdout + r.stderr):
         ok("lukket port: siges der fra, på dansk")
     else:
@@ -640,10 +666,10 @@ def test_naar_det_gaar_galt():
     # Noget lytter, men taler ikke Modbus
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv.bind(("127.0.0.1", PORT + 1))
+    srv.bind(("127.0.0.1", 0))
     srv.listen(4)
     try:
-        r = subprocess.run([PROBE, "127.0.0.1", str(PORT + 1)],
+        r = subprocess.run([PROBE, "127.0.0.1", str(srv.getsockname()[1])],
                            capture_output=True, text=True, timeout=25)
         if r.returncode != 0:
             ok("åben port uden Modbus: giver op i stedet for at hænge")
@@ -658,8 +684,9 @@ def test_naar_det_gaar_galt():
 
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv.bind(("127.0.0.1", PORT + 2))
+    srv.bind(("127.0.0.1", 0))
     srv.listen(4)
+    skrald_port = srv.getsockname()[1]
 
     import threading
     stop = threading.Event()
@@ -684,7 +711,7 @@ def test_naar_det_gaar_galt():
     t = threading.Thread(target=skraldeserver, daemon=True)
     t.start()
     try:
-        r = subprocess.run([PROBE, "127.0.0.1", str(PORT + 2)],
+        r = subprocess.run([PROBE, "127.0.0.1", str(skrald_port)],
                            capture_output=True, text=True, timeout=25)
         if r.returncode != 0:
             ok("skrald i stedet for svar: afvises, intet nedbrud")
@@ -724,6 +751,11 @@ def test_genfind():
     # men aldrig findes.
     MODBUS_PORT = PORT
     SN = "31234567"          # simulatorens serienummer, se profilen
+
+    # Porten kendes foerst naar simulatoren har sagt hvilken den fik, se
+    # noten ved PORT. Derfor en liste med én plads: den indre funktion
+    # skal kunne laese den efter at with-blokken har sat den.
+    MODBUS_PORT = [None]
 
     # Udfaldene som zs_locate.h definerer dem, brugt som exitkode.
     SAMME, NY, TAGET, INGEN, FLERE = 0, 1, 2, 3, 4

@@ -93,6 +93,7 @@ void test_energi(void);
 void test_feltnavne(void);
 void test_tekst(void);
 void test_energi_inverterskift(void);
+void test_energi_taeller_forsvinder(void);
 void test_maerke_tabel(void);
 void test_sunspec_kanter(void);
 void test_modbus_sokkel(void);

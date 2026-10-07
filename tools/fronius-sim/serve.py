@@ -517,14 +517,26 @@ def main():
         print(f"\nKan ikke binde {args.bind}:{args.port}: {e}\n", file=sys.stderr)
         return 1
 
+    # Hvilken port fik vi?
+    #
+    # Med --port 0 vaelger styresystemet selv, og saa er det DEN der
+    # garanterer at ingen anden har porten. Det er den eneste maade to
+    # koersler aldrig kan komme til at tage den samme: alt andet er at
+    # lede efter en fri port og haabe at ingen tager den imellem.
+    #
+    # Linjen herunder er til at laese for en maskine, og den kommer FOER
+    # alt andet og med flush, saa den der startede os kan vente paa den.
+    port = server.server_address[1]
+    print(f"PORT={port}", flush=True)
+
     ips = local_ips()
     print()
     print("  Fronius-simulator kører")
     print("  ----------------------------------------------------------")
     print(f"  Profil          {args.profile}")
-    print(f"  Lytter paa      {args.bind}:{args.port}")
+    print(f"  Lytter paa      {args.bind}:{port}")
     for ip in ips:
-        print(f"  Find den paa    {ip}:{args.port}")
+        print(f"  Find den paa    {ip}:{port}")
     print(f"  Inverter        unit {args.inverter_unit}, "
           f"{'model 113 (float)' if floats else 'model 103 (heltal)'}")
     if meter_dev is not None:

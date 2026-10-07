@@ -121,6 +121,26 @@ zs_energi_t zs_energi_tik(zs_energi_basis_t *basis,
     for (size_t i = 0; i < ZS_E_ANTAL; i++) {
         ud[i] = 0.0f;
         ud_har[i] = false;
+        /*
+         * ELLER, ikke OG. Begge tidspunkter skal have taelleren.
+         *
+         * Det ser ud som en detalje og er det ikke. Havde vi den IKKE
+         * sidste time og har den NU, saa staar der nul i udgangspunktet,
+         * og forskellen bliver hele inverterens livstaeller. Den ville
+         * blive sendt som én times energi, altsaa maaske tusinde
+         * kilowattimer, og gemt paa serveren for evigt.
+         *
+         * Og det er ikke en fjern mulighed: elmaaleren sidder paa sin
+         * EGEN Modbus-unit, se ZS_FR_METER_UNIT, og den kan sagtens vaere
+         * uden svar i et oejeblik mens inverteren svarer fint. Saa
+         * mangler koebt og solgt i én aflaesning og er der igen i den
+         * naeste.
+         *
+         * Den anden vej, havde den og har den ikke, er mindre slem: saa
+         * er taelleren nul, forskellen bliver negativ, og feltet bliver
+         * sprunget over nedenfor. Men vi skal ikke vaere afhaengige af
+         * det held.
+         */
         if (!basis->har[i] || !har[i]) {
             continue;       /* vi havde den ikke, saa vi opfinder den ikke */
         }

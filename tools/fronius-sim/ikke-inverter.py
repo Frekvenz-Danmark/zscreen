@@ -53,5 +53,10 @@ if __name__ == "__main__":
     p.add_argument("--svar", choices=["nuller", "skrald", "tavs"], default="nuller")
     a = p.parse_args()
     SVAR = a.svar
-    print(f"  taler Modbus paa {a.bind}:{a.port}, svarer med {a.svar}", flush=True)
-    S((a.bind, a.port), H).serve_forever()
+    srv = S((a.bind, a.port), H)
+    # Samme linje som serve.py, se forklaringen dér: med --port 0 vaelger
+    # styresystemet, og vi siger hvad vi fik.
+    port = srv.server_address[1]
+    print(f"PORT={port}", flush=True)
+    print(f"  taler Modbus paa {a.bind}:{port}, svarer med {a.svar}", flush=True)
+    srv.serve_forever()

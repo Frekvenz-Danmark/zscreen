@@ -326,3 +326,87 @@ void test_energi_inverterskift(void)
           zs_energi_tik(&b, t, h, naesten, 10, 20000, ud, har, &t_ud)
           == ZS_ENERGI_NY_INVERTER);
 }
+
+/*
+ * En tæller der forsvinder og kommer igen.
+ *
+ * HVORFOR DEN HER PROEVE FINDES.
+ *
+ * En mutationstest aendrede "||" til "&&" i vagten der kraever at BEGGE
+ * tidspunkter har taelleren, og ikke én af de mange proever sagde fra.
+ *
+ * Med den aendring: havde vi IKKE taelleren sidste time og har den NU, saa
+ * staar der nul i udgangspunktet, og forskellen bliver hele inverterens
+ * livstaeller. Tusinde kilowattimer sendt som én times energi, gemt paa
+ * serveren for evigt.
+ *
+ * Og det er ikke teori. Elmaaleren sidder paa sin EGEN Modbus-unit, saa
+ * den kan vaere uden svar et oejeblik mens inverteren svarer fint. Saa
+ * mangler koebt og solgt i én aflaesning og er der igen i den naeste.
+ * Det sker paa et rigtigt anlaeg.
+ */
+void test_energi_taeller_forsvinder(void)
+{
+    zs_energi_basis_t b;
+    float ud[ZS_E_ANTAL];
+    bool  har[ZS_E_ANTAL];
+    int8_t t_ud = -1;
+
+    /* Alle fem til stede, og alle fem mangler. */
+    bool alle[ZS_E_ANTAL]  = { true, true, true, true, true };
+    bool uden_maaler[ZS_E_ANTAL] = { true, false, false, true, true };
+
+    float lavt[ZS_E_ANTAL]  = { 1000.0f,  2000.0f,  3000.0f, 100.0f, 200.0f };
+    float hoejt[ZS_E_ANTAL] = { 4000.0f,  5000.0f,  6000.0f, 400.0f, 500.0f };
+
+    ZS_SUITE("Timeenergi: elmåleren forsvinder og kommer igen");
+
+    /* Time 8: elmaaleren svarer ikke, saa koebt og solgt mangler. */
+    memset(&b, 0, sizeof(b));
+    CHECK("udgangspunkt sat uden elmåler",
+          zs_energi_tik(&b, lavt, uden_maaler, "31234567", 8, 20000,
+                        ud, har, &t_ud) == ZS_ENERGI_FOERSTE);
+    CHECK("og vi husker at vi ikke havde dem", !b.har[ZS_E_KOEBT]);
+
+    /*
+     * DEN FARLIGE. Time 9: elmaaleren er tilbage, og dens livstaeller
+     * staar paa 5000 Wh. Uden vagten ville de 5000 blive sendt som denne
+     * times forbrug.
+     */
+    CHECK("timen kan regnes",
+          zs_energi_tik(&b, hoejt, alle, "31234567", 9, 20000,
+                        ud, har, &t_ud) == ZS_ENERGI_KLAR);
+    CHECK("produktionen kan regnes, den var der hele tiden",
+          har[ZS_E_PRODUCERET]);
+    CHECK_F("og den er de 3000 Wh", ud[ZS_E_PRODUCERET], 3000.0f, 0.1);
+
+    CHECK("købt SENDES IKKE, for vi havde den ikke sidste time",
+          !har[ZS_E_KOEBT]);
+    CHECK("og der står ikke hele livstælleren i den", ud[ZS_E_KOEBT] == 0.0f);
+    CHECK("solgt sendes heller ikke", !har[ZS_E_SOLGT]);
+    CHECK("og heller ikke der", ud[ZS_E_SOLGT] == 0.0f);
+
+    /* Og timen EFTER, hvor vi har haft den i begge ender, skal den med. */
+    float hoejere[ZS_E_ANTAL] = { 7000.0f, 5500.0f, 6200.0f, 700.0f, 800.0f };
+    CHECK("timen efter kan den regnes",
+          zs_energi_tik(&b, hoejere, alle, "31234567", 10, 20000,
+                        ud, har, &t_ud) == ZS_ENERGI_KLAR);
+    CHECK("nu er købt med", har[ZS_E_KOEBT]);
+    CHECK_F("og den er de 500 Wh", ud[ZS_E_KOEBT], 500.0f, 0.1);
+
+    ZS_SUITE("Timeenergi: en tæller der forsvinder");
+
+    /* Den anden vej: havde den, har den ikke. Mindre slem, men den skal
+     * ogsaa springes over og ikke sendes som nul. */
+    memset(&b, 0, sizeof(b));
+    CHECK("udgangspunkt med alle fem",
+          zs_energi_tik(&b, lavt, alle, "31234567", 8, 20000,
+                        ud, har, &t_ud) == ZS_ENERGI_FOERSTE);
+    CHECK("timen kan regnes selv om måleren faldt ud",
+          zs_energi_tik(&b, hoejt, uden_maaler, "31234567", 9, 20000,
+                        ud, har, &t_ud) == ZS_ENERGI_KLAR);
+    CHECK("produktionen er med", har[ZS_E_PRODUCERET]);
+    CHECK("men købt sendes ikke som nul", !har[ZS_E_KOEBT]);
+    CHECK("og solgt heller ikke", !har[ZS_E_SOLGT]);
+    CHECK("og batteriet er stadig med", har[ZS_E_BAT_IND] && har[ZS_E_BAT_UD]);
+}

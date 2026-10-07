@@ -1,3 +1,37 @@
+## 2026-10-07 23:45
+
+### Hvis elmåleren falder ud i én time, kunne hele livstælleren blive sendt
+Fundet ved at ødelægge koden med vilje. Vagten der kræver at **begge**
+tidspunkter har tælleren kunne laves om fra "eller" til "og" uden at én af
+de knap tusind prøver sagde fra.
+
+Med den ændring: havde vi **ikke** tælleren sidste time og har den **nu**,
+så står der nul i udgangspunktet, og forskellen bliver hele inverterens
+livstæller. Tusinde kilowattimer sendt som én times forbrug, gemt på
+serveren for evigt.
+
+Og det er ikke teori. Elmåleren sidder på sin **egen** Modbus-unit, så den
+kan være uden svar et øjeblik mens inverteren svarer fint. Så mangler købt
+og solgt i én aflæsning og er der igen i den næste. Det sker på et rigtigt
+anlæg.
+
+Koden var rigtig. Prøven manglede. Nu er begge veje prøvet af: måleren der
+forsvinder og kommer igen, og måleren der falder ud. I begge tilfælde
+springes feltet over, mens produktion og batteri regnes som de skal. Og
+begrundelsen står nu i koden, så ingen senere retter "eller" til "og" i
+god tro.
+
+**Hele fase 1's kerne er nu dækket:** alle 25 måder koden kan ødelægges på
+bliver fanget af prøverne.
+
+### Og mutationsværktøjet kunne hænge for evigt
+Det havde ingen tidsgrænse. En mutant der får en løkke til at køre for
+evigt, for eksempel hvis "mindre end" bliver "ikke lig med", ville få
+værktøjet til at stå stille for evigt på den ene mutant. Det skete: 28
+mutanter var en halv time inde uden at være færdige. Nu er der en grænse
+på alle tre kald, og en mutant der hænger regnes som fanget, for så er
+opførslen ændret på en måde prøverne kan se.
+
 ## 2026-10-07 23:10
 
 ### Ombytningen af store og små bogstaver lå to steder

@@ -167,8 +167,12 @@ def byg_probe():
     """
     miljoe = dict(os.environ, ZS_SANITIZE="1")
     for env in (os.environ, miljoe):
-        r = subprocess.run(["./build.sh"], cwd=ROOT / "tools/zs-probe",
-                           capture_output=True, text=True, env=dict(env))
+        try:
+            r = subprocess.run(["./build.sh"], cwd=ROOT / "tools/zs-probe",
+                               capture_output=True, text=True,
+                               env=dict(env), timeout=300)
+        except subprocess.TimeoutExpired:
+            return False, "oversaettelsen haengte"
         if r.returncode != 0:
             return False, r.stdout + r.stderr
     return True, ""
@@ -181,8 +185,22 @@ def koer_proever():
     par sekunder, ende til ende tager over et minut. De fleste mutanter
     doer paa host, og saa skal der ikke koeres mere.
     """
-    r = subprocess.run(["./run.sh"], cwd=ROOT / "tests/host",
-                       capture_output=True, text=True)
+    #
+    # MED TIDSGRAENSE. En mutant kan faa en loekke til at koere for evigt,
+    # fx hvis "i < n" bliver "i != n" og i springer over n. Uden en
+    # graense her ville vaerktoejet staa stille for evigt paa den ene
+    # mutant, og det er praecis sket: 28 mutanter var en halv time inde
+    # uden at vaere faerdige.
+    #
+    # Og en mutant der haenger ER fanget: opfoerslen er aendret paa en
+    # maade proeverne kan se. Vi skriver bare hvad der skete, saa man kan
+    # skelne en haengende mutant fra en der fejlede paent.
+    #
+    try:
+        r = subprocess.run(["./run.sh"], cwd=ROOT / "tests/host",
+                           capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired:
+        return True, "host (den haengte)"
     ud = r.stdout + r.stderr
     if r.returncode != 0 or "FEJL" in ud or "error:" in ud:
         return True, "host"
@@ -190,8 +208,11 @@ def koer_proever():
     byggede, log = byg_probe()
     if not byggede:
         return True, "oversaettelsen af vaerktoejet"
-    r = subprocess.run([sys.executable, "run.py"], cwd=ROOT / "tests/e2e",
-                       capture_output=True, text=True, timeout=1800)
+    try:
+        r = subprocess.run([sys.executable, "run.py"], cwd=ROOT / "tests/e2e",
+                           capture_output=True, text=True, timeout=900)
+    except subprocess.TimeoutExpired:
+        return True, "ende til ende (den haengte)"
     ud = r.stdout + r.stderr
     if r.returncode != 0 or "FEJL" in ud:
         return True, "ende til ende"
