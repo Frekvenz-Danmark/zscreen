@@ -1,3 +1,91 @@
+## 2026-10-07 07:05
+
+### Gennemgang af OpenRemote, og målinger der ændrer arkitekturen
+Serveren blev tændt og gennemgået: alle fire tjenester sunde, dashboardet
+svarer, og hele vejen fra indmeldelse til skrivning virker.
+
+**Jeg væltede databasen undervejs.** Klokken 01:59:56 brød en
+Postgres-proces sammen under min egen komprimeringsmåling, og hele
+databasen gik i genopretning i cirka ti sekunder. Intet er tabt, det er
+talt efter: 58.599 datapunkter, 69 enheder, 2 indmeldelsesopsætninger,
+præcis som før. Men det afdækker en rigtig risiko: Postgres genstarter
+**alle** forbindelser hvis bare én proces dør, så en enkelt tung
+forespørgsel kan tage hele databasen ned.
+
+**Målt, ikke gættet:** 304 bytes per datapunkt råt, **41,7** komprimeret,
+altså faktor 7,3. Det giver for tusind skærme **66 GB per døgn** og
+**183 GB** i de to uger data gemmes.
+
+**Komprimeringen er sat rigtigt op men har aldrig kørt.** Jobbet kører
+fejlfrit, fem gange, nul fejl. Men intervallet blev sat til ét døgn
+**efter** at den nuværende chunk blev lavet, så den spænder stadig syv
+dage og lukker først 8. oktober. En chunk kan ikke komprimeres før den er
+lukket.
+
+**Sikkerhedskopien kan gendannes.** Gendannelsesprøven kørt: alle fire tal
+passer præcis mellem det der blev taget og det der kom tilbage. Men der er
+kun to kopier, begge manuelle, og hverken cron eller launchd kører den.
+Venter til Coolify efter aftale.
+
+I øvrigt fundet: en NullPointerException i OpenRemote udløst af at en
+MQTT-forbindelse lukker midt i en indmeldelse, hvor en besked blev tabt.
+Gentagne advarsler fra hawkBit, en firmware-tjeneste vi ikke bruger. Og 69
+enheder i dashboardet hvoraf én er rigtig hardware.
+
+Sikkerheden er velsat: beskyttelse mod kodeordsgætning slået til, fem
+forsøg og femten minutters pause, selvregistrering slået fra, og
+attributterne rigtigt opsat med historik på kun de fem live-tal og
+`targetVersion` læsbar men ikke skrivbar for enheden. Admin-kodeordet er 19
+tegn, altså stærkt, men mangler et stort bogstav og et ciffer og lever
+derfor ikke op til serverens egen politik.
+
+### Tre fund der ændrer planen for historikken
+**Der er intet SD-kort på denne hardware.** Ikke "ikke tilsluttet endnu":
+boardets egen definition har alle SD-ben som `GPIO_NUM_NC` og
+`FUNC_SDMMC_EN = 0`. På de større modeller sidder kortpladsen på
+RP2040-chippen, ikke på ESP32'en.
+
+**Men det er ikke nødvendigt.** En times målinger fylder **35 KB**.
+Skærmen har 8 MB PSRAM, så det er under en halv promille af den
+hukommelse vi har i forvejen.
+
+**Serveren tager ikke imod vores tidsstempler.** Prøvet på fire måder:
+råt tal, objekt med timestamp, `attributevalue` uden write, og hele
+attributten. Kun det rå tal landede, stemplet med serverens egen tid. De
+tre andre forsvandt i stilhed.
+
+Så "send timens data" kan ikke være 1800 tilbagedaterede punkter. Det skal
+være timens **opsummering**, og det bliver 183 GB til **142 MB** for tusind
+skærme, altså en faktor 1286. Live-tallene og kommandoer bliver ved at gå
+hvert andet sekund, så dashboardet er levende og styring er øjeblikkelig.
+
+### Energiregistrene, verificeret mod SunSpecs egen definition
+Første skridt mod timeværdier i kWh: registrene, hentet fra
+`sunspec/models` og lagt ind med kilden skrevet ved.
+
+Specen tæller `ID` og `L` med som de to første felter, så deres offsets er
+præcis **to større** end vores, der regnes fra datablokkens start. Det er
+efterset på et felt vi har brugt længe: specen har model 203 `W` på 18 og
+vi har 16. Så talmåden stemmer.
+
+Nyt, i vores talmåde: model 203 `TotWhExp` på 36, `TotWhImp` på 44,
+skalafaktor på 52. Model 213 har dem på 58 og 66 som flydende tal uden
+skalafaktor.
+
+**Og et nej der er værd at kende:** model 124, batteriet, har slet ingen
+energitællere. Det er efterset i specen, der er ikke et eneste felt med Wh
+i hele modellen. Batteriets ladet og afladet må derfor regnes ud af
+effekten over tiden, og med en måling hvert andet sekund ligger fejlen
+langt under en procent.
+
+Sytten nye tjek låser offsets fast mod specens egne tal, for en tastefejl i
+et offset giver en kunde forkerte kWh, og det ser ud som et rigtigt tal.
+De tjekker også blokkens form: otte registre fra Exp til Imp, og otte
+videre til skalafaktoren.
+
+707 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.18.0.
+
 ## 2026-10-07 06:02
 
 ### En blindgyde: kunden kunne ikke komme hjem fra netværkssiden

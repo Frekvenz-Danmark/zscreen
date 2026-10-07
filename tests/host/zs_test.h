@@ -84,5 +84,6 @@ void test_pris_dato(void);
 void test_modbus_skriv(void);
 void test_fleet_stykker(void);
 void test_fleet_svar_rigtigt(void);
+void test_sunspec_energi(void);
 
 #endif /* ZS_TEST_H */

@@ -194,9 +194,58 @@ extern "C" {
 #define ZS_M203_W_SF            20
 #define ZS_M203_MIN_LEN         21
 
+/*
+ * Maalerens energitaellere. Livstal, altsaa de taeller kun opad.
+ *
+ * HVORFOR TALLENE SER ANDERLEDES UD END I SPECEN. SunSpecs egne
+ * definitioner taeller ID og L med som de to foerste felter, saa deres
+ * offsets er to stoerre end vores. Vi regner fra datablokkens start, lige
+ * som alle de andre tal i den her fil. Efterset mod
+ * sunspec/models/json/model_203.json den 7. oktober 2026:
+ *
+ *      felt        specen   her
+ *      TotWhExp      38      36
+ *      TotWhImp      46      44
+ *      TotWh_SF      54      52
+ *
+ * Det er ogsaa saadan de eksisterende tal her er regnet: specen har W paa
+ * 18 og vi har 16. Saa de stemmer, og det er efterset og ikke husket.
+ *
+ * EXP og IMP set fra MAALEREN. Hvilken af dem der er kundens koeb
+ * afhaenger af hvordan maaleren er sat op, praecis som fortegnet paa
+ * effekten gOEr. Se meter_import_positive: den samme indstilling skal
+ * afgOEre begge, ellers kan en kunde faa sit koeb og sit salg byttet om.
+ */
+#define ZS_M203_TOT_WH_EXP      36    /* acc32, fylder 36 og 37      */
+#define ZS_M203_TOT_WH_IMP      44    /* acc32, fylder 44 og 45      */
+#define ZS_M203_TOT_WH_SF       52    /* sunssf                      */
+/* Der skal vaere saa mange registre for at naa skalafaktoren. */
+#define ZS_M203_WH_MIN_LEN      53
+
 /* Model 211-214, elmaaler med flydende tal. smdx_00213.xml */
 #define ZS_M213_W               26    /* samlet effekt, float32      */
 #define ZS_M213_MIN_LEN         28
+
+/*
+ * Samme tal i den flydende udgave. Ingen skalafaktor: et flydende tal
+ * baerer selv sin stoerrelse. Efterset mod model_213.json samme dag,
+ * hvor de staar paa 60 og 68, altsaa to mere end her.
+ */
+#define ZS_M213_TOT_WH_EXP      58    /* float32, fylder 58 og 59    */
+#define ZS_M213_TOT_WH_IMP      66    /* float32, fylder 66 og 67    */
+#define ZS_M213_WH_MIN_LEN      68
+
+/*
+ * BATTERIETS energi findes IKKE i SunSpec.
+ *
+ * Model 124 har ladetilstand, ladeeffekt og graenser, men ingen
+ * taeller for hvor mange wattimer der er gaaet ind eller ud. Efterset i
+ * model_124.json: der er ingen felter med Wh i hele modellen.
+ *
+ * Derfor maa batteriets energi regnes ud af effekten over tiden. Vi
+ * laeser hvert andet sekund, saa det er noejagtigt nok: en time er 1800
+ * maalinger, og fejlen ligger langt under en procent.
+ */
 
 /* ------------------------------------------------------------------ */
 /* "Ikke implementeret"-vaerdier                                       */

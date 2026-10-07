@@ -454,3 +454,71 @@ void test_sunspec_for_lang(void)
           zs_ss_dec_string(r, 16, 0, 16, vagt, 0) == 0);
     CHECK("og roerer ikke bufferen", vagt[0] == 0x7F);
 }
+
+/*
+ * Energiregistrene, laast fast mod SunSpecs egen definition.
+ *
+ * Et forkert offset her giver en kunde forkerte kWh, og det ser ud som
+ * et rigtigt tal. Derfor staar specens egne tal skrevet ind, saa en
+ * tastefejl falder her og ikke paa en elregning.
+ *
+ * Kilden er sunspec/models/json/model_2xx.json, hentet 7. oktober 2026.
+ * Specen taeller ID og L med som de to foerste felter, saa deres offsets
+ * er praecis to stoerre end vores, der regnes fra datablokkens start.
+ */
+void test_sunspec_energi(void)
+{
+    ZS_SUITE("SunSpec: energiregistrene står hvor specen siger");
+
+    /* Forskellen mellem specens og vores talmaade. */
+    enum { HEADER = 2 };
+
+    /* Det vi allerede havde, efterset samtidig. */
+    CHECK("model 103 WH: specen 24", ZS_M103_WH == 24 - HEADER);
+    CHECK("model 103 WH_SF: specen 26", ZS_M103_WH_SF == 26 - HEADER);
+    CHECK("model 113 WH: specen 32", ZS_M113_WH == 32 - HEADER);
+
+    /* Og at den samme regel holder for et tal vi har brugt laenge. Gaar
+     * den her i stykker, er hele talmaaden forkert og ikke kun ét felt. */
+    CHECK("model 203 W: specen 18", ZS_M203_W == 18 - HEADER);
+    CHECK("model 203 W_SF: specen 22", ZS_M203_W_SF == 22 - HEADER);
+    CHECK("model 213 W: specen 28", ZS_M213_W == 28 - HEADER);
+
+    /* Det nye. */
+    CHECK("model 203 TotWhExp: specen 38",
+          ZS_M203_TOT_WH_EXP == 38 - HEADER);
+    CHECK("model 203 TotWhImp: specen 46",
+          ZS_M203_TOT_WH_IMP == 46 - HEADER);
+    CHECK("model 203 TotWh_SF: specen 54",
+          ZS_M203_TOT_WH_SF == 54 - HEADER);
+    CHECK("model 213 TotWhExp: specen 60",
+          ZS_M213_TOT_WH_EXP == 60 - HEADER);
+    CHECK("model 213 TotWhImp: specen 68",
+          ZS_M213_TOT_WH_IMP == 68 - HEADER);
+
+    /*
+     * Og formen paa blokken. I specen staar de otte energital i to
+     * grupper af fire acc32, saa afstanden fra Exp til Imp er otte
+     * registre, og derfra til skalafaktoren igen otte. Rammer et offset
+     * forbi uden at bryde reglerne ovenfor, falder den her.
+     */
+    CHECK("der er otte registre fra Exp til Imp i model 203",
+          ZS_M203_TOT_WH_IMP - ZS_M203_TOT_WH_EXP == 8);
+    CHECK("og otte videre til skalafaktoren",
+          ZS_M203_TOT_WH_SF - ZS_M203_TOT_WH_IMP == 8);
+    CHECK("samme form i den flydende udgave",
+          ZS_M213_TOT_WH_IMP - ZS_M213_TOT_WH_EXP == 8);
+
+    /*
+     * Laengderne skal raekke til det sidste felt vi laeser. Er de for
+     * smaa, springer afkodningen registret over og melder "findes ikke"
+     * i stedet for at give et tal.
+     */
+    CHECK("model 203 skal vaere lang nok til skalafaktoren",
+          ZS_M203_WH_MIN_LEN > ZS_M203_TOT_WH_SF);
+    CHECK("model 213 skal vaere lang nok til Imp",
+          ZS_M213_WH_MIN_LEN >= ZS_M213_TOT_WH_IMP + 2);
+    CHECK("og de nye laengder er stoerre end de gamle",
+          ZS_M203_WH_MIN_LEN > ZS_M203_MIN_LEN &&
+          ZS_M213_WH_MIN_LEN > ZS_M213_MIN_LEN);
+}
