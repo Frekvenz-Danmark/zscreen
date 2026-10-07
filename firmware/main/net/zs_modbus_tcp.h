@@ -97,6 +97,20 @@ typedef struct {
     uint16_t next_tid;           /* transaktions-ID, taeller op pr. kald      */
     uint32_t timeout_ms;         /* svartimeout for det naeste kald           */
     uint8_t  last_exception;     /* Modbus exception-kode ved ZS_MB_ERR_EXCEPTION */
+    /*
+     * HVORFOR vi lukkede sidst.
+     *
+     * Vi lukker soklen ved ENHVER fejl, og det er med vilje: en
+     * Modbus TCP-forbindelse hvor et svar udeblev er i ukendt tilstand,
+     * for svaret kan komme bagefter og forskyde alt det naeste.
+     *
+     * Men saa ser det udefra ud som om nettet faldt ud, ogsaa naar
+     * sandheden er at inverteren holdt op med at svare. De to sender
+     * én ud at lede helt forskellige steder: den ene efter et kabel
+     * eller en switch, den anden efter en inverter der har travlt.
+     * Derfor huskes grunden her.
+     */
+    zs_mb_err_t last_error;
     uint32_t stat_requests;      /* taellere til fejlsoegningssiden           */
     uint32_t stat_errors;
 } zs_mb_t;

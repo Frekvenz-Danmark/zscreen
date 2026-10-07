@@ -131,13 +131,21 @@ class Sim:
 
 
 def probe(args=None, forvent_fejl=False):
+    """Koerer zs-probe. Giver (udskrift, fejl).
+
+    BEGGE kanaler er med i udskriften. Loggen gaar paa standardfejl, og
+    foer blev den smidt vaek naar man forventede en fejl. Saa kunne en
+    proeve ikke se HVORFOR det gik galt, kun AT det gik galt, og det var
+    netop forskellen vi ville efterproeve.
+    """
     cmd = [PROBE, "127.0.0.1", str(PORT)] + (args or [])
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    alt = (r.stdout or "") + (r.stderr or "")
     if VERBOSE:
-        print(r.stdout)
+        print(alt)
     if not forvent_fejl and r.returncode != 0:
-        return None, r.stdout + r.stderr
-    return r.stdout, None
+        return None, alt
+    return alt, None
 
 
 def tal(ud, felt):
@@ -937,6 +945,56 @@ def test_scan_vaerktoej():
         fail("scanningen kunne køres", str(e))
 
 
+def test_inverter_tier_stille():
+    suite("Inverteren holder op med at svare, men lukker ikke")
+
+    # HVORFOR DEN FINDES.
+    #
+    # En inverter der har travlt, fx fordi den samtidig serverer sin egen
+    # hjemmeside eller sender til Solar.web, kan holde op med at svare
+    # UDEN at lukke forbindelsen. For skaermen ser alt fint ud, lige
+    # indtil timeouten loeber ud.
+    #
+    # Den vej var helt uproevet. Mutationstest afsloerede det: aendrer man
+    # "errno == EAGAIN" til "!=" i zs_modbus_tcp.c, saa en timeout
+    # rapporteres som en lukket forbindelse, opdagede INGEN test det.
+    try:
+        with Sim("battery", ["--bind", "127.0.0.1", "--tavs-efter", "3"],
+                 port=PORT):
+            t0 = time.time()
+            ud, fejl = probe(forvent_fejl=True)
+            brugt = time.time() - t0
+
+            # Det vigtigste: den maa ikke haenge for evigt.
+            if brugt < 60:
+                ok(f"den giver op i stedet for at hænge ({brugt:.1f}s)")
+            else:
+                fail("den giver op inden for et minut", f"brugte {brugt:.0f}s")
+
+            tekst = (ud or "") + (fejl or "")
+
+            # DEN VIGTIGE: den skal sige at der ikke kom et SVAR, ikke at
+            # forbindelsen blev lukket. Forbindelsen staar jo aaben.
+            #
+            # Foerste udgave af den her proeve tjekkede kun at den gav op,
+            # og saa bestod den ogsaa med fejlen indsat. Baade "timeout"
+            # og "lukket" er at give op. Det er netop forskellen mellem de
+            # to der afgoer om man leder efter et netvaerksproblem eller
+            # efter en inverter der har travlt.
+            if "svarede ikke i tide" in tekst:
+                ok("og den siger at der ikke kom et svar, ikke at "
+                   "forbindelsen blev lukket")
+            elif "Forbindelsen blev lukket" in tekst:
+                fail("den skelner mellem tavshed og en lukket forbindelse",
+                     "den sagde at forbindelsen blev lukket, men den stod "
+                     "aaben hele tiden")
+            else:
+                fail("den siger hvad der gik galt",
+                     f"ingen af de to beskeder stod i udskriften: {tekst[:200]}")
+    except Exception as e:
+        fail("prøven kunne køres", str(e))
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -961,6 +1019,7 @@ def main():
     test_skriv_modbus()
     test_inverter_hopper()
     test_scan_vaerktoej()
+    test_inverter_tier_stille()
 
     print("\n" + "─" * 40)
     if fejl == 0:

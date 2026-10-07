@@ -32,7 +32,6 @@ int main(int argc, char **argv)
 
     uint8_t ramme[600];
     uint16_t ud[ZS_MB_MAX_REGS];
-    uint16_t regs[200];
     char tekst[64];
     unsigned long muteret = 0, rent = 0;
 
@@ -75,7 +74,21 @@ int main(int argc, char **argv)
                                          (uint16_t)(rnd() % 130), &exc);
 
         /* --- SunSpec-afkoderne ---------------------------------- */
-        size_t nr = rnd() % (sizeof(regs) / sizeof(regs[0]) + 1);
+        /*
+         * Bufferen er PRAECIS saa stor som den logiske laengde.
+         *
+         * Foerste udgave gav et fast array paa 200 og sagde "der er nr
+         * gyldige". Laeste koden ét forbi nr, var det stadig INDE i
+         * arrayet, og saa saa sanitizeren ingenting. En off-by-one er
+         * den almindeligste fejl i en parser, og den kunne fuzzeren
+         * altsaa ikke finde. Efterproevet: en bevidst aendring fra
+         * "off >= n" til "off > n" i zs_sunspec.c slap igennem.
+         *
+         * Med malloc af noejagtig nr registre er ét forbi ogsaa ét
+         * forbi ALLOKERINGEN, og saa faelder sanitizeren den.
+         */
+        size_t nr = rnd() % 200;
+        uint16_t *regs = (nr > 0) ? malloc(nr * sizeof(uint16_t)) : NULL;
         for (size_t k = 0; k < nr; k++) { regs[k] = (uint16_t)rnd(); }
         size_t off = rnd() % 220;          /* med vilje ogsaa UDENFOR */
         size_t sf  = rnd() % 220;
@@ -88,6 +101,7 @@ int main(int argc, char **argv)
         (void)zs_ss_dec_enum16(regs, nr, off);
         (void)zs_ss_dec_string(regs, nr, off, rnd() % 40,
                                tekst, 1 + rnd() % sizeof(tekst));
+        free(regs);
     }
     printf("  %lu runder: %lu muterede gyldige, %lu rent tilfaeldige\n",
            runder, muteret, rent);

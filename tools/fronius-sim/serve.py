@@ -91,6 +91,25 @@ class ModbusHandler(socketserver.BaseRequestHandler):
 
                 unit = body[0]
                 fc = body[1]
+
+                # --tavs N: svar paa de foerste N og TI saa stille, med
+                # forbindelsen aaben.
+                #
+                # Det er ikke en opfundet situation. En inverter der har
+                # travlt, fx fordi den samtidig serverer sin egen
+                # hjemmeside eller sender til Solar.web, kan holde op med
+                # at svare uden at lukke. For skaermen ser det ud som om
+                # alt er fint, lige indtil timeouten loeber ud. Uden den
+                # her kunne den vej slet ikke proeves.
+                tavs_efter = STATE.get("tavs_efter")
+                if tavs_efter is not None:
+                    STATE["svar_taeller"] = STATE.get("svar_taeller", 0) + 1
+                    if STATE["svar_taeller"] > tavs_efter:
+                        if STATE["verbose"]:
+                            print(f"  [{peer}] tier stille, forbindelsen "
+                                  f"holdes aaben")
+                        continue
+
                 resp = self._dispatch(tid, unit, fc, body[2:])
                 if resp:
                     self.request.sendall(resp)
@@ -388,6 +407,10 @@ def main():
     ap.add_argument("--naegt-kun-data", default="",
                     help="modeller hvor kun DATAENE naegtes, ikke hovedet. "
                          "Saa kan kaeden laeses videre")
+    ap.add_argument("--tavs-efter", type=int, default=None,
+                    help="svar paa de foerste N forespoergsler og ti saa "
+                         "stille, med forbindelsen aaben. Som en inverter "
+                         "der haenger eller har for travlt")
     ap.add_argument("--naegt", default="",
                     help="modelnumre der staar i kaeden men ikke kan laeses, "
                          "fx 160 eller 124,160")
@@ -411,6 +434,8 @@ def main():
 
     STATE["verbose"] = args.verbose
     STATE["naegt"] = {int(x) for x in args.naegt.split(",") if x.strip()}
+    STATE["tavs_efter"] = args.tavs_efter
+    STATE["svar_taeller"] = 0
     STATE["skrivemaade"] = args.skrivemaade
     STATE["naegt_kun_data"] = {int(x) for x in args.naegt_kun_data.split(",") if x.strip()}
     STATE["naegt"] |= STATE["naegt_kun_data"]

@@ -50,6 +50,7 @@ int main(int argc, char **argv)
     test_layout();
     test_layout_800();
     test_maerker();
+    test_locate_null();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

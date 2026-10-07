@@ -307,6 +307,28 @@ void zs_mb_close(zs_mb_t *mb)
     mb->fd = -1;
 }
 
+/*
+ * Lukker og HUSKER hvorfor.
+ *
+ * Vi lukker ved enhver fejl, for en Modbus TCP-forbindelse hvor et svar
+ * udeblev er i ukendt tilstand: svaret kan komme bagefter og forskyde
+ * alt det naeste. Men udefra ligner det at nettet faldt ud, ogsaa naar
+ * sandheden er at inverteren holdt op med at svare.
+ *
+ * De to sender én ud at lede helt forskellige steder: den ene efter et
+ * kabel eller en switch, den anden efter en inverter der har travlt.
+ * Derfor staar grunden i mb->last_error bagefter, og lagene ovenpaa kan
+ * sige hvad der faktisk skete.
+ */
+static zs_mb_err_t luk_med_grund(zs_mb_t *mb, zs_mb_err_t grund)
+{
+    mb->stat_errors++;
+    mb->last_error = grund;
+    zs_mb_close(mb);
+    return grund;
+}
+
+
 /* Slaar de socket-indstillinger til vi har brug for.
  * Fejl her er ikke fatale: mangler en platform en af dem, koerer vi
  * videre med lidt daarligere opfoersel frem for slet ingen forbindelse. */
@@ -540,18 +562,14 @@ zs_mb_err_t zs_mb_read_holding(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
 
     zs_mb_err_t err = send_all(mb->fd, req, req_len);
     if (err != ZS_MB_OK) {
-        mb->stat_errors++;
-        zs_mb_close(mb);
-        return err;
+        return luk_med_grund(mb, err);
     }
 
     /* Foerst de 6 bytes der fortaeller hvor langt resten er. */
     uint8_t frame[ZS_MB_MAX_FRAME];
     err = recv_exact(mb->fd, frame, MBAP_LEN);
     if (err != ZS_MB_OK) {
-        mb->stat_errors++;
-        zs_mb_close(mb);
-        return err;
+        return luk_med_grund(mb, err);
     }
 
     uint16_t len = rd_u16(frame + 4);
@@ -560,34 +578,29 @@ zs_mb_err_t zs_mb_read_holding(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
      * 65535 bytes ind i en buffer paa 259. */
     if (len < 3 || len > PDU_MAX) {
         ZS_LOGW(TAG, "urimeligt laengdefelt %u, lukker forbindelsen", len);
-        mb->stat_errors++;
-        zs_mb_close(mb);
-        return ZS_MB_ERR_FRAME;
+        return luk_med_grund(mb, ZS_MB_ERR_FRAME);
     }
     if (MBAP_LEN + (size_t)len > sizeof(frame)) {
-        mb->stat_errors++;
-        zs_mb_close(mb);
-        return ZS_MB_ERR_FRAME;
+        return luk_med_grund(mb, ZS_MB_ERR_FRAME);
     }
 
     err = recv_exact(mb->fd, frame + MBAP_LEN, len);
     if (err != ZS_MB_OK) {
-        mb->stat_errors++;
-        zs_mb_close(mb);
-        return err;
+        return luk_med_grund(mb, err);
     }
 
     err = zs_mb_parse_read_response(frame, MBAP_LEN + (size_t)len, tid, unit_id,
                                     count, out, &mb->last_exception);
     if (err != ZS_MB_OK) {
-        mb->stat_errors++;
         /* En exception er serveren der siger "det register har jeg ikke".
          * Forbindelsen er stadig sund og stroemmen i trit, saa den beholder
          * vi. Alt andet betyder at vi ikke laengere kan stole paa hvad der
          * kommer ud af roeret, og saa lukker vi. */
         if (err != ZS_MB_ERR_EXCEPTION) {
-            zs_mb_close(mb);
+            return luk_med_grund(mb, err);
         }
+        mb->stat_errors++;
+        mb->last_error = err;
         return err;
     }
     return ZS_MB_OK;
@@ -631,38 +644,31 @@ zs_mb_err_t zs_mb_write_verified(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
     mb->stat_requests++;
     zs_mb_err_t err = send_all(mb->fd, req, req_len);
     if (err != ZS_MB_OK) {
-        mb->stat_errors++;
-        zs_mb_close(mb);
-        return err;
+        return luk_med_grund(mb, err);
     }
 
     uint8_t frame[ZS_MB_MAX_FRAME];
     err = recv_exact(mb->fd, frame, MBAP_LEN);
     if (err != ZS_MB_OK) {
-        mb->stat_errors++;
-        zs_mb_close(mb);
-        return err;
+        return luk_med_grund(mb, err);
     }
     uint16_t len = rd_u16(frame + 4);
     if (len < 1 || MBAP_LEN + (size_t)len > sizeof(frame)) {
-        mb->stat_errors++;
-        zs_mb_close(mb);
-        return ZS_MB_ERR_FRAME;
+        return luk_med_grund(mb, ZS_MB_ERR_FRAME);
     }
     err = recv_exact(mb->fd, frame + MBAP_LEN, len);
     if (err != ZS_MB_OK) {
-        mb->stat_errors++;
-        zs_mb_close(mb);
-        return err;
+        return luk_med_grund(mb, err);
     }
 
     err = zs_mb_parse_write_response(frame, MBAP_LEN + (size_t)len, tid, unit_id,
                                      address, count, &mb->last_exception);
     if (err != ZS_MB_OK) {
-        mb->stat_errors++;
         if (err != ZS_MB_ERR_EXCEPTION) {
-            zs_mb_close(mb);
+            return luk_med_grund(mb, err);
         }
+        mb->stat_errors++;
+        mb->last_error = err;
         return err;
     }
 

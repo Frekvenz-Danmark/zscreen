@@ -288,3 +288,55 @@ void test_locate_blokke(void)
                   (int)zs_discovery_blokke("10.0.0.5", 24, b, 0), 0);
     }
 }
+
+/*
+ * Det der ikke maa vaelte, naar kalderen ikke vil have alt.
+ *
+ * zs_locate.h siger at serial_ud MAA vaere NULL, og ingen test gav den
+ * nogensinde NULL. De her proever lukker det hul for de veje der KAN
+ * naas uden et netvaerk.
+ *
+ * OG DET DER IKKE KAN PROEVES, saa ingen tror det er daekket:
+ * tjekket inde i skriv_ud naas foerst NAAR der er fundet en inverter, og
+ * det kraever en rigtig scanning. Mutationstest viste det: aendrer man
+ * && til || derinde, faejler ingen test. Koden er rigtig, men beskyttet
+ * af et tjek som ingen proeve kommer forbi. Det eneste der goer det
+ * ufarligt er at hverken firmwaren eller zs-probe nogensinde giver NULL,
+ * og den dag nogen goer, er det her kommentaren de skal laese.
+ */
+void test_locate_null(void)
+{
+    ZS_SUITE("Genfind: kalderen vil ikke have alle svar");
+
+    zs_found_t fundet;
+    memset(&fundet, 0, sizeof(fundet));
+    snprintf(fundet.ip, sizeof(fundet.ip), "%s", "10.1.4.50");
+    snprintf(fundet.info.serial, sizeof(fundet.info.serial), "%s", "31234567");
+
+    size_t valgt = 99;
+    CHECK("valgt maa vaere NULL",
+          zs_locate_pick(&fundet, 1, "31234567", NULL) == ZS_PICK_SERIAL);
+    CHECK("og med en peger faar man indekset",
+          zs_locate_pick(&fundet, 1, "31234567", &valgt) == ZS_PICK_SERIAL
+          && valgt == 0);
+
+    /*
+     * zs_locate_find med tomme udgange. Den gaar ikke paa nettet her,
+     * for egen_ip er tom, men den skal naa at roere udgangene uden at
+     * vaelte paa vejen ud.
+     */
+    char ip[46];   /* rigeligt. ZS_IP_MAX er 16 og ligger i zs_nvs.h,
+                    * som vi ikke henter her for ikke at traekke lageret ind */
+    CHECK("tom egen adresse giver intet net, uden at vaelte",
+          zs_locate_find("", 24, NULL, NULL, 502, 1,
+                         ip, sizeof(ip), NULL, 0, NULL, NULL)
+          == ZS_LOC_INTET_NET);
+    CHECK("NULL som egen adresse ogsaa",
+          zs_locate_find(NULL, 24, NULL, NULL, 502, 1,
+                         NULL, 0, NULL, 0, NULL, NULL)
+          == ZS_LOC_INTET_NET);
+    CHECK("og en laengde paa nul uden peger",
+          zs_locate_find("", 24, "31234567", "10.1.4.50", 502, 1,
+                         NULL, 0, NULL, 0, NULL, NULL)
+          == ZS_LOC_INTET_NET);
+}

@@ -270,7 +270,11 @@ static void discover_meter(zs_fr_t *fr)
              * det, giver vi op med det samme i stedet for at brase
              * videre gennem resten af listen paa en doed socket. */
             if (!zs_mb_is_open(&fr->mb)) {
-                ZS_LOGW(TAG, "forbindelsen lukkede under maaler-soegning");
+                /* Sig HVORFOR. Vi lukker selv ved enhver fejl, saa
+                 * "forbindelsen lukkede" alene sender én ud at lede efter
+                 * et kabel, ogsaa naar sandheden er at inverteren tav. */
+                ZS_LOGW(TAG, "gav op under maaler-soegning: %s",
+                        zs_mb_strerror(fr->mb.last_error));
                 return;
             }
             continue;
@@ -373,7 +377,8 @@ bool zs_fr_connect(zs_fr_t *fr, const char *host, uint16_t port, uint8_t unit)
     discover_meter(fr);
 
     if (!zs_mb_is_open(&fr->mb)) {
-        ZS_LOGW(TAG, "forbindelsen gik tabt under opstart");
+        ZS_LOGW(TAG, "gav op under opstart: %s",
+                zs_mb_strerror(fr->mb.last_error));
         return false;
     }
     if (!fr->info.has_inverter) {

@@ -1,3 +1,73 @@
+## 2026-10-07 14:40
+
+### Mutationstest: jeg ødelagde koden med vilje og så om testene opdagede det
+En test der ikke fejler når koden bliver forkert, beviser ingenting. Så i
+stedet for at lede efter fejl ændrede jeg koden 25 steder og så efter.
+
+**Første svar var 13 af 25 fanget**, altså tolv huller. Men det tal var
+forkert, og det var **min måling** der var det: harnesset kørte kun
+enhedstestene, ikke ende til ende. Fem af de tolv sad i socket-koden, som
+enhedstestene per definition ikke rører.
+
+Kørt om mod hele pakken: **fire af de tolv blev fanget af ende til ende**.
+Tilbage stod fem, og af dem var **to ækvivalente**, altså ændringer der
+ikke betyder noget:
+
+- `errno == EAGAIN || errno == EWOULDBLOCK`: de to er **samme tal** på
+  begge platforme, målt til 35 på macOS og 11 på Linux. Muterer man den
+  ene halvdel, dækker den anden. Begge bliver stående, for POSIX tillader
+  at de er forskellige.
+- Store bogstaver i mærke-opslaget: grænsen ved `Z` betyder først noget
+  den dag der kommer et mærke med Z i navnet.
+
+### Den rigtige fejl: "forbindelsen lukkede" når den stod åben
+Det her fandt jeg ved at bygge en ny prøve til et af hullerne.
+
+Simulatoren kunne afvise, men ikke **tie stille med forbindelsen åben**.
+Og det er præcis hvad der sker på et anlæg når en inverter har travlt,
+for eksempel fordi den samtidig serverer sin egen hjemmeside. Ny tilstand
+`--tavs-efter N`, og en ende til ende-prøve der bruger den.
+
+Da jeg så hvad værktøjet **faktisk** skrev, stod der:
+
+    forbindelsen lukkede under maaler-soegning
+    forbindelsen gik tabt under opstart
+
+Men forbindelsen stod **åben hele tiden**. Beskeden er teknisk sand, for
+vi lukker selv ved enhver fejl, og det er med vilje: en Modbus-forbindelse
+hvor et svar udeblev er i ukendt tilstand. Men den er **misvisende om
+årsagen**, og på et anlæg sender den dig ud at lede efter et kabel eller
+en switch, mens fejlen er en inverter der tier.
+
+Nu husker Modbus-laget **hvorfor** det lukkede, og beskeden siger det:
+
+    gav op under maaler-soegning: Inverteren svarede ikke i tide
+
+### Og fuzzeren var blind for off-by-one
+Et af hullerne var at `off >= n` kunne ændres til `off > n` uden at nogen
+test opdagede det. Det er en læsning ét forbi enden.
+
+Fuzzeren burde have fanget det, og det gjorde den ikke. Grunden er værd at
+kende: den gav et fast array på 200 registre og sagde "der er n gyldige".
+Læste koden ét forbi `n`, var det stadig **inde i** arrayet, så
+sanitizeren så ingenting. En off-by-one er den almindeligste fejl i en
+parser, og fuzzeren kunne altså ikke finde den.
+
+Nu er bufferen præcis så stor som den logiske længde. Efterprøvet: med
+ændringen indsat afbryder den nu med adressesanitizer, hvor den før var
+grøn.
+
+### Og noget der IKKE kan prøves, skrevet ned som sådan
+Tjekket i `skriv_ud` nås først når der er fundet en inverter, og det
+kræver en rigtig scanning. Mutationstest viste at ændringen fra `&&` til
+`||` slipper igennem hele pakken. Koden er rigtig, men beskyttet af et
+tjek ingen prøve kommer forbi. Det eneste der gør det ufarligt er at
+hverken firmwaren eller `zs-probe` nogensinde giver NULL. Det står nu i
+testen, så ingen tror området er dækket.
+
+780 enhedstest, 70 ende til ende med sanitizer, fuzzing af begge parsere.
+Alt bestået på Mac og Linux. Version 0.21.0.
+
 ## 2026-10-07 13:05
 
 ### Dokumentationen efterprøvet mod koden, og fem ting var forkerte
