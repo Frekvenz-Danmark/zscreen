@@ -231,12 +231,12 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
 #define ZS_CARD_WIDTH       ZS_G_CARD_WIDTH
 #define ZS_CARD_HEIGHT      ZS_G_CARD_HEIGHT   /* (408 - 12 - 12 - 12) / 2         */
 #define ZS_CARD_RADIUS      18
-#define ZS_CARD_PAD         14    /* luft inde i kortet               */
+#define ZS_CARD_PAD         ZS_G_CARD_PAD    /* luft inde i kortet  */
 
 /* Kortets indvendige maal, altsaa det indholdet har at goere godt med.
  *     222 - 2*14 = 194        200 - 2*14 = 172                       */
-#define ZS_CARD_IN_WIDTH        (ZS_CARD_WIDTH - 2 * ZS_CARD_PAD)
-#define ZS_CARD_IN_HEIGHT        (ZS_CARD_HEIGHT - 2 * ZS_CARD_PAD)
+#define ZS_CARD_IN_WIDTH    ZS_G_CARD_IN_WIDTH
+#define ZS_CARD_IN_HEIGHT   ZS_G_CARD_IN_HEIGHT
 
 /*
  * Kortets tre baand, maalt fra kortets indvendige overkant.
@@ -250,12 +250,28 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
  *     ledig plads mellem 20 og 140 er 120 px
  *     120 - 54 = 66, halvdelen er 33, saa y = 20 + 33 = 53
  */
-#define ZS_CARD_HEAD_Y      0
-#define ZS_CARD_HEAD_HEIGHT 20
-#define ZS_CARD_VALUE_Y     53
-#define ZS_CARD_VALUE_HEIGHT 54
-#define ZS_CARD_SUB_Y       140
-#define ZS_CARD_SUB_HEIGHT  18
+/*
+ * HOEJDERNE staar fast. De er skriftstoerrelser, og en skrift bliver ikke
+ * stoerre af at skaermen goer. Et ikon paa 20 px og et tal paa 54 px er
+ * valgt efter hvad man kan laese paa to meters afstand, ikke efter hvor
+ * mange pixels der tilfaeldigvis er.
+ *
+ * PLACERINGERNE er derimod udregnet, for de afhaenger af kortets hoejde.
+ * Stod de som faste tal, ville teksten loebe ud over kanten eller
+ * efterlade et hul den dag kortet skifter stoerrelse.
+ *
+ * Reglen: tre blokke med to ENS mellemrum, der fylder kortet helt ud.
+ *     mellemrum = (158 - 20 - 54 - 18) / 2 = 33
+ *     tallet paa 20 + 33 = 53, underteksten paa 53 + 54 + 33 = 140
+ * Praecis de tal der stod her foer.
+ */
+#define ZS_CARD_HEAD_HEIGHT  ZS_G_CARD_HEAD_HEIGHT
+#define ZS_CARD_VALUE_HEIGHT ZS_G_CARD_VALUE_HEIGHT
+#define ZS_CARD_SUB_HEIGHT   ZS_G_CARD_SUB_HEIGHT
+#define ZS_CARD_TEXT_GAP     ZS_G_CARD_TEXT_GAP
+#define ZS_CARD_HEAD_Y       ZS_G_CARD_HEAD_Y
+#define ZS_CARD_VALUE_Y      ZS_G_CARD_VALUE_Y
+#define ZS_CARD_SUB_Y        ZS_G_CARD_SUB_Y
 
 /*
  * Enheden skal staa paa SAMME GRUNDLINJE som tallet.
@@ -279,11 +295,11 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
 #define ZS_UNIT_GAP         8     /* mellem tallet og enheden         */
 
 /* ── Andet ────────────────────────────────────────────────────────── */
-#define ZS_ROW_HEIGHT       56    /* hoejde paa en listerad           */
+#define ZS_ROW_HEIGHT       ZS_G_ROW_HEIGHT  /* hoejde paa en listerad */
 /* Ikonet plus luften efter det. Bruges baade naar raden bygges og naar
  * en kalder skal saette noget ind paa samme lodrette linje som titlen. */
 #define ZS_ROW_ICON_W       34
-#define ZS_BTN_HEIGHT            52    /* hoejde paa en knap               */
+#define ZS_BTN_HEIGHT       ZS_G_BTN_HEIGHT  /* hoejde paa en knap     */
 #define ZS_PAD_SCREEN       ZS_EDGE
 
 /*
@@ -296,7 +312,7 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
  * derfor tandhjulet foroven er en 44 x 44 knap med et 20 px ikon i
  * midten og ikke bare et ikon.
  */
-#define ZS_TOUCH_MIN        44
+#define ZS_TOUCH_MIN        ZS_G_TOUCH_MIN
 
 /* ── Faelles opsaetning ───────────────────────────────────────────── */
 
@@ -362,7 +378,7 @@ lv_obj_t *zs_choice_create(lv_obj_t *parent, const char *titel,
                            lv_event_cb_t cb, void *user_data);
 
 /* Hoejden paa en valgknap, saa kalderen kan regne y ud. */
-#define ZS_CHOICE_HEIGHT    92
+#define ZS_CHOICE_HEIGHT    ZS_G_CHOICE_HEIGHT
 #define ZS_CHOICE_GAP       12
 
 /*

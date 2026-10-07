@@ -21,6 +21,7 @@
 #include "zs_test.h"
 #include "../../firmware/main/ui/zs_layout.h"
 
+
 void test_layout(void)
 {
     ZS_SUITE("Layout: tallene for skærmen vi har i dag");
@@ -88,4 +89,44 @@ void test_layout(void)
           (content - ZS_G_GRID_GAP) % 2 == 0);
     CHECK("hoejden gaar op uden en pixel til overs",
           (page - 3 * ZS_G_GRID_GAP) % 2 == 0);
+
+    ZS_SUITE("Layout: kortets indhold fylder kortet helt ud");
+
+    /*
+     * Hoejderne er skriftstoerrelser og staar fast. Placeringerne er
+     * udregnet af kortets hoejde. Den afgoerende regel er at de tre
+     * blokke og de to mellemrum fylder kortet PRAECIS ud: er der en pixel
+     * for lidt, staar underteksten og flyder, og er der en for meget,
+     * loeber den ud over kanten.
+     */
+    CHECK("overskriften staar oeverst", ZS_G_CARD_HEAD_Y == 0);
+    CHECK("tallet staar paa 53, som foer det blev udregnet",
+          ZS_G_CARD_VALUE_Y == 53);
+    CHECK("underteksten paa 140, som foer",
+          ZS_G_CARD_SUB_Y == 140);
+    CHECK("mellemrummet er 33", ZS_G_CARD_TEXT_GAP == 33);
+
+    CHECK("de to mellemrum er ens, saa tallet staar optisk i midten",
+          ZS_G_CARD_VALUE_Y - (ZS_G_CARD_HEAD_Y + ZS_G_CARD_HEAD_HEIGHT)
+          == ZS_G_CARD_SUB_Y - (ZS_G_CARD_VALUE_Y + ZS_G_CARD_VALUE_HEIGHT));
+
+    CHECK("underteksten slutter praecis i bunden af kortet",
+          ZS_G_CARD_SUB_Y + ZS_G_CARD_SUB_HEIGHT == ZS_G_CARD_IN_HEIGHT);
+
+    CHECK("de tre blokke og de to mellemrum er hele den indvendige hoejde",
+          ZS_G_CARD_HEAD_HEIGHT + ZS_G_CARD_TEXT_GAP + ZS_G_CARD_VALUE_HEIGHT
+          + ZS_G_CARD_TEXT_GAP + ZS_G_CARD_SUB_HEIGHT == ZS_G_CARD_IN_HEIGHT);
+
+    ZS_SUITE("Layout: det der IKKE må skalere");
+
+    /*
+     * En finger bliver ikke stoerre af at skaermen goer. De her maal er
+     * fysiske og skal blive staaende naar vi skifter skaerm, ellers bliver
+     * knapperne for smaa at ramme paa en taettere skaerm.
+     */
+    CHECK("mindste trykfelt er mindst 44, som retningslinjerne siger",
+          ZS_G_TOUCH_MIN >= 44);
+    CHECK("en listerad kan rammes", ZS_G_ROW_HEIGHT >= ZS_G_TOUCH_MIN);
+    CHECK("en knap kan rammes", ZS_G_BTN_HEIGHT >= ZS_G_TOUCH_MIN);
+    CHECK("et valgfelt kan rammes", ZS_G_CHOICE_HEIGHT >= ZS_G_TOUCH_MIN);
 }

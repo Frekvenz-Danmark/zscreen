@@ -1,3 +1,50 @@
+## 2026-10-07 08:58
+
+### Fladen gjort klar til en anden skærm, uden at en pixel flytter sig
+Fase et af forberedelsen til reTerminal D1001. Alt herunder er gjort på
+den skærm vi har, og den binære fil er **præcis lige så stor som før**, så
+ingenting har ændret opførsel.
+
+**Ikke alt skal skalere, og det er pointen.** En finger bliver ikke større
+af at skærmen gør. Så målene er delt i to slags:
+
+- **Fysiske mål der bliver stående:** mindste trykfelt på 44, listerader
+  på 56, knapper på 52, valgfelter på 92. Dem skal man kunne ramme, og det
+  afhænger af en finger og ikke af hvor mange pixels der er. Fire nye tjek
+  kræver at de alle er mindst så store som trykfeltet.
+- **Mål der følger skærmen:** kortets bredde og højde, og placeringen af
+  teksten inde i kortet.
+
+**Kortets indhold fulgte allerede en præcis regel**, den var bare skrevet
+af. Tre tekstblokke med to **ens** mellemrum der fylder kortet helt ud:
+
+    overskrift   0 ..  20
+    tallet      53 .. 107
+    undertekst 140 .. 158   præcis kortets indvendige højde
+
+Mellemrummet er (158 − 20 − 54 − 18) / 2 = 33, og så lander tallet på 53
+og underteksten på 140. Nøjagtig de tal der stod der i forvejen. Nu
+regnes de ud, så de følger med hvis kortet skifter størrelse.
+
+Højderne 20, 54 og 18 bliver derimod stående: det er skriftstørrelser,
+valgt efter hvad man kan læse på to meters afstand.
+
+**Og geometrien er flyttet derhen hvor den kan prøves af.** `zs_theme.h`
+henter `lvgl.h`, så en test på en almindelig maskine kunne ikke nå tallene.
+Det opdagede jeg ved at testen ikke kunne bygge. Alle målene ligger nu i
+`zs_layout.h`, som ikke henter noget, og `zs_theme.h` er alias hele vejen.
+Det er også den rigtige struktur til et skærmskifte: geometrien skal kunne
+regnes igennem uden at starte et helt UI-bibliotek.
+
+Elleve nye tjek oven i de sytten fra før. De vigtigste er ikke tallene men
+reglerne: at de to mellemrum er **ens** så tallet står optisk i midten, og
+at underteksten slutter **præcis** i bunden af kortet. Er der en pixel for
+lidt, flyder teksten, og er der en for meget, løber den ud over kanten.
+
+734 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler, og binæren er uændret i størrelse.
+Version 0.18.2.
+
 ## 2026-10-07 08:20
 
 ### Kan vi flytte til reTerminal D1001 med ESP32-P4? Undersøgt og målt
