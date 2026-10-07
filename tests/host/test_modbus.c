@@ -10,6 +10,7 @@
 #include "../../firmware/main/net/zs_modbus_tcp.h"
 
 #include <errno.h>
+#include <string.h>
 
 /* Bygger et gyldigt FC3-svar med de opgivne registre. */
 static size_t make_response(uint8_t *buf, uint16_t tid, uint8_t unit,
@@ -369,6 +370,48 @@ void test_modbus_sokkel(void)
         if (!vented_andet && a != ZS_SOK_DOED) { forkert++; }
     }
     CHECK_INT("kun de tre kendte slipper forbi DØD", forkert, 0);
+
+    ZS_SUITE("Modbus: en frisk forbindelse starter lukket");
+
+    /*
+     * HVORFOR DET SKAL PROEVES AF.
+     *
+     * zs_mb_init og zs_mb_is_open var slet ikke naevnt i nogen proeve. En
+     * mutationstest kunne lave "if (mb == NULL) return;" om til "if (mb !=
+     * NULL) return;", saa zs_mb_init gjorde INGENTING for en gyldig
+     * pointer, og ikke én af de mange proever sagde fra. Saa staar fd paa
+     * hvad der nu laa i hukommelsen, og en tilfaeldig vaerdi over nul
+     * betyder "forbindelsen er aaben". Derfra kan vi lukke en sokkel der
+     * hoerer til noget helt andet.
+     */
+    zs_mb_t mb;
+    memset(&mb, 0xFF, sizeof(mb));   /* skrald, saa init SKAL rydde op */
+    zs_mb_init(&mb);
+    CHECK_INT("fd står på -1 bagefter", mb.fd, -1);
+    CHECK("og forbindelsen regnes som lukket", !zs_mb_is_open(&mb));
+    CHECK_INT("og der er en svartid at regne med", (int)mb.timeout_ms, 1500);
+    CHECK_INT("og ingen exception-kode", mb.last_exception, 0);
+    CHECK_INT("og transaktions-ID starter på nul", mb.next_tid, 0);
+    CHECK_STR("og ingen vært", mb.host, "");
+
+    /* NULL ind maa ikke give et nedbrud. */
+    zs_mb_init(NULL);
+    CHECK("init(NULL) går ikke ned", true);
+    CHECK("is_open(NULL) er falsk", !zs_mb_is_open(NULL));
+
+    /*
+     * Og graensen paa fd. NUL er et gyldigt filhaandtag: koden siger
+     * "fd >= 0 betyder aaben", og det skal den blive ved med. Bliver det
+     * til "fd > 0", melder vi en aaben forbindelse som lukket, og saa
+     * laekker soklen i stedet for at blive lukket.
+     */
+    mb.fd = 0;
+    CHECK("fd nul regnes som åben, for nul er et gyldigt håndtag",
+          zs_mb_is_open(&mb));
+    mb.fd = 1;
+    CHECK("fd ét er også åben", zs_mb_is_open(&mb));
+    mb.fd = -1;
+    CHECK("fd minus ét er lukket", !zs_mb_is_open(&mb));
 
     ZS_SUITE("Modbus: er værten og porten noget vi kan forsøge");
 
