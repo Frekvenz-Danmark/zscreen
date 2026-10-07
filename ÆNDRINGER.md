@@ -1,3 +1,35 @@
+## 2026-10-07 22:45
+
+### Mutationstesten arbejdede, men man kunne ikke se det
+Kørslen havde kørt en time uden et tegn på liv, og spørgsmålet var rimeligt
+nok: arbejder den, eller venter vi på ingenting? Den arbejdede. Men at man
+ikke kunne se det, er i sig selv en fejl: en kørsel man ikke kan se ind i,
+kan ikke skelnes fra en der hænger.
+
+Tre ting er rettet.
+
+**Fremdriften skrives nu ned.** Hver mutant giver en linje med hvor langt
+den er, hvad der fangede den, og hvor lang tid der er igen. Den skrives
+både på skærmen og til en fil der kan følges med `tail -f`. Stien står
+øverst i kørslen. Og den ligger **uden for** kopien: første forsøg lagde
+den indeni, og så blev den ryddet op sammen med kopien, netop når man ville
+læse den.
+
+**Den rydder op når den bliver afbrudt.** Før blev kopien af koden liggende
+hver gang en kørsel blev stoppet, og den blev ikke fundet igen. Et `finally`
+dækker ikke et signal, så det håndteres nu for sig. Efterprøvet ved at
+stoppe den og se at mappen er væk.
+
+**Tålmodigheden var for stor.** En mutant der får prøverne til at **hænge**
+fik et kvarter før den blev opgivet. Hele datavejen tager 150 sekunder når
+alt er normalt, så grænsen er nu 420 sekunder: rigeligt til en langsom
+maskine, og kort nok til at et hæng koster minutter i stedet for timer.
+
+Og tiden er nu **målt** i stedet for gættet: 16 mutanter på det første
+minut, alle fanget af enhedstestene. Den tidligere kørsel målte i øvrigt på
+kode der var en time gammel, altså fra før portene blev lagt om, så dens
+resultat ville ikke have beskrevet det vi har nu. Den er startet forfra.
+
 ## 2026-10-07 22:26
 
 ### Porten vælges nu af styresystemet, så to kørsler aldrig kan støde sammen

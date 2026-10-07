@@ -47,12 +47,14 @@ sekunder.
 
 import io
 import os
+import signal
 import pathlib
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 KILDE = pathlib.Path(__file__).resolve().parent.parent
 
@@ -66,6 +68,32 @@ KILDE = pathlib.Path(__file__).resolve().parent.parent
 # saa koden bliver kopieret til en midlertidig mappe og alt sker derinde.
 # Arbejdstraeet kan ikke roeres.
 ROOT = None     # saettes af forbered()
+
+# HVOR FREMDRIFTEN SKRIVES.
+#
+# En hel koersel tager timer: der er 374 mutanter, og hver af dem der IKKE
+# bliver fanget af enhedstestene skal igennem en bygning og hele datavejen.
+# Foer kunne man ikke se hvor langt den var, og en koersel man ikke kan se
+# ind i er ikke til at skelne fra en der haenger. Vi har spildt tid paa
+# netop det spoergsmaal: arbejder den, eller venter vi paa ingenting?
+#
+# Nu skrives hver linje OGSAA til en fil, med flush hver gang, saa man kan
+# foelge med:    tail -f <stien der skrives foeroven>
+LOG = None
+
+# Et fast sted, saa man kan finde den uden at kende mappenavnet, og saa den
+# bliver staaende naar kopien er ryddet op.
+LOGSTI = pathlib.Path(tempfile.gettempdir()) / "zs-mutation-fremdrift.log"
+
+
+def sig(linje=""):
+    """Skriver baade paa skaermen og i loggen, og tvinger den ud med det
+    samme. Uden flush staar der ingenting i filen foer bufferen er fuld,
+    og det er netop en lang koersel man vil kigge paa undervejs."""
+    print(linje, flush=True)
+    if LOG is not None:
+        LOG.write(linje + "\n")
+        LOG.flush()
 
 
 def forbered():
@@ -209,8 +237,15 @@ def koer_proever():
     if not byggede:
         return True, "oversaettelsen af vaerktoejet"
     try:
+        # 420 sekunder og ikke 900.
+        #
+        # Hele datavejen tager omkring 150 sekunder naar alt er normalt.
+        # 420 er naesten tre gange saa laenge, rigeligt til en langsom
+        # maskine, og kort nok til at en mutant der faar proeverne til at
+        # HAENGE bliver opdaget i stedet for at koste et kvarter. Med
+        # flere haengende mutanter var forskellen timer.
         r = subprocess.run([sys.executable, "run.py"], cwd=ROOT / "tests/e2e",
-                           capture_output=True, text=True, timeout=900)
+                           capture_output=True, text=True, timeout=420)
     except subprocess.TimeoutExpired:
         return True, "ende til ende (den haengte)"
     ud = r.stdout + r.stderr
@@ -228,8 +263,17 @@ def main():
         ROOT = KILDE          # der skrives ikke noget, saa en kopi er spild
     else:
         mappe = forbered()
+        global LOG
+        # Loggen ligger UDEN FOR kopien.
+        #
+        # Foerste forsoeg lagde den inde i kopien. Den blev saa ryddet op
+        # sammen med kopien naar koerslen sluttede, og saa var der ingen
+        # log tilbage at se paa bagefter. Den er netop til at kigge paa
+        # BAGEFTER, naar man vil vide hvad der overlevede.
+        LOG = io.open(LOGSTI, "w", encoding="utf-8")
         print(f"\n  arbejder paa en kopi i {mappe}")
         print(f"  arbejdstraeet bliver ikke roert")
+        print(f"\n  FOELG MED:  tail -f {LOGSTI}")
 
     valgte = MODULER
     if args:
@@ -247,8 +291,23 @@ def main():
         for nr, gammel, ny, fra_tegn, til in ms:
             alle.append((fil, tekst, nr, gammel, ny, fra_tegn, til))
 
-    print(f"\n\033[1mMutationstest\033[0m")
-    print(f"  {len(valgte)} moduler, {len(alle)} mutanter\n")
+    sig(f"\n\033[1mMutationstest\033[0m")
+    sig(f"  {len(valgte)} moduler, {len(alle)} mutanter")
+    if not bare_vis:
+        # Et skoen, saa ingen sidder og venter uden at vide paa hvad.
+        #
+        # En mutant enhedstestene fanger koster omkring ti sekunder. En der
+        # slipper forbi dem skal igennem en bygning og hele datavejen, og
+        # det er omkring tre minutter. Erfaringen er at omkring én af ti
+        # slipper forbi.
+        hurtige = len(alle) * 0.9 * 10
+        langsomme = len(alle) * 0.1 * 180
+        timer = (hurtige + langsomme) / 3600.0
+        sig(f"  skoennet tid: omkring {timer:.1f} timer. Den skriver hver "
+            f"mutant undervejs,")
+        sig(f"  saa den er til at foelge, og den kan afbrydes uden at "
+            f"efterlade noget.")
+    sig("")
 
     if bare_vis:
         for fil, _, nr, gammel, _, fra_tegn, til in alle:
@@ -258,6 +317,7 @@ def main():
 
     overlevede = []
     sprunget = 0
+    begyndt = time.time()
     for i, (fil, tekst, nr, gammel, ny, fra_tegn, til) in enumerate(alle, 1):
         navn = f"{pathlib.Path(fil).name}:{nr}"
 
@@ -280,38 +340,68 @@ def main():
         finally:
             io.open(p, "w", encoding="utf-8").write(org)
 
+        # Hvor langt er vi, og hvor laenge er der igen. Det staar paa hver
+        # linje med vilje: saadan kan man se paa ÉN linje om den rykker sig,
+        # uden at skulle regne.
+        gaaet = time.time() - begyndt
+        igen = (gaaet / i) * (len(alle) - i)
+        naar = f"{gaaet/60:.0f}m gaaet, ~{igen/60:.0f}m igen"
+
         if doed:
-            print(f"  \033[1;32mdød\033[0m    [{i}/{len(alle)}] {navn}  "
-                  f"{fra_tegn} -> {til}   (fanget af {hvem})")
+            sig(f"  \033[1;32mdød\033[0m    [{i}/{len(alle)}] {navn}  "
+                f"{fra_tegn} -> {til}   (fanget af {hvem})   {naar}")
         elif undtagelse is not None:
-            print(f"  \033[1;33mok\033[0m     [{i}/{len(alle)}] {navn}  "
-                  f"{fra_tegn} -> {til}   uden betydning: {undtagelse}")
+            sig(f"  \033[1;33mok\033[0m     [{i}/{len(alle)}] {navn}  "
+                f"{fra_tegn} -> {til}   uden betydning: {undtagelse}   {naar}")
         else:
-            print(f"  \033[1;31mLEVER\033[0m  [{i}/{len(alle)}] {navn}  "
-                  f"{fra_tegn} -> {til}")
-            print(f"              {gammel.strip()}")
+            sig(f"  \033[1;31mLEVER\033[0m  [{i}/{len(alle)}] {navn}  "
+                f"{fra_tegn} -> {til}   {naar}")
+            sig(f"              {gammel.strip()}")
             overlevede.append((navn, gammel.strip(), fra_tegn, til))
 
-    print("\n" + "─" * 40)
+    sig("\n" + "─" * 40)
     if sprunget:
-        print(f"  {sprunget} sprunget over (linjen ser ikke ud som ventet)")
+        sig(f"  {sprunget} sprunget over (linjen ser ikke ud som ventet)")
     if not overlevede:
-        print(f"\033[1;32malle {len(alle)} mutanter blev fanget\033[0m\n")
+        sig(f"\033[1;32malle {len(alle)} mutanter blev fanget\033[0m\n")
         return 0
-    print(f"\033[1;31m{len(overlevede)} af {len(alle)} mutanter overlevede\033[0m")
-    print("  Hver af dem er enten et hul i proeverne, en beslutning der skal")
-    print("  traekkes ud saa den kan proeves, eller noget uden betydning der")
-    print("  skal paa listen UDEN_BETYDNING i denne fil. Se noten foeroven.\n")
+    sig(f"\033[1;31m{len(overlevede)} af {len(alle)} mutanter overlevede\033[0m")
+    sig("  Hver af dem er enten et hul i proeverne, en beslutning der skal")
+    sig("  traekkes ud saa den kan proeves, eller noget uden betydning der")
+    sig("  skal paa listen UDEN_BETYDNING i denne fil. Se noten foeroven.\n")
     for navn, gammel, fra_tegn, til in overlevede:
-        print(f"    {navn}  {fra_tegn} -> {til}")
-        print(f"      {gammel}")
+        sig(f"    {navn}  {fra_tegn} -> {til}")
+        sig(f"      {gammel}")
     return 1
 
 
+def ryd_op():
+    if ROOT is not None and ROOT != KILDE:
+        shutil.rmtree(ROOT, ignore_errors=True)
+    global LOG
+    if LOG is not None:
+        try:
+            LOG.close()
+        except Exception:
+            pass
+        LOG = None
+
+
+def afbrudt(signalnr, _ramme):
+    """Bliver vi stoppet udefra, skal kopien RYDDES OP.
+
+    Foer laa der en mappe tilbage hver gang en koersel blev afbrudt, og den
+    blev ikke fundet igen. Et finally daekker ikke et signal, saa det skal
+    haandteres for sig."""
+    ryd_op()
+    sys.exit(130 if signalnr == signal.SIGINT else 143)
+
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, afbrudt)
+    signal.signal(signal.SIGTERM, afbrudt)
     try:
         kode = main()
     finally:
-        if ROOT is not None and ROOT != KILDE:
-            shutil.rmtree(ROOT, ignore_errors=True)
+        ryd_op()
     sys.exit(kode)
