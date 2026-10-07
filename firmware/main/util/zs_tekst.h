@@ -55,6 +55,17 @@ extern "C" {
 char zs_tekst_smaa(char c);
 
 /*
+ * Goer ét ASCII-bogstav stort. Som zs_tekst_smaa, bare den anden vej.
+ *
+ * Den findes fordi zs_sunspec.c normaliserede kanalnavne med toupper()
+ * fra ctype.h. Det virkede, men det ser paa maskinens sprogvalg, og vi
+ * har allerede den samme ombytning den anden vej herinde. To steder at
+ * tage fejl er ét for mange, saa nu ligger begge veje her og begge er
+ * proevet af for alle 256 byte-vaerdier.
+ */
+char zs_tekst_stort(char c);
+
+/*
  * Kopierer fra ud i ud, og afslutter ALTID med nul saa laenge der er
  * plads til mindst ét tegn.
  *

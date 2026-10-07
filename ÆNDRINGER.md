@@ -1,3 +1,29 @@
+## 2026-10-07 23:10
+
+### Ombytningen af store og små bogstaver lå to steder
+SunSpec-afkodningen normaliserede kanalnavne med `toupper` fra systemets
+eget bibliotek. Det virkede, men det ser på maskinens **sprogvalg**, og vi
+havde allerede den samme ombytning den anden vej i vores eget modul. To
+steder at tage fejl er ét for mange. Begge veje ligger nu samme sted, og
+begge er prøvet af for alle 256 byteværdier, også at op og ned igen giver
+det samme.
+
+Det er ikke pedanteri: det er netop ombytningen af store bogstaver der i
+dag viste sig at være forkert i kanten, og den fejl ville have kostet at
+et mærke ikke kunne findes. Her bruges den til at genkende batteriets
+**aflade**kanal, og bliver den ikke genkendt, får batteriets effekt
+omvendt fortegn. Så siger skærmen "lader 3 kW" mens batteriet aflader.
+
+### Fuzzerne var den fjerde bygning der faldt
+Koden bygges fire steder, hver med sin egen liste over hvor headerne
+ligger. Da det nye modul kom til, blev det glemt i tre af dem, én ad
+gangen, med en hel prøvekørsel imellem hver gang. Fejlen kommer **sent**:
+alle 966 prøver består først, og så vælter bygningen af noget helt andet.
+
+Vagten der tjekker det kendte tre bygninger. Nu kender den også fuzzerne.
+Efterprøvet i alle fire ved at fjerne stien: den siger fra, og den siger
+hvilken fil der beder om hvad.
+
 ## 2026-10-07 22:40
 
 ### En advarsel der ville fylde loggen 1800 gange i timen

@@ -4,12 +4,13 @@ zScreen - tjek at hver bygning kan finde de headere dens egne filer beder om.
 
 HVORFOR DEN FINDES.
 
-Koden bliver bygget tre steder, og hver af dem har sin egen liste over
+Koden bliver bygget fire steder, og hver af dem har sin egen liste over
 kilder og sine egne include-stier:
 
     firmware/main/CMakeLists.txt    firmwaren til skaermen
     tests/host/run.sh               enhedstestene paa en almindelig maskine
     tools/zs-probe/build.sh         fejlsoegningsvaerktoejet
+    tests/fuzz/koer.sh              fuzzerne
 
 Da util/zs_tekst.c blev lagt ind, blev den foejet til de to foerste og
 glemt i den tredje. Enhedstestene var groenne, og saa faldt bygningen af
@@ -21,7 +22,7 @@ der. Den sagde "70 tjek, alle bestaaet", og den loeg. Foerst da bygningen
 virkede, kom de rigtige fejl frem, og saa havde de ikke noget at goere med
 det jeg havde lavet.
 
-Vi kraever IKKE at de tre har de samme stier. Vaerktoejet oversaetter
+Vi kraever IKKE at de fire har de samme stier. Vaerktoejet oversaetter
 ingen skaermkode og skal ikke kende ui-mappen. Vi kraever det der faktisk
 betyder noget: at hver bygning kan finde HVER header som dens egne filer
 beder om, ogsaa de headere en header selv tager med.
@@ -117,6 +118,26 @@ def kilder_og_stier_fra_shell(sti_til_script):
     return kilder, stier
 
 
+def kilder_og_stier_fra_fuzz():
+    """Fuzzerne skriver det anderledes, saa de har deres egen laesning.
+
+    De staar med stier regnet fra projektets rod, og med et mellemrum
+    efter -I. Da util/ kom til, var det den FJERDE bygning der faldt, og
+    den faldt efter at baade enhedstestene og ende til ende var groenne.
+    Saa den skal med her.
+    """
+    sti = ROD / "tests/fuzz/koer.sh"
+    tekst = sti.read_text(encoding="utf-8")
+    stier = [(ROD / m).resolve()
+             for m in re.findall(r"-I\s+(\S+)", tekst)]
+    kilder = []
+    for m in re.findall(r"((?:tests|firmware)/\S+\.c)", tekst):
+        q = (ROD / m).resolve()
+        if q.exists():
+            kilder.append(q)
+    return kilder, stier
+
+
 def tjek_cmake():
     cmake = SRC / "CMakeLists.txt"
     tekst = cmake.read_text(encoding="utf-8")
@@ -153,13 +174,20 @@ def main():
             continue
         tjek_bygning(navn, kilder, stier)
 
+    kilder, stier = kilder_og_stier_fra_fuzz()
+    if not kilder:
+        fejl.append("fuzzerne: fandt ingen kildefiler i tests/fuzz/koer.sh. "
+                    "Er listen skrevet om?")
+    else:
+        tjek_bygning("fuzzerne", kilder, stier)
+
     if fejl:
         for f in fejl:
             print(f"  \033[1;31mFEJL\033[0m {f}")
         print(f"\n  {len(fejl)} ting at rette.")
         return 1
 
-    print("  alle kilder er med, og alle tre bygninger kan finde det de beder om")
+    print("  alle kilder er med, og alle fire bygninger kan finde det de beder om")
     return 0
 
 

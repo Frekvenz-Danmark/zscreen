@@ -3,11 +3,11 @@
  */
 
 #include "zs_sunspec.h"
+#include "zs_tekst.h"
 #include "../zs_log.h"
 
 #include <string.h>
 #include <math.h>
-#include <ctype.h>
 
 static const char *TAG = "sunspec";
 
@@ -231,7 +231,7 @@ zs_ch_role_t zs_ss_classify_channel(const char *idstr)
         if (c == ' ' || c == '_' || c == '-' || c == '.') {
             continue;
         }
-        norm[k++] = (char)toupper(c);
+        norm[k++] = zs_tekst_stort((char)c);
     }
     norm[k] = '\0';
 

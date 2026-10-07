@@ -16,6 +16,14 @@ char zs_tekst_smaa(char c)
     return c;
 }
 
+char zs_tekst_stort(char c)
+{
+    if (c >= 'a' && c <= 'z') {
+        return (char)(c - 'a' + 'A');
+    }
+    return c;
+}
+
 bool zs_tekst_kopi(char *ud, size_t ud_len, const char *fra)
 {
     if (ud == NULL || ud_len == 0) {

@@ -29,13 +29,16 @@ trap 'rm -rf "$UD"' EXIT
 FLAG=( -std=c11 -DZS_HOST_BUILD=1 -O1 -g -fno-omit-frame-pointer
        -fsanitize=address,undefined -fno-sanitize-recover=all
        -Wall -Wextra -Wno-unused-parameter
-       -I firmware/main -I firmware/main/net -I firmware/main/app )
+       -I firmware/main -I firmware/main/net -I firmware/main/app
+       -I firmware/main/util )
 
 "${CC}" "${FLAG[@]}" tests/fuzz/fuzz_modbus.c \
     firmware/main/net/zs_modbus_tcp.c firmware/main/net/zs_sunspec.c \
+    firmware/main/util/zs_tekst.c \
     -lm -o "$UD/modbus"
 "${CC}" "${FLAG[@]}" tests/fuzz/fuzz_sunspec.c \
-    firmware/main/net/zs_sunspec.c -lm -o "$UD/sunspec"
+    firmware/main/net/zs_sunspec.c firmware/main/util/zs_tekst.c \
+    -lm -o "$UD/sunspec"
 
 echo "  Modbus-rammer:"
 "$UD/modbus" "$RUNDER" "$FROE" 2>/dev/null

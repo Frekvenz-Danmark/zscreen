@@ -56,6 +56,38 @@ void test_tekst(void)
     }
     CHECK_INT("alle 256 byte-vaerdier opfoerer sig som aftalt", forkert, 0);
 
+    ZS_SUITE("Tekst: smaa bogstaver bliver store, HELE vejen");
+
+    /* Den anden vej. Samme grundighed: den bruges til at normalisere
+     * kanalnavne fra inverteren, og en graense sat ved siden af ville
+     * betyde at batteriets afladekanal ikke blev genkendt. Se noten i
+     * zs_sunspec.c om hvorfor DISCHA skal findes foer CHA. */
+    forkert = 0;
+    for (char c = 'a'; c <= 'z'; c++) {
+        if (zs_tekst_stort(c) != (char)(c - 'a' + 'A')) { forkert++; }
+    }
+    CHECK_INT("alle 26 små bogstaver bliver store", forkert, 0);
+    CHECK("a, den første", zs_tekst_stort('a') == 'A');
+    CHECK("z, den sidste", zs_tekst_stort('z') == 'Z');
+    CHECK("` lige foer a røres ikke", zs_tekst_stort('`') == '`');
+    CHECK("{ lige efter z røres ikke", zs_tekst_stort('{') == '{');
+
+    forkert = 0;
+    for (int i = -128; i <= 127; i++) {
+        char c = (char)i;
+        char ud = zs_tekst_stort(c);
+        bool smaat = (c >= 'a' && c <= 'z');
+        if (smaat ? (ud != (char)(c - 'a' + 'A')) : (ud != c)) { forkert++; }
+    }
+    CHECK_INT("alle 256 byte-værdier opfører sig som aftalt", forkert, 0);
+
+    /* Og de to veje skal passe sammen: op og ned giver det samme igen. */
+    forkert = 0;
+    for (char c = 'a'; c <= 'z'; c++) {
+        if (zs_tekst_smaa(zs_tekst_stort(c)) != c) { forkert++; }
+    }
+    CHECK_INT("op og ned igen giver det samme", forkert, 0);
+
     ZS_SUITE("Tekst: kopi der taaler NULL");
 
     /*
