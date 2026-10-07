@@ -1,3 +1,52 @@
+## 2026-10-07 22:26
+
+### Porten vælges nu af styresystemet, så to kørsler aldrig kan støde sammen
+Først stod testportene **fast** på 15020. Det væltede den dag der kørte to
+ting på maskinen samtidig: mutationstesten kører også hele vejen igennem,
+så to kørsler så 15020 som fri i **samme øjeblik** og tog den begge to. To
+simulatorer på én port, og prøverne læste på den forkerte. 25 prøver
+fejlede med tal fra et helt andet anlæg, og fejlen pegede på firmwaren.
+
+Så blev der ledt efter en ledig port i stedet. Det er bedre, men det er
+stadig et gæt: mellem at vi ser porten fri og at simulatoren binder den,
+kan en anden have taget den. Et vindue på et par millisekunder er stadig et
+vindue, og den slags fejl kommer igen når man mindst har tid til den.
+
+Nu starter simulatoren med `--port 0`. Så vælger **styresystemet**, og det
+er den eneste der kan garantere at ingen anden har porten. Simulatoren
+skriver hvilken den fik, og prøverne læser den. Det samme for den falske
+enhed og for de prøver der selv binder en port.
+
+De to prøver der skal have en port hvor der **ikke** er noget, gættede før
+på 15999 og `port + 1`. Nu holdes en socket åben på en port
+styresystemet har givet, uden at lytte: et forsøg på at forbinde bliver
+afvist præcis som når der ikke er noget, og ingen anden kan tage porten
+imens.
+
+Efterprøvet ved at køre **tre** komplette kørsler samtidig. Alle tre:
+77 tjek, alle bestået. Før kunne det ikke gøres.
+
+### En gammel binær kan ikke længere få prøverne til at lyve
+Da `util/zs_tekst.c` blev glemt i værktøjets byggescript, faldt bygningen,
+og det kunne man se. Men testkørslen **kørte videre**, og prøverne hele
+vejen igennem målte på den gamle binær der stadig lå på disken. De meldte
+"70 tjek, alle bestået". Det var ikke til at se på noget.
+
+To ting, så det ikke kan gentage sig:
+
+Prøverne siger nu **selv** fra. Er der én kildefil der er nyere end
+binæren, nægter de at køre og skriver hvilken fil og hvad man skal gøre.
+Det virker også når man kører dem i hånden, og det er netop det man gør når
+man fejlsøger.
+
+Og falder bygningen i testkørslen, bliver de prøver der bruger binæren
+**sprunget over** med gul skrift, i stedet for at køre på noget andet end
+det vi lige byggede. Begge dele er efterprøvet ved at fjerne stien igen og
+ved at røre en kildefil.
+
+**Status:** 8 vagter, 984 prøver på maskinen og 77 hele vejen igennem,
+alle består. Tre kørsler samtidig går også igennem.
+
 ## 2026-10-07 23:45
 
 ### Hvis elmåleren falder ud i én time, kunne hele livstælleren blive sendt

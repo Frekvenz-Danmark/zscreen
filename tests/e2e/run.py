@@ -749,7 +749,6 @@ def test_genfind():
     # hul: scanningen ledte kun paa 502, selv om kundens indstillinger har
     # et portfelt. En inverter paa en anden port kunne vaelges i haanden
     # men aldrig findes.
-    MODBUS_PORT = PORT
     SN = "31234567"          # simulatorens serienummer, se profilen
 
     # Porten kendes foerst naar simulatoren har sagt hvilken den fik, se
@@ -764,7 +763,7 @@ def test_genfind():
         # Vores EGEN adresse, ikke undernettet. Scanningen regner selv
         # raekkerne ud af den og netmasken, se zs_discovery_blokke.
         cmd = [PROBE, "--genfind", "127.0.0.1", "--praefiks", "24",
-               "--port", str(MODBUS_PORT)]
+               "--port", str(MODBUS_PORT[0])]
         if serial:
             cmd += ["--serienr", serial]
             if sidste:
@@ -782,7 +781,9 @@ def test_genfind():
         # simulator 254 gange og meldte "flere invertere". Paa Mac er kun
         # 127.0.0.1 oppe, saa det kunne ikke ses her. En rigtig inverter
         # har én adresse, og saadan skal proeven ogsaa vaere.
-        with Sim("battery", port=MODBUS_PORT):
+        with Sim("battery") as sim:
+            MODBUS_PORT[0] = sim.port
+
             # 1. En ny skaerm der ikke kender noget serienummer. Er der
             #    praecis én inverter, er det den.
             kode, ud = genfind()
@@ -816,7 +817,7 @@ def test_genfind():
             else:
                 fail("sidder den hvor den plejer, meldes der ikke flytning", ud)
     except RuntimeError as e:
-        fail(f"simulatoren kunne ikke lytte på port {MODBUS_PORT}", str(e))
+        fail("simulatoren kunne ikke lytte", str(e))
 
 
 class FalskEnhed:
@@ -829,43 +830,65 @@ class FalskEnhed:
     """
 
     def __init__(self, svar):
-        # Samme Python som proeverne selv, se Sim.__init__.
+        # Samme Python som proeverne selv, og --port 0 saa styresystemet
+        # vaelger, se noten ved PORT.
         self.args = [sys.executable,
                      os.path.join(ROOT, "tools", "fronius-sim", "ikke-inverter.py"),
-                     "--port", str(PORT), "--bind", "127.0.0.1", "--svar", svar]
+                     "--port", "0", "--bind", "127.0.0.1", "--svar", svar]
         self.p = None
+        self.port = None
 
     def __enter__(self):
-        """Samme tre regler som Sim.__enter__: fri port foer, egen proces
-        i live undervejs, og haard fejl hvis noget af det ikke holder."""
-        if _porten_svarer(PORT):
-            raise RuntimeError(
-                f"port {PORT} var i brug FOER den falske enhed blev "
-                f"startet. Ryd op med:  pkill -f fronius-sim")
-
+        """Samme regler som Sim.__enter__: styresystemet vaelger porten,
+        den siger hvilken den fik, og vi bekraefter den udefra."""
         self.p = subprocess.Popen(self.args, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, text=True,
-                                  start_new_session=True)
+                                  bufsize=1, start_new_session=True)
         _boern.append(self.p)
+
+        slut = time.time() + 10
+        while self.port is None and time.time() < slut:
+            self._lever()
+            linje = self.p.stdout.readline()
+            if not linje:
+                time.sleep(0.05)
+                continue
+            if linje.startswith("PORT="):
+                self.port = int(linje.strip().split("=", 1)[1])
+        if self.port is None:
+            raise RuntimeError("den falske enhed sagde aldrig hvilken port "
+                               "den fik")
+
         for _ in range(50):
-            if self.p.poll() is not None:
-                ud = ""
-                try:
-                    ud = self.p.stdout.read() or ""
-                except Exception:
-                    pass
-                raise RuntimeError(
-                    f"den falske enhed stoppede med det samme, kode "
-                    f"{self.p.returncode}:\n{ud.strip()[:600]}")
-            if _porten_svarer(PORT):
+            self._lever()
+            if _porten_svarer(self.port):
                 break
             time.sleep(0.1)
         else:
-            raise RuntimeError("den falske enhed kom aldrig op")
+            raise RuntimeError(
+                f"den falske enhed sagde port {self.port}, men svarer "
+                f"ikke paa den")
+
+        # Saa probe() rammer den, se noten ved PORT.
+        global PORT
+        PORT = self.port
         return self
 
+    def _lever(self):
+        """Doede den med det samme? Saa skal der staa hvorfor."""
+        if self.p.poll() is None:
+            return
+        ud = ""
+        try:
+            ud = self.p.stdout.read() or ""
+        except Exception:
+            pass
+        raise RuntimeError(
+            f"den falske enhed stoppede med det samme, kode "
+            f"{self.p.returncode}:\n{ud.strip()[:600]}")
+
     def __exit__(self, *a):
-        luk_ned(self.p, PORT, "den falske enhed")
+        luk_ned(self.p, self.port, "den falske enhed")
         return False
 
 
@@ -1105,11 +1128,16 @@ def test_inverter_hopper():
     # bliver slaaet fra og til. Soegningen skal give samme svar hver gang
     # og ikke ende i en halv tilstand fordi den fandt den midt i et hop.
     SN = "31234567"
-    MODBUS_PORT = PORT
+
+    # Simulatoren skal komme igen paa PRAECIS den samme port. Det er hele
+    # meningen med proeven: samme inverter der forsvinder og kommer
+    # tilbage, ikke en ny et andet sted. Derfor vaelger den FOERSTE runde
+    # porten, se noten ved PORT, og de naeste bruger den igen.
+    MODBUS_PORT = [None]
 
     def genfind(serial=None, sidste=None):
         cmd = [PROBE, "--genfind", "127.0.0.1", "--praefiks", "24",
-               "--port", str(MODBUS_PORT)]
+               "--port", str(MODBUS_PORT[0])]
         if serial:
             cmd += ["--serienr", serial]
             if sidste:
@@ -1124,11 +1152,17 @@ def test_inverter_hopper():
     stabil = True
     detaljer = []
     for runde in range(3):
-        kode, ud = genfind(SN, "127.0.0.1")
-        if kode != 3:          # 3 = ZS_LOC_INGEN
-            stabil = False
-            detaljer.append(f"runde {runde}, vaek: kode {kode}")
-        with Sim("battery", ["--speed", "0"]):
+        # Foerste runde kan ikke spoerge foerst: vi kender ikke porten
+        # endnu, for den bliver valgt naar simulatoren starter. Fra runde
+        # to af bliver "vaek" tjekket hver gang, og til sidst én gang mere
+        # efter loekken.
+        if MODBUS_PORT[0] is not None:
+            kode, ud = genfind(SN, "127.0.0.1")
+            if kode != 3:      # 3 = ZS_LOC_INGEN
+                stabil = False
+                detaljer.append(f"runde {runde}, vaek: kode {kode}")
+        with Sim("battery", ["--speed", "0"], port=MODBUS_PORT[0]) as sim:
+            MODBUS_PORT[0] = sim.port
             kode, ud = genfind(SN, "127.0.0.1")
             if kode != 0 or SN not in ud:     # 0 = ZS_LOC_SAMME
                 stabil = False
@@ -1177,8 +1211,8 @@ def test_scan_vaerktoej():
     try:
         # Bind til én adresse. Paa Linux svarer hele 127-omraadet ellers,
         # se noten i test_genfind.
-        with Sim("battery", port=PORT):
-            kode, ud = scan(PORT)
+        with Sim("battery") as sim:
+            kode, ud = scan(sim.port)
             if kode == 0 and "127.0.0.1" in ud:
                 ok("værktøjet finder inverteren med skærmens egen motor")
             else:
@@ -1191,7 +1225,11 @@ def test_scan_vaerktoej():
 
             # Porten skal virke. Foer blev --port ignoreret ved en
             # soegning, saa vaerktoejet ledte paa 502 uanset hvad der stod.
-            kode, ud = scan(PORT + 1)
+            tom_sok, tom_port = hold_en_fri_port()
+            try:
+                kode, ud = scan(tom_port)
+            finally:
+                tom_sok.close()
             if kode != 0 and "0 invertere" in ud:
                 ok("og på en port hvor der ikke er noget, findes der ingen")
             else:
@@ -1214,8 +1252,7 @@ def test_inverter_tier_stille():
     # "errno == EAGAIN" til "!=" i zs_modbus_tcp.c, saa en timeout
     # rapporteres som en lukket forbindelse, opdagede INGEN test det.
     try:
-        with Sim("battery", ["--tavs-efter", "3"],
-                 port=PORT):
+        with Sim("battery", ["--tavs-efter", "3"]):
             t0 = time.time()
             ud, fejl = probe(forvent_fejl=True)
             brugt = time.time() - t0
@@ -1371,6 +1408,47 @@ def test_energitaellere():
         fail("prøven uden batteri kunne køres", str(e))
 
 
+def binaeren_er_frisk():
+    """Er zs-probe nyere end den kode den er bygget af?
+
+    HVORFOR DET SKAL TJEKKES HER.
+
+    Da util/zs_tekst.c blev lagt ind, blev den glemt i vaerktoejets
+    byggescript. Bygningen faldt, og det kunne man se. Men testkoerslen
+    gik videre, og proeverne her koerte mod den GAMLE binaer der stadig
+    laa paa disken. De meldte "70 tjek, alle bestaaet". De loej, og det
+    var ikke til at se paa noget som helst.
+
+    Rettelsen i testkoerslen er at springe de proever over der afhaenger af
+    en bygning der faldt. Men det hjaelper ikke den der koerer run.py i
+    haanden, og det er netop det man goer naar man fejlsoeger. Derfor
+    siger proeverne SELV fra: er der én kildefil der er nyere end
+    binaeren, saa er binaeren ikke det vi tror, og saa maaler vi paa noget
+    andet end det vi har skrevet.
+    """
+    try:
+        bygget = os.path.getmtime(PROBE)
+    except OSError:
+        return None
+
+    nyere = []
+    for mappe in (os.path.join(ROOT, "firmware", "main"),
+                  os.path.join(ROOT, "tools", "zs-probe")):
+        for rod, _, filer in os.walk(mappe):
+            if "build" in rod or "assets" in rod:
+                continue
+            for f in filer:
+                if not f.endswith((".c", ".h")):
+                    continue
+                sti = os.path.join(rod, f)
+                try:
+                    if os.path.getmtime(sti) > bygget + 1:
+                        nyere.append(os.path.relpath(sti, ROOT))
+                except OSError:
+                    pass
+    return nyere
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -1378,6 +1456,20 @@ def main():
             if navn == "zs-probe":
                 print("Byg den med: ./tools/zs-probe/build.sh\n")
             return 1
+
+    nyere = binaeren_er_frisk()
+    if nyere:
+        print(f"\n\033[1;31mFEJL: {os.path.basename(PROBE)} er aeldre end koden"
+              f"\033[0m")
+        print(f"  {len(nyere)} fil(er) er aendret siden den blev bygget, blandt "
+              f"andet:")
+        for f in sorted(nyere)[:5]:
+            print(f"    {f}")
+        print("\n  Proeverne ville maale paa en gammel binaer og vise et "
+              "resultat\n  der ikke hoerer til koden. Byg den foerst:\n")
+        print("    ./tools/zs-probe/build.sh")
+        print("    ZS_SANITIZE=1 ./tools/zs-probe/build.sh\n")
+        return 1
 
     print("\n\033[1mzScreen, hele datavejen\033[0m")
     test_almindeligt_anlaeg()
