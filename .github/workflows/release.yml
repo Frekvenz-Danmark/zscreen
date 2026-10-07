@@ -59,7 +59,12 @@ jobs:
     # roert, og firmwaren til skaermene er ikke et sted at blive
     # overrasket. Vi flytter naar vi selv vil, og proever foerst.
     runs-on: ubuntu-24.04
-    container: espressif/idf:v5.1.7
+    # SKAL vaere den samme som i test.yml.
+    #
+    # Ellers tester vi med én oversaetter og sender en anden ud til
+    # kunderne. tools/check-udgivelse.py tjekker at de to er enige, saa
+    # de ikke kan komme ud af trit uden at nogen opdager det.
+    container: espressif/idf:v5.3.6
     steps:
       - uses: actions/checkout@v5
         with:
