@@ -40,6 +40,7 @@ fi
     ../../firmware/main/net/zs_discovery.c \
     ../../firmware/main/net/zs_locate.c \
     ../../firmware/main/app/zs_format.c \
+    ../../firmware/main/net/zs_maerker.c \
     ../../firmware/main/app/zs_status.c \
     -lm -o "${UD}"
 echo "${UD} bygget"

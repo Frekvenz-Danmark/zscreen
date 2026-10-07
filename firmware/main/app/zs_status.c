@@ -35,7 +35,7 @@ static void tilfoej(zs_status_list_t *l, zs_sev_t sev,
  */
 static void gennemgaa(zs_status_list_t *l, uint32_t felt,
                       const zs_bit_text_t *tabel, size_t n_tabel,
-                      const char *felt_navn)
+                      const char *felt_navn, const char *kode_praefiks)
 {
     if (felt == 0) {
         return;
@@ -56,7 +56,11 @@ static void gennemgaa(zs_status_list_t *l, uint32_t felt,
             if (strcmp(fundet->koder, "SunSpec") == 0) {
                 snprintf(d, sizeof(d), "%s bit %d", felt_navn, b);
             } else {
-                snprintf(d, sizeof(d), "Fronius-kode %s", fundet->koder);
+                /* Producentens egen kode, saa kunden kan slaa den op i
+                 * deres manual. Praefikset kommer fra maerket. */
+                snprintf(d, sizeof(d), "%s %s",
+                         kode_praefiks != NULL ? kode_praefiks : "Kode",
+                         fundet->koder);
             }
             tilfoej(l, fundet->sev, fundet->tekst, d);
         } else {
@@ -84,7 +88,8 @@ const char *zs_status_state_text(int32_t st)
     }
 }
 
-void zs_status_build(zs_status_list_t *ud, const zs_fr_live_t *live)
+void zs_status_build(zs_status_list_t *ud, const zs_fr_live_t *live,
+                     const zs_maerke_t *maerke)
 {
     if (ud == NULL) {
         return;
@@ -124,7 +129,8 @@ void zs_status_build(zs_status_list_t *ud, const zs_fr_live_t *live)
 
     /* ── standard-SunSpec fejlflag ── */
     gennemgaa(ud, live->evt1, zs_evt1_bits,
-              sizeof(zs_evt1_bits) / sizeof(zs_evt1_bits[0]), "SunSpec Evt1");
+              sizeof(zs_evt1_bits) / sizeof(zs_evt1_bits[0]),
+              "SunSpec Evt1", NULL);
 
     /*
      * Evt2 er reserveret i standarden og har ingen navngivne bits.
@@ -138,13 +144,28 @@ void zs_status_build(zs_status_list_t *ud, const zs_fr_live_t *live)
         tilfoej(ud, ZS_SEV_WARN, "Inverteren melder en kode vi ikke kender", d);
     }
 
-    /* ── Fronius' egne fejlflag ── */
-    gennemgaa(ud, live->evtvnd1, zs_evtvnd1_bits,
-              sizeof(zs_evtvnd1_bits) / sizeof(zs_evtvnd1_bits[0]), "EvtVnd1");
-    gennemgaa(ud, live->evtvnd2, zs_evtvnd2_bits,
-              sizeof(zs_evtvnd2_bits) / sizeof(zs_evtvnd2_bits[0]), "EvtVnd2");
-    gennemgaa(ud, live->evtvnd3, zs_evtvnd3_bits,
-              sizeof(zs_evtvnd3_bits) / sizeof(zs_evtvnd3_bits[0]), "EvtVnd3");
+    /*
+     * ── PRODUCENTENS egne fejlflag ──
+     *
+     * Tabellerne kommer fra maerket og ikke fra en fast liste. Foer blev
+     * Fronius' tabeller brugt paa ENHVER inverter: en Huawei med bit 1
+     * sat ville faa teksten "Netfejl" og henvisningen "Fronius-kode 101".
+     * En forkert fejl skrevet med fuld sikkerhed.
+     *
+     * Kender vi ikke maerket, er tabellerne NULL, og saa falder hver bit
+     * ned i "ukendt" med den raa vaerdi og et telefonnummer. Det er
+     * altid rigtigt, bare mindre hjaelpsomt.
+     */
+    const char *praefiks = (maerke != NULL) ? maerke->kode_praefiks : NULL;
+    gennemgaa(ud, live->evtvnd1,
+              maerke ? maerke->evtvnd1 : NULL, maerke ? maerke->n_evtvnd1 : 0,
+              "EvtVnd1", praefiks);
+    gennemgaa(ud, live->evtvnd2,
+              maerke ? maerke->evtvnd2 : NULL, maerke ? maerke->n_evtvnd2 : 0,
+              "EvtVnd2", praefiks);
+    gennemgaa(ud, live->evtvnd3,
+              maerke ? maerke->evtvnd3 : NULL, maerke ? maerke->n_evtvnd3 : 0,
+              "EvtVnd3", praefiks);
 
     /* EvtVnd4 har Fronius ikke udgivet en liste for. Er der noget i
      * den, siger vi det raat og henviser videre. */
@@ -170,9 +191,10 @@ void zs_status_build(zs_status_list_t *ud, const zs_fr_live_t *live)
              * streng eller batteriside der fejler. */
             zs_status_list_t midlertidig;
             memset(&midlertidig, 0, sizeof(midlertidig));
+            /* DCEvt er SunSpec-standard og ens paa alle maerker. */
             gennemgaa(&midlertidig, c->dcevt, zs_dcevt_bits,
                       sizeof(zs_dcevt_bits) / sizeof(zs_dcevt_bits[0]),
-                      "DCEvt");
+                      "DCEvt", NULL);
             for (uint8_t k = 0; k < midlertidig.antal; k++) {
                 char t[56];
                 const char *navn = c->label[0] ? c->label : "DC-kanal";

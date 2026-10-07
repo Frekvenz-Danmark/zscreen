@@ -20,6 +20,7 @@
 #include "../../firmware/main/net/zs_fronius.h"
 #include "../../firmware/main/app/zs_format.h"
 #include "../../firmware/main/app/zs_status.h"
+#include "../../firmware/main/net/zs_maerker.h"
 #include "../../firmware/main/net/zs_locate.h"
 /* Selv om zs_discovery.h ogsaa traekker den ind, henter vi den her:
  * vi bruger ZS_SCAN_SUNSPEC_TIMEOUT_MS direkte, og saa skal det staa. */
@@ -326,6 +327,79 @@ static int do_genfind(const char *egen_ip, uint8_t praefiks,
  * afvist. Et paent svar beviser ingenting, saa hele pointen er at se at
  * tilbagelaesningen fanger det.
  */
+/*
+ * Laeser RAA registre og viser dem paa alle de maader de kan betyde noget.
+ *
+ * HVORFOR DEN FINDES.
+ *
+ * Det her er vaerktoejet til at staa foran et rigtigt anlaeg med
+ * producentens manual i haanden. Manualen siger "register 40072 er AC-
+ * effekt som int16 med skalafaktor i 40076". Med den her kan man se hvad
+ * der FAKTISK staar, og om vores laesning rammer rigtigt.
+ *
+ * Det er ogsaa vejen til at stoette et nyt maerke: man laeser blokken,
+ * holder den op mod deres manual, og foerst DEREFTER skriver man en
+ * raekke i zs_maerker.c. Man gaetter ikke.
+ *
+ * Hvert register vises som hex, som tal uden fortegn og med fortegn, og
+ * naboparret som 32-bit og som tekst. For man ved ikke paa forhaand
+ * hvilken af dem der er den rigtige.
+ */
+static int do_laes(const char *host, uint16_t port, uint8_t unit,
+                   uint16_t adresse, uint16_t antal)
+{
+    if (antal == 0) { antal = 1; }
+    if (antal > ZS_MB_MAX_REGS) {
+        fprintf(stderr, "\n  Hoejst %d registre ad gangen. Modbus kan ikke "
+                        "mere i én forespoergsel.\n\n", ZS_MB_MAX_REGS);
+        return 1;
+    }
+
+    static zs_mb_t mb;
+    zs_mb_init(&mb);
+    if (zs_mb_connect(&mb, host, port, 2000) != ZS_MB_OK) {
+        fprintf(stderr, "\n  Kunne ikke forbinde til %s:%u\n\n", host, port);
+        return 1;
+    }
+
+    static uint16_t regs[ZS_MB_MAX_REGS];
+    zs_mb_err_t err = zs_mb_read_holding(&mb, unit, adresse, antal, regs, 2000);
+    zs_mb_close(&mb);
+    if (err != ZS_MB_OK) {
+        fprintf(stderr, "\n  Kunne ikke laese: %s\n\n", zs_mb_strerror(err));
+        return 1;
+    }
+
+    printf("\n  %u register fra %u paa %s:%u unit %u\n\n",
+           (unsigned)antal, (unsigned)adresse, host, port, unit);
+    printf("  adresse    hex     u16      i16   |  som par: u32          "
+           "i32   tekst\n");
+    printf("  %s\n", "---------------------------------------------------"
+                     "----------------------------");
+    for (uint16_t i = 0; i < antal; i++) {
+        uint16_t v = regs[i];
+        char par_u32[16] = "", par_i32[16] = "", tekst[8] = "";
+        if (i + 1 < antal) {
+            uint32_t u = ((uint32_t)v << 16) | regs[i + 1];
+            snprintf(par_u32, sizeof(par_u32), "%10lu", (unsigned long)u);
+            snprintf(par_i32, sizeof(par_i32), "%11ld", (long)(int32_t)u);
+            char c[4] = { (char)(v >> 8), (char)(v & 0xFF),
+                          (char)(regs[i + 1] >> 8), (char)(regs[i + 1] & 0xFF) };
+            for (int k = 0; k < 4; k++) {
+                tekst[k] = (c[k] >= 0x20 && c[k] <= 0x7E) ? c[k] : '.';
+            }
+            tekst[4] = '\0';
+        }
+        printf("  %7u   %04X  %6u  %7d   | %s %s   %s\n",
+               (unsigned)(adresse + i), v, v, (int)(int16_t)v,
+               par_u32, par_i32, tekst);
+    }
+    printf("\n  Tallene er RAA. En skalafaktor staar i sit eget register,\n"
+           "  se producentens manual. SunSpec' \"ikke understoettet\" er\n"
+           "  65535 for u16, -32768 for i16 og 0 for en taeller.\n\n");
+    return 0;
+}
+
 static int do_skriv(const char *host, uint16_t port, uint8_t unit,
                     uint16_t adresse, uint16_t vaerdi)
 {
@@ -365,6 +439,7 @@ int main(int argc, char **argv)
     const char *scan = NULL;
     const char *genfind = NULL;
     long skriv_adr = -1, skriv_val = -1;
+    long laes_adr = -1, laes_antal = 1;
     /* Paa en almindelig maskine kender vi ikke netmasken, saa den gives
      * med. 24 er det almindelige, og det er hvad testene bruger. */
     unsigned praefiks = 24;
@@ -390,6 +465,13 @@ int main(int argc, char **argv)
             g_sidste = argv[++i];
         } else if (strcmp(argv[i], "--praefiks") == 0 && i + 1 < argc) {
             praefiks = (unsigned)atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--laes") == 0 && i + 1 < argc) {
+            laes_adr = atol(argv[++i]);
+            /* Antallet er valgfrit: staar der et tal bagefter, er det
+             * antallet, ellers laeser vi ét. */
+            if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9') {
+                laes_antal = atol(argv[++i]);
+            }
         } else if (strcmp(argv[i], "--skriv") == 0 && i + 2 < argc) {
             skriv_adr = atol(argv[++i]);
             skriv_val = atol(argv[++i]);
@@ -409,6 +491,16 @@ int main(int argc, char **argv)
     if (genfind != NULL) {
         return do_genfind(genfind, praefiks, g_serial, g_sidste, port);
     }
+    if (laes_adr >= 0) {
+        if (host == NULL) {
+            fprintf(stderr, "\n  --laes kraever ogsaa en adresse paa "
+                            "inverteren.\n\n");
+            return 2;
+        }
+        return do_laes(host, port, unit, (uint16_t)laes_adr,
+                       (uint16_t)laes_antal);
+    }
+
     if (skriv_adr >= 0) {
         if (skriv_adr > 65535 || skriv_val < 0 || skriv_val > 65535) {
             fprintf(stderr, "\n  Adresse og vaerdi skal vaere 0 til 65535\n\n");
@@ -427,10 +519,14 @@ int main(int argc, char **argv)
             "  zs-probe --scan 192.168.1.0\n"
             "  zs-probe --genfind <egen-ip> [--praefiks N] [--serienr S]\n"
             "                     [--sidste IP] [--port N]\n"
+            "  zs-probe <ip> [port] --laes <adresse> [antal]\n"
             "  zs-probe <ip> [port] --skriv <adresse> <vaerdi>\n\n"
             "Eksempler:\n"
             "  zs-probe 127.0.0.1 5020          laes én gang fra simulatoren\n"
-            "  zs-probe 192.168.1.50 --watch    foelg et rigtigt anlaeg\n\n");
+            "  zs-probe 192.168.1.50 --watch    foelg et rigtigt anlaeg\n"
+            "  zs-probe 192.168.1.50 --laes 40072 8\n"
+            "                                   raa registre, til at holde\n"
+            "                                   op mod producentens manual\n\n");
         return 2;
     }
 
@@ -462,7 +558,7 @@ int main(int argc, char **argv)
 
             /* Inverterens tilstand og fejl, som side 3 ville vise dem. */
             zs_status_list_t st;
-            zs_status_build(&st, &lv);
+            zs_status_build(&st, &lv, zs_maerke_find(fr.info.manufacturer));
             printf("\n  Tilstand og fejl:\n");
             printf("    %-22s %s\n", "Sammenfatning:",
                    zs_status_summary(&st, &lv));

@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include "zs_fronius.h"
+#include "zs_maerker.h"
 #include "zs_fronius_codes.h"
 
 #ifdef __cplusplus
@@ -41,7 +42,16 @@ typedef struct {
 } zs_status_list_t;
 
 /* Laver listen ud fra en aflaesning. Rører ikke netvaerket. */
-void zs_status_build(zs_status_list_t *ud, const zs_fr_live_t *live);
+/*
+ * Bygger listen over hvad inverteren melder.
+ *
+ * maerke afgoer hvordan PRODUCENTENS egne felter laeses. Alt det
+ * SunSpec selv definerer er ens uanset. Giv NULL hvis maerket ikke er
+ * kendt: saa vises producentens felter raat i stedet for med en tekst
+ * der kan vaere fra et helt andet maerke. Se zs_maerker.h.
+ */
+void zs_status_build(zs_status_list_t *ud, const zs_fr_live_t *live,
+                     const zs_maerke_t *maerke);
 
 /* Inverterens driftstilstand som ord. Aldrig NULL. */
 const char *zs_status_state_text(int32_t st);

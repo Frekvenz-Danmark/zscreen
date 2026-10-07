@@ -49,6 +49,7 @@ int main(int argc, char **argv)
     test_sunspec_energi();
     test_layout();
     test_layout_800();
+    test_maerker();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

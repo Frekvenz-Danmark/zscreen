@@ -3,6 +3,7 @@
  */
 
 #include "zs_fronius.h"
+#include "zs_maerker.h"
 #include "../zs_log.h"
 
 #include <string.h>
@@ -575,12 +576,18 @@ static void compute_dc(zs_fr_t *fr, zs_fr_live_t *live)
         return;
     }
 
-    /* Ingen brugbare navne. Er det en Fronius med fire kanaler og et
-     * batteri, kender vi opdelingen fra Fronius' Modbus-manual
-     * (42,0410,2649): "For devices with a storage solution, there are
-     * two additional blocks (charging (MPP3) and discharging (MPP4))". */
-    bool is_fronius = (strstr(fr->info.manufacturer, "Fronius") != NULL) ||
-                      (strstr(fr->info.manufacturer, "FRONIUS") != NULL);
+    /*
+     * Ingen brugbare navne. Saa maa vi vide hvad MAERKET goer.
+     *
+     * Opslaget ligger i zs_maerker.c og ikke her. Foer stod der et
+     * strstr efter "Fronius" midt i afkodningen, og skulle der et maerke
+     * mere paa, skulle der en gren mere ind her. Nu er det en raekke i en
+     * tabel ét sted.
+     *
+     * Kender vi ikke maerket, bliver layout ZS_DC_UKENDT, og saa gaetter
+     * vi ikke: se nederst i funktionen.
+     */
+    const zs_maerke_t *maerke = zs_maerke_find(fr->info.manufacturer);
 
     /*
      * De TO SIDSTE kanaler er batteriets, resten er solstrenge.
@@ -596,7 +603,8 @@ static void compute_dc(zs_fr_t *fr, zs_fr_live_t *live)
      * solstreng nummer to som batteriets ladeside paa et anlaeg med
      * én streng.
      */
-    if (is_fronius && fr->info.has_battery && live->channel_count >= 3) {
+    if (maerke->dc_layout == ZS_DC_BATTERI_SIDST
+        && fr->info.has_battery && live->channel_count >= 3) {
         uint8_t n_pv = (uint8_t)(live->channel_count - 2);
 
         float p = 0.0f;
@@ -639,10 +647,14 @@ static void compute_dc(zs_fr_t *fr, zs_fr_live_t *live)
         return;
     }
 
-    /* Der er et batteri, men vi kan ikke se hvilke kanaler der er hvad.
-     * Her stopper vi hellere end at gaette. */
-    ZS_LOGW(TAG, "batteri til stede, men kanalerne er unavngivne og passer "
-                 "ikke paa Fronius-moenstret. Sol og batteri vises som ukendt.");
+    /*
+     * Der er et batteri, men vi kan ikke se hvilke kanaler der er hvad.
+     * Her stopper vi hellere end at gaette: et forkert tal paa en vaeg er
+     * vaerre end et tomt felt.
+     */
+    ZS_LOGW(TAG, "batteri til stede, men kanalerne er unavngivne og vi "
+                 "kender ikke \"%.24s\"s opdeling. Sol og batteri vises "
+                 "som ukendt.", fr->info.manufacturer);
 }
 
 static void read_inverter(zs_fr_t *fr, zs_fr_live_t *live)

@@ -87,5 +87,6 @@ void test_fleet_svar_rigtigt(void);
 void test_sunspec_energi(void);
 void test_layout(void);
 void test_layout_800(void);
+void test_maerker(void);
 
 #endif /* ZS_TEST_H */

@@ -1,3 +1,61 @@
+## 2026-10-07 12:15
+
+### Mærkerne samlet ét sted, så vi kan udvide uden at rode i afkodningen
+Spørgsmålet var om vi kan tage flere inverter-mærker ind uden at
+Modbus-reglerne står hårdt i koden. Jeg målte det først.
+
+**Fronius står 85 steder i koden**, men 57 af dem er kommentarer og de
+fleste af resten er bare modulnavnet `zs_fronius.h`. Den **rigtige**
+mærke-logik var tre ting:
+
+1. Hvordan DC-kanalerne deles mellem solstrenge og batteri, valgt med et
+   `strstr` efter "Fronius" **midt i afkodningen**.
+2. Producentens egne fejlbits, `EvtVnd1` til `EvtVnd3`.
+3. Producentens eget tilstandsregister.
+
+Resten, altså registrenes adresser, driftstilstanden, `Evt1` og `DCEvt`,
+er **SunSpec-standard** og gælder alle mærker. Det hører ikke hjemme i en
+mærketabel, og det ligger det heller ikke i.
+
+**En rigtig fejl, som dog er latent.** Fronius' fejltabeller blev brugt på
+**enhver** inverter der forbandt. En Huawei med bit 1 sat ville få teksten
+"Netfejl" og henvisningen "Fronius-kode 101". En forkert fejl, skrevet med
+fuld sikkerhed, om en inverter vi ikke har papir på. Den er latent fordi
+`zs_status.c` oversættes med i firmwaren men **aldrig kaldes af den**: kun
+fejlsøgningsværktøjet bruger det lag i dag. Kanalopdelingen bruges
+derimod af firmwaren og rammer hovedskærmen.
+
+**Nu er det én tabel i `zs_maerker.c`.** Et mærke mere er en **række**, ikke
+en ny gren i afkodningen. Og kender vi ikke mærket, gætter vi ikke:
+producentens felter vises råt med den rå værdi og et telefonnummer, mens
+alt det SunSpec dækker virker som før. Det er altid rigtigt, bare mindre
+hjælpsomt.
+
+Tabellen må **ikke** få et mærke vi ikke har dokumentationen til. Det står
+i filen. 25 nye tjek holder reglerne, blandt andet at et mærke med en
+fejltabel også **skal** have et kode-præfiks, så kunden kan se hvis manual
+koden skal slås op i.
+
+### Og værktøjet til at stå foran et rigtigt anlæg
+`zs-probe` kunne **skrive** et register men ikke **læse** et råt. Og det er
+netop det man skal bruge på et anlæg: holde producentens manual op mod
+hvad der faktisk står.
+
+    zs-probe 192.168.1.50 --laes 40072 8
+
+Hvert register vises som hex, som tal med og uden fortegn, og naboparret
+som 32-bit og som tekst. For man ved ikke på forhånd hvilken af dem der er
+den rigtige, og det er netop det man er der for at finde ud af.
+
+Prøvet mod simulatoren på registre hvor svaret er kendt: `SunS` på 40000,
+model-ID 1 og længde 66 på 40002, og producentnavnet som tekst fra 40004.
+
+Det er også vejen til at støtte et nyt mærke: læs blokken, hold den op mod
+deres manual, og skriv **derefter** rækken i `zs_maerker.c`.
+
+775 enhedstest, 68 ende til ende med sanitizer, og fuzzing af begge
+parsere. Alt bestået på Mac og Linux. Version 0.20.0.
+
 ## 2026-10-07 11:20
 
 ### Fuzzing af parserne, og et hul i testopsætningen
