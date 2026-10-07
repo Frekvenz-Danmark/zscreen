@@ -299,5 +299,18 @@ bool zs_nvs_load_energi(zs_energi_basis_t *b)
         memset(b, 0, sizeof(*b));
         return false;
     }
+    /*
+     * Serienummeret kommer fra flashen, og flashen kan vaere skrald.
+     * Mangler nulbyten, ville enhver laesning af det loebe forbi enden af
+     * feltet. Vi saetter den paa plads i stedet for at stole paa at den
+     * er der.
+     */
+    b->serienr[sizeof(b->serienr) - 1] = '\0';
+    if (b->serienr[0] == '\0') {
+        /* Et udgangspunkt uden en inverter kan vi ikke bruge til noget:
+         * vi ved ikke hvis taellerstand det er. Start forfra. */
+        memset(b, 0, sizeof(*b));
+        return false;
+    }
     return b->gyldig;
 }

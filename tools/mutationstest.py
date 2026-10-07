@@ -157,10 +157,21 @@ def mutanter(fil):
 
 
 def byg_probe():
-    """zs-probe skal bygges i kopien, ellers proever e2e den rigtige."""
-    r = subprocess.run(["./build.sh"], cwd=ROOT / "tools/zs-probe",
-                       capture_output=True, text=True)
-    return r.returncode == 0, r.stdout + r.stderr
+    """Bygger zs-probe i kopien, BEGGE udgaver.
+
+    Den sanitiserede er den vigtige: ende til ende koerer mod
+    zs-probe-san, ikke mod zs-probe. Foerste udgave af det her vaerktoej
+    byggede kun den almindelige, og saa proevede ende til ende en binaer
+    der aldrig blev roert af mutationen. Den kunne altsaa ikke fange
+    noget som helst, og vaerktoejet ville melde huller der ikke var der.
+    """
+    miljoe = dict(os.environ, ZS_SANITIZE="1")
+    for env in (os.environ, miljoe):
+        r = subprocess.run(["./build.sh"], cwd=ROOT / "tools/zs-probe",
+                           capture_output=True, text=True, env=dict(env))
+        if r.returncode != 0:
+            return False, r.stdout + r.stderr
+    return True, ""
 
 
 def koer_proever():

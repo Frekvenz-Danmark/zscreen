@@ -12,6 +12,11 @@
 
 #include <string.h>
 
+/* Simulatorens serienummer. Samme inverter hele vejen i de proever der
+ * ikke handler om et skift, saa de betyder praecis det samme som foer
+ * serienummeret kom ind i regningen. */
+#define SN "31234567"
+
 /* Kort hjaelper, saa proeverne kan laeses. */
 static zs_energi_t tik(zs_energi_basis_t *b, float prod, float koebt,
                        float solgt, float ind, float ud_bat,
@@ -20,7 +25,7 @@ static zs_energi_t tik(zs_energi_basis_t *b, float prod, float koebt,
 {
     float t[ZS_E_ANTAL] = { prod, koebt, solgt, ind, ud_bat };
     bool  h[ZS_E_ANTAL] = { true, true, true, true, true };
-    return zs_energi_tik(b, t, h, time, dag, ud, ud_har, ud_time);
+    return zs_energi_tik(b, t, h, SN, time, dag, ud, ud_har, ud_time);
 }
 
 void test_energi(void)
@@ -111,10 +116,10 @@ void test_energi(void)
     {
         float t1[ZS_E_ANTAL] = { 1000, 0, 0, 0, 0 };
         bool  h1[ZS_E_ANTAL] = { true, false, false, false, false };
-        (void)zs_energi_tik(&b, t1, h1, 8, 20000, ud, har, &t_ud);
+        (void)zs_energi_tik(&b, t1, h1, SN, 8, 20000, ud, har, &t_ud);
         float t2[ZS_E_ANTAL] = { 1700, 0, 0, 0, 0 };
         CHECK("en inverter uden maaler giver stadig produktionen",
-              zs_energi_tik(&b, t2, h1, 9, 20000, ud, har, &t_ud)
+              zs_energi_tik(&b, t2, h1, SN, 9, 20000, ud, har, &t_ud)
               == ZS_ENERGI_KLAR);
         CHECK("produktionen er der", har[ZS_E_PRODUCERET]
               && ud[ZS_E_PRODUCERET] == 700.0f);
@@ -125,7 +130,7 @@ void test_energi(void)
     ZS_SUITE("Timeenergi: det der ikke må vælte");
 
     CHECK("NULL afvises",
-          zs_energi_tik(NULL, NULL, NULL, 0, 0, NULL, NULL, NULL)
+          zs_energi_tik(NULL, NULL, NULL, NULL, 0, 0, NULL, NULL, NULL)
           == ZS_ENERGI_ARG);
     memset(&b, 0, sizeof(b));
     CHECK("en umulig klokke afvises",
@@ -206,4 +211,118 @@ void test_feltnavne(void)
         }
     }
     CHECK("ingen af dem gaar igen", dubletter == 0);
+}
+
+/*
+ * Udgangspunktet er bundet til ÉN inverter.
+ *
+ * HVORFOR DEN HER PROEVE FINDES.
+ *
+ * Udgangspunktet ligger i flashen og overlever en genstart. Det er
+ * meningen: ellers kostede hver genstart en time. Men det overlever ogsaa
+ * at kunden skifter inverter, eller vaelger en anden i indstillingerne,
+ * eller at skaermen bliver flyttet til et andet anlaeg.
+ *
+ * Uden en binding til serienummeret ville den foerste time efter et skift
+ * blive regnet som den NYE inverters livstaeller minus den GAMLES. Er den
+ * nye hoejere, fordi anlaegget er aeldre eller stoerre, sender vi et tal
+ * paa mange tusinde kilowattimer for én time. Det bliver gemt paa
+ * serveren for evigt og oedelaegger hver graf og hver sum bagefter.
+ *
+ * Og det er netop den slags fejl der ikke ser ud som en fejl: den sker én
+ * gang, den ser ud som et stort tal, og ingen kan bagefter sige hvorfor.
+ */
+void test_energi_inverterskift(void)
+{
+    zs_energi_basis_t b;
+    float ud[ZS_E_ANTAL];
+    bool  har[ZS_E_ANTAL];
+    int8_t t_ud = -1;
+
+    float  t[ZS_E_ANTAL] = { 1000.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    bool   h[ZS_E_ANTAL] = { true, true, true, true, true };
+
+    ZS_SUITE("Timeenergi: udgangspunktet hører til ÉN inverter");
+
+    memset(&b, 0, sizeof(b));
+
+    /* En time hos inverter A. */
+    CHECK("første måling hos A sætter udgangspunktet",
+          zs_energi_tik(&b, t, h, "11111111", 8, 20000, ud, har, &t_ud)
+          == ZS_ENERGI_FOERSTE);
+    CHECK_STR("og serienummeret er gemt med", b.serienr, "11111111");
+
+    float t2[ZS_E_ANTAL] = { 4000.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    CHECK("en time senere hos A kan regnes",
+          zs_energi_tik(&b, t2, h, "11111111", 9, 20000, ud, har, &t_ud)
+          == ZS_ENERGI_KLAR);
+    CHECK_F("og giver de 3000 Wh", ud[ZS_E_PRODUCERET], 3000.0f, 0.1);
+
+    /*
+     * DEN FARLIGE. Nu sidder der en anden inverter, og dens livstæller
+     * står meget højere, fordi anlægget er ældre. Uden bindingen ville
+     * den time blive sendt som 996 kWh.
+     */
+    float stor[ZS_E_ANTAL] = { 1000000.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    zs_energi_t r = zs_energi_tik(&b, stor, h, "99999999", 10, 20000,
+                                  ud, har, &t_ud);
+    CHECK("en ANDEN inverter giver ikke en time", r != ZS_ENERGI_KLAR);
+    CHECK("den siger at inverteren er ny", r == ZS_ENERGI_NY_INVERTER);
+    CHECK_STR("og udgangspunktet er nu den nyes", b.serienr, "99999999");
+
+    /* Og timen efter kan regnes igen, nu paa den nyes egen taeller. */
+    float stor2[ZS_E_ANTAL] = { 1002500.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    CHECK("timen efter kan regnes på den nye",
+          zs_energi_tik(&b, stor2, h, "99999999", 11, 20000, ud, har, &t_ud)
+          == ZS_ENERGI_KLAR);
+    CHECK_F("og giver de 2500 Wh", ud[ZS_E_PRODUCERET], 2500.0f, 0.1);
+
+    /* Tilbage til A igen, fx fordi kunden skiftede tilbage i
+     * indstillingerne. Ogsaa det skal starte forfra. */
+    CHECK("tilbage til A starter også forfra",
+          zs_energi_tik(&b, t, h, "11111111", 12, 20000, ud, har, &t_ud)
+          == ZS_ENERGI_NY_INVERTER);
+
+    ZS_SUITE("Timeenergi: uden et serienummer regnes der ikke");
+
+    /*
+     * Serienummeret laeses ved hver forbindelse, saa er det tomt, er der
+     * noget galt. Saa springer vi timen over i stedet for at tilskrive
+     * den en inverter vi ikke kan navngive.
+     */
+    memset(&b, 0, sizeof(b));
+    CHECK("tomt serienummer afvises",
+          zs_energi_tik(&b, t, h, "", 8, 20000, ud, har, &t_ud)
+          == ZS_ENERGI_ARG);
+    CHECK("og der blev ikke sat noget udgangspunkt", !b.gyldig);
+    CHECK("NULL som serienummer afvises",
+          zs_energi_tik(&b, t, h, NULL, 8, 20000, ud, har, &t_ud)
+          == ZS_ENERGI_ARG);
+    CHECK("stadig intet udgangspunkt", !b.gyldig);
+
+    /*
+     * Et serienummer der er praecis saa langt som der er plads til. Her
+     * falder en kopi der ikke afslutter med nul, eller som klipper ét
+     * tegn for lidt.
+     */
+    char lang[ZS_ENERGI_SERIENR_MAX];
+    memset(lang, 'A', sizeof(lang) - 1);
+    lang[sizeof(lang) - 1] = '\0';
+    memset(&b, 0, sizeof(b));
+    CHECK("et serienummer der fylder feltet helt",
+          zs_energi_tik(&b, t, h, lang, 8, 20000, ud, har, &t_ud)
+          == ZS_ENERGI_FOERSTE);
+    CHECK_STR("gemmes helt, og er afsluttet", b.serienr, lang);
+    CHECK("og genkendes som den samme næste time",
+          zs_energi_tik(&b, t2, h, lang, 9, 20000, ud, har, &t_ud)
+          == ZS_ENERGI_KLAR);
+
+    /* Og ét tegn galt helt ude i enden skal vaere et ANDET serienummer.
+     * Det er her en sammenligning der stopper for tidligt falder. */
+    char naesten[ZS_ENERGI_SERIENR_MAX];
+    memcpy(naesten, lang, sizeof(naesten));
+    naesten[sizeof(naesten) - 2] = 'B';
+    CHECK("ét tegn galt i enden er en anden inverter",
+          zs_energi_tik(&b, t, h, naesten, 10, 20000, ud, har, &t_ud)
+          == ZS_ENERGI_NY_INVERTER);
 }

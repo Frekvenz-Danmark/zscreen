@@ -85,12 +85,39 @@ typedef enum {
  * rigtig naar skaermen kommer igen, for taellerne i inverteren har
  * taelt videre imens.
  */
+/*
+ * Saa langt et serienummer kan vaere. Samme maal som zs_fr_info_t.serial,
+ * altsaa SunSpec model 1 felt SN: 32 tegn og et nul.
+ */
+#define ZS_ENERGI_SERIENR_MAX  33
+
 typedef struct {
     bool     gyldig;              /* er der overhovedet et udgangspunkt */
     int8_t   time;                /* 0 til 23                           */
     uint16_t dagnr;               /* dage siden 1970, til at se doegnskift */
     bool     har[ZS_E_ANTAL];     /* havde inverteren taelleren         */
     float    wh[ZS_E_ANTAL];      /* taellerstand i wattimer            */
+    /*
+     * HVILKEN inverter taellerstanden kom fra.
+     *
+     * Den er her fordi udgangspunktet ligger i flashen og overlever en
+     * genstart. Det er meningen. Men det overlever ogsaa at kunden
+     * SKIFTER inverter, eller vaelger en anden i indstillingerne, eller
+     * at skaermen bliver flyttet til et andet anlaeg.
+     *
+     * Uden det her felt ville den foerste time efter et skift blive
+     * regnet som den nye inverters livstaeller minus den gamles. Er den
+     * nye hoejere, fx fordi anlaegget er aeldre eller stoerre, sender vi
+     * et tal paa mange tusinde kilowattimer for ÉN time. Det bliver gemt
+     * paa serveren for evigt og oedelaegger hver graf og hver sum
+     * bagefter. Er den lavere, bliver forskellen negativ og feltet
+     * sprunget over, saa fejlen rammer kun den ene vej. Det er ikke en
+     * troest: den ene vej er den der goer skade.
+     *
+     * Derfor: er serienummeret ikke det samme, er udgangspunktet ikke
+     * vores, og vi starter forfra.
+     */
+    char     serienr[ZS_ENERGI_SERIENR_MAX];
 } zs_energi_basis_t;
 
 /* Hvad der skete ved det her tik. */
@@ -99,6 +126,7 @@ typedef enum {
     ZS_ENERGI_KLAR,        /* en hel time er gaaet, ud er fyldt         */
     ZS_ENERGI_FOERSTE,     /* foerste maaling, kun udgangspunktet sat   */
     ZS_ENERGI_HUL,         /* der er gaaet mere end én time, sprunget over */
+    ZS_ENERGI_NY_INVERTER, /* et andet serienummer, udgangspunktet smidt væk */
     ZS_ENERGI_ARG,         /* kalderen gav noget ubrugeligt             */
 } zs_energi_t;
 
@@ -109,6 +137,10 @@ typedef enum {
  *              sig, saa en genstart ikke koster timen.
  *   taeller    de fem taellerstande i wattimer
  *   har        for hver: havde inverteren den overhovedet
+ *   serienr    inverterens serienummer, saa vi ved om udgangspunktet er
+ *              fra DEN SAMME inverter. Maa ikke vaere tom: uden den kan
+ *              vi ikke sige hvis taeller vi regner paa, og saa regner vi
+ *              ikke. Se noten paa zs_energi_basis_t.serienr.
  *   time       klokken nu, 0 til 23
  *   dagnr      dage siden 1970. Bruges til at se et doegnskift og til at
  *              maale hvor laenge der er gaaet.
@@ -123,6 +155,7 @@ typedef enum {
  */
 zs_energi_t zs_energi_tik(zs_energi_basis_t *basis,
                           const float *taeller, const bool *har,
+                          const char *serienr,
                           int time, uint16_t dagnr,
                           float *ud, bool *ud_har, int8_t *ud_time);
 

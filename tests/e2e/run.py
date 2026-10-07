@@ -32,6 +32,15 @@ SIM = os.path.join(ROOT, "tools", "fronius-sim", "serve.py")
 # andet sted hen, fx naar man fejlsoeger med den almindelige.
 PROBE = os.environ.get(
     "ZS_PROBE", os.path.join(ROOT, "tools", "zs-probe", "zs-probe-san"))
+def _porten_svarer(port, vaert="127.0.0.1", timeout=0.3):
+    """Er der noget der lytter? Bruges baade foer og efter en hjaelpeproces."""
+    try:
+        socket.create_connection((vaert, port), timeout=timeout).close()
+        return True
+    except OSError:
+        return False
+
+
 def _ledig_port(start=15020, antal=4):
     """Finder en raekke ledige porte, saa to koersler ikke kan rode i hinanden.
 
@@ -49,21 +58,45 @@ def _ledig_port(start=15020, antal=4):
     foer de bruges. Testene bruger PORT og PORT + 1, og vi tager fire ad
     gangen saa der er luft hvis der kommer en mere.
     """
-    for p in range(start, start + 2000, antal):
+    kandidater = list(range(start, start + 2000, antal))
+
+    # Hver proces begynder sit EGET sted i raekken.
+    #
+    # Foer begyndte alle ved 15020. Koerte to ting paa maskinen samtidig,
+    # for eksempel mutationstesten og en haandholdt koersel, saa saa de
+    # BEGGE 15020 som fri i det samme oejeblik og tog den begge to. Saa
+    # laa to simulatorer og sloges om porten, og proeverne maalte paa den
+    # forkerte. Det gav fem og tyve proever der fejlede med tal fra et
+    # helt andet anlaeg, og fejlen pegede paa firmwaren.
+    skub = os.getpid() % len(kandidater)
+    kandidater = kandidater[skub:] + kandidater[:skub]
+
+    for p in kandidater:
+        sokler = []
         try:
-            sokler = []
             for i in range(antal):
+                # 0.0.0.0 og ikke 127.0.0.1: en bindning paa den ene
+                # adresse siger ingenting om den anden, og vi vil vide at
+                # porten er fri HELE vejen.
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                s.bind(("127.0.0.1", p + i))
+                s.bind(("", p + i))
                 sokler.append(s)
-            for s in sokler:
-                s.close()
-            return p
         except OSError:
             for s in sokler:
                 s.close()
             continue
+
+        for s in sokler:
+            s.close()
+
+        # Og saa et sidste tjek: svarer der noget alligevel? En bindning
+        # kan lykkes paa en port der er i TIME_WAIT, og vi vil kun have
+        # porte hvor der ikke ligger noget og lytter.
+        if any(_porten_svarer(p + i, timeout=0.1) for i in range(antal)):
+            continue
+        return p
+
     raise RuntimeError("fandt ingen ledige porte mellem 15020 og 17020")
 
 
@@ -98,15 +131,6 @@ def suite(navn):
 
 
 # ----------------------------------------------------------------------
-
-def _porten_svarer(port, vaert="127.0.0.1", timeout=0.3):
-    """Er der noget der lytter? Bruges baade foer og efter en hjaelpeproces."""
-    try:
-        socket.create_connection((vaert, port), timeout=timeout).close()
-        return True
-    except OSError:
-        return False
-
 
 def luk_ned(p, port, navn):
     """Lukker en hjaelpeproces HELT ned, og siger fra hvis porten ikke bliver fri.
@@ -175,8 +199,17 @@ class Sim:
         # stedet for én, og et sted hvor en forskel kan vise sig som en
         # fejl i firmwaren. Simulatoren skal koere under PRAECIS den samme
         # udgave som proeverne.
+        # --bind 127.0.0.1 staar HER og ikke ude i hver proeve.
+        #
+        # Nogle proever gav den med, andre gjorde ikke, og de sidste fik
+        # saa en simulator paa 0.0.0.0, altsaa ude paa netvaerket. To ting
+        # fulgte af det. Dels laa der en aaben Modbus-server paa nettet
+        # mens proeverne koerte. Dels kunne _ledig_port ikke se den: man
+        # kan godt binde 127.0.0.1:P mens en anden proces lytter paa
+        # 0.0.0.0:P, saa porten saa fri ud og var det ikke.
         self.args = [sys.executable, SIM,
                      "--port", str(self.port), "--profile", profil,
+                     "--bind", "127.0.0.1",
                      "--start-hour", "13", "--speed", "1", "--print-every", "1"]
         if ekstra:
             self.args += ekstra
@@ -676,7 +709,7 @@ def test_genfind():
         # simulator 254 gange og meldte "flere invertere". Paa Mac er kun
         # 127.0.0.1 oppe, saa det kunne ikke ses her. En rigtig inverter
         # har én adresse, og saadan skal proeven ogsaa vaere.
-        with Sim("battery", ["--bind", "127.0.0.1"], port=MODBUS_PORT):
+        with Sim("battery", port=MODBUS_PORT):
             # 1. En ny skaerm der ikke kender noget serienummer. Er der
             #    praecis én inverter, er det den.
             kode, ud = genfind()
@@ -1021,7 +1054,7 @@ def test_inverter_hopper():
         if kode != 3:          # 3 = ZS_LOC_INGEN
             stabil = False
             detaljer.append(f"runde {runde}, vaek: kode {kode}")
-        with Sim("battery", ["--speed", "0", "--bind", "127.0.0.1"]):
+        with Sim("battery", ["--speed", "0"]):
             kode, ud = genfind(SN, "127.0.0.1")
             if kode != 0 or SN not in ud:     # 0 = ZS_LOC_SAMME
                 stabil = False
@@ -1070,7 +1103,7 @@ def test_scan_vaerktoej():
     try:
         # Bind til én adresse. Paa Linux svarer hele 127-omraadet ellers,
         # se noten i test_genfind.
-        with Sim("battery", ["--bind", "127.0.0.1"], port=PORT):
+        with Sim("battery", port=PORT):
             kode, ud = scan(PORT)
             if kode == 0 and "127.0.0.1" in ud:
                 ok("værktøjet finder inverteren med skærmens egen motor")
@@ -1107,7 +1140,7 @@ def test_inverter_tier_stille():
     # "errno == EAGAIN" til "!=" i zs_modbus_tcp.c, saa en timeout
     # rapporteres som en lukket forbindelse, opdagede INGEN test det.
     try:
-        with Sim("battery", ["--bind", "127.0.0.1", "--tavs-efter", "3"],
+        with Sim("battery", ["--tavs-efter", "3"],
                  port=PORT):
             t0 = time.time()
             ud, fejl = probe(forvent_fejl=True)
@@ -1143,6 +1176,127 @@ def test_inverter_tier_stille():
         fail("prøven kunne køres", str(e))
 
 
+def taellere(ud):
+    """De fem livstaellere i Wh, laest ud af zs-probes udskrift.
+
+    Dem der ikke findes staar som None, saa en manglende taeller kan ses
+    for sig og ikke bare bliver nul.
+    """
+    navne = {
+        "Produceret": "prod", "Koebt fra net": "imp", "Solgt til net": "exp",
+        "Ind i batteri": "bat_ind", "Ud af batteri": "bat_ud",
+    }
+    svar = {k: None for k in navne.values()}
+    for linje in ud.splitlines():
+        for tekst, noegle in navne.items():
+            if linje.strip().startswith(tekst):
+                m = re.search(r"([\d.]+)\s*Wh", linje)
+                if m:
+                    svar[noegle] = float(m.group(1))
+    return svar
+
+
+def test_energitaellere():
+    suite("Inverterens livstællere, som timeenergien regnes af")
+
+    # HVORFOR DEN FINDES.
+    #
+    # Timens energi i kWh er en FORSKEL mellem to taellerstande en time
+    # fra hinanden. Gaar der noget galt i aflaesningen, kan man ikke se det
+    # paa resultatet: et forkert tal ser ud som et rigtigt tal, og man
+    # opdager det foerst naar en graf paa serveren ser underlig ud en uge
+    # senere.
+    #
+    # Og hullet var reelt. Da taellerne blev lagt ind, blev batteriets to
+    # kun sat i den gren der haandterer kanaler UDEN navn. Simulatoren
+    # navngiver sine, saa de to taellere var tomme hele vejen. Det blev
+    # fanget ved et tilfaelde, ikke af en proeve. Den her proeve er den
+    # proeve.
+    try:
+        with Sim("battery"):
+            ud, err = probe()
+            if ud is None:
+                fail("kunne læse anlægget", err)
+                return
+            t = taellere(ud)
+
+            mangler = [k for k, v in t.items() if v is None]
+            if mangler:
+                # Og saa er der ikke mere at proeve: resten ville bestaa
+                # paa ingenting. Et tjek der ikke kan fejle er ingen proeve.
+                fail("alle fem livstællere læses",
+                     f"disse mangler: {', '.join(mangler)}")
+                return
+            ok("alle fem livstællere læses")
+
+            # De skal vaere positive. En livstaeller der er nul betyder
+            # "har den ikke" i SunSpec, og en negativ kan slet ikke vaere
+            # en acc32.
+            nul = [k for k, v in t.items() if v <= 0]
+            if not nul:
+                ok("og ingen af dem står på nul")
+            else:
+                fail("ingen tæller står på nul", f"disse er nul: {nul}")
+
+            # Produktionen er livets samlede, saa den skal vaere stoerst.
+            # Det fanger at to taellere er byttet om, hvilket er let at
+            # komme til naar de ligger i rækkefølge i samme blok.
+            if t["prod"] > t["exp"]:
+                ok("produktionen er større end det solgte, altså ikke byttet om")
+            else:
+                fail("produktionen er større end det solgte",
+                     f"produceret {t['prod']}, solgt {t['exp']}")
+
+            # Og de skal VOKSE. En taeller der staar stille ville give nul
+            # kWh hver time, og det ser ud som en nat.
+            time.sleep(2.5)
+            ud2, err2 = probe()
+            if ud2 is None:
+                fail("kunne læse igen", err2)
+                return
+            t2 = taellere(ud2)
+            if any(v is None for v in t2.values()):
+                fail("tællerne kunne læses igen", f"anden læsning: {t2}")
+                return
+            voksede = [k for k in t if t2[k] > t[k]]
+            if voksede:
+                ok(f"tællerne vokser mellem to læsninger ({len(voksede)} af 5)")
+            else:
+                fail("tællerne vokser", f"før {t}, efter {t2}")
+
+            # Ingen af dem maa falde. Falder en, bliver timens vaerdi
+            # negativ, og saa springer skaermen feltet over for evigt.
+            faldt = [k for k in t if t2[k] < t[k]]
+            if not faldt:
+                ok("og ingen af dem falder")
+            else:
+                fail("ingen tæller falder", f"disse faldt: {faldt}")
+    except Exception as e:
+        fail("prøven kunne køres", str(e))
+
+    # Uden batteri skal de to batteritaellere IKKE staa der. Et nul ville
+    # blive sendt til serveren som "nul kWh ind i batteriet", og det er en
+    # paastand om et batteri der ikke findes.
+    try:
+        with Sim("nobattery"):
+            ud, err = probe()
+            if ud is None:
+                fail("kunne læse anlæg uden batteri", err)
+                return
+            t = taellere(ud)
+            if t["bat_ind"] is None and t["bat_ud"] is None:
+                ok("uden batteri oplyses batteritællerne ikke")
+            else:
+                fail("uden batteri oplyses batteritællerne ikke",
+                     f"ind {t['bat_ind']}, ud {t['bat_ud']}")
+            if t["prod"] is not None:
+                ok("men produktionen læses stadig")
+            else:
+                fail("produktionen læses stadig uden batteri", ud[:300])
+    except Exception as e:
+        fail("prøven uden batteri kunne køres", str(e))
+
+
 def main():
     for sti, navn in ((SIM, "simulatoren"), (PROBE, "zs-probe")):
         if not os.path.exists(sti):
@@ -1168,6 +1322,7 @@ def main():
     test_inverter_hopper()
     test_scan_vaerktoej()
     test_inverter_tier_stille()
+    test_energitaellere()
 
     print("\n" + "─" * 40)
     if fejl == 0:

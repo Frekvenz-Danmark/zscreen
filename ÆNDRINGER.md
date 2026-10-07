@@ -1,3 +1,62 @@
+## 2026-10-07 21:22
+
+### 25 prøver fejlede, og det var ikke koden
+Efter at have lukket de fem huller faldt 25 af prøverne hele vejen
+igennem. Tallene kom fra et helt andet anlæg, og fejlen pegede lige ind i
+den kode der netop var rettet. Den var ikke der.
+
+Det der skete: **to testkørsler sloges om den samme port.** En
+mutationskørsel kørte i baggrunden, og den kører også hele vejen igennem.
+Begge kørsler begyndte at lede efter en ledig port ved 15020, så begge
+syntes den var fri i det samme øjeblik, og begge tog den. Så lå der to
+simulatorer på porten, og prøverne læste på den forkerte.
+
+To grunde til at det kunne ske, og begge er lukket:
+
+**Den ledige port blev prøvet forkert.** Vi bandt `127.0.0.1` for at se om
+porten var fri, men simulatoren lyttede på `0.0.0.0`. Man kan godt binde
+den ene adresse mens en anden proces lytter på den anden, så porten så fri
+ud og var det ikke. Nu bindes `0.0.0.0`, og der spørges bagefter om der
+alligevel svarer noget.
+
+**Alle begyndte samme sted i rækken.** Nu begynder hver kørsel et sted der
+følger af dens eget procesnummer, så to kørsler ikke lander på det samme.
+
+Og vigtigst: er porten i brug når en simulator skal starte, er det nu en
+**hård fejl der stopper alt** med en besked der siger hvad man skal gøre.
+Før kørte prøverne bare videre mod den forkerte simulator og viste 25
+fejl der ikke havde noget med sagen at gøre. Det er den slags der koster
+mest, for man leder efter fejlen det forkerte sted.
+
+Samtidig: simulatoren lytter nu altid kun på `127.0.0.1`, og det står
+**ét sted** i stedet for i hver enkelt prøve. Nogle prøver gav det med,
+andre glemte det, og de sidste lagde så en åben Modbus-server ud på
+netværket mens prøverne kørte. Og simulatoren kører nu under **præcis den
+samme Python** som prøverne selv, ikke den der tilfældigvis står først i
+PATH.
+
+### En grøn testkørsel kunne være løgn
+Da `util/zs_tekst.c` blev lagt ind, kom den med i firmwaren og i
+enhedstestene, men blev glemt i værktøjets bygning. Bygningen fejlede, og
+det var til at se. Det der **ikke** var til at se var det næste:
+testkørslen gik videre, og hele vejen igennem kørte mod den **gamle
+binær** der stadig lå der. Den meldte "70 tjek, alle bestået". Den løj.
+
+Ny vagt, `tools/check-byg.py`: hver af de tre bygninger skal kunne finde
+hver header som dens egne filer beder om, også de headere en header selv
+tager med. Og hver `.c` skal stå i firmwarens byggefil, ellers bliver den
+aldrig oversat til skærmen uden at nogen siger noget. Vagten er prøvet af
+ved at fjerne stien igen og se at den bliver fanget.
+
+### Listen over vagter stod to steder
+Den stod i testkørslen og i CI. To lister der skal være ens, bliver det
+ikke: lagde man en ny vagt ind og glemte CI, var der en regel vi troede
+blev håndhævet og som ikke blev det. Nu står listen i
+`tools/check-alle.sh`, og begge kalder den.
+
+**Status:** 8 vagter, 959 prøver på maskinen og 77 hele vejen igennem,
+alle består. Fuzzerne kører rent.
+
 ## 2026-10-07 21:00
 
 ### Timens energi set hele vejen igennem, og serveren har felterne nu

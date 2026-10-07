@@ -598,6 +598,40 @@ int main(int argc, char **argv)
             if (lv.inverter_ac_w.ok) {
                 printf("  Inverterens AC:      %.0f W\n", (double)lv.inverter_ac_w.v);
             }
+
+            /*
+             * LIVSTAELLERNE, som timens energi i kWh bliver regnet af.
+             *
+             * De skal kunne SES paa et anlaeg. Timens energi er en
+             * forskel mellem to taellerstande en time fra hinanden, og
+             * gaar der noget galt, kan man ikke se det paa resultatet: et
+             * forkert tal ser ud som et rigtigt tal. Her staar de raa
+             * stande, saa man kan koere to gange med en times mellemrum
+             * og selv regne efter.
+             *
+             * Og vigtigere: staar der "nej" ud for en taeller, er det den
+             * man skal lede efter. Uden den linje kunne en manglende
+             * taeller koste en time paa anlaegget med at lede efter en
+             * fejl i udregningen i stedet for i aflaesningen.
+             */
+            printf("\n  Livstaellere, som timeenergien regnes af:\n");
+            struct { const char *navn; zs_val_t v; } taellere[] = {
+                { "Produceret",      lv.prod_wh    },
+                { "Koebt fra net",   lv.imp_wh     },
+                { "Solgt til net",   lv.exp_wh     },
+                { "Ind i batteri",   lv.bat_ind_wh },
+                { "Ud af batteri",   lv.bat_ud_wh  },
+            };
+            for (size_t i = 0; i < sizeof taellere / sizeof *taellere; i++) {
+                if (taellere[i].v.ok) {
+                    printf("    %-16s %14.0f Wh  (%.3f kWh)\n",
+                           taellere[i].navn, (double)taellere[i].v.v,
+                           (double)taellere[i].v.v / 1000.0);
+                } else {
+                    printf("    %-16s %14s   inverteren oplyser den ikke\n",
+                           taellere[i].navn, "nej");
+                }
+            }
             printf("\n");
         }
         first = false;

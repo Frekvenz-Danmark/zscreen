@@ -3,6 +3,7 @@
 # zScreen - koer alt der kan koeres uden hardware.
 #
 #   1. Headere        navnesammenstoed mellem konstanter og guards
+#   1b. Bygningerne   kan alle tre bygninger finde de headere de beder om
 #   2. Tegnsaet       skriver vi tegn skrifttyperne ikke har
 #   3. Enhedstest     Modbus, SunSpec, beregning, tal paa dansk
 #   4. Hele vejen     firmwarens egen kode mod en simuleret Fronius
@@ -26,13 +27,9 @@ koer() {
     return 1
 }
 
-koer "Headere"        ./tools/check-headers.sh
-koer "Tegnsæt"        python3 tools/check-text.py
-koer "Farver"         python3 tools/check-colors.py
-koer "LVGL-låsen"     python3 tools/check-lvgl-laas.py
-koer "Ingen blindgyde" python3 tools/check-flow.py
-koer "Udgivelsen"     python3 tools/check-udgivelse.py
-koer "Dokumentationen" python3 tools/check-dokumentation.py
+# Vagterne staar i tools/check-alle.sh og ikke her, saa CI og den her
+# koersel bruger PRAECIS den samme liste.
+koer "Vagterne"       ./tools/check-alle.sh
 koer "Enhedstest"     ./tests/host/run.sh
 # Bygget gaar gennem koer som alt andet.
 #

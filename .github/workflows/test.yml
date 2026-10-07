@@ -29,15 +29,12 @@ jobs:
       - name: Byg zs-probe med sanitizer
         run: ZS_SANITIZE=1 ./tools/zs-probe/build.sh
 
-      - name: Headere, tegnsæt, farver, LVGL-låsen, flowet, udgivelsen og docs
-        run: |
-          ./tools/check-headers.sh
-          python3 tools/check-text.py
-          python3 tools/check-colors.py
-          python3 tools/check-lvgl-laas.py
-          python3 tools/check-flow.py
-          python3 tools/check-udgivelse.py
-          python3 tools/check-dokumentation.py
+      # Listen over vagter staar i tools/check-alle.sh og IKKE her.
+      # Foer stod den to steder, og to lister der skal vaere ens bliver
+      # det ikke: en ny vagt kunne komme med i testkoerslen og blive
+      # glemt her, og saa blev reglen aldrig haandhaevet i CI.
+      - name: Vagterne
+        run: ./tools/check-alle.sh
 
       - name: Enhedstest
         run: ./tests/host/run.sh

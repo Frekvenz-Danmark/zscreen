@@ -243,9 +243,9 @@ static void clock_update(void)
  * hellere til uret er sat end at sende noget der ligger et tilfaeldigt
  * sted paa doegnet.
  */
-static void energi_tik(const zs_fr_live_t *live)
+static void energi_tik(const zs_fr_live_t *live, const zs_fr_info_t *info)
 {
-    if (!s_clock_ok || live == NULL) {
+    if (!s_clock_ok || live == NULL || info == NULL) {
         return;
     }
     time_t nu = time(NULL);
@@ -275,6 +275,7 @@ static void energi_tik(const zs_fr_live_t *live)
     int8_t ud_time = -1;
 
     zs_energi_t r = zs_energi_tik(&s_energi_basis, taeller, har,
+                                  info->serial,
                                   lt.tm_hour, dagnr, ud, ud_har, &ud_time);
     switch (r) {
     case ZS_ENERGI_KLAR:
@@ -289,8 +290,28 @@ static void energi_tik(const zs_fr_live_t *live)
     case ZS_ENERGI_FOERSTE:
         ESP_LOGI(TAG, "udgangspunkt for timeenergi sat");
         break;
-    default:
-        return;     /* intet nyt, og saa skal der heller ikke gemmes */
+    case ZS_ENERGI_NY_INVERTER:
+        /* Et andet serienummer end det udgangspunktet kom fra. Enten er
+         * inverteren skiftet, eller der er valgt en anden i
+         * indstillingerne. Den gamle taellerstand kan ikke bruges, saa
+         * der startes forfra og den foerste time koster. */
+        ESP_LOGW(TAG, "ny inverter (%s), timeenergien starter forfra",
+                 info->serial);
+        break;
+    case ZS_ENERGI_ARG:
+        /*
+         * Stod foer i default og blev tiet ihjel.
+         *
+         * Det sker naar serienummeret er tomt, altsaa naar vi ikke kan
+         * sige hvilken inverter taellerne kommer fra. Saa sender vi
+         * ingenting, og det skal kunne SES i loggen, ellers staar
+         * funktionen bare stille og ingen ved hvorfor.
+         */
+        ESP_LOGW(TAG, "timeenergien kan ikke regnes: inverteren har "
+                      "ikke oplyst et serienummer");
+        return;
+    case ZS_ENERGI_VENTER:
+        return;     /* samme time endnu, og saa skal der ikke gemmes */
     }
     /* Udgangspunktet har flyttet sig. Gem det, saa en genstart ikke
      * koster den time vi staar i nu. */
@@ -1478,7 +1499,7 @@ static void app_task(void *arg)
             zs_fleet_publish(&s_home.live, &s_fr.info);
 
             /* Og timens energi, som kun sender én gang i timen. */
-            energi_tik(&s_home.live);
+            energi_tik(&s_home.live, &s_fr.info);
 
             /*
              * Har vi ikke faaet et brugbart svar laenge, saa luk og

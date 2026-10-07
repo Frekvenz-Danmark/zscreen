@@ -7,6 +7,7 @@
  */
 
 #include "zs_energi.h"
+#include "zs_tekst.h"
 
 #include <string.h>
 
@@ -30,7 +31,8 @@ const char *zs_energi_felt_navn(zs_energi_felt_t f)
 
 /* Saetter udgangspunktet til det vi staar med nu. */
 static void saet_basis(zs_energi_basis_t *b, const float *taeller,
-                       const bool *har, int time, uint16_t dagnr)
+                       const bool *har, const char *serienr,
+                       int time, uint16_t dagnr)
 {
     b->gyldig = true;
     b->time   = (int8_t)time;
@@ -39,10 +41,16 @@ static void saet_basis(zs_energi_basis_t *b, const float *taeller,
         b->har[i] = har[i];
         b->wh[i]  = har[i] ? taeller[i] : 0.0f;
     }
+    /* Hele bufferen nulstilles foerst. Den ligger i flashen, og to
+     * serienumre af forskellig laengde maa ikke kunne blande sig saadan
+     * at resten af det gamle staar tilbage bag nulbyten. */
+    memset(b->serienr, 0, sizeof(b->serienr));
+    zs_tekst_kopi(b->serienr, sizeof(b->serienr), serienr);
 }
 
 zs_energi_t zs_energi_tik(zs_energi_basis_t *basis,
                           const float *taeller, const bool *har,
+                          const char *serienr,
                           int time, uint16_t dagnr,
                           float *ud, bool *ud_har, int8_t *ud_time)
 {
@@ -52,9 +60,34 @@ zs_energi_t zs_energi_tik(zs_energi_basis_t *basis,
         return ZS_ENERGI_ARG;
     }
 
+    /*
+     * Uden et serienummer ved vi ikke hvis taeller vi staar med, og saa
+     * regner vi ikke. Det er ikke en teoretisk vagt: serienummeret
+     * laeses ved hver forbindelse, saa er det tomt, er der noget galt,
+     * og det er bedre at springe timen over end at tilskrive den en
+     * inverter vi ikke kan navngive.
+     */
+    if (serienr == NULL || serienr[0] == '\0') {
+        return ZS_ENERGI_ARG;
+    }
+
     if (!basis->gyldig) {
-        saet_basis(basis, taeller, har, time, dagnr);
+        saet_basis(basis, taeller, har, serienr, time, dagnr);
         return ZS_ENERGI_FOERSTE;
+    }
+
+    /*
+     * ER DET DEN SAMME INVERTER?
+     *
+     * Udgangspunktet ligger i flashen og overlever en genstart. Det
+     * overlever ogsaa at kunden skifter inverter eller vaelger en anden i
+     * indstillingerne, og saa ville den foerste time blive regnet som den
+     * nye livstaeller minus den gamles. Se noten paa
+     * zs_energi_basis_t.serienr for hvad det koster.
+     */
+    if (strncmp(basis->serienr, serienr, sizeof(basis->serienr)) != 0) {
+        saet_basis(basis, taeller, har, serienr, time, dagnr);
+        return ZS_ENERGI_NY_INVERTER;
     }
 
     /* Samme time paa samme dag: intet nyt. */
@@ -79,7 +112,7 @@ zs_energi_t zs_energi_tik(zs_energi_basis_t *basis,
          * starter vi forfra i stedet for at sende et tal vi ikke kan
          * staa inde for.
          */
-        saet_basis(basis, taeller, har, time, dagnr);
+        saet_basis(basis, taeller, har, serienr, time, dagnr);
         return ZS_ENERGI_HUL;
     }
 
@@ -108,6 +141,6 @@ zs_energi_t zs_energi_tik(zs_energi_basis_t *basis,
         ud_har[i] = true;
     }
 
-    saet_basis(basis, taeller, har, time, dagnr);
+    saet_basis(basis, taeller, har, serienr, time, dagnr);
     return ZS_ENERGI_KLAR;
 }
