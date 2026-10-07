@@ -97,9 +97,7 @@ set(ZS_VENDOR_RELAX
 # ikke bruger paa en energiskaerm, og vi retter ikke i deres kode, for
 # saa faar vi konflikter hver gang vi henter en opdatering fra dem.
 if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 13)
-    list(APPEND ZS_VENDOR_RELAX
-        -Wno-error=enum-int-mismatch
-        -Wno-error=incompatible-pointer-types)
+    list(APPEND ZS_VENDOR_RELAX -Wno-error=enum-int-mismatch)
 endif()
 
 file(GLOB ZS_VENDOR_DIRS RELATIVE "${SEEED_SDK}/components" "${SEEED_SDK}/components/*")

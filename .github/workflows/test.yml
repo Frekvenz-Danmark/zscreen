@@ -3,7 +3,10 @@ name: Test
 # Koerer ved hver aendring. Fanger fejl foer de naar en enhed.
 on:
   push:
-    branches: [main]
+    # idf-5.3 er med her, ellers koerer der INGEN CI paa den gren, og saa
+    # er det kun min egen maskine der har set at loeftet virker. En gren
+    # der er lavet for at fjerne en risiko skal selv vaere proevet af.
+    branches: [main, idf-5.3]
   pull_request:
 
 jobs:
@@ -45,7 +48,12 @@ jobs:
     # roert, og firmwaren til skaermene er ikke et sted at blive
     # overrasket. Vi flytter naar vi selv vil, og proever foerst.
     runs-on: ubuntu-24.04
-    container: espressif/idf:v5.1.7
+    # v5.3.6 paa den her gren, ikke v5.1.7 som paa main.
+    #
+    # Hele pointen med grenen er at proeve ESP-IDF 5.3, som er det foerste
+    # der kan ESP32-P4. Byggede CI med 5.1.7 her, ville den teste noget
+    # helt andet end det vi vil vide noget om.
+    container: espressif/idf:v5.3.6
     steps:
       - uses: actions/checkout@v5
         with:
