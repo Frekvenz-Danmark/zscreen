@@ -47,6 +47,7 @@ int main(int argc, char **argv)
     test_fleet_stykker();
     test_fleet_svar_rigtigt();
     test_sunspec_energi();
+    test_layout();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

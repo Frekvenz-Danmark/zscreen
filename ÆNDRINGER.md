@@ -1,3 +1,72 @@
+## 2026-10-07 08:20
+
+### Kan vi flytte til reTerminal D1001 med ESP32-P4? Undersøgt og målt
+Ikke et skøn. Alt herunder er hentet fra Espressifs og Seeeds egne kilder,
+eller målt på vores egen kode.
+
+**Hardwaren**, fra Seeeds eget datablad (SKU 100058144): ESP32-P4, 32-bit
+RISC-V med to kerner og **32 MB PSRAM**. En **ESP32-C6 ved siden af** der
+klarer wifi 6, BLE og Zigbee, forbundet til P4'eren over **SDIO**. Skærmen
+er 8 tommer, **800 × 1280 over MIPI-DSI**, og der er kamera, mikrofoner,
+mPCIe til 4G og et batteri på 2500 mAh.
+
+**ESP32-P4 har ingen radio.** Det er efterset i chippens egne
+egenskaber: hverken `SOC_WIFI_SUPPORTED` eller `SOC_BT_SUPPORTED` findes.
+Til gengæld har den kablet ethernet, MIPI-DSI, og **SD-kort direkte på
+hovedprocessoren**, hvilket vores nuværende board ikke har.
+
+**Vores ESP-IDF er for gammel.** v5.1.7 kender slet ikke esp32p4.
+Espressifs egen tabel siger at P4 er "preview" i v5.2 og **"supported" fra
+v5.3**. Så v5.3 er gulvet. Det passer med at wifi-laget til P4 har Kconfig
+fra netop v5.3 og opefter.
+
+**Et falsk svar undervejs, værd at skrive ned.** Mit første tjek sagde at
+ingen IDF-version havde esp32p4, hvilket var forkert: vores klon er
+overfladisk, så et opslag i et undertræ fejlede i stilhed. Jeg fangede det
+ved at prøve metoden af på noget jeg vidste fandtes, og spurgte derefter
+GitHubs API i stedet.
+
+### Hvor meget af vores kode flytter med?
+Målt på hele firmwaren, kommentarer trukket fra:
+
+| Hvad koden hænger på | Filer | Linjer | Andel |
+|---|---|---|---|
+| Ren C, flytter sig gratis | 35 | 3650 | **36 %** |
+| ESP-IDF i øvrigt | 9 | 2375 | 24 % |
+| `esp_wifi` | 1 | 330 | 3 % |
+| LVGL, brugerfladen | 17 | 2775 | 28 % |
+| Board og leverandør | 5 | 885 | **9 %** |
+
+Altså: **60 % flytter uden at blive rørt.** Ni procent er board-lim der
+skal skrives om. Og de 28 procent brugerflade virker, men layoutet er
+bygget til en kvadratisk 480 × 480 skærm og den nye er høj og smal.
+
+**Wifi-laget flytter uændret.** Espressifs `esp_wifi_remote` giver samme
+API, og det er efterset funktion for funktion: jeg trak alle `esp_wifi`-kald
+ud af vores kode, alle **tolv**, og slog hver enkelt op i den genererede
+API. Alle tolv er dækket, inklusive scanningen som opsætningen afhænger af.
+
+### To mål var skrevet af, og det ville have gjort ondt
+Skærmens størrelse står ét sted, og næsten alt andet er regnet ud af den.
+Men **to** tal brød kæden: kortets bredde stod som 222 og højden som 186,
+begge med regnestykket i en kommentar ved siden af.
+
+Det er netop den slags der gør ondt den dag skærmen skifter: alt det andet
+retter sig selv, og så står de to tilbage og giver et layout der er **lidt**
+forkert i stedet for tydeligt forkert.
+
+Begge er nu udregnede, og tallene er de samme, så ingen pixel flytter sig.
+
+**Og sytten nye tjek holder det fast.** Ikke kun tallene, men at siden
+**går op**: kant plus kort plus mellemrum plus kort plus kant skal give
+præcis skærmens bredde, og linjen foroven plus siden plus prikkerne skal
+give højden. Holder de regler, er layoutet rigtigt på enhver skærm. De
+tjekker også at delingen går op uden en pixel til overs, for en ny skærm
+kan ramme et ulige tal.
+
+723 enhedstest og 68 ende til ende, alle bestået på Mac og Linux.
+Firmwaren bygger rent uden advarsler. Version 0.18.1.
+
 ## 2026-10-07 07:05
 
 ### Gennemgang af OpenRemote, og målinger der ændrer arkitekturen

@@ -228,7 +228,7 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
 #define ZS_CONTENT_WIDTH    (ZS_SCR_WIDTH - 2 * ZS_EDGE)
 #define ZS_GRID_GAP         ZS_G_GRID_GAP    /* mellemrum mellem to kort         */
 
-#define ZS_CARD_WIDTH           222   /* (480 - 12 - 12 - 12) / 2         */
+#define ZS_CARD_WIDTH       ZS_G_CARD_WIDTH
 #define ZS_CARD_HEIGHT      ZS_G_CARD_HEIGHT   /* (408 - 12 - 12 - 12) / 2         */
 #define ZS_CARD_RADIUS      18
 #define ZS_CARD_PAD         14    /* luft inde i kortet               */
