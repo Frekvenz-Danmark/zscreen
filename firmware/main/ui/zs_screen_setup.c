@@ -325,8 +325,9 @@ static void build_connecting(void)
     zs_page_create(&s_connect, "Forbinder", on_connect_back, NULL, true);
 
     s_connect_icon = lv_spinner_create(s_connect.content, 1200, 70);
-    lv_obj_set_size(s_connect_icon, 64, 64);
-    lv_obj_align(s_connect_icon, LV_ALIGN_TOP_MID, 0, 70);
+    lv_obj_set_size(s_connect_icon, ZS_G_WAIT_SPIN_SIZE,
+                    ZS_G_WAIT_SPIN_SIZE);
+    lv_obj_align(s_connect_icon, LV_ALIGN_TOP_MID, 0, ZS_G_WAIT_SPIN_Y);
     lv_obj_set_style_arc_color(s_connect_icon, lv_color_hex(ZS_C_BORDER), LV_PART_MAIN);
     lv_obj_set_style_arc_color(s_connect_icon, lv_color_hex(ZS_C_ACCENT), LV_PART_INDICATOR);
     lv_obj_set_style_arc_width(s_connect_icon, 5, LV_PART_MAIN);
@@ -337,7 +338,8 @@ static void build_connecting(void)
     zs_style_text(s_connect_text, &zs_font_20, ZS_C_TEXT);
     lv_obj_set_style_text_align(s_connect_text, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(s_connect_text, ZS_SCR_WIDTH - 4 * ZS_EDGE);
-    lv_obj_align(s_connect_text, LV_ALIGN_TOP_MID, 0, 160);
+    /* Ikke 160 skrevet ind: se ZS_G_WAIT_TEXT_Y i zs_layout.h. */
+    lv_obj_align(s_connect_text, LV_ALIGN_TOP_MID, 0, ZS_G_WAIT_TEXT_Y);
 
     s_connect_retry = zs_btn_primary_create(s_connect.footer, "Prøv igen");
     lv_obj_set_width(s_connect_retry, ZS_CONTENT_WIDTH);

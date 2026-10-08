@@ -127,6 +127,121 @@
 #define ZS_G_CHOICE_HEIGHT  92
 
 /* ------------------------------------------------------------------ */
+/* Statuslinjen foroven                                                */
+/* ------------------------------------------------------------------ */
+/*
+ * Pladserne stod som faste tal i zs_statusbar.c: tandhjulet paa 430 og
+ * statusikonet paa 400, med en kommentar om at det var "regnet fra hoejre
+ * kant paa en 480 px skaerm". Det er praecis den slags der gaar i stykker
+ * naar skaermen bliver stoerre: tandhjulet ville blive siddende midt paa
+ * en 800 px skaerm i stedet for i hoejre hjoerne.
+ *
+ * Nu regnes de FRA HOEJRE KANT, saa de flytter med. Tallene er de samme
+ * paa 480, og det staar der en vagt paa nedenfor.
+ */
+#define ZS_G_BAR_EDGE       6     /* luft ud til kanten               */
+#define ZS_G_BAR_ICON_W     20    /* statusikonet                     */
+#define ZS_G_BAR_ICON_GAP   10    /* mellem ikonet og naboen          */
+
+/* Tandhjulet er en hel fingerflade, helt ude i hoejre hjoerne. */
+#define ZS_G_BAR_GEAR_X     (ZS_G_SCR_WIDTH - ZS_G_BAR_EDGE - ZS_G_TOUCH_MIN)
+/* Statusikonet lige til venstre for det. */
+#define ZS_G_BAR_ICON_X     (ZS_G_BAR_GEAR_X - ZS_G_BAR_ICON_GAP \
+                             - ZS_G_BAR_ICON_W)
+/* Og klokkeslaettet slutter lige foer ikonet. */
+#define ZS_G_BAR_TIME_RIGHT (ZS_G_BAR_ICON_X - ZS_G_BAR_ICON_GAP - 2)
+
+/* ------------------------------------------------------------------ */
+/* Midterlinjen                                                        */
+/* ------------------------------------------------------------------ */
+/*
+ * Stod som "#define CX 240" i zs_flow.c med kommentaren "midterlinjen".
+ * 240 ER midten af 480, men kun af 480.
+ */
+#define ZS_G_CX             (ZS_G_SCR_WIDTH / 2)
+#define ZS_G_CY_PAGE        (ZS_G_PAGE_HEIGHT / 2)
+
+/* ------------------------------------------------------------------ */
+/* Prissiden, lodret                                                   */
+/* ------------------------------------------------------------------ */
+/*
+ * Tallene stod som faste y-positioner i zs_price_page.c, regnet i haanden
+ * ud af skrifttypernes linjehoejder paa en side der er 408 px hoej. De er
+ * rigtige, og de er regnet rigtigt. Men de staar ét sted nu, og de regnes
+ * oven paa hinanden i stedet for at vaere skrevet ind hver for sig.
+ *
+ * HVOR KOMMER DEN EKSTRA PLADS HEN paa en hoejere skaerm?
+ *
+ * Linjerne med tekst skal IKKE vokse: en skrifttype bliver ikke stoerre af
+ * at skaermen goer, og et tal paa 64 px fylder 54 px uanset hvad. Kortene
+ * og noten er ogsaa tekst. Det eneste der kan bruge mere plads
+ * fornuftigt, er SOEJLERNE: en hoejere graf viser den samme doegn bedre.
+ *
+ * Derfor er soejlernes hoejde den der bliver regnet til sidst, af det der
+ * er tilbage. Det er et valg, og det staar her saa det er til at se og
+ * aendre ét sted.
+ */
+#define ZS_G_PRICE_TOP        14   /* luft foeroven                    */
+#define ZS_G_PRICE_LABEL_HEIGHT    16   /* 13 px skrift -> 16 px linje      */
+#define ZS_G_PRICE_GAP_LABEL   6
+#define ZS_G_PRICE_VALUE_HEIGHT    54   /* 64 px tal, kun cifre             */
+#define ZS_G_PRICE_GAP_VALUE   4
+#define ZS_G_PRICE_WORD_HEIGHT     24
+#define ZS_G_PRICE_GAP_WORD   14
+#define ZS_G_PRICE_GAP_CHART   4
+#define ZS_G_PRICE_AXIS_HEIGHT     16   /* timeaksen                        */
+#define ZS_G_PRICE_GAP_AXIS   12
+#define ZS_G_PRICE_CARDS_HEIGHT   100
+#define ZS_G_PRICE_GAP_CARDS  12
+#define ZS_G_PRICE_NOTE_HEIGHT     18
+#define ZS_G_PRICE_BOTTOM     10   /* luft ned til sidens kant         */
+
+/* Alt det der IKKE er soejler. */
+#define ZS_G_PRICE_FAST \
+    (ZS_G_PRICE_TOP + ZS_G_PRICE_LABEL_HEIGHT + ZS_G_PRICE_GAP_LABEL \
+     + ZS_G_PRICE_VALUE_HEIGHT + ZS_G_PRICE_GAP_VALUE + ZS_G_PRICE_WORD_HEIGHT \
+     + ZS_G_PRICE_GAP_WORD + ZS_G_PRICE_GAP_CHART + ZS_G_PRICE_AXIS_HEIGHT \
+     + ZS_G_PRICE_GAP_AXIS + ZS_G_PRICE_CARDS_HEIGHT + ZS_G_PRICE_GAP_CARDS \
+     + ZS_G_PRICE_NOTE_HEIGHT + ZS_G_PRICE_BOTTOM)
+
+/* Og soejlerne faar resten. */
+#define ZS_G_PRICE_CHART_HEIGHT    (ZS_G_PAGE_HEIGHT - ZS_G_PRICE_FAST)
+
+/* y-positionerne, lagt oven paa hinanden. */
+#define ZS_G_PRICE_Y_LABEL    ZS_G_PRICE_TOP
+#define ZS_G_PRICE_Y_VALUE    (ZS_G_PRICE_Y_LABEL + ZS_G_PRICE_LABEL_HEIGHT \
+                               + ZS_G_PRICE_GAP_LABEL)
+#define ZS_G_PRICE_Y_WORD     (ZS_G_PRICE_Y_VALUE + ZS_G_PRICE_VALUE_HEIGHT \
+                               + ZS_G_PRICE_GAP_VALUE)
+#define ZS_G_PRICE_Y_CHART    (ZS_G_PRICE_Y_WORD + ZS_G_PRICE_WORD_HEIGHT \
+                               + ZS_G_PRICE_GAP_WORD)
+#define ZS_G_PRICE_Y_AXIS     (ZS_G_PRICE_Y_CHART + ZS_G_PRICE_CHART_HEIGHT \
+                               + ZS_G_PRICE_GAP_CHART)
+#define ZS_G_PRICE_Y_CARDS    (ZS_G_PRICE_Y_AXIS + ZS_G_PRICE_AXIS_HEIGHT \
+                               + ZS_G_PRICE_GAP_AXIS)
+#define ZS_G_PRICE_Y_NOTE     (ZS_G_PRICE_Y_CARDS + ZS_G_PRICE_CARDS_HEIGHT \
+                               + ZS_G_PRICE_GAP_CARDS)
+
+/* ------------------------------------------------------------------ */
+/* Siden der venter paa netvaerket                                     */
+/* ------------------------------------------------------------------ */
+/*
+ * Teksten "Forbinder til netvaerket ..." stod paa y = 160, skrevet ind som
+ * et naegent tal. De 160 er ikke tilfaeldige: spinderen staar paa 70, er
+ * 64 px hoej, og saa er der 26 px luft. Men det forhold var ikke til at
+ * se, og retter man spinderens hoejde, bliver teksten siddende.
+ *
+ * Om hele blokken skal staa foeroven eller midt paa en hoejere skaerm er
+ * et valg om hvordan den skal se ud, ikke et regnestykke. Det valg ligger
+ * nu ÉT sted, her, i stedet for at vaere gemt i et tal midt i koden.
+ */
+#define ZS_G_WAIT_SPIN_Y    70
+#define ZS_G_WAIT_SPIN_SIZE 64
+#define ZS_G_WAIT_GAP       26
+#define ZS_G_WAIT_TEXT_Y    (ZS_G_WAIT_SPIN_Y + ZS_G_WAIT_SPIN_SIZE \
+                             + ZS_G_WAIT_GAP)
+
+/* ------------------------------------------------------------------ */
 /* Reglerne, tjekket naar der BYGGES                                   */
 /* ------------------------------------------------------------------ */
 
@@ -179,5 +294,69 @@ _Static_assert(ZS_G_CARD_HEAD_HEIGHT + ZS_G_CARD_TEXT_GAP
 /* Og at der er plads til teksten overhovedet. */
 _Static_assert(ZS_G_CARD_TEXT_GAP >= 0,
                "kortet er for lavt til de tre tekstlinjer");
+
+/*
+ * STATUSLINJEN: tallene skal vaere de samme som foer paa 480.
+ *
+ * De stod som faste tal, og de blev lavet om til udregninger. Saa skal det
+ * bevises at skaermen ser PRAECIS ud som foer paa den skaerm vi har, og
+ * ikke bare "cirka". En udregning der giver 428 i stedet for 430 flytter
+ * tandhjulet to pixels, og det er ikke til at se paa et billede, men det
+ * er en aendring ingen har bedt om.
+ *
+ * De her tre vagter gaelder kun paa 480. Bygger man til en anden
+ * skaermbredde, se tests/host/test_layout_800.c, er de ikke sande og skal
+ * heller ikke vaere det: det er netop meningen at tallene flytter med.
+ */
+#if ZS_G_SCR_WIDTH == 480
+_Static_assert(ZS_G_BAR_GEAR_X == 430,
+               "tandhjulet er flyttet. Paa en 480 px skaerm skal det staa "
+               "paa 430 som foer.");
+_Static_assert(ZS_G_BAR_ICON_X == 400,
+               "statusikonet er flyttet. Paa en 480 px skaerm skal det "
+               "staa paa 400 som foer.");
+_Static_assert(ZS_G_BAR_TIME_RIGHT == 388,
+               "klokkeslaettet er flyttet. Paa en 480 px skaerm skal det "
+               "slutte paa 388 som foer.");
+_Static_assert(ZS_G_CX == 240, "midterlinjen er ikke midten af 480");
+#endif
+
+/* Og uanset skaermbredde: tandhjulet skal kunne vaere der, og ikke rage
+ * ud over kanten. */
+_Static_assert(ZS_G_BAR_GEAR_X + ZS_G_TOUCH_MIN + ZS_G_BAR_EDGE
+               <= ZS_G_SCR_WIDTH,
+               "tandhjulet rager ud over hoejre kant");
+_Static_assert(ZS_G_BAR_TIME_RIGHT > 0,
+               "skaermen er for smal til statuslinjens indhold");
+
+/*
+ * PRISSIDEN: stakken skal gaa op, og tallene skal vaere de samme som foer
+ * paa en side der er 408 px hoej.
+ */
+_Static_assert(ZS_G_PRICE_FAST + ZS_G_PRICE_CHART_HEIGHT == ZS_G_PAGE_HEIGHT,
+               "prissidens stak gaar ikke op i sidens hoejde");
+_Static_assert(ZS_G_PRICE_CHART_HEIGHT > 0,
+               "skaermen er for lav til prissidens indhold: der er ingen "
+               "plads tilbage til soejlerne");
+_Static_assert(ZS_G_PRICE_Y_NOTE + ZS_G_PRICE_NOTE_HEIGHT + ZS_G_PRICE_BOTTOM
+               == ZS_G_PAGE_HEIGHT,
+               "noten nederst paa prissiden ender ikke hvor siden slutter");
+
+_Static_assert(ZS_G_WAIT_TEXT_Y == 160,
+               "teksten paa ventesiden er flyttet. Den skal staa paa 160 "
+               "som foer, altsaa 26 px under spinderen.");
+_Static_assert(ZS_G_WAIT_TEXT_Y + 2 * ZS_G_ROW_HEIGHT <= ZS_G_PAGE_HEIGHT,
+               "ventesidens tekst har ikke plads paa siden");
+
+#if ZS_G_PAGE_HEIGHT == 408
+_Static_assert(ZS_G_PRICE_Y_LABEL == 14,  "etiketten er flyttet");
+_Static_assert(ZS_G_PRICE_Y_VALUE == 36,  "det store tal er flyttet");
+_Static_assert(ZS_G_PRICE_Y_WORD  == 94,  "ordet er flyttet");
+_Static_assert(ZS_G_PRICE_Y_CHART == 132, "soejlerne er flyttet");
+_Static_assert(ZS_G_PRICE_CHART_HEIGHT == 104, "soejlerne har skiftet hoejde");
+_Static_assert(ZS_G_PRICE_Y_AXIS  == 240, "timeaksen er flyttet");
+_Static_assert(ZS_G_PRICE_Y_CARDS == 268, "de to kort er flyttet");
+_Static_assert(ZS_G_PRICE_Y_NOTE  == 380, "noten er flyttet");
+#endif
 
 #endif /* ZS_LAYOUT_H */

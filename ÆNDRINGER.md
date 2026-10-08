@@ -1,3 +1,52 @@
+## 2026-10-08 03:29
+
+### Fladen var ikke så uafhængig af skærmstørrelsen som den skulle være
+Geometrien står ét sted, i `ui/zs_layout.h`, og regnes ud af bredden og
+højden. Men fire steder stod målene **alligevel** skrevet ind:
+
+- **statuslinjen**: tandhjulet på 430, statusikonet på 400. Regnet i hånden
+  fra en 480 px skærm, med en kommentar der sagde det. På en 800 px skærm
+  ville tandhjulet sidde midt på skærmen i stedet for i hjørnet.
+- **flow-siden**: midterlinjen på 240, sideknuderne på 68 og 412, stregerne
+  der stopper på 92 og 388. Tallene hører sammen i par, 412 er 480 minus 68,
+  men de stod som om de ikke gjorde.
+- **prissiden**: hele den lodrette stak, 14 til 380. På en højere skærm ville
+  alt blive siddende foroven med et tomt felt nederst.
+- **ventesiden**: teksten på 160. De 160 er spinderen på 70 plus dens 64 plus
+  26 luft, men det forhold var ikke til at se.
+
+Alle fire er flyttet til det centrale sted og regnes nu. **Tallene er de
+samme på 480**, og der er en vagt ved oversættelsen på hvert enkelt af dem,
+så skærmen ser præcis ud som før. Det er efterprøvet to gange: den
+signerede binær har **samme størrelse** som før, og tallene er printet ud
+ved 480 og ved 800. På 800 flytter tandhjulet til 750, midterlinjen til 400,
+og søjlerne i grafen bliver højere.
+
+Hvor den ekstra plads går hen er et **valg**, ikke et regnestykke. En
+skrifttype bliver ikke større af at skærmen gør, og et tal på 64 px fylder
+54 px uanset hvad. Det eneste der bruger mere plads fornuftigt, er søjlerne
+i grafen: en højere graf viser det samme døgn bedre. Det valg står nu ét
+sted, så det kan ændres på én linje.
+
+### Ny vagt: skærmens mål må ikke stå skrevet ind i fladen
+Jeg fandt de fire ved at lede. Nu bliver der ledt hver gang. Reglen er smal
+med vilje: ikke alle tal er forbudt, kun de tal der **er** skærmens mål,
+altså bredden, højden, sidens højde og halvdelen af bredden. De kan ikke
+være rigtige som faste tal, for de betyder noget andet på en anden skærm.
+
+Første forsøg gav **fjorten falske fund**, fordi den læste hver linje i en
+blokkommentar som kode. En vagt med fjorten falske fund bliver slået fra,
+så den følger nu kommentarblokke linje for linje. Og "halvdelen af sidens
+højde" er taget af listen: zs_flow.c havde `Y_SIDE_VALUE 204`, og 204 er
+tilfældigvis halvdelen af 408, men tallet betyder en plads i en lodret stak.
+Et falsk fund er dyrere end et manglende.
+
+Efterprøvet ved at lade to faste tal snige sig ind igen. Begge fanges. Og
+CI kører den af sig selv, fordi vagtlisten står ét sted.
+
+**Status:** 9 vagter, 1075 prøver på maskinen, 79 hele vejen igennem,
+fuzzerne rent, firmwaren bygger med samme størrelse som før.
+
 ## 2026-10-08 03:09
 
 ### En enhed der lyver om hvor langt svaret er

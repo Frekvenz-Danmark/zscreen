@@ -4,14 +4,17 @@
 
 #include <string.h>
 
-/* Vandrette pladser, regnet fra hoejre kant paa en 480 px skaerm.
+/* Vandrette pladser. De stod som faste tal her, regnet i haanden fra en
+ * 480 px skaerm, og saa ville tandhjulet blive siddende midt paa en
+ * stoerre skaerm. De kommer nu fra zs_layout.h, hvor de regnes fra hoejre
+ * kant, og hvor der er en vagt paa at de giver de SAMME tal paa 480:
  *     tandhjul   430 .. 474   (44 x 44, hele fingerfladen)
  *     statusikon 400 .. 420
  *     klokkeslaet slutter paa 388
  * Se zs_statusbar.h for tegningen. */
-#define GEAR_X      430
-#define ICON_X      400
-#define TIME_RIGHT  (ZS_SCR_WIDTH - 92)
+#define GEAR_X      ZS_G_BAR_GEAR_X
+#define ICON_X      ZS_G_BAR_ICON_X
+#define TIME_RIGHT  ZS_G_BAR_TIME_RIGHT
 
 void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
                          lv_event_cb_t gear_cb, void *user_data)

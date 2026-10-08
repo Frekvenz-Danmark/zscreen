@@ -28,15 +28,23 @@
  * der er et tjek ved opstart der siger fra hvis det alligevel ikke
  * passer.
  */
-#define Y_LABEL      14
-#define Y_VALUE      36
-#define Y_WORD       94
-#define Y_CHART      132
-#define CHART_H      104
-#define Y_AXIS       240
-#define Y_CARDS      268
-#define CARDS_H      100
-#define Y_NOTE       380
+/* Tallene kommer fra zs_layout.h, ikke herfra.
+ *
+ * De stod skrevet ind her, regnet i haanden paa en side der er 408 px
+ * hoej. Paa en hoejere skaerm ville alt blive siddende foeroven med et
+ * tomt felt nederst. Nu regnes de oven paa hinanden ét sted, og
+ * soejlernes hoejde er den der faar resten: en skrifttype bliver ikke
+ * stoerre af at skaermen goer, men en hoejere graf viser det samme doegn
+ * bedre. Der er en vagt paa at tallene er de SAMME paa 408. */
+#define Y_LABEL      ZS_G_PRICE_Y_LABEL
+#define Y_VALUE      ZS_G_PRICE_Y_VALUE
+#define Y_WORD       ZS_G_PRICE_Y_WORD
+#define Y_CHART      ZS_G_PRICE_Y_CHART
+#define CHART_H      ZS_G_PRICE_CHART_HEIGHT
+#define Y_AXIS       ZS_G_PRICE_Y_AXIS
+#define Y_CARDS      ZS_G_PRICE_Y_CARDS
+#define CARDS_H      ZS_G_PRICE_CARDS_HEIGHT
+#define Y_NOTE       ZS_G_PRICE_Y_NOTE
 
 /* Luft mellem de tre linjer inde i et kort. */
 #define CARD_LINE_GAP 4

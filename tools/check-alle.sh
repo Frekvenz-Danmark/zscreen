@@ -27,6 +27,7 @@ VAGTER=(
     "Bygningerne|${PY} tools/check-byg.py"
     "Tegnsæt|${PY} tools/check-text.py"
     "Farver|${PY} tools/check-colors.py"
+    "Målene i fladen|${PY} tools/check-maal.py"
     "LVGL-låsen|${PY} tools/check-lvgl-laas.py"
     "Ingen blindgyde|${PY} tools/check-flow.py"
     "Udgivelsen|${PY} tools/check-udgivelse.py"

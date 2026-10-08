@@ -11,11 +11,20 @@
  * Siden er 480 x 408. Udregningen staar i zs_flow.h og er kontrolleret
  * saa nederste kant lander paa 363 af 408.
  */
-#define CX            240      /* midterlinjen                        */
+#define CX            ZS_G_CX  /* midterlinjen, se zs_layout.h        */
 #define HUB_Y         182      /* knudepunktets midte                 */
 #define HUB_R         20
-#define SIDE_L        68       /* venstre knude, midte                */
-#define SIDE_R        412      /* hoejre knude, midte                 */
+
+/* De to sideknuder sidder SYMMETRISK om midten.
+ *
+ * Her stod 68 og 412. De er rigtige paa en 480 px skaerm, for 412 er
+ * 480 - 68. Men de to tal saa ud som to uafhaengige tal, og paa en
+ * bredere skaerm ville den venstre blive siddende og den hoejre ryge ud
+ * over kanten. Nu staar afstanden fra midten ÉT sted, og saa kan de ikke
+ * komme fra hinanden. */
+#define SIDE_DX       172      /* fra midten ud til en sideknude       */
+#define SIDE_L        (CX - SIDE_DX)
+#define SIDE_R        (CX + SIDE_DX)
 
 #define LINE_W        4        /* stregtykkelse                       */
 #define NODE_W        150      /* bredden af en knudes tekst          */
@@ -33,11 +42,15 @@
 #define Y_BAT_VALUE   310
 #define Y_BAT_SUB     345
 
-/* De vandrette streger stopper foer knudepunktet og foer ikonet. */
-#define HLINE_L_X     92
+/* De vandrette streger stopper foer knudepunktet og foer ikonet.
+ *
+ * Her stod 92 og 388, og 388 er 480 - 92. Samme sag som sideknuderne:
+ * to tal der hoerer sammen, skrevet som om de ikke gjorde. */
+#define HLINE_DX      148      /* fra midten ud til hvor stregen stopper */
+#define HLINE_L_X     (CX - HLINE_DX)
 #define HLINE_L_W     (CX - HUB_R - HLINE_L_X)
 #define HLINE_R_X     (CX + HUB_R)
-#define HLINE_R_W     (388 - HLINE_R_X)
+#define HLINE_R_W     (CX + HLINE_DX - HLINE_R_X)
 
 /* Under saa mange watt kalder vi det hvile. Det samme tal som paa
  * side 1, saa de to sider ikke kan sige hver sit om samme maaling. */
