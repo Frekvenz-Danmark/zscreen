@@ -1,3 +1,23 @@
+## 2026-10-08 03:40
+
+### Læsning og skrivning tjekkede samme felt med forskellige regler
+Svarets længdefelt blev tjekket på to måder. Læsningen krævede 3 til 253.
+Skrivningen krævede bare "mindst 1", og havde desuden bufferens grænse i
+samme betingelse.
+
+Det er det **samme felt i den samme protokol**. To steder der tjekker det
+samme med forskellige regler er ikke to lag, det er ét sted hvor nogen
+senere retter det ene og tror begge er rettet. Nu bruger begge den samme
+regel, og bufferens grænse står for sig.
+
+**Og det skal siges ærligt: det var ikke farligt.** Jeg efterprøvede det.
+En for kort ramme bliver afvist længere nede, hvor den bliver pakket ud:
+den kræver mindst 9 bytes. Så den slappe grænse kunne ikke udnyttes. Det
+her er en rettelse af en inkonsekvens, ikke af et hul.
+
+Skrivningen hele vejen igennem er kørt efter: alle fem prøver består, så den
+strammere grænse afviser ikke et rigtigt svar.
+
 ## 2026-10-08 03:29
 
 ### Fladen var ikke så uafhængig af skærmstørrelsen som den skulle være

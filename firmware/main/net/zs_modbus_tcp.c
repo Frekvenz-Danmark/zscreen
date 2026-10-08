@@ -768,7 +768,25 @@ zs_mb_err_t zs_mb_write_verified(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
         return luk_med_grund(mb, err);
     }
     uint16_t len = rd_u16(frame + 4);
-    if (len < 1 || MBAP_LEN + (size_t)len > sizeof(frame)) {
+    /*
+     * SAMME regel som i laesningen, og det var den ikke foer.
+     *
+     * Her stod "len < 1 || MBAP_LEN + len > sizeof(frame)", altsaa to ting
+     * i ÉN betingelse og med en anden nedre graense end laesningens. En
+     * laengde paa 1 eller 2 blev taget imod her og afvist der, selv om det
+     * er det samme felt i den samme protokol. Det korteste svar der
+     * betyder noget er unit + funktionskode + fejlkode = 3 bytes.
+     *
+     * To steder der tjekker det samme med forskellige regler er ikke to
+     * lag, det er ét sted hvor nogen senere retter det ene og tror begge
+     * er rettet.
+     */
+    if (!zs_mb_pdu_laengde_ok(len)) {
+        ZS_LOGW(TAG, "urimeligt laengdefelt %u i svaret paa en skrivning",
+                len);
+        return luk_med_grund(mb, ZS_MB_ERR_FRAME);
+    }
+    if (MBAP_LEN + (size_t)len > sizeof(frame)) {
         return luk_med_grund(mb, ZS_MB_ERR_FRAME);
     }
     err = recv_exact(mb->fd, frame + MBAP_LEN, len);
