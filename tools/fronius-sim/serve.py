@@ -110,8 +110,36 @@ class ModbusHandler(socketserver.BaseRequestHandler):
                                   f"holdes aaben")
                         continue
 
+                # SVARER PAENT, MEN MED FORKERT TRANSAKTIONS-ID.
+                #
+                # Efter N forespoergsler bliver svarene ved at vaere helt
+                # rigtige: rigtig laengde, rigtig unit, rigtigt antal
+                # bytes, rigtige tal. Kun ID'et er ét forkert.
+                #
+                # Det er praecis hvad et svar paa den FORRIGE
+                # forespoergsel ser ud som, og det sker paa et net hvor
+                # noget bliver forsinket. Skaermen skal sige fra. Gjorde
+                # den ikke, ville den vise de gamle tal som om de var
+                # friske, og det er den slags fejl der ikke ser forkert ud.
+                #
+                # N er sat saa de FOERSTE forespoergsler gaar godt, saa
+                # enheden bliver genkendt. Ellers falder den paa SunSpec
+                # foer den naar til tallene, og saa proever vi noget andet
+                # end det vi tror.
+                forkert_efter = STATE.get("forkert_tid_efter")
+                skift_tid = False
+                if forkert_efter is not None:
+                    STATE["tid_taeller"] = STATE.get("tid_taeller", 0) + 1
+                    skift_tid = STATE["tid_taeller"] > forkert_efter
+
                 resp = self._dispatch(tid, unit, fc, body[2:])
                 if resp:
+                    if skift_tid:
+                        forkert = ((tid + 1) & 0xFFFF).to_bytes(2, "big")
+                        resp = forkert + resp[2:]
+                        if STATE["verbose"]:
+                            print(f"  [{peer}] svarer med forkert "
+                                  f"transaktions-ID")
                     self.request.sendall(resp)
         except (socket.timeout, ConnectionResetError, BrokenPipeError, OSError):
             pass
@@ -425,6 +453,10 @@ def main():
     ap.add_argument("--naegt-kun-data", default="",
                     help="modeller hvor kun DATAENE naegtes, ikke hovedet. "
                          "Saa kan kaeden laeses videre")
+    ap.add_argument("--forkert-tid-efter", type=int, default=None,
+                    help="svar rigtigt paa de foerste N forespoergsler, og "
+                         "derefter med et transaktions-ID der er ét forkert. "
+                         "Alt andet i svaret er rigtigt.")
     ap.add_argument("--tavs-efter", type=int, default=None,
                     help="svar paa de foerste N forespoergsler og ti saa "
                          "stille, med forbindelsen aaben. Som en inverter "
@@ -452,6 +484,8 @@ def main():
 
     STATE["verbose"] = args.verbose
     STATE["naegt"] = {int(x) for x in args.naegt.split(",") if x.strip()}
+    STATE["forkert_tid_efter"] = args.forkert_tid_efter
+    STATE["tid_taeller"] = 0
     STATE["tavs_efter"] = args.tavs_efter
     STATE["svar_taeller"] = 0
     STATE["skrivemaade"] = args.skrivemaade

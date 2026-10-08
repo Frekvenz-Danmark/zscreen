@@ -1,3 +1,41 @@
+## 2026-10-08 07:26
+
+### Et forkert svar kunne blive meldt som et godt svar
+Den alvorligste af de 23 overlevende mutanter. Vendes `if (err != ZS_MB_OK)`
+om efter at svaret er pakket ud, bliver et svar der **ikke** kunne pakkes
+ud, meldt som godt. Så viser skærmen hvad der nu stod i bufferen: gamle tal,
+eller ingenting. Et forkert tal der ser ud som et rigtigt tal.
+
+**Ingen prøve fangede det**, og det er værd at forstå hvorfor. Rammerne
+bliver prøvet grundigt på maskinen, men der bankes direkte på udpakningen.
+Hele vejen igennem svarer simulatoren **altid** rigtigt, så den sti hvor
+udpakningen fejler blev aldrig gået.
+
+Simulatoren kan nu svare pænt men forkert: alt rigtigt i svaret, kun
+transaktions-ID'et ét forkert. Det er præcis hvad et svar på den **forrige**
+forespørgsel ser ud som, og det sker på et net hvor noget bliver forsinket.
+
+Og det tog tre forsøg at lave en prøve der faktisk måler noget:
+
+1. Første forsøg svarede forkert fra første forespørgsel. Så falder
+   SunSpec-genkendelsen, skærmen siger nej af den grund, og mutanten
+   overlevede alligevel. Ødelagte data falder på næste tjek.
+2. Andet forsøg svarede forkert efter 40 forespørgsler. En hel kørsel
+   bruger omkring 20, så alt var forbi inden. Prøven målte ingenting.
+3. Tredje forsøg: **18**, målt. Ved 12 og 18 siger værktøjet fra, ved 24 og
+   derover er alt forbi inden. 18 rammer midt i aflæsningen.
+
+Og fordi tallet 18 kan blive forkert den dag kæden bruger flere
+forespørgsler, er der nu en prøve på at værktøjet **faktisk fejlede**. Står
+der nul fejl, siger prøven at tallet skal sættes ned, i stedet for at blive
+grøn uden at måle noget.
+
+Med mutanten inde viser prøven skaden sort på hvidt: "Solgt til net 262144
+Wh". Et skraldtal præsenteret som en måling.
+
+**Status:** 9 vagter, 1113 prøver på maskinen, 89 hele vejen igennem,
+fuzzerne rent, firmwaren bygger.
+
 ## 2026-10-08 04:02
 
 ### Mutationstesten døde selv, og den fandt tre ting mere

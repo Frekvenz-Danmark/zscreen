@@ -643,6 +643,153 @@ def test_fejlkoder():
                 fail("uden fejl: telefonnummeret står der ikke")
 
 
+def test_svar_der_ser_rigtigt_ud():
+    suite("En enhed der svarer pænt, men forkert")
+
+    # HVORFOR DEN HER PROEVE FINDES, OG HVORFOR DEN ER DEN VIGTIGSTE AF
+    # DE NYE.
+    #
+    # Mutationstesten vendte "if (err != ZS_MB_OK)" om efter at svaret var
+    # pakket ud. Med den aendring bliver et svar der IKKE kunne pakkes ud,
+    # meldt som et godt svar, og skaermen viser hvad der nu stod i
+    # bufferen: gamle tal, eller ingenting. Et forkert tal der ser ud som
+    # et rigtigt tal.
+    #
+    # Ingen proeve fangede det. Rammerne bliver proevet grundigt paa
+    # maskinen, men dér bankes der direkte paa udpakningen. Hele vejen
+    # igennem svarer simulatoren ALTID rigtigt, saa den sti hvor
+    # udpakningen fejler blev aldrig gaaet.
+    #
+    # Her svarer serveren med en ramme der ser helt rigtig ud: rigtig
+    # laengde, rigtig unit, rigtig funktionskode, rigtigt antal bytes. Kun
+    # transaktions-ID'et er ét forkert. Det er praecis det et svar fra en
+    # FORRIGE forespoergsel ser ud som, og det sker paa et net hvor noget
+    # bliver forsinket.
+    #
+    # Skaermen skal sige fra. Den maa IKKE vise tal.
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    port = srv.getsockname()[1]
+
+    import threading
+    stop = threading.Event()
+
+    def forkert_tid():
+        srv.settimeout(0.5)
+        while not stop.is_set():
+            try:
+                c, _ = srv.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            try:
+                while True:
+                    req = c.recv(12)
+                    if len(req) < 12:
+                        break
+                    tid = (req[0] << 8) | req[1]
+                    unit, fc = req[6], req[7]
+                    antal = (req[10] << 8) | req[11]
+                    if antal == 0 or antal > 125:
+                        break
+                    # ALT rigtigt, pånær transaktions-ID'et.
+                    forkert = (tid + 1) & 0xFFFF
+                    laengde = 3 + 2 * antal
+                    svar = bytes([forkert >> 8, forkert & 0xFF, 0, 0,
+                                  laengde >> 8, laengde & 0xFF,
+                                  unit, fc, 2 * antal])
+                    svar += bytes(2 * antal)
+                    c.sendall(svar)
+            except OSError:
+                pass
+            finally:
+                c.close()
+
+    t = threading.Thread(target=forkert_tid, daemon=True)
+    t.start()
+    try:
+        r = subprocess.run([PROBE, "127.0.0.1", str(port)],
+                           capture_output=True, text=True, timeout=40)
+        alt = (r.stdout or "") + (r.stderr or "")
+
+        if r.returncode != 0:
+            ok("et forkert transaktions-ID bliver afvist")
+        else:
+            fail("et forkert transaktions-ID bliver afvist", alt[:500])
+
+        # Og det vigtigste: der maa IKKE staa tal paa skaermen.
+        if "Det skaermen ville vise" not in alt:
+            ok("og der vises ingen tal")
+        else:
+            fail("der vises ingen tal", alt[-700:])
+
+        if "AddressSanitizer" not in alt and "runtime error" not in alt:
+            ok("og intet nedbrud")
+        else:
+            fail("intet nedbrud", alt[-600:])
+    finally:
+        stop.set()
+        srv.close()
+        t.join(timeout=2)
+
+    # OG DEN FARLIGE VARIANT: forkert FOERST efter at enheden er genkendt.
+    #
+    # Prøven ovenfor svarer forkert fra første forespørgsel. Så falder
+    # SunSpec-genkendelsen, og skærmen siger nej af den grund. Det er
+    # rigtigt, men det er ikke den sti der gør skade.
+    #
+    # Det er målt: med "if (err != ZS_MB_OK)" vendt om bestod prøven
+    # ovenfor alligevel, fordi ødelagte data falder på næste tjek.
+    #
+    # Den farlige sti er et forkert svar MIDT i en aflæsning, efter at en
+    # del af kæden er godkendt. Så kunne de gamle tal blive vist som
+    # friske, og det ser ikke forkert ud.
+    #
+    # TALLET 18 ER MÅLT, IKKE VALGT.
+    #
+    # Første forsøg brugte 40, og så var hele aflæsningen færdig før det
+    # forkerte ID kom: prøven målte ingenting. En hel kørsel bruger
+    # omkring 20 forespørgsler. Målt: ved 12 og 18 siger værktøjet fra,
+    # ved 24 og derover er alt forbi inden. 18 rammer altså midt i, og det
+    # er dér det gør ondt.
+    #
+    # Skifter kæden, så en kørsel bruger flere forespørgsler, holder
+    # prøven op med at måle det den skal. Derfor er der en prøve nedenfor
+    # på at værktøjet FAKTISK fejlede: står der nul, er tallet blevet for
+    # højt og skal sættes ned.
+    with Sim("battery", ["--speed", "0", "--forkert-tid-efter", "18"]) as sim:
+        # subprocess direkte og ikke probe(): den hjælper SKJULER
+        # udfaldskoden når man forventer en fejl, og koden er netop det
+        # der skal måles her. Første forsøg brugte probe(forvent_fejl=True),
+        # og så kunne tjekket aldrig blive sandt.
+        r = subprocess.run([PROBE, "127.0.0.1", str(sim.port)],
+                           capture_output=True, text=True, timeout=60)
+        alt = (r.stdout or "") + (r.stderr or "")
+
+        # Først: at der VAR en fejl. Uden den siger resten ingenting, for
+        # så nåede aflæsningen at blive færdig inden.
+        if r.returncode != 0:
+            ok("et forkert ID midt i en aflæsning bliver fanget")
+        else:
+            fail("et forkert ID midt i en aflæsning bliver fanget",
+                 "værktøjet kørte igennem uden fejl. Så er 18 blevet for "
+                 "højt: en kørsel bruger nu flere forespørgsler end før, "
+                 "og prøven måler ikke det den skal. Sæt tallet ned.")
+
+        if "Det skaermen ville vise" not in alt:
+            ok("og der vises ingen tal")
+        else:
+            fail("og der vises ingen tal", alt[-700:])
+
+        if "AddressSanitizer" not in alt and "runtime error" not in alt:
+            ok("og intet nedbrud")
+        else:
+            fail("intet nedbrud", alt[-600:])
+
+
 def test_vaerktoejets_flag():
     suite("Værktøjet siger fra ved en tastefejl")
 
@@ -1606,6 +1753,7 @@ def main():
     test_fejlkoder()
     test_naar_det_gaar_galt()
     test_loegn_om_laengden()
+    test_svar_der_ser_rigtigt_ud()
     test_vaerktoejets_flag()
     test_genfind()
     test_ikke_en_inverter()
