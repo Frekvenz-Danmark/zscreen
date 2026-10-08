@@ -32,12 +32,19 @@ Som det er forklaret:
   den koeber ikke fra nettet. `InWRte = 10000` er intet ladeloft, saa solen
   maa lade frit
 
-## Tilstand 4, zero export, mangler
+## Tilstand 4, zero export
 
-Den staar ikke paa listen, og det passer med min egen mistanke: de fire
-andre handler om BATTERIET, mens zero export handler om hvad INVERTEREN
-sender ud paa nettet. Det er sandsynligvis et andet sted i SunSpec end
-model 124. Det skal findes og maales for sig.
+Oplyst 9. oktober 2026: zero export er bare at lade med 100 %. Altsaa
+samme registre som tilstand 1, med fuld rate.
+
+Det er praktisk og det bruger det vi allerede har. MEN det er ikke
+zero export i streng forstand, og det skal siges hoejt: **er batteriet
+fuldt, gaar overskuddet ud paa nettet alligevel.** Vil man have en haard
+graense paa hvad der sendes ud, uanset batteriets stand, er det en anden
+sag i et andet register, og den skal findes for sig.
+
+Det skal maales paa stedet hvad der faktisk sker naar batteriet rammer
+100 % mens tilstanden er sat.
 
 ## Hvad vi SKAL maale paa stedet, foer noget bygges
 
