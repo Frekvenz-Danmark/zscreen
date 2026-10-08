@@ -93,6 +93,37 @@ void zs_version_tekst_404(const char *maal, char *ud, size_t ud_len)
     snprintf(ud, ud_len, "Der findes ingen udgivelse %s", maal);
 }
 
+zs_maal_t zs_version_vaelg_maal(const char *nuvaerende, const char *oensket)
+{
+    zs_maal_t r;
+    memset(&r, 0, sizeof(r));
+    const char *nu = (nuvaerende != NULL) ? nuvaerende : "";
+
+    /* Tom eller NULL: intet maal, foelg nyeste igen. */
+    if (oensket == NULL || oensket[0] == '\0') {
+        r.gyldig = true;
+        r.maal[0] = '\0';
+        r.aendret = (nu[0] != '\0');
+        return r;
+    }
+
+    /* Skrald: behold det gamle, og det er ikke en ordre. */
+    if (!zs_version_tag_ok(oensket)) {
+        snprintf(r.maal, sizeof(r.maal), "%s", nu);
+        r.gyldig = false;
+        r.aendret = false;
+        return r;
+    }
+
+    /* Gem UDEN v. */
+    const char *p = (*oensket == 'v' || *oensket == 'V') ? oensket + 1
+                                                         : oensket;
+    snprintf(r.maal, sizeof(r.maal), "%s", p);
+    r.gyldig = true;
+    r.aendret = (strcmp(nu, r.maal) != 0);
+    return r;
+}
+
 bool zs_version_tag_ok(const char *version)
 {
     if (version == NULL) {

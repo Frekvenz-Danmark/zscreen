@@ -1,3 +1,45 @@
+## 2026-10-08 16:16
+
+### De to rettelser fra før havde ingen prøver, og det var et hul
+Jeg rettede to ting i kommandovejen og byggede firmwaren, og så var de
+uprøvede. `zs_ota.c` kan ikke oversættes på en almindelig maskine: den
+hænger på `esp_https_ota` og på FreeRTOS. Så lå fire regler uden en eneste
+prøve, og de var netop blevet vigtige.
+
+Beslutningen er trukket ud til `zs_version.c`, som kan oversættes på
+maskinen. `zs_ota_set_target` er nu en tynd skal om den. De fire regler:
+
+- **tom eller intet** betyder "følg nyeste igen", og det **er** en ordre
+  hvis der var et mål før
+- **skrald** beholder det gamle. At falde tilbage til "nyeste" fordi nogen
+  tastede forkert, ville være en overraskelse
+- **v foran** fjernes, for mærket på GitHub har det, og det sættes på igen
+  når vi slår op
+- **samme mål igen** er **ikke** en ordre
+
+Den sidste er den der betyder mest. Serveren sender målversionen igen ved
+hver indmeldelse, og en genforbindelse er ikke en ordre. Uden den regel
+ville en skærm på et dårligt net banke på GitHub i stedet for at vise tal.
+Og siger reglen for lidt, bliver opdateringen liggende som før.
+
+Prøvet af med 28 tjek, og efterprøvet ved at vende hver enkelt regel om:
+"ændret" vendt om, altid sand, altid falsk, ryddet der ikke tæller,
+skrald der overskriver, skrald meldt som gyldigt, og v der ikke fjernes.
+**Alle syv dør.**
+
+### Hvad der stadig IKKE er prøvet, og hvorfor
+De fire linjer der finder målversionen i indmeldelsessvaret bruger cJSON,
+og cJSON er ikke i host-bygningen. Jeg valgte at lade det være: prøverne
+skal kunne køre med bare `cc` uden ESP-IDF, og det er værd at bevare.
+
+Så den del er dækket to steder i stedet: serveren prøver at svaret
+**indeholder** målversionen, og firmwaren skriver i loggen at den fandt
+den. Begge dele kan ses, men ingen af dem beviser at nøglestien i koden er
+rigtig. Det bliver først bevist på en rigtig skærm.
+
+**Status:** 9 vagter, 1141 prøver på maskinen, 89 hele vejen igennem,
+firmwaren bygger.
+
 ## 2026-10-08 14:03
 
 ### Hvor hurtigt kommer en kommando frem? Nu er det målt, og to fejl kom frem

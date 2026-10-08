@@ -215,4 +215,114 @@ void test_version_404(void)
     CHECK("NULL og længde nul går ikke ned", true);
 }
 
+/*
+ * Maalversionen: hvad skal den vaere, og er det en NY ordre?
+ *
+ * Beslutningen laa inde i zs_ota_set_target, og den fil kan ikke
+ * oversaettes paa en almindelig maskine. Saa var fire regler uproevede,
+ * og de blev skrevet om samme dag som de blev vigtige: et NYT maal
+ * udloeser nu et tjek med det samme i stedet for om op til en halv time.
+ *
+ * Er "aendret" forkert, sker der én af to ting. Siger den for lidt, bliver
+ * opdateringen liggende som foer. Siger den for meget, tjekker skaermen
+ * ved hver genforbindelse, og en skaerm paa et daarligt net banker paa
+ * GitHub i stedet for at vise tal.
+ */
+void test_version_maal(void)
+{
+    ZS_SUITE("Målversionen: hvad gemmes, og er det en ny ordre");
+
+    zs_maal_t m;
+
+    /* ---- fra intet til noget ---- */
+    m = zs_version_vaelg_maal("", "0.24.3");
+    CHECK("et maal kan saettes", m.gyldig);
+    CHECK_STR("og det gemmes", m.maal, "0.24.3");
+    CHECK("og det ER en ny ordre", m.aendret);
+
+    /* ---- v foran skal VAEK ---- */
+    m = zs_version_vaelg_maal("", "v0.24.3");
+    CHECK_STR("v foran bliver fjernet", m.maal, "0.24.3");
+    CHECK("og det er stadig en ordre", m.aendret);
+    m = zs_version_vaelg_maal("", "V1.2.3");
+    CHECK_STR("stort V også", m.maal, "1.2.3");
+
+    /* ---- DEN VIGTIGSTE: samme maal igen er IKKE en ordre ---- */
+    m = zs_version_vaelg_maal("0.24.3", "0.24.3");
+    CHECK("samme maal igen er gyldigt", m.gyldig);
+    CHECK_STR("og staar uaendret", m.maal, "0.24.3");
+    CHECK("men det er IKKE en ny ordre", !m.aendret);
+
+    /* Og med v foran skal den stadig se at det er det samme. Serveren
+     * kan sende begge former, og en genforbindelse maa ikke blive en
+     * ordre bare fordi formen er en anden. */
+    m = zs_version_vaelg_maal("0.24.3", "v0.24.3");
+    CHECK("v foran er stadig det samme maal", !m.aendret);
+    CHECK_STR("og det gemmes uden v", m.maal, "0.24.3");
+
+    /* ---- et ANDET maal er en ordre ---- */
+    m = zs_version_vaelg_maal("0.24.3", "0.24.4");
+    CHECK("et andet maal er en ordre", m.aendret);
+    CHECK_STR("og det nye gemmes", m.maal, "0.24.4");
+
+    /* ---- at RYDDE er ogsaa en ordre ---- */
+    m = zs_version_vaelg_maal("0.24.3", "");
+    CHECK("ryddet er gyldigt", m.gyldig);
+    CHECK_STR("og maalet er tomt", m.maal, "");
+    CHECK("og det ER en ordre: tilbage til nyeste", m.aendret);
+
+    m = zs_version_vaelg_maal("0.24.3", NULL);
+    CHECK("NULL er det samme som ryddet", m.gyldig && m.maal[0] == '\0');
+    CHECK("og også en ordre", m.aendret);
+
+    /* Men ryddet NAAR DER INTET VAR, er ingen ordre. Ellers ville hver
+     * indmeldelse paa en skaerm uden maal udloese et tjek. */
+    m = zs_version_vaelg_maal("", "");
+    CHECK("ryddet naar der intet var, er ingen ordre", !m.aendret);
+    m = zs_version_vaelg_maal(NULL, NULL);
+    CHECK("NULL begge veje går ikke ned", m.gyldig && !m.aendret);
+
+    /* ---- skrald beholder det gamle ---- */
+    const char *skrald[] = { "0.24", "0.24.3.1", "abc", "0.24.3a",
+                             "../0.24.3", "0.24.3/evil", " 0.24.3",
+                             "0..3", "v", "." };
+    int beholdt = 0, sagde_ordre = 0, sagde_gyldig = 0;
+    for (size_t i = 0; i < sizeof skrald / sizeof *skrald; i++) {
+        zs_maal_t r = zs_version_vaelg_maal("0.24.3", skrald[i]);
+        if (strcmp(r.maal, "0.24.3") != 0) { beholdt++; }
+        if (r.aendret) { sagde_ordre++; }
+        if (r.gyldig)  { sagde_gyldig++; }
+    }
+    CHECK_INT("skrald beholder det gamle maal", beholdt, 0);
+    CHECK_INT("og er ingen ordre", sagde_ordre, 0);
+    CHECK_INT("og meldes som ugyldigt", sagde_gyldig, 0);
+
+    /* Og skrald naar der INTET maal var, maa ikke lave et. */
+    m = zs_version_vaelg_maal("", "abc");
+    CHECK("skrald laver ikke et maal ud af ingenting", m.maal[0] == '\0');
+    CHECK("og er ingen ordre", !m.aendret);
+
+    /* ---- en for lang tekst maa ikke skrive uden for ---- */
+    char lang[200];
+    memset(lang, '1', sizeof(lang) - 1);
+    lang[sizeof(lang) - 1] = '\0';
+    m = zs_version_vaelg_maal("0.24.3", lang);
+    CHECK("en meget lang tekst afvises", !m.gyldig);
+    CHECK_STR("og det gamle staar endnu", m.maal, "0.24.3");
+
+    /* Og at maalet ALTID er afsluttet, uanset hvad der kom ind. */
+    int uafsluttet = 0;
+    const char *alt[] = { "", "0.1.2", "v9.9.9", "abc", NULL, lang };
+    for (size_t i = 0; i < sizeof alt / sizeof *alt; i++) {
+        zs_maal_t r = zs_version_vaelg_maal("0.24.3", alt[i]);
+        bool nul_fundet = false;
+        for (size_t k = 0; k < sizeof r.maal; k++) {
+            if (r.maal[k] == '\0') { nul_fundet = true; break; }
+        }
+        if (!nul_fundet) { uafsluttet++; }
+    }
+    CHECK_INT("målet er altid afsluttet med nul", uafsluttet, 0);
+}
+
+
 

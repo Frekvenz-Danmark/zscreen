@@ -85,6 +85,44 @@ const char *zs_version_strip_v(const char *s);
  */
 void zs_version_tekst_404(const char *maal, char *ud, size_t ud_len);
 
+/*
+ * Hvad skal maalversionen vaere, og er det en NY ordre?
+ *
+ * HVORFOR DEN LIGGER HER.
+ *
+ * Beslutningen laa inde i zs_ota_set_target, og den fil kan ikke
+ * oversaettes paa en almindelig maskine: den haenger paa esp_https_ota og
+ * paa FreeRTOS. Saa var reglerne uproevede, og det er fire regler der
+ * hver kan vendes om:
+ *
+ *   tom eller NULL  -> intet maal, foelg nyeste. Og det ER en ordre, hvis
+ *                      der var et maal foer.
+ *   noget skrald    -> behold det gamle. At falde tilbage til "nyeste"
+ *                      fordi nogen tastede forkert, ville vaere en
+ *                      overraskelse.
+ *   v foran         -> gem UDEN v. Maerket paa GitHub har v, og det
+ *                      saettes paa igen naar vi slaar op, saa der kun er
+ *                      ét sted der ved det.
+ *   samme som foer  -> IKKE en ny ordre. Serveren sender vaerdien igen
+ *                      ved hver indmeldelse, og en genforbindelse er
+ *                      ikke en ordre. Uden den regel ville en skaerm paa
+ *                      et daarligt net banke paa GitHub i stedet for at
+ *                      vise tal.
+ *
+ * Den sidste er den der betyder mest. Maalt 8. oktober 2026: en ny
+ * maalversion naar skaermen paa omkring 5 millisekunder, men blev foer
+ * bare gemt og foerst brugt ved det periodiske tjek en halv time senere.
+ * Nu udloeser "aendret" et tjek med det samme, og saa skal "aendret"
+ * vaere rigtig.
+ */
+typedef struct {
+    char maal[ZS_VERSION_MAX];  /* det der skal gemmes, uden v           */
+    bool gyldig;                /* kunne oensket bruges                  */
+    bool aendret;               /* er det et ANDET maal end foer         */
+} zs_maal_t;
+
+zs_maal_t zs_version_vaelg_maal(const char *nuvaerende, const char *oensket);
+
 #ifdef __cplusplus
 }
 #endif

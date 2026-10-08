@@ -61,6 +61,7 @@ int main(int argc, char **argv)
     test_modbus_sokkel();
     test_version_404();
     test_sunspec_kanalnavne();
+    test_version_maal();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {
