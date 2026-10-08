@@ -170,4 +170,49 @@ void test_version_tag(void)
           zs_version_tag_ok("99999.99999.99999") == true);
     CHECK("seks cifre er ikke", zs_version_tag_ok("999999.1.1") == false);
 }
+/*
+ * Teksten naar GitHub svarer 404.
+ *
+ * Der stod ÉN tekst: "Der er ingen udgivelser endnu". Den er rigtig naar vi
+ * bad om den nyeste og der ikke er nogen. Men bad vi om en BESTEMT udgave,
+ * fordi nogen skrev et maal i dashboardet, saa er 404 noget andet: der ER
+ * udgivelser, den ene vi bad om findes bare ikke. Med den gamle tekst gaar
+ * man og leder efter et problem med udgivelser i det hele taget i stedet
+ * for at se paa det nummer man selv skrev.
+ */
+void test_version_404(void)
+{
+    ZS_SUITE("Udgivelser: teksten når GitHub svarer 404");
+
+    char t[96];
+
+    zs_version_tekst_404(NULL, t, sizeof(t));
+    CHECK_STR("uden mål: der er ingen udgivelser endnu", t,
+              "Der er ingen udgivelser endnu");
+
+    zs_version_tekst_404("", t, sizeof(t));
+    CHECK_STR("tom tekst er det samme som intet mål", t,
+              "Der er ingen udgivelser endnu");
+
+    zs_version_tekst_404("0.24.3", t, sizeof(t));
+    CHECK_STR("med mål: nummeret står i teksten", t,
+              "Der findes ingen udgivelse 0.24.3");
+    CHECK("og den siger IKKE at der ingen udgivelser er",
+          strstr(t, "ingen udgivelser endnu") == NULL);
+
+    /* Kanterne paa udgangen. Teksten skrives til en buffer kalderen ejer,
+     * og en for lille buffer maa klippe og ikke skrive udenfor. */
+    char lille[10];
+    memset(lille, 'Z', sizeof(lille));
+    zs_version_tekst_404("1.2.3", lille, sizeof(lille));
+    CHECK("for lille buffer er stadig afsluttet",
+          lille[sizeof(lille) - 1] == '\0');
+    CHECK("og der står noget i den", lille[0] != 'Z');
+
+    /* NULL og nul laengde maa ikke give et nedbrud. */
+    zs_version_tekst_404("1.2.3", NULL, 10);
+    zs_version_tekst_404("1.2.3", t, 0);
+    CHECK("NULL og længde nul går ikke ned", true);
+}
+
 

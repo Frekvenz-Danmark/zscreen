@@ -1,5 +1,6 @@
 #include "zs_version.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include <stddef.h>
@@ -75,6 +76,21 @@ int zs_version_cmp(const char *a, const char *b)
         if (av[i] < bv[i]) { return -1; }
     }
     return 0;
+}
+
+void zs_version_tekst_404(const char *maal, char *ud, size_t ud_len)
+{
+    if (ud == NULL || ud_len == 0) {
+        return;
+    }
+    if (maal == NULL || maal[0] == '\0') {
+        snprintf(ud, ud_len, "Der er ingen udgivelser endnu");
+        return;
+    }
+    /* Versionen er efterset af zs_ota_target_ok foer den blev gemt, saa
+     * der staar kun cifre og punktummer. Den kan altsaa skrives ud uden
+     * at der kan komme noget med i teksten som ikke hoerer til. */
+    snprintf(ud, ud_len, "Der findes ingen udgivelse %s", maal);
 }
 
 bool zs_version_tag_ok(const char *version)

@@ -12,6 +12,7 @@
 #define ZS_VERSION_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,6 +59,31 @@ int zs_version_cmp(const char *a, const char *b);
 
 /* "v0.2.0" og "0.2.0" er det samme. Peger ind i s, kopierer ikke. */
 const char *zs_version_strip_v(const char *s);
+
+/*
+ * Teksten naar GitHub svarer 404 paa en udgivelse.
+ *
+ * HVORFOR DEN FINDES.
+ *
+ * Der stod ÉN tekst: "Der er ingen udgivelser endnu". Den er rigtig naar vi
+ * spurgte efter den NYESTE og der ikke er nogen. Men bad vi om en BESTEMT
+ * udgave, fordi nogen skrev et maal i dashboardet, saa er 404 noget helt
+ * andet: der ER udgivelser, den ene vi bad om findes bare ikke.
+ *
+ * Forskellen betyder noget for den der skal rette det. Med den gamle tekst
+ * gaar man og leder efter et problem med udgivelser i det hele taget, i
+ * stedet for at se paa det versionsnummer man selv har skrevet. Vi har
+ * brugt en halv dag paa en misvisende fejlbesked én gang, og det skal vi
+ * ikke igen.
+ *
+ * Ligger her og ikke i zs_ota.c fordi zs_ota.c ikke kan oversaettes paa en
+ * almindelig maskine: den haenger paa esp_http_client. Her kan teksten
+ * proeves af.
+ *
+ *   maal   det versionsnummer der blev bedt om, eller NULL eller tom hvis
+ *          vi spurgte efter den nyeste.
+ */
+void zs_version_tekst_404(const char *maal, char *ud, size_t ud_len);
 
 #ifdef __cplusplus
 }

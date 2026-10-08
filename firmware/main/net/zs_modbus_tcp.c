@@ -433,9 +433,15 @@ static int connect_with_timeout(const char *host, uint16_t port, uint32_t timeou
         /* select siger skrivbar, men det siger den ogsaa naar forbindelsen
          * blev afvist. Det rigtige svar ligger i SO_ERROR. Springer man
          * dette over, tror man man er forbundet til alle 254 adresser. */
+        /* To uafhaengige ting, skrevet hver for sig. Samme grund som ved
+         * fcntl ovenfor: ét || er ét sted at tage fejl uden gevinst. */
         int soerr = 0;
         socklen_t slen = sizeof(soerr);
-        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &soerr, &slen) < 0 || soerr != 0) {
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &soerr, &slen) < 0) {
+            close(fd);
+            return -1;
+        }
+        if (soerr != 0) {
             close(fd);
             return -1;
         }

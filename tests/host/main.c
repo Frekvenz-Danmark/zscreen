@@ -59,6 +59,7 @@ int main(int argc, char **argv)
     test_maerke_tabel();
     test_sunspec_kanter();
     test_modbus_sokkel();
+    test_version_404();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

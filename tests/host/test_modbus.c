@@ -413,6 +413,62 @@ void test_modbus_sokkel(void)
     mb.fd = -1;
     CHECK("fd minus ét er lukket", !zs_mb_is_open(&mb));
 
+    ZS_SUITE("Modbus: vagterne på at forbinde, uden at røre nettet");
+
+    /*
+     * De her to vagter afviser FOER der bliver aabnet en socket, saa de kan
+     * proeves paa en almindelig maskine. Begge var uproevede.
+     *
+     * Den foerste: "mb == NULL || !zs_mb_maal_ok(...)". Blev || lavet til
+     * &&, slipper en NULL-pointer igennem naar vaert og port er i orden, og
+     * saa skrives der i NULL lige efter.
+     */
+    CHECK("NULL som forbindelse afvises",
+          zs_mb_connect(NULL, "192.168.1.50", 502, 100) == ZS_MB_ERR_ARG);
+
+    zs_mb_t c;
+    zs_mb_init(&c);
+    CHECK("NULL som vært afvises",
+          zs_mb_connect(&c, NULL, 502, 100) == ZS_MB_ERR_ARG);
+    CHECK("tom vært afvises",
+          zs_mb_connect(&c, "", 502, 100) == ZS_MB_ERR_ARG);
+    CHECK("port nul afvises",
+          zs_mb_connect(&c, "192.168.1.50", 0, 100) == ZS_MB_ERR_ARG);
+
+    /*
+     * Den anden: "strlen(host) >= sizeof(mb->host)". Blev >= lavet til >,
+     * slipper en vaert der er PRAECIS saa lang som feltet igennem, og saa
+     * er der ikke plads til nulbyten. En IPv6-adresse kan godt fylde det
+     * meste af de 46 tegn, saa det er ikke en teoretisk graense.
+     */
+    /* Hver laengde bygges FORFRA.
+     *
+     * Foerste forsoeg satte bare en nulbyte laengere ude i den samme
+     * buffer. Men den foerste nulbyte stod stadig der, saa strengen var
+     * uaendret kort, og de to proever maalte det samme. De var groenne og
+     * sagde ingenting. Det er samme slags fejl som koden selv skal fange,
+     * og den slap ind i proeven. */
+    char lang[64];
+    size_t plads = sizeof(c.host);
+
+    memset(lang, 'a', plads - 1);
+    lang[plads - 1] = '\0';            /* ét under: der er plads */
+    CHECK_INT("længden er som vi tror", (int)strlen(lang), (int)plads - 1);
+
+    memset(lang, 'a', plads);
+    lang[plads] = '\0';                /* praecis saa lang som feltet */
+    CHECK_INT("og nu præcis så lang som feltet", (int)strlen(lang),
+              (int)plads);
+    CHECK("en vært præcis så lang som feltet afvises",
+          zs_mb_connect(&c, lang, 502, 100) == ZS_MB_ERR_ARG);
+
+    memset(lang, 'a', plads + 1);
+    lang[plads + 1] = '\0';            /* ét over */
+    CHECK("og én længere afvises også",
+          zs_mb_connect(&c, lang, 502, 100) == ZS_MB_ERR_ARG);
+
+    CHECK("og ingen af dem åbnede en forbindelse", !zs_mb_is_open(&c));
+
     ZS_SUITE("Modbus: at lukke må aldrig kunne gå ned");
 
     /*

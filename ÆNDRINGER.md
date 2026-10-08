@@ -1,3 +1,30 @@
+## 2026-10-08 02:01
+
+### To vagter mere på at forbinde, og et || der ikke gav noget
+Mutationstesten fandt tre ting i `zs_modbus_tcp.c`, alle uprøvede.
+
+**NULL som forbindelse kunne slippe igennem.** Vagten var `mb er NULL
+eller målet er ikke i orden`. Blev `eller` lavet til `og`, slipper en
+NULL-pointer igennem når vært og port er fine, og så skrives der i NULL
+lige efter.
+
+**En vært præcis så lang som feltet kunne slippe igennem.** Grænsen var
+`strlen(host) >= 46`. Blev den `>`, er der ikke plads til nulbyten. En
+IPv6-adresse kan fylde det meste af de 46 tegn, så det er ikke en
+teoretisk grænse. Begge er nu prøvet af med én under, præcis, og én over.
+
+**Og et `eller` der ikke gav noget.** `getsockopt(...) < 0 eller soerr !=
+0` er to uafhængige ting skrevet som én. De står hver for sig nu, ligesom
+`fcntl` tidligere i dag. Det er den bedste slags rettelse: fejlen kan ikke
+laves, i stedet for at blive fanget.
+
+Og min egen prøve var forkert først: jeg satte en nulbyte længere ude i
+samme buffer uden at fjerne den første, så de to længder var identiske og
+prøverne målte det samme. De var grønne og sagde ingenting. Nøjagtig samme
+slags fejl som koden selv skal fange. Nu bygges hver længde forfra.
+
+**Status:** 8 vagter, 1021 prøver på maskinen, 77 hele vejen igennem.
+
 ## 2026-10-07 23:36
 
 ### Tre huller i socket-laget, fundet ved at ødelægge koden med vilje

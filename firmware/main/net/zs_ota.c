@@ -188,8 +188,9 @@ static bool hent_udgivelse(zs_ota_status_t *ud, char *url, size_t url_len,
         snprintf(ud->fejl, sizeof(ud->fejl),
                  "Kunne ikke nå GitHub. Er der internet?");
     } else if (status == 404) {
-        /* Der er ingen udgivelser endnu. Ikke en fejl. */
-        snprintf(ud->fejl, sizeof(ud->fejl), "Der er ingen udgivelser endnu");
+        /* Ikke en fejl, men teksten AFHAENGER af hvad vi spurgte om. Se
+         * zs_version_tekst_404 for hvorfor den forskel betyder noget. */
+        zs_version_tekst_404(maal, ud->fejl, sizeof(ud->fejl));
     } else if (status == 403) {
         snprintf(ud->fejl, sizeof(ud->fejl),
                  "GitHub afviste forespørgslen. Prøver igen senere");
