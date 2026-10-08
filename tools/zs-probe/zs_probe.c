@@ -430,6 +430,51 @@ static int do_skriv(const char *host, uint16_t port, uint8_t unit,
     return err == ZS_MB_OK ? 0 : 1;
 }
 
+/* Alle flagene, ét sted. Bruges baade af hjaelpen og af tjekket for om
+ * et flag mangler sin vaerdi, saa de to ikke kan komme fra hinanden. */
+static const struct { const char *flag; int vaerdier; const char *hvad; } FLAG[] = {
+    { "--watch",    0, "bliv ved at laese og vis tallene som de aendrer sig" },
+    { "-v",         0, "vis ogsaa log-linjer undervejs" },
+    { "--port",     1, "<port>  Modbus-porten, standard 502" },
+    { "--unit",     1, "<unit>  inverterens unit-id, standard 1" },
+    { "--scan",     1, "<net>   soeg efter invertere, fx 192.168.1.0" },
+    { "--praefiks", 1, "<n>     netmaskens laengde ved soegning, standard 24" },
+    { "--genfind",  1, "<ip>    find inverteren igen fra skaermens egen adresse" },
+    { "--serienr",  1, "<nr>    kun den inverter, ved --genfind" },
+    { "--sidste",   1, "<ip>    adressen den sad paa sidst, ved --genfind" },
+    { "--laes",     1, "<adr> [antal]  vis raa registre" },
+    { "--skriv",    2, "<adr> <vaerdi>  skriv ét register og laes det tilbage" },
+    { "--hjaelp",   0, "vis det her" },
+};
+
+static void brug(FILE *ud)
+{
+    fprintf(ud,
+        "\n  zs-probe - laeser en Fronius med skaermens egen kode.\n"
+        "\n  Brug:  zs-probe <vaert> [port] [flag ...]\n\n");
+    for (size_t i = 0; i < sizeof FLAG / sizeof *FLAG; i++) {
+        fprintf(ud, "    %-12s %s\n", FLAG[i].flag, FLAG[i].hvad);
+    }
+    fprintf(ud,
+        "\n  Eksempler:\n"
+        "    zs-probe 192.168.1.50              se hvad skaermen ville vise\n"
+        "    zs-probe 192.168.1.50 --watch      foelg tallene\n"
+        "    zs-probe --scan 192.168.1.0        find inverteren paa nettet\n"
+        "    zs-probe 192.168.1.50 --laes 40000 10\n\n");
+}
+
+/* Mangler det her flag sin vaerdi? Returnerer false for noget vi ikke
+ * kender: den fejl haandteres for sig, saa beskeden kan vaere praecis. */
+static bool mangler_vaerdi(const char *arg, int i, int argc)
+{
+    for (size_t k = 0; k < sizeof FLAG / sizeof *FLAG; k++) {
+        if (strcmp(arg, FLAG[k].flag) == 0) {
+            return i + FLAG[k].vaerdier >= argc;
+        }
+    }
+    return false;
+}
+
 int main(int argc, char **argv)
 {
     const char *host = NULL;
@@ -446,7 +491,34 @@ int main(int argc, char **argv)
     const char *g_serial = NULL;
     const char *g_sidste = NULL;
 
+    /*
+     * Et ukendt flag maa ikke blive en VAERT.
+     *
+     * Foer faldt alt der ikke blev genkendt ned i "host = argv[i]". Skrev
+     * man --hjaelp, forsoegte vaerktoejet at forbinde til en maskine der
+     * hed "--hjaelp", og sagde "kunne ikke forbinde til --hjaelp:502".
+     * Det samme hvis et flag manglede sin vaerdi: "--port" til sidst blev
+     * vaerten.
+     *
+     * Det er et vaerktoej man staar med ude ved et anlaeg, tit paa en
+     * daarlig forbindelse og med nogen der venter. Der skal en tastefejl
+     * sige HVAD der er galt, ikke sende en til at lede efter et
+     * netvaerksproblem der ikke findes.
+     */
     for (int i = 1; i < argc; i++) {
+        /* Hjaelpen foerst, saa den virker selv om resten er noget rod. */
+        if (strcmp(argv[i], "--hjaelp") == 0 || strcmp(argv[i], "-h") == 0
+                || strcmp(argv[i], "--help") == 0) {
+            brug(stdout);
+            return 0;
+        }
+        /* Et flag vi kender, men uden den vaerdi det skal have. */
+        if (argv[i][0] == '-' && mangler_vaerdi(argv[i], i, argc)) {
+            fprintf(stderr, "\n  %s skal have en vaerdi efter sig.\n",
+                    argv[i]);
+            brug(stderr);
+            return 2;
+        }
         if (strcmp(argv[i], "--watch") == 0) {
             watch = true;
         } else if (strcmp(argv[i], "-v") == 0) {
@@ -481,6 +553,11 @@ int main(int argc, char **argv)
             port = (uint16_t)atoi(argv[++i]);
         } else if (strcmp(argv[i], "--unit") == 0 && i + 1 < argc) {
             unit = (uint8_t)atoi(argv[++i]);
+        } else if (argv[i][0] == '-') {
+            /* Alt andet der ligner et flag, er en tastefejl. */
+            fprintf(stderr, "\n  Kender ikke \"%s\".\n", argv[i]);
+            brug(stderr);
+            return 2;
         } else if (host == NULL) {
             host = argv[i];
         } else {

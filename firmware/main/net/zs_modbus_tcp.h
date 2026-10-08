@@ -338,6 +338,26 @@ zs_mb_timeout_t zs_mb_timeout_vaelg(uint32_t oenske, uint32_t nuvaerende);
 bool zs_mb_pdu_laengde_ok(uint16_t len);
 
 /*
+ * Skal forbindelsen lukkes efter den her fejl?
+ *
+ * EN EXCEPTION ER IKKE EN FEJL PAA FORBINDELSEN. Det er serveren der
+ * siger "det register har jeg ikke". Roeret er stadig sundt og stroemmen i
+ * trit, saa forbindelsen beholdes. Alt andet betyder at vi ikke laengere
+ * kan stole paa hvad der kommer ud af roeret, og saa lukkes den.
+ *
+ * Det betyder noget i praksis. Soegningen gaar modellerne igennem og faar
+ * en exception paa hver model inverteren ikke har. Lukkede vi paa en
+ * exception, skulle der forbindes forfra for hver af dem, og en soegning
+ * der tager sekunder ville tage minutter og banke paa inverteren hele
+ * vejen.
+ *
+ * Reglen stod skrevet forfra to steder, i laesningen og i skrivningen, og
+ * en mutationstest vendte den om paa ét af dem uden at nogen proeve sagde
+ * fra.
+ */
+bool zs_mb_luk_efter(zs_mb_err_t err);
+
+/*
  * Er vaert og port noget vi overhovedet kan forsoege?
  *
  * Vagten stod to steder, i zs_mb_connect og i zs_mb_probe_port, og de to

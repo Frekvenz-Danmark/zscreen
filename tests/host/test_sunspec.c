@@ -581,6 +581,19 @@ void test_sunspec_kanter(void)
 
     /* Strenge læser et vilkårligt antal registre. En streng der starter
      * præcis ved n må ikke læse noget som helst. */
+    /* enum16. Den var IKKE med foerst, og mutationstesten fandt netop
+     * den: "off >= n" kunne laves til "off > n" uden at nogen sagde fra.
+     * Jeg havde skrevet de afkodere ned jeg kom i tanke om, og glemt én.
+     * Derfor staar der nu en proeve nedenfor der taeller dem i headeren og
+     * falder hvis der kommer en til. */
+    CHECK_INT("enum16: off == n afvises", (int)zs_ss_dec_enum16(r, n, n), -1);
+    CHECK_INT("enum16: off == n + 5 afvises",
+              (int)zs_ss_dec_enum16(r, n, n + 5), -1);
+    CHECK("enum16: sidste register er lovligt",
+          zs_ss_dec_enum16(r, n, n - 1) != -1 || r[n - 1] == 0xFFFF);
+    CHECK_INT("enum16: n == 0 afvises", (int)zs_ss_dec_enum16(r, 0, 0), -1);
+    CHECK_INT("enum16: NULL afvises", (int)zs_ss_dec_enum16(NULL, 4, 0), -1);
+
     char tekst[16];
     CHECK_INT("streng: off == n giver ingenting",
               (int)zs_ss_dec_string(r, n, n, 2, tekst, sizeof(tekst)), 0);
@@ -604,6 +617,21 @@ void test_sunspec_kanter(void)
         CHECK("acc32 kan ikke være der", !zs_ss_dec_acc32(en, 1, 0, &u));
         free(en);
     }
+
+    /*
+     * OG EN PROEVE PAA AT JEG IKKE HAR GLEMT EN.
+     *
+     * Kanttesten herover naevner hver afkoder ved navn, og det er en liste
+     * jeg har skrevet i haanden. Foerste gang glemte jeg enum16, og
+     * mutationstesten fandt den efter fire timer. Den slags skal fanges
+     * her og nu.
+     *
+     * Vi taeller afkoderne i headeren. Kommer der en ny, falder den her, og
+     * saa er der en beslutning at tage: faa den med i kanttesten, eller
+     * opdatere tallet fordi den ikke tager en off.
+     */
+    CHECK_INT("der er syv afkodere, og alle syv er prøvet herover",
+              ZS_SS_ANTAL_AFKODERE, 7);
 
     /* Nul registre. Alt skal afvises, og ingenting må læses. */
     CHECK("n == 0: i16 afvises", !zs_ss_dec_i16_sf(r, 0, 0, 0).ok);

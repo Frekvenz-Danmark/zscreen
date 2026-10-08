@@ -643,6 +643,51 @@ def test_fejlkoder():
                 fail("uden fejl: telefonnummeret står der ikke")
 
 
+def test_vaerktoejets_flag():
+    suite("Værktøjet siger fra ved en tastefejl")
+
+    # HVORFOR DEN HER PROEVE FINDES.
+    #
+    # Alt der ikke blev genkendt blev brugt som VAERT. Skrev man --hjaelp,
+    # forsoegte vaerktoejet at forbinde til en maskine der hed "--hjaelp"
+    # og sagde "kunne ikke forbinde til --hjaelp:502". Det samme hvis et
+    # flag manglede sin vaerdi.
+    #
+    # Det er det vaerktoej man staar med ude ved et anlaeg, tit paa en
+    # daarlig forbindelse og med nogen der venter. Der skal en tastefejl
+    # sige hvad der er galt, ikke sende en til at lede efter et
+    # netvaerksproblem der ikke findes.
+
+    def koer(*args):
+        r = subprocess.run([PROBE, *args], capture_output=True, text=True,
+                           timeout=30)
+        return r.returncode, (r.stdout or "") + (r.stderr or "")
+
+    kode, ud = koer("--hjaelp")
+    if kode == 0 and "--watch" in ud and "Eksempler" in ud:
+        ok("--hjælp viser alle flagene og et par eksempler")
+    else:
+        fail("--hjælp viser flagene", f"kode {kode}: {ud[:300]}")
+
+    kode, ud = koer("--skan", "127.0.0.1")
+    if kode == 2 and "Kender ikke" in ud and "--skan" in ud:
+        ok("en tastefejl i et flag bliver sagt fra om, med navnet")
+    else:
+        fail("en tastefejl bliver sagt fra om", f"kode {kode}: {ud[:300]}")
+
+    # Og den maa IKKE have forsoegt at forbinde til noget.
+    if "Kunne ikke forbinde" not in ud and "forbinder" not in ud.lower():
+        ok("og den forsøger ikke at forbinde til flaget")
+    else:
+        fail("den forsøger ikke at forbinde til flaget", ud[:300])
+
+    kode, ud = koer("127.0.0.1", "--port")
+    if kode == 2 and "skal have en vaerdi" in ud:
+        ok("et flag uden sin værdi bliver sagt fra om")
+    else:
+        fail("et flag uden sin værdi", f"kode {kode}: {ud[:300]}")
+
+
 def test_loegn_om_laengden():
     suite("En enhed der lyver om hvor langt svaret er")
 
@@ -1561,6 +1606,7 @@ def main():
     test_fejlkoder()
     test_naar_det_gaar_galt()
     test_loegn_om_laengden()
+    test_vaerktoejets_flag()
     test_genfind()
     test_ikke_en_inverter()
     test_model_kan_ikke_laeses()

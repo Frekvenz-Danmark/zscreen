@@ -379,6 +379,19 @@ int32_t  zs_ss_dec_enum16(const uint16_t *regs, size_t n, size_t off);
  *
  * Returnerer laengden af det der blev skrevet.
  */
+/*
+ * HVOR MANGE AFKODERE DER ER.
+ *
+ * Tallet findes fordi kanttesten i tests/host/test_sunspec.c naevner hver
+ * afkoder ved navn, og det er en liste skrevet i haanden. Foerste gang
+ * blev enum16 glemt, og en mutationstest fandt hullet efter fire timer:
+ * "off >= n" kunne laves til "off > n" uden at nogen sagde fra.
+ *
+ * Kommer der en afkoder til, falder proeven, og saa er der en beslutning
+ * at tage i stedet for et hul der ligger og venter.
+ */
+#define ZS_SS_ANTAL_AFKODERE  7
+
 size_t zs_ss_dec_string(const uint16_t *regs, size_t n, size_t off,
                         size_t n_regs, char *out, size_t out_len);
 

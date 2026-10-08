@@ -504,6 +504,12 @@ zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
 }
 
 /* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
+bool zs_mb_luk_efter(zs_mb_err_t err)
+{
+    return err != ZS_MB_OK && err != ZS_MB_ERR_EXCEPTION;
+}
+
+/* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
 bool zs_mb_pdu_laengde_ok(uint16_t len)
 {
     return len >= 3 && len <= PDU_MAX;
@@ -704,11 +710,9 @@ zs_mb_err_t zs_mb_read_holding(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
     err = zs_mb_parse_read_response(frame, MBAP_LEN + (size_t)len, tid, unit_id,
                                     count, out, &mb->last_exception);
     if (err != ZS_MB_OK) {
-        /* En exception er serveren der siger "det register har jeg ikke".
-         * Forbindelsen er stadig sund og stroemmen i trit, saa den beholder
-         * vi. Alt andet betyder at vi ikke laengere kan stole paa hvad der
-         * kommer ud af roeret, og saa lukker vi. */
-        if (err != ZS_MB_ERR_EXCEPTION) {
+        /* Se zs_mb_luk_efter: en exception beholder forbindelsen, alt
+         * andet lukker den. Reglen staar ÉT sted. */
+        if (zs_mb_luk_efter(err)) {
             return luk_med_grund(mb, err);
         }
         mb->stat_errors++;
@@ -797,7 +801,8 @@ zs_mb_err_t zs_mb_write_verified(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
     err = zs_mb_parse_write_response(frame, MBAP_LEN + (size_t)len, tid, unit_id,
                                      address, count, &mb->last_exception);
     if (err != ZS_MB_OK) {
-        if (err != ZS_MB_ERR_EXCEPTION) {
+        /* Samme regel som i laesningen, se zs_mb_luk_efter. */
+        if (zs_mb_luk_efter(err)) {
             return luk_med_grund(mb, err);
         }
         mb->stat_errors++;

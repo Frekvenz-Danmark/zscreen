@@ -1,3 +1,43 @@
+## 2026-10-08 04:02
+
+### Mutationstesten døde selv, og den fandt tre ting mere
+Kørslen stoppede ved 149 af 374 med et nedbrud: en mutant skrev bytes der
+ikke er gyldig UTF-8, og værktøjet kunne ikke læse dem. Det er netop der den
+skal holde: en mutant der ødelægger en tekst er præcis den slags der laver
+skrald. Den tåler det nu.
+
+**En exception er ikke en fejl på forbindelsen.** Reglen stod skrevet forfra
+to steder, og mutationstesten vendte den om på det ene uden at nogen prøve
+sagde fra. Det betyder noget i praksis: søgningen går modellerne igennem og
+får en exception på hver model inverteren ikke har. Lukkede vi forbindelsen
+på en exception, skulle der forbindes forfra for hver af dem, og en søgning
+der tager sekunder ville tage minutter og banke på inverteren hele vejen. Nu
+ét sted, prøvet af for hver fejlkode, og med en prøve på at **præcis to**
+koder beholder forbindelsen, så der ikke kan snige sig en tredje ind.
+
+**En afkoder var glemt i kanttesten.** `zs_ss_dec_enum16` kunne få sin
+`off >= n` lavet til `off > n`, altså læse ét register for langt, uden at
+noget sagde fra. Jeg havde skrevet de afkodere ned jeg kom i tanke om, og
+glemt én af syv.
+
+Og det er rettet ved roden, ikke kun ved at tilføje den: antallet af
+afkodere står nu i headeren, og prøven falder hvis der kommer en til. Så er
+der en beslutning at tage i stedet for et hul der ligger og venter.
+Efterprøvet ved at sætte tallet op.
+
+### Og værktøjet tog en tastefejl som et værtsnavn
+`zs-probe --hjaelp` forsøgte at forbinde til en maskine der hed "--hjaelp".
+Alt der ikke blev genkendt blev brugt som vært, også et flag der manglede
+sin værdi: `--port` til sidst blev værten.
+
+Det er det værktøj man står med ude ved et anlæg, tit på en dårlig
+forbindelse og med nogen der venter. Nu er der en hjælp der viser alle
+flagene og et par eksempler, og en tastefejl siger hvad den ikke kender og
+**forsøger ikke at forbinde**. Fire nye prøver hele vejen igennem.
+
+**Status:** 9 vagter, 1091 prøver på maskinen, 83 hele vejen igennem,
+fuzzerne rent, firmwaren bygger.
+
 ## 2026-10-08 03:40
 
 ### Læsning og skrivning tjekkede samme felt med forskellige regler

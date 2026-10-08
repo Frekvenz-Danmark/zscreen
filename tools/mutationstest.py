@@ -197,7 +197,7 @@ def byg_probe():
     for env in (os.environ, miljoe):
         try:
             r = subprocess.run(["./build.sh"], cwd=ROOT / "tools/zs-probe",
-                               capture_output=True, text=True,
+                               capture_output=True, text=True, errors="replace",
                                env=dict(env), timeout=300)
         except subprocess.TimeoutExpired:
             return False, "oversaettelsen haengte"
@@ -226,7 +226,7 @@ def koer_proever():
     #
     try:
         r = subprocess.run(["./run.sh"], cwd=ROOT / "tests/host",
-                           capture_output=True, text=True, timeout=180)
+                           capture_output=True, text=True, errors="replace", timeout=180)
     except subprocess.TimeoutExpired:
         return True, "host (den haengte)"
     ud = r.stdout + r.stderr
@@ -245,7 +245,7 @@ def koer_proever():
         # HAENGE bliver opdaget i stedet for at koste et kvarter. Med
         # flere haengende mutanter var forskellen timer.
         r = subprocess.run([sys.executable, "run.py"], cwd=ROOT / "tests/e2e",
-                           capture_output=True, text=True, timeout=420)
+                           capture_output=True, text=True, errors="replace", timeout=420)
     except subprocess.TimeoutExpired:
         return True, "ende til ende (den haengte)"
     ud = r.stdout + r.stderr

@@ -511,6 +511,43 @@ void test_modbus_sokkel(void)
     CHECK_INT("og to gange i træk gør ingen skade", luk.fd, -1);
     CHECK("og den regnes stadig som lukket", !zs_mb_is_open(&luk));
 
+    ZS_SUITE("Modbus: hvornår forbindelsen skal lukkes");
+
+    /*
+     * EN EXCEPTION ER IKKE EN FEJL PAA FORBINDELSEN. Det er serveren der
+     * siger "det register har jeg ikke".
+     *
+     * Det betyder noget i praksis: soegningen gaar modellerne igennem og
+     * faar en exception paa hver model inverteren ikke har. Lukkede vi paa
+     * en exception, skulle der forbindes forfra for hver af dem, og en
+     * soegning der tager sekunder ville tage minutter og banke paa
+     * inverteren hele vejen.
+     *
+     * Reglen stod skrevet forfra to steder, og en mutationstest vendte den
+     * om paa ét af dem uden at nogen sagde fra.
+     */
+    CHECK("en exception beholder forbindelsen",
+          !zs_mb_luk_efter(ZS_MB_ERR_EXCEPTION));
+    CHECK("og det gør et godt svar også", !zs_mb_luk_efter(ZS_MB_OK));
+
+    CHECK("en timeout lukker", zs_mb_luk_efter(ZS_MB_ERR_TIMEOUT));
+    CHECK("en lukket forbindelse lukker", zs_mb_luk_efter(ZS_MB_ERR_CLOSED));
+    CHECK("en ugyldig ramme lukker", zs_mb_luk_efter(ZS_MB_ERR_FRAME));
+    CHECK("en sendefejl lukker", zs_mb_luk_efter(ZS_MB_ERR_SEND));
+    CHECK("forkerte argumenter lukker", zs_mb_luk_efter(ZS_MB_ERR_ARG));
+    CHECK("ingen forbindelse lukker", zs_mb_luk_efter(ZS_MB_ERR_NOT_OPEN));
+    CHECK("og en mislykket forbindelse lukker",
+          zs_mb_luk_efter(ZS_MB_ERR_CONNECT));
+
+    /* Egenskaben: PRÆCIS to af alle fejlkoder beholder forbindelsen. Så
+     * kan der ikke snige sig en til ind, og reglen kan ikke vendes om. */
+    int beholder = 0;
+    for (int e = 0; e <= (int)ZS_MB_ERR_EXCEPTION + 3; e++) {
+        if (!zs_mb_luk_efter((zs_mb_err_t)e)) { beholder++; }
+    }
+    CHECK_INT("kun to koder beholder forbindelsen: god og exception",
+              beholder, 2);
+
     ZS_SUITE("Modbus: længden i svarets header er en sikkerhedsvagt");
 
     /*
