@@ -1,3 +1,57 @@
+## 2026-10-08 02:45
+
+### Testkørslen byggede alt undtagen det der skal ud på skærmen
+Den kørte 1064 prøver på maskinen, hele datavejen mod en simuleret
+inverter, fuzzerne og otte vagter, og sagde "Alt bestået" uden nogensinde
+at have oversat koden til en ESP32. En header der mangler en include, eller
+en `_Static_assert` der falder på en anden arkitektur, så man først efter et
+push.
+
+Firmwaren bygges nu som sidste trin, så den hurtige besked kommer først.
+Mangler værktøjskæden på maskinen, siges det, og det er ikke en fejl.
+Efterprøvet ved at ødelægge en struktur: bygningen falder, og trinnet
+rapporterer det. Den viser også appens størrelse, 50 procent af
+partitionen fri, så en firmware der ikke kan være der bliver opdaget nu og
+ikke ved en udgivelse.
+
+Første forsøg greppede forkert og viste **bootloaderens** størrelse, altså
+"30% free" om noget der intet havde med firmwaren at gøre. Rettet til at
+nævne filnavnet, så der kun kan komme ét svar.
+
+### Fem ting i Modbus-laget stod skrevet forfra
+Mutationstesten fandt dem, og det var samme slags hver gang: en beslutning
+der stod flere steder, eller midt i en løkke hvor den ikke kan prøves.
+
+**Transaktions-ID'et** sprang nul over i kode skrevet forfra **tre**
+steder. Nul er lovligt i Modbus, men et logudtræk hvor hvert svar står med
+0 er ubrugeligt når man skal finde ud af hvad der hørte til hvad. Nu ét
+sted, prøvet af hele vejen rundt til 65535 og om igen: nul kommer aldrig
+ud, og tælleren står aldrig på nul bagefter.
+
+**Svartiden** stod to steder, og dens to betingelser kunne ikke prøves.
+Den grimme af dem: "skal den sættes" vendt om. Beder man om en kortere
+svartid fordi man er ved at scanne, og den ikke bliver sat, tager
+scanningen elleve gange så lang tid som den skal. Nu er det én funktion,
+og alle 36 kombinationer er prøvet af.
+
+**Standardsvartiden 1500** stod fem steder. Fem steder der skal være ens,
+bliver det ikke.
+
+**Grænsen på en skrivning** stod som et nøgent 123 fire steder. Den er 123
+og ikke 125 fordi en FC16-ramme har adressen og byte-tælleren med. Et nøgent
+tal er et sted hvor nogen senere retter det til 125 fordi det ligner
+læsegrænsen. Den har et navn nu, og prøven holder fast at den er lavere end
+læsningens.
+
+**Og fire vagter i én betingelse** på at skrive, alle uprøvede. Fire led er
+fire steder at tage fejl, og man kan ikke se hvilket der sagde fra. De står
+hver for sig nu.
+
+Otte mutanter sat ind igen, alle dør.
+
+**Status:** 8 vagter, 1064 prøver på maskinen, 77 hele vejen igennem,
+fuzzerne rent, og firmwaren bygger og signeres.
+
 ## 2026-10-08 02:31
 
 ### Formen på det der ligger i flashen står nu fast

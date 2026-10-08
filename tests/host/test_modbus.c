@@ -438,6 +438,16 @@ void test_modbus_sokkel(void)
     CHECK("og begge dele galt på én gang",
           zs_mb_read_holding(NULL, 1, 40000, 2, NULL, 100) == ZS_MB_ERR_ARG);
 
+    /* Antallet. Vagten er "nul ELLER over 125", og med OG lavet til et
+     * sammenfald slipper nul igennem: nul er ikke over 125. */
+    CHECK("læsning af nul registre afvises",
+          zs_mb_read_holding(&l, 1, 40000, 0, svar, 100) == ZS_MB_ERR_ARG);
+    CHECK("læsning af 126 registre afvises",
+          zs_mb_read_holding(&l, 1, 40000, 126, svar, 100) == ZS_MB_ERR_ARG);
+    CHECK("og 125 er lovligt, så den nåede længere end vagten",
+          zs_mb_read_holding(&l, 1, 40000, 125, svar, 100)
+          == ZS_MB_ERR_NOT_OPEN);
+
     zs_mb_t c;
     zs_mb_init(&c);
     CHECK("NULL som vært afvises",
@@ -500,6 +510,117 @@ void test_modbus_sokkel(void)
     zs_mb_close(&luk);                 /* og to gange */
     CHECK_INT("og to gange i træk gør ingen skade", luk.fd, -1);
     CHECK("og den regnes stadig som lukket", !zs_mb_is_open(&luk));
+
+    ZS_SUITE("Modbus: vagterne på at skrive");
+
+    /*
+     * Stod foer som FIRE led i ÉN betingelse, og ingen af dem var proevet.
+     * Fire led er fire steder at tage fejl, og man kan ikke se hvilket der
+     * sagde fra. De staar hver for sig nu.
+     *
+     * Graensen er 123 og ikke 125: en FC16-ramme har adressen og
+     * byte-taelleren med i selve skrivningen. Tallet stod naegent, og et
+     * naegent tal er et sted hvor nogen senere retter det til 125 fordi
+     * det ligner laesegraensen.
+     */
+    uint16_t vaerdier[4] = { 1, 2, 3, 4 };
+    zs_mb_t w;
+    zs_mb_init(&w);
+
+    CHECK("NULL som forbindelse afvises",
+          zs_mb_write_verified(NULL, 1, 40000, vaerdier, 2, 100)
+          == ZS_MB_ERR_ARG);
+    CHECK("NULL som værdier afvises",
+          zs_mb_write_verified(&w, 1, 40000, NULL, 2, 100) == ZS_MB_ERR_ARG);
+    CHECK("skrivning af nul registre afvises",
+          zs_mb_write_verified(&w, 1, 40000, vaerdier, 0, 100)
+          == ZS_MB_ERR_ARG);
+    CHECK("og én over grænsen afvises",
+          zs_mb_write_verified(&w, 1, 40000, vaerdier,
+                               ZS_MB_MAX_WRITE_REGS + 1, 100)
+          == ZS_MB_ERR_ARG);
+    CHECK("grænsen selv er lovlig, så den nåede længere end vagten",
+          zs_mb_write_verified(&w, 1, 40000, vaerdier,
+                               ZS_MB_MAX_WRITE_REGS, 100)
+          == ZS_MB_ERR_NOT_OPEN);
+    CHECK_INT("og grænsen er 123, ikke læsningens 125",
+              ZS_MB_MAX_WRITE_REGS, 123);
+    CHECK("som er lavere end læsningens",
+          ZS_MB_MAX_WRITE_REGS < ZS_MB_MAX_REGS);
+
+    ZS_SUITE("Modbus: transaktions-ID springer nul over");
+
+    /*
+     * Laa foer skrevet forfra TRE steder. Nul er lovligt i Modbus, men et
+     * logfilsudtraek hvor hvert svar staar med 0 er ubrugeligt naar man
+     * skal se hvilket svar der hoerte til hvilken forespoergsel.
+     */
+    uint16_t taeller = 0;
+    CHECK_INT("foerste gang giver 1", zs_mb_naeste_tid(&taeller), 1);
+    CHECK_INT("og taelleren staar paa 2", taeller, 2);
+    CHECK_INT("naeste giver 2", zs_mb_naeste_tid(&taeller), 2);
+
+    /* Lige foer ombrydningen. Her falder det fra hinanden hvis vagten er
+     * vendt om. */
+    taeller = 65535;
+    CHECK_INT("sidste mulige giver 65535", zs_mb_naeste_tid(&taeller), 65535);
+    CHECK_INT("og taelleren er sprunget nul over", taeller, 1);
+    CHECK_INT("saa den naeste er 1 igen", zs_mb_naeste_tid(&taeller), 1);
+
+    /* Hele vejen rundt: nul maa ALDRIG komme ud, og taelleren maa aldrig
+     * staa paa nul bagefter. Det er egenskaben, ikke de enkelte tal. */
+    taeller = 1;
+    int nuller = 0, taeller_nul = 0;
+    for (long i = 0; i < 70000; i++) {
+        if (zs_mb_naeste_tid(&taeller) == 0) { nuller++; }
+        if (taeller == 0) { taeller_nul++; }
+    }
+    CHECK_INT("70000 gange rundt: nul kom aldrig ud", nuller, 0);
+    CHECK_INT("og tælleren stod aldrig på nul", taeller_nul, 0);
+    CHECK("NULL går ikke ned", zs_mb_naeste_tid(NULL) == 1);
+
+    ZS_SUITE("Modbus: hvilken svartid soklen skal stå på");
+
+    /*
+     * Den grimme af de to mutanter her: "skal den saettes" vendt om. Beder
+     * man om en kortere svartid fordi man er ved at scanne, og den ikke
+     * bliver sat, tager scanningen elleve gange saa lang tid som den skal.
+     */
+    zs_mb_timeout_t t;
+
+    t = zs_mb_timeout_vaelg(0, 0);
+    CHECK_INT("intet ønske, intet sat: standarden", (int)t.ms,
+              ZS_MB_TIMEOUT_STANDARD_MS);
+    CHECK("og den skal sættes", t.skal_saettes);
+
+    t = zs_mb_timeout_vaelg(0, 2000);
+    CHECK_INT("intet ønske: den der er bliver brugt", (int)t.ms, 2000);
+    CHECK("og den skal IKKE sættes igen", !t.skal_saettes);
+
+    t = zs_mb_timeout_vaelg(300, 2000);
+    CHECK_INT("et ønske vinder over den der er", (int)t.ms, 300);
+    CHECK("og den skal sættes", t.skal_saettes);
+
+    t = zs_mb_timeout_vaelg(2000, 2000);
+    CHECK_INT("samme ønske som den der er", (int)t.ms, 2000);
+    CHECK("og så skal der ikke gøres noget", !t.skal_saettes);
+
+    t = zs_mb_timeout_vaelg(1, 0);
+    CHECK_INT("ét millisekund er et ønske, ikke ingenting", (int)t.ms, 1);
+    CHECK("og det skal sættes", t.skal_saettes);
+
+    /* Egenskaben: der skal ALTID sættes, præcis når resultatet er noget
+     * andet end det soklen står på. Hverken mere eller mindre. */
+    int tid_galt = 0;
+    const uint32_t v[] = { 0, 1, 300, 1500, 2000, 60000 };
+    for (size_t i = 0; i < sizeof v / sizeof *v; i++) {
+        for (size_t j = 0; j < sizeof v / sizeof *v; j++) {
+            zs_mb_timeout_t r = zs_mb_timeout_vaelg(v[i], v[j]);
+            if (r.ms == 0) { tid_galt++; }                /* aldrig nul */
+            if (r.skal_saettes != (r.ms != v[j])) { tid_galt++; }
+        }
+    }
+    CHECK_INT("alle 36 kombinationer opfører sig som aftalt", tid_galt, 0);
 
     ZS_SUITE("Modbus: hvad send sagde");
 

@@ -105,7 +105,7 @@ size_t zs_mb_build_write_request(uint8_t *buf, size_t buf_len, uint16_t tid,
      * staar i Modbus-standarden, og det er ikke det samme som for
      * laesning, hvilket er en nem fejl at lave.
      */
-    if (count > 123) {
+    if (count > ZS_MB_MAX_WRITE_REGS) {
         return 0;
     }
     if ((uint32_t)address + (uint32_t)count > 0x10000u) {
@@ -290,7 +290,7 @@ void zs_mb_init(zs_mb_t *mb)
     }
     memset(mb, 0, sizeof(*mb));
     mb->fd = -1;
-    mb->timeout_ms = 1500;
+    mb->timeout_ms = ZS_MB_TIMEOUT_STANDARD_MS;
 }
 
 bool zs_mb_is_open(const zs_mb_t *mb)
@@ -464,7 +464,7 @@ zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
         return ZS_MB_ERR_ARG;
     }
     if (connect_timeout_ms == 0) {
-        connect_timeout_ms = 1500;
+        connect_timeout_ms = ZS_MB_TIMEOUT_STANDARD_MS;
     }
 
     /* Luk foerst. En halvdoed socket maa ikke overleve et reconnect. */
@@ -475,18 +475,49 @@ zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
         return ZS_MB_ERR_CONNECT;
     }
 
-    apply_socket_options(fd, mb->timeout_ms ? mb->timeout_ms : 1500);
+    apply_socket_options(fd, mb->timeout_ms ? mb->timeout_ms
+                                             : ZS_MB_TIMEOUT_STANDARD_MS);
 
     mb->fd = fd;
     snprintf(mb->host, sizeof(mb->host), "%s", host);
     mb->port = port;
-    /* Transaktions-ID starter paa 1. Nul er lovligt, men et logfilsudtraek
-     * hvor alt staar 0 er ubrugeligt til fejlsoegning. */
+    /* Transaktions-ID starter paa 1, se zs_mb_naeste_tid. */
     if (mb->next_tid == 0) {
         mb->next_tid = 1;
     }
     ZS_LOGI(TAG, "forbundet til %s:%u", host, port);
     return ZS_MB_OK;
+}
+
+/* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
+uint16_t zs_mb_naeste_tid(uint16_t *taeller)
+{
+    if (taeller == NULL) {
+        return 1;
+    }
+    if (*taeller == 0) {
+        *taeller = 1;       /* foerste gang, eller lige efter en ombrydning */
+    }
+    uint16_t tid = (*taeller)++;
+    if (*taeller == 0) {
+        *taeller = 1;       /* vi broed om: spring nul over */
+    }
+    return tid;
+}
+
+/* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
+zs_mb_timeout_t zs_mb_timeout_vaelg(uint32_t oenske, uint32_t nuvaerende)
+{
+    zs_mb_timeout_t r;
+    if (oenske != 0) {
+        r.ms = oenske;
+    } else if (nuvaerende != 0) {
+        r.ms = nuvaerende;
+    } else {
+        r.ms = ZS_MB_TIMEOUT_STANDARD_MS;
+    }
+    r.skal_saettes = (r.ms != nuvaerende);
+    return r;
 }
 
 /* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
@@ -599,10 +630,11 @@ zs_mb_err_t zs_mb_read_holding(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
         return ZS_MB_ERR_NOT_OPEN;
     }
 
-    if (timeout_ms == 0) {
-        timeout_ms = mb->timeout_ms ? mb->timeout_ms : 1500;
-    }
-    if (timeout_ms != mb->timeout_ms) {
+    /* Hele beslutningen ligger i zs_mb_timeout_vaelg saa den kan proeves.
+     * Den stod foer skrevet forfra i baade laesningen og skrivningen. */
+    zs_mb_timeout_t t = zs_mb_timeout_vaelg(timeout_ms, mb->timeout_ms);
+    timeout_ms = t.ms;
+    if (t.skal_saettes) {
         struct timeval tv;
         tv.tv_sec  = (long)(timeout_ms / 1000u);
         tv.tv_usec = (long)((timeout_ms % 1000u) * 1000u);
@@ -611,10 +643,7 @@ zs_mb_err_t zs_mb_read_holding(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
         mb->timeout_ms = timeout_ms;
     }
 
-    uint16_t tid = mb->next_tid++;
-    if (mb->next_tid == 0) {
-        mb->next_tid = 1;   /* spring 0 over, se zs_mb_connect */
-    }
+    uint16_t tid = zs_mb_naeste_tid(&mb->next_tid);
 
     uint8_t req[12];
     size_t req_len = zs_mb_build_read_request(req, sizeof(req), tid, unit_id, address, count);
@@ -674,17 +703,23 @@ zs_mb_err_t zs_mb_write_verified(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
                                  const uint16_t *values, uint16_t count,
                                  uint32_t timeout_ms)
 {
-    if (mb == NULL || values == NULL || count == 0 || count > 123) {
+    /* Fire ting, hver for sig. Fire led i ÉN betingelse er fire steder at
+     * tage fejl og ingen af dem til at se hver for sig. */
+    if (mb == NULL || values == NULL) {
+        return ZS_MB_ERR_ARG;
+    }
+    if (count == 0 || count > ZS_MB_MAX_WRITE_REGS) {
         return ZS_MB_ERR_ARG;
     }
     if (mb->fd < 0) {
         return ZS_MB_ERR_NOT_OPEN;
     }
 
-    if (timeout_ms == 0) {
-        timeout_ms = mb->timeout_ms ? mb->timeout_ms : 1500;
-    }
-    if (timeout_ms != mb->timeout_ms) {
+    /* Hele beslutningen ligger i zs_mb_timeout_vaelg saa den kan proeves.
+     * Den stod foer skrevet forfra i baade laesningen og skrivningen. */
+    zs_mb_timeout_t t = zs_mb_timeout_vaelg(timeout_ms, mb->timeout_ms);
+    timeout_ms = t.ms;
+    if (t.skal_saettes) {
         struct timeval tv;
         tv.tv_sec  = (long)(timeout_ms / 1000u);
         tv.tv_usec = (long)((timeout_ms % 1000u) * 1000u);
@@ -693,12 +728,9 @@ zs_mb_err_t zs_mb_write_verified(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
         mb->timeout_ms = timeout_ms;
     }
 
-    uint16_t tid = mb->next_tid++;
-    if (mb->next_tid == 0) {
-        mb->next_tid = 1;
-    }
+    uint16_t tid = zs_mb_naeste_tid(&mb->next_tid);
 
-    uint8_t req[13 + 123 * 2];
+    uint8_t req[13 + ZS_MB_MAX_WRITE_REGS * 2];
     size_t req_len = zs_mb_build_write_request(req, sizeof(req), tid, unit_id,
                                                address, values, count);
     if (req_len == 0) {
@@ -748,7 +780,7 @@ zs_mb_err_t zs_mb_write_verified(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
      * Uden det her ville skaermen melde "sendt" mens inverteren gjorde som
      * den plejede, og vi ville lede efter fejlen alle de forkerte steder.
      */
-    uint16_t tilbage[123];
+    uint16_t tilbage[ZS_MB_MAX_WRITE_REGS];
     err = zs_mb_read_holding(mb, unit_id, address, count, tilbage, timeout_ms);
     if (err != ZS_MB_OK) {
         return err;

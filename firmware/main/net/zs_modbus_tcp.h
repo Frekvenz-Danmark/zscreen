@@ -249,6 +249,67 @@ typedef enum {
 zs_send_t zs_mb_send_art(long n, int fejlnr);
 
 /*
+ * Naeste transaktions-ID, og nul bliver sprunget over.
+ *
+ * Nul er lovligt i Modbus, men et logfilsudtraek hvor hvert eneste svar
+ * staar med 0 er ubrugeligt naar man skal finde ud af hvilket svar der
+ * hoerte til hvilken forespoergsel.
+ *
+ * Laa foer skrevet forfra TRE steder: i zs_mb_connect, i
+ * zs_mb_read_holding og i zs_mb_write_verified. En mutationstest aendrede
+ * "== 0" til "!= 0" paa ét af dem, og ingen proeve sagde fra. Nu er der ét
+ * sted, og det er proevet af hele vejen rundt til 65535 og om igen.
+ *
+ * taeller bliver rykket frem. Returnerer det ID der skal bruges NU.
+ */
+uint16_t zs_mb_naeste_tid(uint16_t *taeller);
+
+/*
+ * Hvilken svartid skal soklen staa paa?
+ *
+ * Laa foer midt i zs_mb_read_holding som to betingelser der ikke kunne
+ * proeves: der skal en rigtig sokkel til for at komme dertil. En
+ * mutationstest vendte dem begge om uden at nogen sagde fra:
+ *
+ *   "timeout_ms == 0"            -> en svartid kalderen BAD om blev
+ *                                   erstattet af standarden
+ *   "timeout_ms != mb->timeout"  -> en aendret svartid blev ikke sat paa
+ *                                   soklen, og en uaendret blev sat igen
+ *
+ * Den sidste er den grimme: beder man om en kortere svartid fordi man er
+ * ved at scanne, og den ikke bliver sat, tager scanningen elleve gange saa
+ * lang tid som den skal.
+ *
+ *   oenske      hvad kalderen bad om. Nul betyder "brug den der er".
+ *   nuvaerende  hvad soklen staar paa nu. Nul betyder "ikke sat endnu".
+ */
+/*
+ * Svartiden naar ingen har sagt noget andet.
+ *
+ * Tallet 1500 stod FEM steder i zs_modbus_tcp.c. Fem steder der skal vaere
+ * ens, bliver det ikke, og en inverter der svarer langsomt ville saa
+ * opfoere sig forskelligt alt efter hvilken vej man kom ind.
+ */
+#define ZS_MB_TIMEOUT_STANDARD_MS  1500
+
+/*
+ * Hoejeste antal registre i ÉN skrivning, funktionskode 16.
+ *
+ * 123 og ikke 125. En FC16-ramme har to bytes mere end en FC3: adressen og
+ * byte-taelleren skal med i selve skrivningen. Tallet stod naegent som 123
+ * midt i en vagt, og et naegent tal er et sted hvor nogen senere retter
+ * det til 125 fordi det ligner laesegraensen.
+ */
+#define ZS_MB_MAX_WRITE_REGS  123
+
+typedef struct {
+    uint32_t ms;            /* den svartid der skal bruges          */
+    bool     skal_saettes;  /* skal soklen have den sat paa?        */
+} zs_mb_timeout_t;
+
+zs_mb_timeout_t zs_mb_timeout_vaelg(uint32_t oenske, uint32_t nuvaerende);
+
+/*
  * Er vaert og port noget vi overhovedet kan forsoege?
  *
  * Vagten stod to steder, i zs_mb_connect og i zs_mb_probe_port, og de to

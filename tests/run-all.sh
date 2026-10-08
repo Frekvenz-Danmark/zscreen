@@ -68,6 +68,15 @@ else
     spring "Hele datavejen" "værktøjet kunne ikke bygges"
 fi
 
+# Og til sidst det der skal ud paa skaermen.
+#
+# Her stod ingenting. Testkoerslen byggede ALT undtagen firmwaren, og sagde
+# "Alt bestaaet" uden nogensinde at have oversat koden til en ESP32. En
+# header der mangler en include, eller en _Static_assert der falder paa en
+# anden arkitektur, saa man foerst efter et push. Den staar sidst, saa den
+# hurtige besked kommer foerst.
+koer "Firmwaren" ./tools/byg-firmware.sh
+
 # Kort koersel, saa fuzzerne BLIVER ved at virke. En laengere kampagne
 # koeres i haanden: ./tests/fuzz/koer.sh 500000
 koer "Ødelagte rammer" ./tests/fuzz/koer.sh 20000
