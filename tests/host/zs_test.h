@@ -101,5 +101,7 @@ void test_version_404(void);
 void test_sunspec_kanalnavne(void);
 void test_version_maal(void);
 void test_sunspec_markoer(void);
+void test_fleet_vagter(void);
+void test_format_vagter(void);
 
 #endif /* ZS_TEST_H */

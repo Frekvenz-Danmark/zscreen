@@ -63,6 +63,8 @@ int main(int argc, char **argv)
     test_sunspec_kanalnavne();
     test_version_maal();
     test_sunspec_markoer();
+    test_fleet_vagter();
+    test_format_vagter();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

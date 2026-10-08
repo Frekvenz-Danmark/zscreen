@@ -509,3 +509,86 @@ void test_fleet_svar_rigtigt(void)
           strstr(kun_foerste, "\"id\":\"3K9OPrDLrIX5ZppDTxWYqz\"") == NULL
           || kun_foerste[foerste - 1] != '}');
 }
+
+/*
+ * VAGTERNE PAA DE TRE DER SKRIVER I KALDERENS BUFFER.
+ *
+ * "ud == NULL || ud_len == 0" kunne laves til "og", og saa skrives der i
+ * NULL naar laengden er sat. Alle tre var uproevede, og de ligger i den
+ * kode der bygger emner og indmeldelser: gaar den ned, kommer skaermen
+ * aldrig paa floedestyringen.
+ */
+void test_fleet_vagter(void)
+{
+    ZS_SUITE("Flådestyring: vagterne på det der skriver i en buffer");
+
+    char ud[200];
+
+    /* Indmeldelsen. */
+    CHECK_INT("indmeldelse: NULL som buffer giver nul",
+              (int)zs_fleet_msg_enroll(NULL, 200, "cert"), 0);
+    CHECK_INT("indmeldelse: længde nul giver nul",
+              (int)zs_fleet_msg_enroll(ud, 0, "cert"), 0);
+    CHECK_INT("indmeldelse: begge galt giver nul",
+              (int)zs_fleet_msg_enroll(NULL, 0, "cert"), 0);
+
+    /* Emnet der skrives til. */
+    CHECK_INT("skriveemne: NULL som buffer giver nul",
+              (int)zs_fleet_msg_topic(NULL, 200, "master", "u", "f", "a"),
+              0);
+    CHECK_INT("skriveemne: længde nul giver nul",
+              (int)zs_fleet_msg_topic(ud, 0, "master", "u", "f", "a"), 0);
+
+    /* Emnet der lyttes paa. */
+    CHECK_INT("lytteemne: NULL som buffer giver nul",
+              (int)zs_fleet_msg_lyt_topic(NULL, 200, "master", "u", "f", "a"),
+              0);
+    CHECK_INT("lytteemne: længde nul giver nul",
+              (int)zs_fleet_msg_lyt_topic(ud, 0, "master", "u", "f", "a"), 0);
+
+    /*
+     * OG AFKORTNINGEN. "n >= ud_len" kunne laves til ">", og saa slipper
+     * et emne igennem der er PRAECIS én for langt, altsaa uden plads til
+     * nulbyten. Et afkortet emne ville skrive i et andet felt eller i en
+     * anden enhed, og derfor er svaret ingenting.
+     */
+    char kort[16];
+    CHECK_INT("et emne der ikke kan være der giver nul",
+              (int)zs_fleet_msg_topic(kort, sizeof(kort), "master",
+                                            "zscreen-44b176b06c60",
+                                            "solarPower", "abcdefghij"), 0);
+    CHECK_STR("og bufferen er tom, ikke halvt udfyldt", kort, "");
+
+    /*
+     * OG DEN PRAECISE KANT, som er den der goer skade.
+     *
+     * Emnet "master/u/writeattributevalue/f/a" er 32 tegn. Med en buffer
+     * paa PRAECIS 32 er der plads til tegnene men ikke til nulbyten.
+     * snprintf siger saa 32, og "n >= ud_len" afviser det med rette.
+     *
+     * Blev graensen lavet til "n > ud_len", slipper netop det her
+     * igennem, og saa er emnet afkortet. Et afkortet emne peger paa et
+     * ANDET felt eller en anden enhed, saa maalingen havner et forkert
+     * sted. Det er ikke til at se paa noget.
+     */
+    char praecis[32];
+    CHECK_INT("et emne der er præcis så langt som bufferen afvises",
+              (int)zs_fleet_msg_topic(praecis, sizeof(praecis), "master", "u",
+                                      "f", "a"), 0);
+    CHECK_STR("og bufferen er tom", praecis, "");
+
+    char et_mere[33];
+    CHECK("ét tegn mere, og det samme emne kommer igennem",
+          zs_fleet_msg_topic(et_mere, sizeof(et_mere), "master", "u", "f", "a")
+          == 32);
+    CHECK_STR("og står helt", et_mere, "master/u/writeattributevalue/f/a");
+
+    /* Og en der PRAECIS kan vaere der, saa vi ved at graensen er det
+     * rigtige sted og ikke bare altid afviser. */
+    char lige[64];
+    size_t n = zs_fleet_msg_topic(lige, sizeof(lige), "master", "u",
+                                        "f", "a");
+    CHECK("et kort emne kommer igennem", n > 0);
+    CHECK_STR("og ser rigtigt ud", lige, "master/u/writeattributevalue/f/a");
+}
+

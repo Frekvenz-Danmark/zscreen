@@ -477,9 +477,10 @@ zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
     if (strlen(host) >= sizeof(mb->host)) {
         return ZS_MB_ERR_ARG;
     }
-    if (connect_timeout_ms == 0) {
-        connect_timeout_ms = ZS_MB_TIMEOUT_STANDARD_MS;
-    }
+    /* Samme beslutning som ved laesning og skrivning, se
+     * zs_mb_timeout_vaelg. Den stod skrevet forfra her, og saa var der
+     * tre steder der valgte en svartid og kun to af dem var proevet. */
+    connect_timeout_ms = zs_mb_timeout_vaelg(connect_timeout_ms, 0).ms;
 
     /* Luk foerst. En halvdoed socket maa ikke overleve et reconnect. */
     zs_mb_close(mb);
@@ -495,10 +496,13 @@ zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
     mb->fd = fd;
     snprintf(mb->host, sizeof(mb->host), "%s", host);
     mb->port = port;
-    /* Transaktions-ID starter paa 1, se zs_mb_naeste_tid. */
-    if (mb->next_tid == 0) {
-        mb->next_tid = 1;
-    }
+    /* Transaktions-ID'et saettes IKKE her.
+     *
+     * Her stod "hvis next_tid er nul, saet den til 1". Det var
+     * overfloedigt: zs_mb_naeste_tid klarer selv nul, baade foerste gang
+     * og efter en ombrydning, og den er proevet af hele vejen rundt. To
+     * steder der goer det samme er ét sted at tage fejl for meget, og
+     * mutationstesten kunne vende det her uden at noget sagde fra. */
     ZS_LOGI(TAG, "forbundet til %s:%u", host, port);
     return ZS_MB_OK;
 }

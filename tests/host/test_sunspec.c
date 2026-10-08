@@ -651,6 +651,31 @@ void test_sunspec_kanter(void)
     CHECK("n == 0: f32 afvises", !zs_ss_dec_f32(r, 0, 0).ok);
     CHECK("n == 0: acc32 afvises", !zs_ss_dec_acc32(r, 0, 0, &u));
 
+    /*
+     * VAGTERNE PAA DE TO DER TAGER ET KORT IND.
+     *
+     * "map == NULL || ids == NULL" kunne laves til "og", og saa slipper
+     * en NULL igennem naar den anden er sat. Begge var uproevede.
+     */
+    const uint16_t ids[] = { 103, 113 };
+    zs_ss_map_t tomt_kort;
+    memset(&tomt_kort, 0, sizeof(tomt_kort));
+    CHECK("find_any: NULL som kort afvises",
+          zs_ss_find_any(NULL, ids, 2) == NULL);
+    CHECK("find_any: NULL som liste afvises",
+          zs_ss_find_any(&tomt_kort, NULL, 2) == NULL);
+    CHECK("find_any: begge NULL afvises",
+          zs_ss_find_any(NULL, NULL, 2) == NULL);
+    CHECK("find_any: et tomt kort finder ingenting",
+          zs_ss_find_any(&tomt_kort, ids, 2) == NULL);
+
+    zs_ss_map_t ud_kort;
+    CHECK("walk: NULL som læsefunktion afvises",
+          !zs_ss_walk(NULL, NULL, 1, &ud_kort));
+    CHECK("walk: NULL som kort afvises",
+          !zs_ss_walk(fake_read, NULL, 1, NULL));
+    CHECK("walk: begge NULL afvises", !zs_ss_walk(NULL, NULL, 1, NULL));
+
     free(r);
 }
 

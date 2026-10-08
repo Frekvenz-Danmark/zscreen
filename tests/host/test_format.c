@@ -227,3 +227,43 @@ void test_format(void)
         CHECK_STR("punktum bliver til komma", zs_fmt_da_decimal(buf), "4,2");
     }
 }
+
+/*
+ * VAGTERNE PAA DET DER SKRIVER I KALDERENS BUFFER.
+ *
+ * "ud == NULL || n == 0" kunne laves til "og", og saa skrives der i NULL
+ * naar laengden er sat. Alle formateringsfunktionerne har den samme vagt,
+ * og ingen af dem var proevet med NULL.
+ *
+ * De bliver kaldt fra skaermen hver gang et tal skal vises, altsaa
+ * konstant. Gaar en af dem ned, gaar skaermen ned.
+ */
+void test_format_vagter(void)
+{
+    ZS_SUITE("Tal på dansk: vagterne på det der skriver i en buffer");
+
+    char b[32];
+
+    /* NULL som buffer maa ikke goere noget som helst. */
+    zs_fmt_kroner(12.34f, NULL, sizeof(b));
+    CHECK("kroner: NULL som buffer går ikke ned", true);
+
+    /* Laengde nul maa heller ikke. Vi fylder bufferen med et moenster og
+     * ser at der ikke bliver roert ved den. */
+    memset(b, 'Z', sizeof(b));
+    zs_fmt_kroner(12.34f, b, 0);
+    int roert = 0;
+    for (size_t i = 0; i < sizeof(b); i++) {
+        if (b[i] != 'Z') { roert++; }
+    }
+    CHECK_INT("kroner: længde nul rører ikke bufferen", roert, 0);
+
+    zs_fmt_kroner(12.34f, NULL, 0);
+    CHECK("kroner: begge dele galt går ikke ned", true);
+
+    /* Og at den stadig virker naar den FAAR en ordentlig buffer, saa
+     * proeven ikke bare bestaar fordi alt er slaaet fra. */
+    zs_fmt_kroner(12.34f, b, sizeof(b));
+    CHECK("og den skriver stadig noget når den kan", b[0] != 'Z');
+}
+

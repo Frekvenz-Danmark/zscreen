@@ -1,3 +1,48 @@
+## 2026-10-08 18:28
+
+### Et emne der var præcis én for langt, kunne slippe igennem afkortet
+Den grimmeste i denne runde. Emnet der skrives til er
+`master/<enhed>/writeattributevalue/<felt>/<enheds-id>`, og grænsen
+`n >= bufferens størrelse` kunne laves til `>`. Så slipper netop det emne
+igennem der fylder bufferen **helt**, altså uden plads til nulbyten, og så
+er emnet afkortet.
+
+Et afkortet emne peger på et **andet felt eller en anden enhed**. Målingen
+havner altså et forkert sted, og det er ikke til at se på noget.
+
+Min første prøve fangede den ikke. Den brugte en meget lille buffer, så
+emnet var langt **over** grænsen, og det afviser begge udgaver. Nu er
+emnet regnet til præcis 32 tegn, og der er to prøver: med en buffer på 32
+afvises det, og med 33 kommer det igennem helt. Så ved vi at grænsen
+ligger det rigtige sted og ikke bare altid afviser.
+
+### Og fire vagter mere der ikke var prøvet
+Det der skriver i kalderens buffer havde `er NULL eller længden er nul`
+fem steder, og ingen af dem var prøvet med NULL. Laves `eller` til `og`,
+skrives der i NULL når længden er sat.
+
+To af dem ligger i talformateringen, som skærmen kalder hver gang et tal
+skal vises, altså konstant. Går en af dem ned, går skærmen ned. Og to
+ligger i den kode der bygger indmeldelsen og emnerne: går den ned, kommer
+skærmen aldrig på flådestyringen.
+
+Prøven på længde nul fylder bufferen med et mønster først og tjekker at
+der **ikke** bliver rørt ved den, i stedet for bare at se at der ikke sker
+et nedbrud.
+
+### To mutanter lukket ved at fjerne kode
+Transaktions-ID'et blev sat til 1 ved hver forbindelse, og det var
+overflødigt: funktionen der uddeler dem klarer selv nul, både første gang
+og efter en ombrydning, og den er prøvet hele vejen rundt. To steder der
+gør det samme er ét sted at tage fejl for meget.
+
+Og svartiden ved forbindelse blev valgt med sin egen linje, så der var tre
+steder der valgte en svartid og kun to af dem var prøvet. Nu bruger alle
+tre den samme prøvede beslutning.
+
+**Status:** 9 vagter, 1183 prøver på maskinen, 89 hele vejen igennem,
+firmwaren bygger.
+
 ## 2026-10-08 18:11
 
 ### Markøren der afgør om det er en inverter, kunne passe halvt
