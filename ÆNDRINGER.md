@@ -1,3 +1,25 @@
+## 2026-10-08 02:31
+
+### Formen på det der ligger i flashen står nu fast
+Udgangspunktet for timens energi gemmes i flashen, så en genstart ikke
+koster en time. Indlæseren afviser en klump af en anden **størrelse**, og
+så koster det én time. Det er håndteret.
+
+Men bytter man to felter om **uden** at størrelsen ændrer sig, er der ingen
+der siger fra. Så bliver et gammelt serienummer læst som tællerstande,
+eller en tællerstand som en dato, og timens energi bliver et vildt tal der
+ikke ser forkert ud. Det er præcis den fejl der blev lukket ved at binde
+udgangspunktet til serienummeret, og den må ikke komme ind ad bagdøren.
+
+Formen står nu fast ved oversættelsen: størrelsen og hvert enkelt felts
+plads. Ændrer nogen strukturen, falder oversættelsen med det samme, og så
+er der et valg at tage i stedet for en overraskelse: skal de gamle data
+kunne læses, så skal der et versionsnummer med i klumpen, eller er det i
+orden at hver skærm mister én time.
+
+Efterprøvet med tre ændringer: et felt der bliver større, to felter byttet
+om, og et længere serienummer. Alle tre fanges.
+
 ## 2026-10-08 02:21
 
 ### Hvad send() sagde, trukket ud så det kan prøves

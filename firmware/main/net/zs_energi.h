@@ -131,6 +131,44 @@ typedef struct {
     char     serienr[ZS_ENERGI_SERIENR_MAX];
 } zs_energi_basis_t;
 
+/*
+ * FORMEN PAA DEN HER STRUKTUR LIGGER I FLASHEN.
+ *
+ * zs_nvs_save_energi gemmer den som én klump bytes, og
+ * zs_nvs_load_energi laeser den tilbage efter en genstart. Den afviser en
+ * klump af en anden STOERRELSE, og saa koster det én time.
+ *
+ * Men bytter man to felter om uden at stoerrelsen aendrer sig, er der
+ * ingen der siger fra. Saa bliver et gammelt serienummer laest som
+ * taellerstande, eller en taellerstand som en dato, og timens energi
+ * bliver et vildt tal der ikke ser forkert ud. Det er praecis den slags
+ * fejl der blev lukket ved at binde udgangspunktet til serienummeret, og
+ * den maa ikke komme ind ad bagdoeren.
+ *
+ * Derfor staar formen fast her. Aendrer nogen strukturen, falder
+ * oversaettelsen med det samme, og saa er der en beslutning at tage i
+ * stedet for en overraskelse:
+ *
+ *   - skal de gamle data kunne laeses? Saa skal der et versionsnummer med
+ *     i klumpen og en omskrivning i zs_nvs_load_energi
+ *   - eller er det i orden at hver skaerm mister én time? Saa opdateres
+ *     tallene herunder, og det er et valg nogen har truffet
+ *
+ * Tallene er maalt paa en 64-bit maskine. Paa ESP32 er int, float og
+ * pointer de samme stoerrelser, og der er ingen pointere i strukturen, saa
+ * de passer begge steder. Falder det her paa en ny arkitektur, er det
+ * netop det man vil vide.
+ */
+_Static_assert(sizeof(zs_energi_basis_t) == 68,
+               "zs_energi_basis_t ligger i flashen: aendrer stoerrelsen sig, "
+               "mister hver skaerm én time. Laes noten ovenfor.");
+_Static_assert(offsetof(zs_energi_basis_t, gyldig) == 0, "formen er aendret");
+_Static_assert(offsetof(zs_energi_basis_t, time) == 1, "formen er aendret");
+_Static_assert(offsetof(zs_energi_basis_t, dagnr) == 2, "formen er aendret");
+_Static_assert(offsetof(zs_energi_basis_t, har) == 4, "formen er aendret");
+_Static_assert(offsetof(zs_energi_basis_t, wh) == 12, "formen er aendret");
+_Static_assert(offsetof(zs_energi_basis_t, serienr) == 32, "formen er aendret");
+
 /* Hvad der skete ved det her tik. */
 typedef enum {
     ZS_ENERGI_VENTER = 0,  /* samme time endnu, intet at sende          */
