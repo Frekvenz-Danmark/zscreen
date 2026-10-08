@@ -139,11 +139,51 @@ BYT = [
 
 # Mutanter der overlever med vilje, med begrundelse. Teksten skal vaere
 # den FOERSTE linje som den staar i filen, saa den er til at finde igen.
+# NOEGLEN MAA IKKE INDEHOLDE ET VARIABELNAVN.
+#
+# Her stod "errno == EAGAIN || errno == EWOULDBLOCK". Da beslutningen blev
+# trukket ud i zs_mb_errno_art, kom den til at hede fejlnr i stedet for
+# errno, og saa passede noeglen ikke mere. Undtagelsen holdt TAVST op med
+# at virke, og mutanten dukkede op som overlevende i en koersel maaneder
+# senere, hvor ingen kunne huske hvorfor den var undtaget.
+#
+# Noeglen skal derfor vaere den del der ikke aendrer sig naar en variabel
+# bliver omdoebt. Og vagten nedenfor, tjek_undtagelser, naegter at koere
+# hvis en undtagelse ikke passer paa ÉN eneste linje mere. Saa kan den
+# ikke blive tavs igen.
 UDEN_BETYDNING = {
-    "errno == EAGAIN || errno == EWOULDBLOCK":
-        "EAGAIN og EWOULDBLOCK er samme tal paa baade macOS (35) og Linux "
-        "(11), saa de to grene er den samme gren",
+    "EAGAIN || ":
+        "EAGAIN og EWOULDBLOCK er SAMME tal: 35 paa macOS, og i ESP-IDF's "
+        "newlib staar der ligefrem '#define EWOULDBLOCK EAGAIN'. Efterset "
+        "i begge, ikke antaget. De to grene er altsaa den samme gren, og "
+        "ingen proeve kan skelne dem. Begge staar der alligevel, fordi "
+        "POSIX TILLADER at de er forskellige",
 }
+
+
+def tjek_undtagelser(alle):
+    """Passer hver undtagelse stadig paa noget?
+
+    En undtagelse der ikke passer paa noget, er ikke uskadelig. Den er en
+    vagt der er faldet af uden at nogen saa det, og saa staar der en mutant
+    og overlever med en begrundelse ingen kan finde.
+    """
+    brugt = set()
+    for _, _, _, gammel, _, _, _ in alle:
+        for noegle in UDEN_BETYDNING:
+            if noegle in gammel:
+                brugt.add(noegle)
+    tabt = [n for n in UDEN_BETYDNING if n not in brugt]
+    if not tabt:
+        return True
+    print("\n\033[1;31mEn undtagelse passer ikke paa noget mere:\033[0m")
+    for n in tabt:
+        print(f"    {n!r}")
+    print("  Koden er sandsynligvis skrevet om. Ret noeglen, eller tag")
+    print(f"  undtagelsen ud af UDEN_BETYDNING i {__file__}.")
+    print("  Vi koerer ikke videre: en undtagelse der ikke passer, gemmer")
+    print("  en mutant for os uden at sige det.")
+    return False
 
 
 def linjer(fil):
@@ -290,6 +330,10 @@ def main():
         tekst, ms = mutanter(fil)
         for nr, gammel, ny, fra_tegn, til in ms:
             alle.append((fil, tekst, nr, gammel, ny, fra_tegn, til))
+
+    # Foer der bruges timer paa at oversaette: passer undtagelserne stadig?
+    if not tjek_undtagelser(alle):
+        return 2
 
     sig(f"\n\033[1mMutationstest\033[0m")
     sig(f"  {len(valgte)} moduler, {len(alle)} mutanter")

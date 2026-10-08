@@ -1,3 +1,37 @@
+## 2026-10-08 20:04
+
+### En undtagelse i mutationstesten var holdt tavst op med at virke
+Mutationstesten meldte en overlevende paa `zs_modbus_tcp.c:596`:
+
+    if (fejlnr == EAGAIN || fejlnr == EWOULDBLOCK) {
+
+Byttes `eller` til `og`, sker der ingenting. Og det er rigtigt: de to er
+SAMME tal. Maalt, ikke antaget. Paa macOS er begge 35, og i ESP-IDF's
+newlib staar der ligefrem `#define EWOULDBLOCK EAGAIN`. Ingen proeve kan
+skelne de to grene, for der er kun én gren. Begge staar der alligevel,
+fordi POSIX tillader at de er forskellige.
+
+Den var ALLEREDE undtaget. Noeglen hed bare:
+
+    "errno == EAGAIN || errno == EWOULDBLOCK"
+
+Da beslutningen blev trukket ud i `zs_mb_errno_art`, kom variablen til at
+hede `fejlnr` i stedet for `errno`. Saa passede noeglen ikke mere, og
+undtagelsen holdt TAVST op med at virke. Mutanten dukkede op som
+overlevende i en koersel langt senere, hvor man skal regne hele
+begrundelsen ud forfra.
+
+To ting er rettet. Noeglen er nu `"EAGAIN || "`, altsaa den del der ikke
+aendrer sig naar en variabel bliver omdoebt. Og vigtigere: der er kommet en
+vagt, `tjek_undtagelser`, der naegter at koere hvis en undtagelse ikke
+passer paa ÉN eneste linje mere. Den koerer FOER de tre timers
+oversaettelser, saa man faar det at vide med det samme.
+
+Begge veje er efterset: undtagelsen passer paa den rigtige linje fra
+koden, og vagten siger fra paa en linje der ikke passer. Det er den vigtige
+af de to, for en undtagelse der er faldet af, gemmer en mutant uden at
+sige det.
+
 ## 2026-10-08 19:12
 
 ### En laengdevagt i versionstjekket var doed kode, og derfor uproevelig
