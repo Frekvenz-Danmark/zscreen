@@ -100,5 +100,6 @@ void test_modbus_sokkel(void);
 void test_version_404(void);
 void test_sunspec_kanalnavne(void);
 void test_version_maal(void);
+void test_sunspec_markoer(void);
 
 #endif /* ZS_TEST_H */

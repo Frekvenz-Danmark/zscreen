@@ -418,11 +418,35 @@ bool zs_ss_walk(zs_ss_read_fn read, void *ctx, uint8_t unit, zs_ss_map_t *map)
              * ufuldstaendigt, saa ingen konkluderer "her er ingen
              * elmaaler" paa et halvt kort.
              */
-            uint16_t one;
-            if (read(ctx, unit, (uint16_t)addr, 1, &one) && one == ZS_SS_END) {
+            /*
+             * one SKAL have en vaerdi foerst.
+             *
+             * Foer stod der "uint16_t one;" og saa
+             * "if (read(...) && one == ZS_SS_END)". Det er rigtigt, men
+             * kun fordi && kortslutter: fejler laesningen, bliver one
+             * aldrig laest. At koden er rigtig hviler altsaa paa
+             * raekkefoelgen i en betingelse, og det er for tyndt et
+             * grundlag. En mutationstest kunne lave && til ||, og saa
+             * afhang svaret af hvad der tilfaeldigvis laa i hukommelsen:
+             * var det 0xFFFF, meldte vi kortet komplet i stedet for
+             * ufuldstaendigt.
+             *
+             * Nul er ikke END, saa nu er svaret det samme uanset
+             * raekkefoelge. Og de to ting staar hver for sig, saa man kan
+             * se hvad der blev afvist.
+             */
+            uint16_t one = 0;
+            if (!read(ctx, unit, (uint16_t)addr, 1, &one)) {
+                ZS_LOGW(TAG, "kunne ikke laese model-header paa %u",
+                        (unsigned)addr);
+                map->truncated = true;
                 break;
             }
-            ZS_LOGW(TAG, "kunne ikke laese model-header paa %u", (unsigned)addr);
+            if (one == ZS_SS_END) {
+                break;      /* kaeden var paent afsluttet helt ude paa kanten */
+            }
+            ZS_LOGW(TAG, "model-header paa %u var hverken en model eller slut",
+                    (unsigned)addr);
             map->truncated = true;
             break;
         }

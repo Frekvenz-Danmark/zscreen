@@ -26,6 +26,19 @@ typedef struct {
     int      calls;
 } fake_dev_t;
 
+/* Fylder et registerkort med et haandskrevet moenster. Bruges hvor en
+ * proeve skal have PRAECIS de registre og ikke en hel enhed. */
+static void fyld(fake_dev_t *d, const uint16_t *regs, size_t n)
+{
+    memset(d, 0, sizeof(*d));
+    d->base = 40000;
+    d->fail_after = -1;
+    d->n = n;
+    for (size_t i = 0; i < n && i < sizeof(d->regs) / sizeof(d->regs[0]); i++) {
+        d->regs[i] = regs[i];
+    }
+}
+
 static bool fake_read(void *ctx, uint8_t unit, uint16_t addr, uint16_t count, uint16_t *out)
 {
     fake_dev_t *d = (fake_dev_t *)ctx;
@@ -758,4 +771,112 @@ void test_sunspec_kanalnavne(void)
     CHECK("tom tekst er ukendt", zs_ss_classify_channel("") == ZS_CH_UNKNOWN);
     CHECK("NULL er ukendt", zs_ss_classify_channel(NULL) == ZS_CH_UNKNOWN);
 }
+
+/*
+ * MARKOEREN DER AFGOER OM DET ER EN INVERTER.
+ *
+ * En SunSpec-enhed starter med de fire bogstaver "SunS". Mutationstesten
+ * aendrede "regs[0] == HI && regs[1] == LO" til "||", og saa er en HALV
+ * markoer nok. Ingen proeve sagde fra.
+ *
+ * Det betyder noget paa et kundenet: der sidder tit andet paa Modbus, en
+ * varmepumpe eller en PLC, og et tilfaeldigt registerpar kan godt ramme
+ * den ene halvdel. Saa ville vi kalde den en inverter og begynde at
+ * afkode dens registre som om de var SunSpec. Tallene der kom ud ville
+ * ikke se forkerte ud.
+ */
+void test_sunspec_markoer(void)
+{
+    ZS_SUITE("SunSpec: markøren skal passe HELT, ikke halvt");
+
+    /* "SunS" = 0x5375 0x6E53. */
+    const uint16_t HI = 0x5375u, LO = 0x6E53u;
+
+    struct { const char *hvad; uint16_t a, b; bool vent; } t[] = {
+        { "hele markøren",            HI,     LO,     true  },
+        { "kun første halvdel",       HI,     0x0000, false },
+        { "kun anden halvdel",        0x0000, LO,     false },
+        { "første rigtig, anden tæt på", HI,  LO + 1, false },
+        { "anden rigtig, første tæt på", HI-1, LO,    false },
+        { "ombyttet",                 LO,     HI,     false },
+        { "ingenting",                0x0000, 0x0000, false },
+        { "alt sat",                  0xFFFF, 0xFFFF, false },
+    };
+
+    int galt = 0;
+    for (size_t i = 0; i < sizeof t / sizeof *t; i++) {
+        /* Markøren, så ét model-1-hoved, så END. */
+        const uint16_t regs[] = { t[i].a, t[i].b, 1, 4, 0, 0, 0, 0,
+                                  0xFFFF, 0 };
+        fake_dev_t d;
+        fyld(&d, regs, sizeof regs / sizeof *regs);
+        zs_ss_map_t map;
+        bool ok = zs_ss_walk(fake_read, &d, 1, &map);
+        if (ok != t[i].vent) { galt++; }
+        CHECK(t[i].hvad, ok == t[i].vent);
+    }
+    CHECK_INT("alle otte kombinationer opfører sig som aftalt", galt, 0);
+
+    /*
+     * OG EN LAESNING DER FEJLER MAA IKKE SE UD SOM EN PAEN AFSLUTNING.
+     *
+     * Kæden slutter med en END-markør. Kan vi ikke læse hovedet, prøver
+     * vi at læse ét register: står der END, var kæden pænt afsluttet.
+     * Mutationstesten lavede "læsningen lykkedes OG der står END" til
+     * "ELLER", og så ser en mislykket læsning ud som en pæn afslutning.
+     *
+     * Forskellen er om kortet bliver markeret ufuldstændigt. Gør det
+     * ikke det, konkluderer vi "her er ingen elmåler" på et halvt kort.
+     */
+    const uint16_t kaede[] = {
+        0x5375, 0x6E53,     /* SunS                       */
+        1, 4, 0, 0, 0, 0,   /* model 1, fire dataregistre */
+        103, 50,            /* model 103 siger 50 registre der IKKE er der */
+    };
+    fake_dev_t d2;
+    fyld(&d2, kaede, sizeof kaede / sizeof *kaede);
+    zs_ss_map_t m2;
+    CHECK("en kæde der stopper midt i kan stadig læses",
+          zs_ss_walk(fake_read, &d2, 1, &m2));
+    CHECK("og kortet meldes UFULDSTÆNDIGT, ikke pænt afsluttet",
+          m2.truncated);
+
+    /*
+     * OG DEN SJAELDNE STI: slut-markoeren helt ude paa KANTEN.
+     *
+     * Nogle enheder laegger 0xFFFF som deres sidste register, saa der er
+     * plads til markoeren men ikke til laengdefeltet efter. En laesning af
+     * to registre fejler, en laesning af ét lykkes. Det er en PAEN
+     * afslutning, ikke en fejl, og kortet skal meldes komplet.
+     *
+     * Den sti var uproevet, og det var netop den der gjorde at koden
+     * hvilede paa at && kortsluttede.
+     */
+    const uint16_t kant[] = {
+        0x5375, 0x6E53,
+        1, 4, 0, 0, 0, 0,
+        0xFFFF,             /* END, og saa slutter registerpladsen */
+    };
+    fake_dev_t d4;
+    fyld(&d4, kant, sizeof kant / sizeof *kant);
+    zs_ss_map_t m4;
+    CHECK("slut-markøren helt ude på kanten læses",
+          zs_ss_walk(fake_read, &d4, 1, &m4));
+    CHECK("og kortet meldes KOMPLET, for kæden var pænt afsluttet",
+          !m4.truncated);
+    CHECK_INT("og model 1 kom med", m4.count, 1);
+
+    /* Og til sammenligning: en kæde der ER pænt afsluttet. */
+    const uint16_t hel[] = {
+        0x5375, 0x6E53,
+        1, 4, 0, 0, 0, 0,
+        0xFFFF, 0,          /* END */
+    };
+    fake_dev_t d3;
+    fyld(&d3, hel, sizeof hel / sizeof *hel);
+    zs_ss_map_t m3;
+    CHECK("en pænt afsluttet kæde læses", zs_ss_walk(fake_read, &d3, 1, &m3));
+    CHECK("og den meldes IKKE ufuldstændig", !m3.truncated);
+}
+
 

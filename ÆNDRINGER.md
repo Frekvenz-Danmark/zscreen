@@ -1,3 +1,42 @@
+## 2026-10-08 18:11
+
+### Markøren der afgør om det er en inverter, kunne passe halvt
+En SunSpec-enhed starter med de fire bogstaver "SunS". Mutationstesten
+lavede `første halvdel OG anden halvdel` til `ELLER`, og så er en **halv**
+markør nok. Ingen prøve sagde fra.
+
+Det betyder noget på et kundenet. Der sidder tit andet på Modbus, en
+varmepumpe eller en PLC, og et tilfældigt registerpar kan godt ramme den
+ene halvdel. Så ville vi kalde den en inverter og afkode dens registre som
+om de var SunSpec. Tallene der kom ud ville ikke se forkerte ud.
+
+Prøvet af med alle otte kombinationer: hele markøren, hver halvdel alene,
+hver halvdel med den anden tæt på, ombyttet, tom og alt sat. Kun den hele
+bliver godkendt.
+
+### Og koden hvilede på at `&&` kortsluttede
+Kæden slutter med en slut-markør. Nogle enheder lægger den helt ude på
+kanten af deres registerplads, så der er plads til markøren men ikke til
+længdefeltet efter. En læsning af to registre fejler, en læsning af ét
+lykkes, og det er en **pæn** afslutning og ikke en fejl.
+
+Der stod `uint16_t one;` uden en værdi, og så `hvis læsningen lykkedes OG
+der står slut`. Det er rigtigt, men **kun fordi `&&` kortslutter**: fejler
+læsningen, bliver `one` aldrig læst. At koden var rigtig hvilede altså på
+rækkefølgen i en betingelse.
+
+Mutationstesten lavede `&&` til `||`, og så afhang svaret af hvad der
+tilfældigvis lå i hukommelsen. Var det slut-markøren, meldte vi kortet
+komplet i stedet for ufuldstændigt, og så konkluderer man "her er ingen
+elmåler" på et halvt kort.
+
+`one` har nu altid en værdi, og de to ting står hver for sig, så man kan se
+hvad der blev afvist. Og den sjældne sti med markøren ude på kanten er nu
+prøvet af, hvilket den ikke var før. Alle tre mutanter dør.
+
+**Status:** 9 vagter, 1157 prøver på maskinen, 89 hele vejen igennem,
+firmwaren bygger.
+
 ## 2026-10-08 16:16
 
 ### De to rettelser fra før havde ingen prøver, og det var et hul
