@@ -1,3 +1,33 @@
+## 2026-10-08 18:39
+
+### Forskydningen fra UTC kunne vendes fire steder uden at nogen sagde fra
+Prisskaermen skal vide hvilken time det er LOKALT, for priserne staar i
+UTC. Forskydningen blev regnet inde i den funktion der ogsaa kalder
+`time()` og `localtime_r`, og den kan man ikke stille uret paa i en proeve.
+Saa de fire regler der haandterer dagsskiftet stod helt uproevede, og en
+mutationstest kunne vende alle fire uden at én eneste proeve faldt.
+
+Reglerne er der af en grund. Klokken 01 dansk tid er det 23 i UTC dagen
+foer, og trækker man bare timerne fra hinanden, giver det 23 timers
+forskydning i stedet for minus én. Saa viser skaermen prisen for en helt
+anden time. De to sidste regler er nytaarsskiftet: dagnummeret springer
+fra 365 tilbage til 0, saa forskellen bliver et par hundrede i stedet for
+én, og natten mellem nytaarsaften og nytaarsdag ville vise forkert.
+
+Udregningen er flyttet ud i `zs_price_utc_offset`, der kun faar fire tal
+ind og giver et tal igen. Samme regler, ord for ord, men nu kan de proeves.
+Funktionen der kalder den er to linjer.
+
+Proeven daekker vinter- og sommertid, begge natteskift, begge
+nytaarsskift (ogsaa i et skudaar), og de to vagter paa funktionen
+udenom. Og saa en egenskabsproeve der regner ALLE forskydninger fra minus
+12 til plus 14 igennem, for hver af aarets 366 dage og hver af dagens 24
+timer. 237.168 kombinationer, hvor det udregnede skal passe med det der
+blev sat ind.
+
+Alle syv mutanter paa stedet er efterset enkeltvis og doer nu, ogsaa den
+der bytter plus og minus om, og den der laver `eller` til `og` i vagten.
+
 ## 2026-10-08 18:28
 
 ### Et emne der var præcis én for langt, kunne slippe igennem afkortet

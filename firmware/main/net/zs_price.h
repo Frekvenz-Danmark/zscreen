@@ -96,6 +96,32 @@ typedef struct {
 int8_t zs_price_find_hour(const zs_price_day_t *d, int lokal_time, int offset_h);
 
 /*
+ * Vores forskydning fra UTC i hele timer, regnet af lokal tid og UTC.
+ *
+ * HVORFOR DEN LIGGER FOR SIG.
+ *
+ * Udregningen laa inde i zs_price_update_now, som kalder time() og
+ * localtime_r. Det kan man ikke stille paa i en proeve, saa fire regler
+ * stod uproevede, og en mutationstest kunne vende dem alle fire.
+ *
+ * Og reglerne er der af en grund. Vi bruger IKKE tm_gmtoff: den er en
+ * udvidelse, og den findes ikke i ESP-IDF's newlib. Efterset, ikke
+ * antaget. Saa forskydningen regnes af forskellen i timer, og
+ * DAGSFORSKELLEN skal med: ellers giver natten mellem to datoer 23 timers
+ * forskydning i stedet for minus én.
+ *
+ * De to sidste regler er nytaarsskiftet. Dagnummeret springer fra 365
+ * tilbage til 0, saa forskellen bliver et par hundrede i stedet for én.
+ * Rammer man den forkert, viser skaermen den forkerte times pris natten
+ * mellem nytaarsaften og nytaarsdag.
+ *
+ *   lokal_time, utc_time   tm_hour fra localtime_r og gmtime_r
+ *   lokal_dag, utc_dag     tm_yday fra de samme
+ */
+int zs_price_utc_offset(int lokal_time, int utc_time,
+                        int lokal_dag, int utc_dag);
+
+/*
  * Er de her priser fra I DAG?
  *
  * Ren sammenligning uden ur, saa den kan proeves af. Datoen gives ind som

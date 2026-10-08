@@ -186,3 +186,92 @@ void test_pris_dato(void)
     CHECK("negativt år giver nej",
           zs_price_date_is_today("2026-10-06", -3000, 9, 6) == false);
 }
+
+/*
+ * FORSKYDNINGEN FRA UTC, som afgoer hvilken times pris der vises.
+ *
+ * Udregningen laa inde i zs_price_update_now, som kalder time() og
+ * localtime_r. Det kan man ikke stille paa i en proeve, saa fire regler
+ * stod uproevede, og en mutationstest kunne vende dem alle fire.
+ *
+ * Rammer man forkert, viser skaermen en anden times pris. Det ser ikke
+ * forkert ud: der staar et tal, og det er et rigtigt tal, bare fra den
+ * forkerte time.
+ */
+void test_pris_offset(void)
+{
+    ZS_SUITE("Prisen: forskydningen fra UTC");
+
+    /* ---- samme dag, det almindelige tilfaelde ---- */
+    CHECK_INT("dansk vintertid: 13 lokalt, 12 UTC",
+              zs_price_utc_offset(13, 12, 100, 100), 1);
+    CHECK_INT("dansk sommertid: 14 lokalt, 12 UTC",
+              zs_price_utc_offset(14, 12, 100, 100), 2);
+    CHECK_INT("UTC selv", zs_price_utc_offset(12, 12, 100, 100), 0);
+
+    /* ---- natten mellem to datoer ---- */
+    /* Lokalt er det 00:30 den 101., UTC er det 23:30 den 100. */
+    CHECK_INT("lokalt i morgen: 0 lokalt, 23 UTC",
+              zs_price_utc_offset(0, 23, 101, 100), 1);
+    /* Og den anden vej, fx vest for UTC: lokalt 23:30 den 100., UTC
+     * 00:30 den 101. */
+    CHECK_INT("lokalt i gaar: 23 lokalt, 0 UTC",
+              zs_price_utc_offset(23, 0, 100, 101), -1);
+
+    /* Uden dagsforskellen ville de to give 23 og minus 23 timer. Det er
+     * netop den fejl reglen findes for. */
+    CHECK("og det er IKKE 23 timer",
+          zs_price_utc_offset(0, 23, 101, 100) != 23);
+    CHECK("eller minus 23", zs_price_utc_offset(23, 0, 100, 101) != -23);
+
+    /* ---- NYTAARSSKIFTET, hvor dagnummeret springer ---- */
+    /* Lokalt er det 00:30 den 1. januar, dag 0. UTC er det 23:30 den
+     * 31. december, dag 364. Forskellen er minus 364, ikke plus 1. */
+    CHECK_INT("nytaarsnat, lokalt i morgen",
+              zs_price_utc_offset(0, 23, 0, 364), 1);
+    /* Og i et skudaar, hvor sidste dag er 365. */
+    CHECK_INT("nytaarsnat i et skudaar",
+              zs_price_utc_offset(0, 23, 0, 365), 1);
+    /* Den anden vej: lokalt 31. december, UTC 1. januar. */
+    CHECK_INT("nytaarsnat, lokalt i gaar",
+              zs_price_utc_offset(23, 0, 364, 0), -1);
+
+    /*
+     * OG EGENSKABEN, som er mere vaerd end de enkelte tal: for enhver
+     * rimelig forskydning mellem minus 12 og plus 14 timer skal
+     * udregningen give netop den forskydning tilbage, uanset hvilken dag
+     * i aaret det er, ogsaa over nytaar.
+     */
+    int galt = 0;
+    for (int off = -12; off <= 14; off++) {
+        for (int utc_dag = 0; utc_dag <= 365; utc_dag++) {
+            for (int utc_time = 0; utc_time < 24; utc_time++) {
+                int lokal = utc_time + off;
+                int lokal_dag = utc_dag;
+                if (lokal < 0)   { lokal += 24; lokal_dag--; }
+                if (lokal >= 24) { lokal -= 24; lokal_dag++; }
+                /* dagnummeret ruller ved aarsskiftet */
+                int sidste = 365;
+                if (lokal_dag < 0)       { lokal_dag = sidste; }
+                if (lokal_dag > sidste)  { lokal_dag = 0; }
+                if (zs_price_utc_offset(lokal, utc_time, lokal_dag,
+                                        utc_dag) != off) {
+                    galt++;
+                }
+            }
+        }
+    }
+    CHECK_INT("alle forskydninger fra -12 til +14, alle 366 dage og alle "
+              "24 timer", galt, 0);
+
+    /* ---- og vagten paa selve opdateringen ---- */
+    CHECK("opdatering med NULL går ikke ned",
+          (zs_price_update_now(NULL), true));
+    zs_price_day_t tom;
+    memset(&tom, 0, sizeof(tom));
+    tom.ok = false;
+    tom.nu = 7;
+    zs_price_update_now(&tom);
+    CHECK_INT("en dag der ikke er i orden bliver ikke rørt", tom.nu, 7);
+}
+

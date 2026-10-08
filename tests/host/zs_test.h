@@ -103,5 +103,6 @@ void test_version_maal(void);
 void test_sunspec_markoer(void);
 void test_fleet_vagter(void);
 void test_format_vagter(void);
+void test_pris_offset(void);
 
 #endif /* ZS_TEST_H */

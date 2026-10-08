@@ -80,6 +80,19 @@ int8_t zs_price_find_hour(const zs_price_day_t *d, int lokal_time, int offset_h)
     return -1;
 }
 
+int zs_price_utc_offset(int lokal_time, int utc_time,
+                        int lokal_dag, int utc_dag)
+{
+    int offset_h = lokal_time - utc_time;
+    int dagdiff  = lokal_dag - utc_dag;
+    if (dagdiff == 1 || dagdiff < -1) {
+        offset_h += 24;          /* lokalt er vi i morgen */
+    } else if (dagdiff == -1 || dagdiff > 1) {
+        offset_h -= 24;          /* lokalt er vi i gaar */
+    }
+    return offset_h;
+}
+
 void zs_price_update_now(zs_price_day_t *d)
 {
     if (d == NULL || !d->ok) {
@@ -95,23 +108,10 @@ void zs_price_update_now(zs_price_day_t *d)
     localtime_r(&t, &lt);
     gmtime_r(&t, &ut);
 
-    /*
-     * Vores egen forskydning fra UTC, regnet ud af forskellen mellem
-     * lokal tid og UTC.
-     *
-     * Vi bruger IKKE tm_gmtoff: den er en udvidelse, og den findes ikke
-     * i ESP-IDF's newlib. Efterset, ikke antaget.
-     *
-     * Dagsforskellen skal med, ellers giver natten mellem to datoer 23
-     * timers forskydning i stedet for minus én.
-     */
-    int offset_h = lt.tm_hour - ut.tm_hour;
-    int dagdiff  = lt.tm_yday - ut.tm_yday;
-    if (dagdiff == 1 || dagdiff < -1) {
-        offset_h += 24;          /* lokalt er vi i morgen */
-    } else if (dagdiff == -1 || dagdiff > 1) {
-        offset_h -= 24;          /* lokalt er vi i gaar */
-    }
+    /* Hele udregningen ligger i zs_price_utc_offset, saa den kan proeves
+     * af. Her staar kun hvor tallene kommer fra. */
+    int offset_h = zs_price_utc_offset(lt.tm_hour, ut.tm_hour,
+                                       lt.tm_yday, ut.tm_yday);
 
     d->nu = zs_price_find_hour(d, lt.tm_hour, offset_h);
 }

@@ -65,6 +65,7 @@ int main(int argc, char **argv)
     test_sunspec_markoer();
     test_fleet_vagter();
     test_format_vagter();
+    test_pris_offset();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {
