@@ -316,6 +316,115 @@ void test_fleet_stykker(void)
     CHECK("total paa nul: vi stoler paa stykkets egen laengde",
           r == ZS_SAML_KLAR && strcmp(plads, kort) == 0);
 
+    /*
+     * Et emne der er NULL, men med en laengde der ikke er nul.
+     *
+     * Vagten hedder "emne != NULL OG emne_len > 0". Laves ANDET til ELLER,
+     * koerer kroppen med emne == NULL, og saa er det memcpy fra NULL,
+     * altsaa et nedbrud. En mutationstest fandt den: ingen proeve kaldte
+     * med den ene halvdel sand og den anden falsk, saa vagten var der uden
+     * at nogen havde vist at den virkede.
+     *
+     * esp-mqtt saetter topic_len til nul naar topic er NULL, saa det sker
+     * ikke af sig selv. Men vagten er der netop for det der IKKE burde
+     * ske, og en vagt man ikke har proevet er ingen vagt.
+     */
+    zs_fleet_saml_init(&s, plads, sizeof(plads));
+    r = zs_fleet_saml_tag(&s, NULL, 12, kort, (int)strlen(kort), 0,
+                          (int)strlen(kort));
+    CHECK("emne NULL med en laengde: beskeden kommer stadig hel igennem",
+          r == ZS_SAML_KLAR && strcmp(plads, kort) == 0);
+    CHECK("og emnet staar tomt i stedet for at vaere laest fra NULL",
+          s.emne[0] == '\0');
+
+    /* Og den anden halvdel: et rigtigt emne med laengde nul. Saa maa der
+     * heller ikke laeses, for der er ingenting at laese. */
+    zs_fleet_saml_init(&s, plads, sizeof(plads));
+    r = zs_fleet_saml_tag(&s, EMNE, 0, kort, (int)strlen(kort), 0,
+                          (int)strlen(kort));
+    CHECK("emne med laengde nul: beskeden kommer hel igennem",
+          r == ZS_SAML_KLAR && strcmp(plads, kort) == 0);
+    CHECK("og emnet staar tomt", s.emne[0] == '\0');
+
+    /*
+     * En NEGATIV emnelaengde.
+     *
+     * Den blev ikke tjekket sammen med de tre andre laengder. Lavet til
+     * size_t blev den enorm, og saa stod der kun afkortningen til emnets
+     * stoerrelse mellem os og en laesning udenfor bufferen. Nu afvises den
+     * som usammenhaengende, ligesom de andre tre.
+     */
+    zs_fleet_saml_init(&s, plads, sizeof(plads));
+    r = zs_fleet_saml_tag(&s, EMNE, -1, kort, (int)strlen(kort), 0,
+                          (int)strlen(kort));
+    CHECK("en negativ emnelaengde bliver afvist", r == ZS_SAML_USAMMENHAENG);
+    r = zs_fleet_saml_tag(&s, EMNE, -4242, kort, (int)strlen(kort), 0,
+                          (int)strlen(kort));
+    CHECK("ogsaa en meget negativ", r == ZS_SAML_USAMMENHAENG);
+
+    ZS_SUITE("Flådestyring: om inverteren svarer");
+
+    /*
+     * Feltet sendes KUN naar det skifter. Sendte vi det ved hver
+     * aflaesning, kom der en raekke hvert andet sekund for et tal der
+     * naesten aldrig aendrer sig, altsaa 43.200 raekker om dagen per
+     * skaerm i stedet for en haandfuld.
+     */
+    zs_inv_status_t inv;
+    memset(&inv, 0, sizeof(inv));
+
+    /*
+     * FOERSTE gang skal der sendes, OGSAA hvis svaret er "online".
+     *
+     * Her er fejlen hvis man kun ser paa "har det aendret sig": en skaerm
+     * der starter op med en inverter der svarer, har ikke aendret noget, og
+     * saa ville feltet staa TOMT paa serveren for evigt. Og et tomt felt
+     * ser ud som en skaerm der ikke kan finde ud af det.
+     */
+    CHECK("foerste gang online: der sendes", zs_fleet_inv_skal_sende(&inv, true) == true);
+    CHECK("og igen online: der ties", zs_fleet_inv_skal_sende(&inv, true) == false);
+    CHECK("tredje gang ogsaa", zs_fleet_inv_skal_sende(&inv, true) == false);
+    CHECK("den skifter til offline: der sendes", zs_fleet_inv_skal_sende(&inv, false) == true);
+    CHECK("og offline igen: der ties", zs_fleet_inv_skal_sende(&inv, false) == false);
+    CHECK("tilbage til online: der sendes", zs_fleet_inv_skal_sende(&inv, true) == true);
+
+    /* Og den anden vej rundt: foerste gang OFFLINE skal ogsaa siges. */
+    memset(&inv, 0, sizeof(inv));
+    CHECK("foerste gang offline: der sendes", zs_fleet_inv_skal_sende(&inv, false) == true);
+    CHECK("og saa ties der", zs_fleet_inv_skal_sende(&inv, false) == false);
+
+    /*
+     * En nulstillet struct betyder "aldrig sagt noget". Det er det
+     * firmwaren goer naar vi melder os ind igen: vi kan ikke vide hvad
+     * serveren har, enheden kan vaere oprettet forfra, saa det skal siges
+     * forfra.
+     */
+    CHECK("efter en ny indmeldelse siges det samme igen",
+          (memset(&inv, 0, sizeof(inv)), zs_fleet_inv_skal_sende(&inv, false)) == true);
+
+    /* NULL maa ikke gaa ned, og der maa ikke sendes paa ingenting. */
+    CHECK("NULL sender ikke", zs_fleet_inv_skal_sende(NULL, true) == false);
+    CHECK("NULL sender ikke, ogsaa offline", zs_fleet_inv_skal_sende(NULL, false) == false);
+
+    /*
+     * Hundrede runder uden aendring giver ÉN afsendelse. Det er hele
+     * pointen, og den er maalt i stedet for antaget.
+     */
+    memset(&inv, 0, sizeof(inv));
+    int sendt = 0;
+    for (int i = 0; i < 100; i++) {
+        if (zs_fleet_inv_skal_sende(&inv, true)) { sendt++; }
+    }
+    CHECK("hundrede uaendrede runder giver én afsendelse", sendt == 1);
+
+    /* Og hundrede runder der skifter hver gang giver hundrede. */
+    memset(&inv, 0, sizeof(inv));
+    sendt = 0;
+    for (int i = 0; i < 100; i++) {
+        if (zs_fleet_inv_skal_sende(&inv, (i % 2) == 0)) { sendt++; }
+    }
+    CHECK("hundrede skiftende runder giver hundrede", sendt == 100);
+
     ZS_SUITE("Flådestyring: når stykkerne ikke hænger sammen");
 
     /* En forbindelse der falder midt i en besked efterlader en halv. Den

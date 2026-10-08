@@ -425,6 +425,24 @@
 #define ZS_FLEET_KAPACITET_FELT  "batteryCapacity"
 
 /*
+ * Svarer inverteren?
+ *
+ * Boksens egen online-status kommer vi IKKE med: den saetter OpenRemote
+ * selv ud af MQTT-forbindelsen, se boxOnline og meta-elementet
+ * userConnected paa serveren. Vi ville ikke kunne sige "jeg er offline"
+ * alligevel, for saa er der ingen forbindelse at sige det paa.
+ *
+ * Men om INVERTEREN svarer, kan kun vi vide. Den sendes KUN naar det
+ * skifter: sendte vi den ved hver aflaesning, ville der komme en raekke
+ * hvert andet sekund for et tal der naesten aldrig aendrer sig.
+ *
+ * Vaerdien skal vaere true eller false med SMAA bogstaver. Maalt mod
+ * serveren: "true" og "false" virker, og saa gør 1 og 0. "True" med stort
+ * bliver TAVST ingenting, feltet staar tomt og der kommer ingen fejl.
+ */
+#define ZS_FLEET_INVERTER_FELT   "inverterOnline"
+
+/*
  * Under den her graense kalder vi det nul.
  *
  * Et anlaeg staar aldrig helt stille. Maaleren svinger nogle faa watt

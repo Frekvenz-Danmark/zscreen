@@ -1,3 +1,53 @@
+## 2026-10-08 23:05
+
+### Man kan nu se om en skaerm er i live, og om inverteren svarer
+To ting, og de kommer fra hver sit sted med vilje.
+
+**Boksen** saetter OpenRemote SELV. Der findes et meta-element
+`userConnected` paa en boolean-attribut, og brokeren saetter feltet true
+naar enhedens egen service-bruger forbinder og false naar den kobler af,
+ogsaa naar forbindelsen bare falder. Jeg har laest det i OpenRemotes egen
+kilde, `ConnectionMonitorHandler` i 1.31.1, og maalt det hele vejen: false
+foer, true mens enheden var forbundet, false igen efter 0,1 sekund. Vi har
+altsaa ikke bygget noget selv, og skaermen skal ikke sende noget.
+
+Det kunne den heller ikke. "Jeg er offline" er en besked der kraever en
+forbindelse at sende paa.
+
+**Inverteren** kan OpenRemote ikke vide noget om, saa skaermen siger det
+selv. Signalet fandtes allerede: `s_home.stale`, det samme der afgoer om
+skaermen viser tallene som gamle. Kaldet staar praecis dér hvor det regnes
+ud, saa serveren og skaermen ikke kan vise to forskellige ting.
+
+### Feltet sendes KUN naar det skifter
+Sendte vi det ved hver aflaesning, kom der en raekke hvert andet sekund for
+et tal der naesten aldrig aendrer sig: 43.200 raekker om dagen per skaerm i
+stedet for en haandfuld.
+
+Beslutningen har TRE tilstande og ikke to, og det er den vigtige del. "Har
+det aendret sig" er ikke nok: starter skaermen op med en inverter der
+svarer, er der ingen aendring fra noget, og saa ville feltet staa TOMT paa
+serveren for evigt. Et tomt felt ser ud som en skaerm der ikke kan finde ud
+af det, ikke som en der aldrig har sagt noget.
+
+Og den siger det FORFRA efter en ny indmeldelse. Vi kan ikke vide hvad
+serveren har: enheden kan vaere oprettet forfra, eller beskeden kan vaere
+gaaet tabt.
+
+Tretten proever, blandt dem at hundrede uaendrede runder giver ÉN
+afsendelse og hundrede skiftende giver hundrede. Seks mutanter er efterset
+enkeltvis og doer alle.
+
+### Og et format der svigter tavst
+Maalt mod serveren: `true` og `false` virker, og saa goer `1` og `0`. Men
+`True` med stort bliver TAVST ingenting. Feltet staar tomt, og der kommer
+ingen fejl nogen steder. Firmwaren sender smaa bogstaver, og det staar
+skrevet ved konstanten hvorfor.
+
+Serverens proeve sender nu feltet BEGGE veje og laeser begge tilbage, saa
+vi ogsaa beviser at skrivningen flyttede noget. Efterset at proeven
+faktisk siger fra paa `True` med stort og paa en tekst.
+
 ## 2026-10-08 20:04
 
 ### En undtagelse i mutationstesten var holdt tavst op med at virke

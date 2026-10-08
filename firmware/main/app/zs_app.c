@@ -384,6 +384,22 @@ static void publish_home(void)
     }
 
     zs_ui_set_home(&s_home);
+
+    /*
+     * Og sig det til flaadestyringen.
+     *
+     * Kaldet staar HER og ikke ved siden af zs_fleet_publish, fordi
+     * s_home.stale bliver regnet ud lige ovenfor. Laa det et andet sted,
+     * kunne de to komme ud af trit, og saa ville serveren vise noget andet
+     * end skaermen. Ét sted, samme tal.
+     *
+     * Demoen er vendt om foeroven og naar aldrig hertil, saa en fremvisning
+     * kan ikke komme til at melde en inverter online der ikke findes.
+     *
+     * Funktionen tier naar der ikke er noget nyt at sige, og naar vi ikke
+     * er indmeldt. Der er derfor ingenting at tjekke her.
+     */
+    zs_fleet_publish_inverter(!s_home.stale);
 }
 
 static void poll_once(void)

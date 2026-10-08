@@ -134,6 +134,16 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info);
  */
 void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time);
 
+/*
+ * Fortaeller serveren om inverteren svarer. Kaldes ved hver aflaesning,
+ * og sender KUN naar det har aendret sig.
+ *
+ * Beslutningen om hvornaar der skal sendes ligger i
+ * zs_fleet_inv_skal_sende i zs_fleet_msg.h, saa den kan proeves af paa en
+ * almindelig maskine. Her staar kun afsendelsen.
+ */
+void zs_fleet_publish_inverter(bool online);
+
 /* Hvor langt vi er. */
 zs_fleet_state_t zs_fleet_state(void);
 

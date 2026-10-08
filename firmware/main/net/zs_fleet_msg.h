@@ -83,6 +83,38 @@ size_t zs_fleet_msg_lyt_topic(char *ud, size_t ud_len, const char *realm,
 bool zs_fleet_enroll_due(bool abonneret, bool har_asset,
                          int64_t naeste_forsoeg_ms, int64_t nu_ms);
 
+/*
+ * Hvad vi sidst har fortalt serveren om inverteren.
+ *
+ * HVORFOR DET ER TRE TILSTANDE OG IKKE TO.
+ *
+ * "Har det aendret sig" er ikke nok. Starter skaermen op med en inverter
+ * der svarer, er der ingen aendring fra noget, og saa ville der ALDRIG
+ * blive sendt. Feltet stod tomt paa serveren, og et tomt felt ser ud som
+ * en skaerm der ikke kan finde ud af det, ikke som en der aldrig har sagt
+ * noget. Derfor: har vi sagt noget, og hvad sagde vi.
+ *
+ * En nulstillet struct betyder "aldrig sagt noget", saa den kan laves med
+ * memset eller som en statisk variabel uden videre.
+ */
+typedef struct {
+    bool sagt;      /* har vi sagt noget overhovedet */
+    bool sidst;     /* og hvad sagde vi saa          */
+} zs_inv_status_t;
+
+/*
+ * Skal vi sende, og hvad bliver tilstanden saa?
+ *
+ * Giver true hvis der skal sendes, og opdaterer s. Kaldes ved hver
+ * aflaesning, altsaa hvert andet sekund, og tier naesten altid.
+ *
+ * Nulstil s naar vi melder os ind igen. Vi kan ikke vide hvad serveren
+ * har: enheden kan vaere oprettet forfra, eller beskeden kan vaere gaaet
+ * tabt, og saa skal den siges igen.
+ */
+bool zs_fleet_inv_skal_sende(zs_inv_status_t *s, bool online);
+
+
 /* ------------------------------------------------------------------ */
 /* Beskeder der kommer i stykker                                       */
 /* ------------------------------------------------------------------ */

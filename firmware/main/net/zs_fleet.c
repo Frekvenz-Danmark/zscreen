@@ -899,6 +899,50 @@ void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
     }
 }
 
+void zs_fleet_publish_inverter(bool online)
+{
+    /* Tilstanden ligger STATISK her og ikke hos kalderen, saa der kun er
+     * ét sted der ved hvad serveren er blevet fortalt. */
+    static zs_inv_status_t s_inv;
+
+    if (s_klient == NULL) {
+        return;
+    }
+    LAAS();
+    bool klar = (s_abonneret && s_asset[0] != '\0');
+    char asset[sizeof(s_asset)];
+    snprintf(asset, sizeof(asset), "%s", s_asset);
+    SLIP();
+    if (!klar) {
+        /*
+         * Ikke indmeldt endnu. Vi nulstiller OGSAA tilstanden, saa
+         * vaerdien bliver sagt forfra naar vi kommer ind. Ellers ville en
+         * skaerm der mistede forbindelsen midt i en uaendret tilstand
+         * aldrig sige den igen, og feltet stod tomt paa serveren.
+         */
+        s_inv.sagt = false;
+        return;
+    }
+    if (!zs_fleet_inv_skal_sende(&s_inv, online)) {
+        return;
+    }
+
+    char emne[160];
+    if (zs_fleet_msg_topic(emne, sizeof(emne), ZS_FLEET_REALM,
+                           zs_fleet_unique_id(), ZS_FLEET_INVERTER_FELT,
+                           asset) == 0) {
+        /* Kunne vi ikke bygge emnet, har vi ikke sagt noget. Saa maa den
+         * ikke staa som sagt, ellers bliver den aldrig forsoegt igen. */
+        s_inv.sagt = false;
+        return;
+    }
+    /* SMAA bogstaver. Maalt mod serveren: "True" med stort bliver TAVST
+     * ingenting, feltet staar tomt og der kommer ingen fejl nogen steder. */
+    const char *krop = online ? "true" : "false";
+    esp_mqtt_client_publish(s_klient, emne, krop, 0, 0, 0);
+    ESP_LOGI(TAG, "inverteren er %s", online ? "online" : "offline");
+}
+
 void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 {
     if (s_klient == NULL || live == NULL) {
@@ -1014,6 +1058,7 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 { (void)live; (void)info; }
 void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
 { (void)wh; (void)har; (void)time; }
+void zs_fleet_publish_inverter(bool online) { (void)online; }
 zs_fleet_state_t zs_fleet_state(void) { return ZS_FLEET_OFF; }
 const char *zs_fleet_state_text(void) { return "Slået fra"; }
 void zs_fleet_asset_id(char *ud, size_t ud_len)

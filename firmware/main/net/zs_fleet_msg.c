@@ -124,6 +124,19 @@ bool zs_fleet_enroll_due(bool abonneret, bool har_asset,
 /* Beskeder der kommer i stykker. Se zs_fleet_msg.h for hvorfor.       */
 /* ------------------------------------------------------------------ */
 
+bool zs_fleet_inv_skal_sende(zs_inv_status_t *s, bool online)
+{
+    if (s == NULL) {
+        return false;
+    }
+    if (s->sagt && s->sidst == online) {
+        return false;           /* uaendret, og serveren ved det     */
+    }
+    s->sagt  = true;
+    s->sidst = online;
+    return true;
+}
+
 void zs_fleet_saml_init(zs_fleet_saml_t *s, char *buf, size_t buf_len)
 {
     if (s == NULL) {
@@ -142,7 +155,21 @@ zs_saml_t zs_fleet_saml_tag(zs_fleet_saml_t *s,
     if (s == NULL || s->buf == NULL || s->buf_len == 0) {
         return ZS_SAML_USAMMENHAENG;
     }
-    if (data_len < 0 || offset < 0 || total < 0) {
+    /*
+     * emne_len staar HER sammen med de andre laengder, og ikke laengere
+     * nede.
+     *
+     * Foer stod der kun tre af de fire. Den fjerde blev holdt i skak af
+     * "emne_len > 0" nede i kroppen, altsaa af en vagt der ser ud som om
+     * den handler om noget andet: om der ER et emne. Var den negativ,
+     * blev den lavet til size_t og dermed enorm, og saa havde kun
+     * afkortningen til emnets stoerrelse tilbage til at holde en
+     * laesning udenfor i skak.
+     *
+     * Fire laengder, fire ens regler, ÉT sted. Saa kan den fjerde ikke
+     * blive glemt igen.
+     */
+    if (data_len < 0 || offset < 0 || total < 0 || emne_len < 0) {
         return ZS_SAML_USAMMENHAENG;
     }
 
@@ -156,7 +183,11 @@ zs_saml_t zs_fleet_saml_tag(zs_fleet_saml_t *s,
         s->har = 0;
         s->dropper = false;
         s->emne[0] = '\0';
-        if (emne != NULL && emne_len > 0) {
+        /* emne_len er efterset foeroven, saa den er nul eller derover.
+         * Er den nul, kopieres nul tegn, og emnet staar tomt som det
+         * allerede gjorde. Der er derfor ikke en laengdevagt mere her:
+         * to vagter om det samme er ét sted at tage fejl for meget. */
+        if (emne != NULL) {
             size_t n = (size_t)emne_len;
             if (n > sizeof(s->emne) - 1) {
                 n = sizeof(s->emne) - 1;
