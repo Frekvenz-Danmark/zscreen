@@ -133,22 +133,22 @@ bool zs_version_tag_ok(const char *version)
     if (*version == 'v' || *version == 'V') {
         version++;
     }
-    size_t n = strlen(version);
-    if (n == 0 || n >= ZS_VERSION_MAX) {
-        return false;
-    }
-
     /*
      * Praecis tre tal med punktum imellem. Vi er strenge med vilje:
      * teksten kommer fra serveren og ender i en URL, saa en skraastreg
      * eller et punktum-punktum maa aldrig slippe igennem. Alt der ikke
      * er noejagtig tal.tal.tal bliver forkastet.
+     *
+     * Der gaas frem til nulbyten og ikke til en laengde maalt foerst. Saa
+     * stopper en lang streng ved det foerste tegn der er for meget, og
+     * ikke efter at hele strengen er gennemloebet én gang for at maale
+     * den. Laengden er bundet af ZS_VERSION_LAENGST, se headeren.
      */
     int tal = 0, cifre = 0;
-    for (size_t i = 0; i < n; i++) {
-        char c = version[i];
+    for (const char *p = version; *p != '\0'; p++) {
+        char c = *p;
         if (c >= '0' && c <= '9') {
-            if (++cifre > 5) { return false; }
+            if (++cifre > ZS_VERSION_MAX_CIFRE) { return false; }
         } else if (c == '.') {
             if (cifre == 0) { return false; }   /* ".." eller ".1" */
             cifre = 0;
@@ -157,5 +157,6 @@ bool zs_version_tag_ok(const char *version)
             return false;
         }
     }
+    /* Tom streng, ogsaa "v" alene, falder her: tal og cifre er nul. */
     return tal == 2 && cifre > 0;
 }

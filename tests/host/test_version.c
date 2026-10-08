@@ -169,6 +169,36 @@ void test_version_tag(void)
     CHECK("fem cifre i hvert tal er lovligt",
           zs_version_tag_ok("99999.99999.99999") == true);
     CHECK("seks cifre er ikke", zs_version_tag_ok("999999.1.1") == false);
+
+    /*
+     * Den laengst mulige version, og at den kan GEMMES hel.
+     *
+     * Her laa foer en laengdevagt i koden, som ikke kunne proeves fordi
+     * formatet aldrig kan give saa lang en streng. Nu staar sammenhaengen
+     * som et tjek ved bygningen, og den proeves her: det laengste formatet
+     * siger ja til, skal kunne staa i feltet UDEN at blive klippet.
+     *
+     * Bliver cifferloftet sat op uden at feltet foelger med, falder
+     * bygningen. Bliver formatet laempet paa en anden maade, falder den
+     * her.
+     */
+    char laengst[ZS_VERSION_MAX * 2];
+    int skrevet = snprintf(laengst, sizeof(laengst), "%s", "99999.99999.99999");
+    CHECK("den laengste version er praecis saa lang som regnet ud",
+          skrevet == ZS_VERSION_LAENGST);
+    CHECK("og formatet siger ja til den", zs_version_tag_ok(laengst) == true);
+
+    zs_maal_t m = zs_version_vaelg_maal("", laengst);
+    CHECK("den kan gemmes som maal", m.gyldig == true);
+    CHECK("og den staar hel, ikke klippet", strcmp(m.maal, laengst) == 0);
+
+    /* Med v foran er den ét tegn laengere ind, men v'et bliver skrællet
+     * af, saa der skal staa det samme i feltet. */
+    char med_v[ZS_VERSION_MAX * 2];
+    snprintf(med_v, sizeof(med_v), "v%s", laengst);
+    m = zs_version_vaelg_maal("", med_v);
+    CHECK("med v foran er den stadig gyldig", m.gyldig == true);
+    CHECK("og der staar stadig det samme uden v", strcmp(m.maal, laengst) == 0);
 }
 /*
  * Teksten naar GitHub svarer 404.

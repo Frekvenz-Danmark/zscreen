@@ -22,6 +22,30 @@ extern "C" {
 #define ZS_VERSION_MAX  24
 
 /*
+ * Hvad formatet HOEJST kan sige ja til.
+ *
+ * zs_version_tag_ok godtager tre tal med hoejst ZS_VERSION_MAX_CIFRE
+ * cifre hver og to punktummer imellem. Mere kan ikke komme igennem, saa
+ * laengden er bundet af formatet og ikke af en laengdevagt.
+ *
+ * HVORFOR DET STAAR HER OG IKKE SOM ET TJEK I KODEN.
+ *
+ * Der stod foer "n == 0 || n >= ZS_VERSION_MAX" inde i funktionen. Begge
+ * halvdele var doed kode: en tom streng falder paa den sidste linje
+ * alligevel, og formatet kan hoejst give 17 tegn, saa graensen paa 24 blev
+ * aldrig naaet. Derfor kunne en mutationstest vende begge halvdele uden at
+ * en eneste proeve faldt, og en vagt man ikke kan proeve er ingen vagt.
+ *
+ * Nu staar sammenhaengen som et tjek ved bygningen i stedet. Saetter nogen
+ * cifferloftet op, falder bygningen med det samme, i stedet for at der
+ * opstaar en bufferfejl man skal vaere heldig at finde.
+ */
+#define ZS_VERSION_MAX_CIFRE  5
+#define ZS_VERSION_LAENGST    (3 * ZS_VERSION_MAX_CIFRE + 2)
+_Static_assert(ZS_VERSION_LAENGST + 1 <= ZS_VERSION_MAX,
+               "formatet kan sige ja til mere end ZS_VERSION_MAX kan rumme");
+
+/*
  * Er teksten et versionsnummer vi kan slaa op som et maerke paa GitHub?
  *
  * Godtager "0.9.0" og "v0.9.0". Forkaster tom, for lang, bogstaver,

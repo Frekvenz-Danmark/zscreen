@@ -1,3 +1,45 @@
+## 2026-10-08 19:12
+
+### En laengdevagt i versionstjekket var doed kode, og derfor uproevelig
+De sidste to mutanter i runden sad paa `n == 0 || n >= ZS_VERSION_MAX` i
+`zs_version_tag_ok`. Jeg kunne ikke skrive en proeve der faldt, og saa saa
+jeg efter hvorfor i stedet for at skrive en proeve der snoed.
+
+Begge halvdele var doed kode. En tom streng bliver afvist paa den sidste
+linje alligevel, for `tal` og `cifre` staar paa nul. Og laengden kan
+simpelthen ikke naa 24: formatet godtager tre tal med hoejst fem cifre
+hver og to punktummer, altsaa hoejst 17 tegn. Graensen blev aldrig naaet.
+Derfor kunne man vende begge halvdele uden at én proeve faldt. En vagt man
+ikke kan proeve af, er ikke en vagt, den er pynt man tror paa.
+
+Vagten er fjernet, og sammenhaengen staar i stedet som et tjek ved
+bygningen:
+
+    #define ZS_VERSION_MAX_CIFRE  5
+    #define ZS_VERSION_LAENGST    (3 * ZS_VERSION_MAX_CIFRE + 2)
+    _Static_assert(ZS_VERSION_LAENGST + 1 <= ZS_VERSION_MAX, ...)
+
+Cifferloftet i loekken bruger nu den samme konstant, saa de to ting ikke
+kan glide fra hinanden. Saetter nogen loftet op til otte, falder bygningen
+med teksten "formatet kan sige ja til mere end ZS_VERSION_MAX kan rumme".
+Efterset: bygningen falder faktisk. Det er bedre end et tjek der koerer
+hver gang uden nogensinde at gribe ind.
+
+Og det er proevet fra den anden side ogsaa: den laengste version formatet
+siger ja til, `99999.99999.99999`, skal fylde praecis det udregnede, skal
+godtages, og skal kunne gemmes som maal HELT, ikke klippet. Baade med og
+uden `v` foran.
+
+### Samtidig: der maales ikke laengere paa en lang streng foer den afvises
+Da laengden ikke skal maales mere, gaar loekken frem til nulbyten i stedet
+for til en laengde regnet ud foerst. En lang streng fra serveren stopper
+nu paa det sjette ciffer, i stedet for at hele strengen loebes igennem én
+gang bare for at maale den. Samme svar, mindre arbejde paa noget der
+kommer udefra.
+
+Antal mutanter faldt fra 381 til 369, fordi der er mindre kode at mutere.
+Otte mutanter paa den nye kode er efterset enkeltvis og doer alle.
+
 ## 2026-10-08 18:39
 
 ### Forskydningen fra UTC kunne vendes fire steder uden at nogen sagde fra
