@@ -1,3 +1,27 @@
+## 2026-10-08 02:21
+
+### Hvad send() sagde, trukket ud så det kan prøves
+`if (n == 0)` stod midt i sendeløkken, og den linje skrev jeg selv tidligere
+i dag. Mutationstesten lavede den til `if (n != 0)`, og ingen prøve sagde
+fra.
+
+Nul er det farlige tilfælde. `send()` tog ingenting, selv om vi bad om mere
+end nul, og så er `errno` **ikke sat af det kald**. Ser man alligevel på
+det, og står der tilfældigvis `EINTR` fra noget helt andet, prøver vi igen
+i en **evig løkke**. Skærmen ville stå og hænge uden en fejl nogen steder.
+
+Beslutningen ligger nu i `zs_mb_send_art`, og den er prøvet af for alle
+kombinationer af n fra -3 til 3 og 60 errno-værdier. Den vigtigste prøve er
+ikke en enkelt værdi, men at **ingen** kombination giver "prøv igen" uden at
+`send()` faktisk fejlede med `EINTR`. Det er den egenskab der udelukker en
+evig løkke, og den kan ikke prøves ved at vælge nogle tal.
+
+Og samme slags vagt på at læse: `mb er NULL eller out er NULL` kunne laves
+til `og`, så en NULL slipper igennem når den anden er sat. Prøvet af nu,
+begge veje og begge på én gang.
+
+**Status:** 8 vagter, 1034 prøver på maskinen, 77 hele vejen igennem.
+
 ## 2026-10-08 02:01
 
 ### To vagter mere på at forbinde, og et || der ikke gav noget

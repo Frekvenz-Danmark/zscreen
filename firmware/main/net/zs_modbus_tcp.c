@@ -490,6 +490,25 @@ zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
 }
 
 /* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
+zs_send_t zs_mb_send_art(long n, int fejlnr)
+{
+    if (n > 0) {
+        return ZS_SEND_VIDERE;
+    }
+    if (n == 0) {
+        /* send() tog ingenting. errno hoerer ikke til dette kald, saa der
+         * bliver ikke set paa det. Se noten i headeren. */
+        return ZS_SEND_FEJL;
+    }
+    switch (zs_mb_errno_art(fejlnr)) {
+    case ZS_SOK_IGEN:    return ZS_SEND_IGEN;
+    case ZS_SOK_TIMEOUT: return ZS_SEND_TIMEOUT;
+    case ZS_SOK_DOED:    break;
+    }
+    return ZS_SEND_FEJL;
+}
+
+/* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
 zs_con_t zs_mb_select_art(int rc)
 {
     if (rc < 0) {
@@ -529,21 +548,13 @@ static zs_mb_err_t send_all(int fd, const uint8_t *buf, size_t len)
 #else
         ssize_t n = send(fd, buf + sent, len - sent, 0);
 #endif
-        if (n > 0) {
-            sent += (size_t)n;
-            continue;
-        }
-        if (n == 0) {
-            /* send() tog ingenting, og vi bad om mere end nul. Saa er
-             * errno ikke sat af DETTE kald, og vi maa ikke se paa det:
-             * stod der tilfaeldigvis EINTR fra noget tidligere, ville
-             * loekken koere for evigt. */
-            return ZS_MB_ERR_SEND;
-        }
-        switch (zs_mb_errno_art(errno)) {
-        case ZS_SOK_IGEN:    continue;
-        case ZS_SOK_TIMEOUT: return ZS_MB_ERR_TIMEOUT;
-        case ZS_SOK_DOED:    break;
+        /* Hele beslutningen ligger i zs_mb_send_art, saa den kan proeves
+         * af. Her staar kun hvad vi goer med svaret. */
+        switch (zs_mb_send_art((long)n, errno)) {
+        case ZS_SEND_VIDERE:  sent += (size_t)n; continue;
+        case ZS_SEND_IGEN:    continue;
+        case ZS_SEND_TIMEOUT: return ZS_MB_ERR_TIMEOUT;
+        case ZS_SEND_FEJL:    break;
         }
         return ZS_MB_ERR_SEND;
     }

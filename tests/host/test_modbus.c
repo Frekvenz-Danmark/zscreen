@@ -426,6 +426,18 @@ void test_modbus_sokkel(void)
     CHECK("NULL som forbindelse afvises",
           zs_mb_connect(NULL, "192.168.1.50", 502, 100) == ZS_MB_ERR_ARG);
 
+    /* Og samme slags vagt paa at LAESE. "mb == NULL || out == NULL" kunne
+     * laves til &&, og saa slipper en NULL igennem naar den anden er sat. */
+    uint16_t svar[4];
+    CHECK("læsning uden forbindelse afvises",
+          zs_mb_read_holding(NULL, 1, 40000, 2, svar, 100) == ZS_MB_ERR_ARG);
+    zs_mb_t l;
+    zs_mb_init(&l);
+    CHECK("læsning uden et sted at lægge svaret afvises",
+          zs_mb_read_holding(&l, 1, 40000, 2, NULL, 100) == ZS_MB_ERR_ARG);
+    CHECK("og begge dele galt på én gang",
+          zs_mb_read_holding(NULL, 1, 40000, 2, NULL, 100) == ZS_MB_ERR_ARG);
+
     zs_mb_t c;
     zs_mb_init(&c);
     CHECK("NULL som vært afvises",
@@ -488,6 +500,50 @@ void test_modbus_sokkel(void)
     zs_mb_close(&luk);                 /* og to gange */
     CHECK_INT("og to gange i træk gør ingen skade", luk.fd, -1);
     CHECK("og den regnes stadig som lukket", !zs_mb_is_open(&luk));
+
+    ZS_SUITE("Modbus: hvad send sagde");
+
+    /*
+     * NUL er det farlige, og det var uprøvet.
+     *
+     * send() tog ingenting, selv om vi bad om mere end nul. Saa er errno
+     * IKKE sat af det kald. Blev "n == 0" lavet om til "n != 0", ville vi
+     * se paa et errno der hoerer til noget helt andet, og stod der
+     * tilfaeldigvis EINTR, ville vi proeve igen i en evig loekke. Skaermen
+     * ville staa og haenge uden en fejl nogen steder.
+     */
+    CHECK("nul er en fejl, og errno bliver IKKE set på",
+          zs_mb_send_art(0, EINTR) == ZS_SEND_FEJL);
+    CHECK("også når der står EAGAIN",
+          zs_mb_send_art(0, EAGAIN) == ZS_SEND_FEJL);
+    CHECK("og når der ikke står noget", zs_mb_send_art(0, 0) == ZS_SEND_FEJL);
+
+    CHECK("over nul: der blev sendt noget",
+          zs_mb_send_art(1, EINTR) == ZS_SEND_VIDERE);
+    CHECK("og meget over nul", zs_mb_send_art(4096, 0) == ZS_SEND_VIDERE);
+
+    /* Under nul: nu TAELLER errno. */
+    CHECK("under nul med EINTR: prøv igen",
+          zs_mb_send_art(-1, EINTR) == ZS_SEND_IGEN);
+    CHECK("under nul med EAGAIN: tiden løb ud",
+          zs_mb_send_art(-1, EAGAIN) == ZS_SEND_TIMEOUT);
+    CHECK("under nul med EPIPE: fejl",
+          zs_mb_send_art(-1, EPIPE) == ZS_SEND_FEJL);
+    CHECK("under nul med ECONNRESET: fejl",
+          zs_mb_send_art(-1, ECONNRESET) == ZS_SEND_FEJL);
+
+    /* Og den vigtigste egenskab af dem alle: der er ingen kombination der
+     * giver "prøv igen" uden at send() faktisk fejlede. Ellers kan der
+     * opstå en evig løkke. */
+    int evig = 0;
+    for (long n = -3; n <= 3; n++) {
+        for (int e = 0; e < 60; e++) {
+            if (zs_mb_send_art(n, e) == ZS_SEND_IGEN && !(n < 0 && e == EINTR)) {
+                evig++;
+            }
+        }
+    }
+    CHECK_INT("kun en rigtig EINTR giver \"prøv igen\"", evig, 0);
 
     ZS_SUITE("Modbus: hvad select sagde da vi ventede på forbindelsen");
 

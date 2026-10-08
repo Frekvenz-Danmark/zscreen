@@ -228,6 +228,27 @@ typedef enum {
 zs_con_t zs_mb_select_art(int rc);
 
 /*
+ * Hvad send() sagde, da vi proevede at sende.
+ *
+ * Beslutningen stod midt i send_all, og den kan ikke proeves derfra: der
+ * skal en rigtig sokkel til, i en bestemt tilstand. En mutationstest
+ * aendrede "if (n == 0)" til "if (n != 0)" uden at nogen proeve sagde fra.
+ *
+ * NUL er det usaedvanlige og det farlige. send() tog ingenting, selv om vi
+ * bad om mere end nul. Saa er errno IKKE sat af dette kald, og vi maa ikke
+ * se paa det: stod der tilfaeldigvis EINTR fra noget tidligere, ville
+ * loekken koere for evigt.
+ */
+typedef enum {
+    ZS_SEND_VIDERE = 0, /* over nul: der blev sendt noget, taeller op   */
+    ZS_SEND_IGEN,       /* afbrudt af et signal, proev igen med det samme */
+    ZS_SEND_TIMEOUT,    /* der kunne ikke sendes inden tiden loeb ud    */
+    ZS_SEND_FEJL        /* og alt andet, ogsaa n lig nul                */
+} zs_send_t;
+
+zs_send_t zs_mb_send_art(long n, int fejlnr);
+
+/*
  * Er vaert og port noget vi overhovedet kan forsoege?
  *
  * Vagten stod to steder, i zs_mb_connect og i zs_mb_probe_port, og de to
