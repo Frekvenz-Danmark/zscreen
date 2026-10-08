@@ -374,6 +374,48 @@ static void laes_svar(const char *data, int len)
                 esp_mqtt_client_subscribe(s_klient, lyt, 0);
                 ZS_LOGI(TAG, "lytter efter målversion");
             }
+
+            /*
+             * OG TAG MAALVERSIONEN MED FRA SVARET HER.
+             *
+             * EN ORDRE SAT MENS SKAERMEN VAR SLUKKET BLEV TABT. Et
+             * abonnement giver kun beskeder mens man lytter, og
+             * forbindelsen er "clean session", saa serveren gemmer
+             * ingenting. Saetter man en maalversion paa en skaerm der er
+             * slukket, stod vaerdien paa serveren, men skaermen spurgte
+             * aldrig efter den. Opdateringen skete aldrig, og man kunne
+             * tro den var sat.
+             *
+             * Maalt 8. oktober 2026: skaermen fik INGENTING ved at komme
+             * tilbage, mens serveren stadig havde vaerdien.
+             *
+             * Men svaret her indeholder den allerede. Maalt: svaret er
+             * 4218 bytes og har alle nitten felter MED vaerdier, ogsaa
+             * targetVersion. Der skal altsaa ikke et ekstra kald til,
+             * kun at vi laeser det vi faar.
+             *
+             * zs_ota_set_target efterser selv teksten, og den udloeser
+             * kun et tjek hvis maalet er ANDERLEDES end det vi havde.
+             * Derfor koster en genforbindelse ingenting.
+             */
+            const cJSON *attrs =
+                cJSON_GetObjectItemCaseSensitive(asset, "attributes");
+            const cJSON *tv = attrs
+                ? cJSON_GetObjectItemCaseSensitive(attrs,
+                                                   ZS_FLEET_TARGET_FELT)
+                : NULL;
+            const cJSON *tv_val = tv
+                ? cJSON_GetObjectItemCaseSensitive(tv, "value") : NULL;
+            if (cJSON_IsString(tv_val)) {
+                ZS_LOGI(TAG, "svaret havde en målversion: %.23s",
+                        tv_val->valuestring);
+                zs_ota_set_target(tv_val->valuestring);
+            } else if (tv_val == NULL || cJSON_IsNull(tv_val)) {
+                /* Intet maal paa serveren. Saa skal vi heller ikke have
+                 * et: er det ryddet i dashboardet mens vi var vaek, er
+                 * det ogsaa en ordre. */
+                zs_ota_set_target("");
+            }
         } else {
             ZS_LOGW(TAG, "svaret havde intet enheds-id");
             LAAS();

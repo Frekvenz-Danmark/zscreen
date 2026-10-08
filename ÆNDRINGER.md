@@ -1,3 +1,52 @@
+## 2026-10-08 14:03
+
+### Hvor hurtigt kommer en kommando frem? Nu er det målt, og to fejl kom frem
+Vi sagde at skærmen er live. Det var ikke målt. Nu er det, og målingen
+kører med hver gang.
+
+**Tallene**, på localhost: skærmen sender og tallet står på serveren efter
+**53 ms**. Vi sætter en målversion og skærmen har den efter **59 ms**.
+
+Begge tal indeholder ét API-kald, så de er et loft og ikke MQTT alene.
+Skilt ud: API-skrivningen er 54 ms, og **36 ms af det er at hente en ny
+nøgle hver gang**. MQTT-leddet er altså omkring **5 ms**. Netværket til
+Danmark er målt til 12 til 36 ms herfra, så i drift lander det omkring et
+tiendedel sekund. Vores kode er ikke det der tager tid.
+
+**Men de 5 millisekunder var meningsløse, og det er den første fejl.** En
+målversion blev bare **gemt**. Opdateringen skete først når det periodiske
+tjek løb, og det er hver halve time. Der gik altså mellem nul og tredive
+minutter fra man trykkede til der skete noget, i gennemsnit et kvarter. De
+fem millisekunder var 180.000 gange hurtigere end det der fulgte efter.
+
+Nu udløser et **nyt** mål et tjek med det samme. Kun et nyt: serveren
+sender værdien igen ved hver indmeldelse, og en genforbindelse er ikke en
+ny ordre. Uden den sammenligning ville en skærm på et dårligt net banke på
+GitHub i stedet for at vise tal.
+
+**Den anden fejl er værre: en ordre sat mens skærmen var slukket blev
+tabt.** Et abonnement giver kun beskeder mens man lytter, og forbindelsen
+er "clean session", så serveren gemmer ingenting. Værdien stod på serveren,
+men skærmen spurgte aldrig efter den. Målt: skærmen fik **ingenting** ved
+at komme tilbage. Man kunne altså sætte en opdatering på hundrede skærme,
+og de der var slukket ville aldrig få den, mens dashboardet viste at den
+var sat.
+
+Rettelsen krævede ikke et ekstra kald. **Indmeldelsessvaret indeholder den
+allerede:** målt til 4218 bytes med alle nitten felter og deres værdier,
+også målversionen. Skærmen læser den nu derfra.
+
+Og målingen prøver netop det der afgør sagen: at svaret **har**
+målversionen med. Holder serveren op med at sende værdier i svaret, er
+ordren tabt igen, og så får vi det at vide.
+
+**Begge veje er MQTT**, bekræftet i koden: data op med QoS 0, som er det
+rigtige for noget der sendes hvert andet sekund og hvor næste måling
+alligevel afløser den, og kommandoer ned via abonnement.
+
+**Status:** 9 vagter, 1113 prøver på maskinen, 89 hele vejen igennem,
+firmwaren bygger.
+
 ## 2026-10-08 07:26
 
 ### Et forkert svar kunne blive meldt som et godt svar

@@ -74,6 +74,25 @@ extern "C" {
  */
 void zs_ota_set_target(const char *version);
 
+/*
+ * Er maalet blevet aendret siden sidst vi spurgte?
+ *
+ * HVORFOR DEN FINDES.
+ *
+ * Maalt 8. oktober 2026: en maalversion naar skaermen paa omkring 5
+ * millisekunder over MQTT. Men den blev bare GEMT. Opdateringen skete
+ * foerst naar det periodiske tjek loeb, og det er hver halve time, se
+ * ZS_OTA_CHECK_INTERVAL_MS. Saa gik der mellem 0 og 30 minutter fra man
+ * trykkede, til der skete noget, og i gennemsnit et kvarter.
+ *
+ * De fem millisekunder var altsaa 180.000 gange hurtigere end det der
+ * fulgte efter. Nu udloeser et NYT maal et tjek med det samme.
+ *
+ * Den laeser OG rydder: svarer true én gang per aendring, saa et tjek
+ * ikke bliver udloest igen og igen.
+ */
+bool zs_ota_target_er_ny(void);
+
 /* Hvad maalet er lige nu. Kopieres ind i ud. Tom streng = foelg nyeste. */
 void zs_ota_get_target(char *ud, size_t ud_len);
 

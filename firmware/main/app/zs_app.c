@@ -1326,7 +1326,12 @@ static void app_task(void *arg)
              * heller mens opsaetningen staar paa, hvor brugeren er i
              * gang med at taste.
              */
-            if (t >= next_ota_check && !s_net_igang && !s_demo &&
+            /* Et NYT maal fra serveren tjekker med det samme, se
+             * zs_ota_target_er_ny. Flaget laeses her og ingen andre
+             * steder, saa det ikke kan blive ryddet af et tjek der
+             * alligevel ikke blev koert. */
+            bool nyt_maal = zs_ota_target_er_ny();
+            if ((t >= next_ota_check || nyt_maal) && !s_net_igang && !s_demo &&
                 s_state != ST_SETUP &&
                 zs_wifi_state() == ZS_WIFI_CONNECTED) {
                 next_ota_check = t + ZS_OTA_CHECK_INTERVAL_MS;

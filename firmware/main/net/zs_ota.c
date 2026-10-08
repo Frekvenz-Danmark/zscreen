@@ -29,6 +29,7 @@ static const char *TAG = "ota";
 #define TARGET_MAX  ZS_VERSION_MAX
 
 static char             s_target[TARGET_MAX];
+static bool             s_target_ny;    /* se zs_ota_target_er_ny */
 static SemaphoreHandle_t s_target_laas;
 
 
@@ -47,6 +48,11 @@ void zs_ota_set_target(const char *version)
     }
     xSemaphoreTake(s_target_laas, portMAX_DELAY);
     if (version == NULL || version[0] == '\0') {
+        /* "Ryddet" er ogsaa en ordre: tilbage til nyeste. Var der et maal
+         * foer, er det en aendring, og saa skal der tjekkes nu. */
+        if (s_target[0] != '\0') {
+            s_target_ny = true;
+        }
         s_target[0] = '\0';
         xSemaphoreGive(s_target_laas);
         ESP_LOGI(TAG, "ingen målversion, vi følger nyeste igen");
@@ -63,9 +69,32 @@ void zs_ota_set_target(const char *version)
     /* Gem UDEN v. Maerket paa GitHub har v foran, og det saettes paa igen
      * naar vi slaar op, saa der kun er ét sted der ved det. */
     const char *p = (*version == 'v' || *version == 'V') ? version + 1 : version;
+    /* Kun hvis det faktisk er et ANDET maal.
+     *
+     * Serveren sender vaerdien igen ved hver indmeldelse, og en
+     * genforbindelse er ikke en ny ordre. Uden den her sammenligning
+     * ville hver genforbindelse udloese et tjek, og en skaerm paa et
+     * daarligt net ville banke paa GitHub i stedet for at vise tal. */
+    bool nyt = strncmp(s_target, p, TARGET_MAX - 1) != 0;
     snprintf(s_target, sizeof(s_target), "%.*s", (int)(TARGET_MAX - 1), p);
+    if (nyt) {
+        s_target_ny = true;
+    }
     xSemaphoreGive(s_target_laas);
-    ESP_LOGI(TAG, "målversion sat til %s", p);
+    ESP_LOGI(TAG, "målversion sat til %s%s", p, nyt ? ", tjekker nu" : "");
+}
+
+bool zs_ota_target_er_ny(void)
+{
+    target_laas_klar();
+    if (s_target_laas == NULL) {
+        return false;
+    }
+    xSemaphoreTake(s_target_laas, portMAX_DELAY);
+    bool ny = s_target_ny;
+    s_target_ny = false;
+    xSemaphoreGive(s_target_laas);
+    return ny;
 }
 
 void zs_ota_get_target(char *ud, size_t ud_len)
