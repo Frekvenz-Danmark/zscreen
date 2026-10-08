@@ -640,3 +640,122 @@ void test_sunspec_kanter(void)
 
     free(r);
 }
+
+/*
+ * HVER kanalnavn-noegle, taget fra tabellen selv.
+ *
+ * Mutationstesten fandt fire noegleord der ikke var roert af en eneste
+ * proeve: BATCHA, BATTERYCHA, DCSTR og SOLAR. De stod som led i en kaede
+ * af ||, og man kan ikke se paa en kaede hvilke led der er proevet.
+ *
+ * Proeven her gaar HELE tabellen igennem. Et noegleord der bliver lagt
+ * til, bliver proevet af samme dag, uden at nogen skal huske det.
+ */
+void test_sunspec_kanalnavne(void)
+{
+    ZS_SUITE("SunSpec: hvert kanalnavn genkendes, hele tabellen igennem");
+
+    CHECK("der er noegleord i tabellen", ZS_SS_KANALNAVNE_ANTAL > 0);
+
+    int galt = 0, med_tal = 0, med_smaa = 0;
+    for (size_t i = 0; i < ZS_SS_KANALNAVNE_ANTAL; i++) {
+        const char *n = ZS_SS_KANALNAVNE[i].noegle;
+        zs_ch_role_t vent = ZS_SS_KANALNAVNE[i].rolle;
+
+        /* Noeglen selv. */
+        if (zs_ss_classify_channel(n) != vent) { galt++; }
+
+        /* Som inverteren faktisk skriver den: med et nummer bagefter, og
+         * med smaa bogstaver. Afkodningen skal taale begge. */
+        char med[64], smaat[64];
+        snprintf(med, sizeof(med), "%s 2", n);
+        if (zs_ss_classify_channel(med) != vent) { med_tal++; }
+
+        size_t k = 0;
+        for (; n[k] != '\0' && k < sizeof(smaat) - 1; k++) {
+            smaat[k] = (n[k] >= 'A' && n[k] <= 'Z')
+                       ? (char)(n[k] - 'A' + 'a') : n[k];
+        }
+        smaat[k] = '\0';
+        if (zs_ss_classify_channel(smaat) != vent) { med_smaa++; }
+    }
+    CHECK_INT("hver nøgle giver sin egen rolle", galt, 0);
+    CHECK_INT("også med et nummer bagefter", med_tal, 0);
+    CHECK_INT("og skrevet med småt", med_smaa, 0);
+
+    /*
+     * RAEKKEFOELGEN, som er den farlige.
+     *
+     * "STCHA" er en delstreng af "STDISCHA". Staar lade-moenstret foerst,
+     * bliver batteriets afladekanal klassificeret som ladekanal, og saa
+     * faar batteri-effekten omvendt fortegn: skaermen siger "lader 3 kW"
+     * mens batteriet aflader.
+     */
+    CHECK("STDISCHA er aflade, ikke lade",
+          zs_ss_classify_channel("STDISCHA") == ZS_CH_BATTERY_DISCHARGE);
+    CHECK("og den rigtige ladekanal er lade",
+          zs_ss_classify_channel("STCHA") == ZS_CH_BATTERY_CHARGE);
+    CHECK("BATTERYDISCHARGE er også aflade",
+          zs_ss_classify_channel("BATTERYDISCHARGE")
+          == ZS_CH_BATTERY_DISCHARGE);
+
+    /* Og at tabellen HAR afladning foer ladning. Falder den her, er
+     * raekkefoelgen blevet rodet, og proeverne ovenfor ville stadig
+     * bestaa paa de enkelte noegler. */
+    size_t i_dis = ZS_SS_KANALNAVNE_ANTAL, i_cha = ZS_SS_KANALNAVNE_ANTAL;
+    for (size_t i = 0; i < ZS_SS_KANALNAVNE_ANTAL; i++) {
+        if (ZS_SS_KANALNAVNE[i].rolle == ZS_CH_BATTERY_DISCHARGE
+                && i_dis == ZS_SS_KANALNAVNE_ANTAL) {
+            i_dis = i;
+        }
+        if (ZS_SS_KANALNAVNE[i].rolle == ZS_CH_BATTERY_CHARGE
+                && i_cha == ZS_SS_KANALNAVNE_ANTAL) {
+            i_cha = i;
+        }
+    }
+    CHECK("afladning står før ladning i tabellen", i_dis < i_cha);
+
+    /*
+     * OG DE NAVNE VI VED FINDES PAA RIGTIGE INVERTERE.
+     *
+     * Proeven ovenfor gaar tabellen igennem, og den kan derfor ikke se at
+     * noget MANGLER i tabellen. Det er maalt: fjerner man "SOLAR" fra
+     * tabellen, bestaar alt ovenfor, for der er saa ikke noget at proeve.
+     *
+     * Derfor en kort liste HER med navne vi har set paa rigtigt udstyr.
+     * Den kan ikke vaere komplet, og det skal den ikke vaere. Den skal
+     * fange at nogen fjerner et navn der er i brug, og det er en anden
+     * slags fejl end at et navn virker forkert.
+     */
+    CHECK("Fronius: MPPT 1 er en solstreng",
+          zs_ss_classify_channel("MPPT 1") == ZS_CH_PV);
+    CHECK("Kostal: DC_STRING 1 er en solstreng",
+          zs_ss_classify_channel("DC_STRING 1") == ZS_CH_PV);
+    /* Den FORKORTEDE form, som er den eneste "DCSTR" selv daekker.
+     *
+     * "DC_STRING" indeholder ogsaa "STRING", saa den linje ovenfor
+     * bestaar selv om DCSTR bliver fjernet fra tabellen. Det er maalt.
+     * Den her linje er den der viser at noeglen er noedvendig. */
+    CHECK("og den forkortede DCStr 1",
+          zs_ss_classify_channel("DCStr 1") == ZS_CH_PV);
+    CHECK("og String 2", zs_ss_classify_channel("String 2") == ZS_CH_PV);
+    CHECK("og PV1", zs_ss_classify_channel("PV1") == ZS_CH_PV);
+    CHECK("og Solar 1", zs_ss_classify_channel("Solar 1") == ZS_CH_PV);
+    CHECK("Fronius: STCHA er batteriet der lader",
+          zs_ss_classify_channel("STCHA") == ZS_CH_BATTERY_CHARGE);
+    CHECK("Fronius: STDISCHA er batteriet der aflader",
+          zs_ss_classify_channel("STDISCHA") == ZS_CH_BATTERY_DISCHARGE);
+    CHECK("StorageCharge", zs_ss_classify_channel("StorageCharge")
+          == ZS_CH_BATTERY_CHARGE);
+    CHECK("BatCharge", zs_ss_classify_channel("BatCharge")
+          == ZS_CH_BATTERY_CHARGE);
+    CHECK("BatteryCharge", zs_ss_classify_channel("BatteryCharge")
+          == ZS_CH_BATTERY_CHARGE);
+
+    /* Noget der ikke er nogen af dem. */
+    CHECK("et ukendt navn er ukendt",
+          zs_ss_classify_channel("VENTILATOR") == ZS_CH_UNKNOWN);
+    CHECK("tom tekst er ukendt", zs_ss_classify_channel("") == ZS_CH_UNKNOWN);
+    CHECK("NULL er ukendt", zs_ss_classify_channel(NULL) == ZS_CH_UNKNOWN);
+}
+

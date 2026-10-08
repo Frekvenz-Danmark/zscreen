@@ -215,6 +215,46 @@ size_t zs_ss_dec_string(const uint16_t *regs, size_t n, size_t off,
 /* Kanal-roller                                                        */
 /* ------------------------------------------------------------------ */
 
+/*
+ * NOEGLEORDENE, ét sted og i RAEKKEFOELGE.
+ *
+ * De stod foer som to kaeder af "strstr(...) != NULL ||". Fire af de ni
+ * noegleord var ikke roert af en eneste proeve: BATCHA, BATTERYCHA, DCSTR
+ * og SOLAR. En mutationstest kunne vende dem om, saa de aldrig passede, og
+ * ingen sagde fra. En Kostal med "DC_STRING 1" ville saa staa som ukendt i
+ * stedet for som solstreng.
+ *
+ * Nu staar de i en tabel. Proeven i tests/host gaar HELE tabellen igennem,
+ * saa et noegleord der bliver lagt til, bliver proevet af samme dag.
+ *
+ * RAEKKEFOELGEN ER EN DEL AF REGLEN.
+ *
+ * DISCHA skal staa FOER CHA. "STCHA" er en delstreng af "STDISCHA", saa
+ * tjekker man lade-moenstret foerst, bliver batteriets afladekanal
+ * klassificeret som ladekanal. Resultatet er at batteri-effekten faar
+ * omvendt fortegn: skaermen siger "lader 3 kW" mens batteriet aflader. Det
+ * er praecis den slags fejl der ikke ser forkert ud foer man staar med en
+ * kunde der undrer sig. Der er en proeve paa netop den raekkefoelge.
+ */
+const zs_ss_kanalnavn_t ZS_SS_KANALNAVNE[] = {
+    /* Batteriet foerst, og DISCHA foer CHA. */
+    { "DISCHA",     ZS_CH_BATTERY_DISCHARGE },
+    { "STCHA",      ZS_CH_BATTERY_CHARGE },
+    { "STORAGECHA", ZS_CH_BATTERY_CHARGE },
+    { "BATCHA",     ZS_CH_BATTERY_CHARGE },
+    { "BATTERYCHA", ZS_CH_BATTERY_CHARGE },
+    /* Solstrenge. Fronius skriver "MPPT 1", Kostal "DC_STRING 1",
+     * andre bare "String 1" eller "PV1". */
+    { "MPPT",       ZS_CH_PV },
+    { "DCSTR",      ZS_CH_PV },
+    { "STRING",     ZS_CH_PV },
+    { "SOLAR",      ZS_CH_PV },
+    { "PV",         ZS_CH_PV },
+};
+
+const size_t ZS_SS_KANALNAVNE_ANTAL =
+    sizeof ZS_SS_KANALNAVNE / sizeof *ZS_SS_KANALNAVNE;
+
 zs_ch_role_t zs_ss_classify_channel(const char *idstr)
 {
     if (idstr == NULL || idstr[0] == '\0') {
@@ -245,23 +285,10 @@ zs_ch_role_t zs_ss_classify_channel(const char *idstr)
      * praecis den slags fejl der ikke ser forkert ud foer man staar med
      * en kunde der undrer sig.
      */
-    if (strstr(norm, "DISCHA") != NULL) {
-        return ZS_CH_BATTERY_DISCHARGE;
-    }
-    if (strstr(norm, "STCHA") != NULL ||
-        strstr(norm, "STORAGECHA") != NULL ||
-        strstr(norm, "BATCHA") != NULL ||
-        strstr(norm, "BATTERYCHA") != NULL) {
-        return ZS_CH_BATTERY_CHARGE;
-    }
-    /* Solstrenge. Fronius skriver "MPPT 1", Kostal "DC_STRING 1",
-     * andre bare "String 1" eller "PV1". */
-    if (strstr(norm, "MPPT") != NULL ||
-        strstr(norm, "DCSTR") != NULL ||
-        strstr(norm, "STRING") != NULL ||
-        strstr(norm, "SOLAR") != NULL ||
-        strstr(norm, "PV") != NULL) {
-        return ZS_CH_PV;
+    for (size_t i = 0; i < ZS_SS_KANALNAVNE_ANTAL; i++) {
+        if (strstr(norm, ZS_SS_KANALNAVNE[i].noegle) != NULL) {
+            return ZS_SS_KANALNAVNE[i].rolle;
+        }
     }
     return ZS_CH_UNKNOWN;
 }

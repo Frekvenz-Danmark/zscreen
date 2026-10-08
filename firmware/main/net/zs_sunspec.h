@@ -421,6 +421,24 @@ typedef enum {
  */
 zs_ch_role_t zs_ss_classify_channel(const char *idstr);
 
+/*
+ * Noegleordene bag zs_ss_classify_channel, udstillet saa de kan proeves.
+ *
+ * Fire af dem var ikke roert af en eneste proeve, fordi de stod som led i
+ * en kaede af || midt i koden. Nu kan en proeve gaa HELE tabellen igennem,
+ * saa et noegleord der bliver lagt til, bliver proevet af samme dag.
+ *
+ * Raekkefoelgen er en del af reglen: DISCHA skal staa foer CHA, se noten i
+ * zs_sunspec.c.
+ */
+typedef struct {
+    const char   *noegle;   /* store bogstaver, uden mellemrum og bindestreg */
+    zs_ch_role_t  rolle;
+} zs_ss_kanalnavn_t;
+
+extern const zs_ss_kanalnavn_t ZS_SS_KANALNAVNE[];
+extern const size_t            ZS_SS_KANALNAVNE_ANTAL;
+
 /* Er kanalen aktiv lige nu? Kun MPPT og THROTTLING taeller. */
 bool zs_ss_channel_active(int32_t dcst);
 
