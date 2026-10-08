@@ -1,3 +1,40 @@
+## 2026-10-08 03:09
+
+### En enhed der lyver om hvor langt svaret er
+MBAP-headeren fortæller hvor mange bytes der følger, og tallet kommer fra
+den anden ende, altså fra noget vi ikke bestemmer over. Siger den 65535 og
+vi tror på det, læser vi 65535 bytes ind i en buffer på 259.
+
+Mutationstesten kunne fjerne reglen på 3 til 253 uden at noget sagde fra.
+Reglen står nu for sig og er prøvet af for **alle 65536** længder, ikke for
+nogle udvalgte tal.
+
+**Og her skal jeg rette mig selv.** Jeg skrev først at den manglende vagt
+gav et overløb. Det gør den ikke. Der er en vagt mere lige efter, på om det
+kan være i bufferen, og den fanger det. Det er målt: med kun den første
+fjernet består alt, med **begge** fjernet falder prøven. Reglen står
+alligevel fast, af to grunde: den afviser et meningsløst tal tidligt med en
+besked man kan se i loggen, og to lag er bedre end ét når tallet kommer
+udefra.
+
+Ny prøve hele vejen igennem: en server der lyver om længden **og** sender
+80 KB. Den gamle prøve med skrald var ikke nok, for den sender 160 bytes og
+lukker, så modtagelsen giver op før der sker noget. Den nye er efterprøvet
+ved at fjerne begge vagter: så falder den. Det er den eneste måde at vide
+at den er værd at have.
+
+Og sammenhængen mellem de to tal, længdegrænsen og bufferens størrelse,
+holdes nu fast ved **oversættelsen**, der hvor begge tal findes. Sættes et
+af dem en dag, falder bygningen i stedet for at nogen opdager det på en væg.
+Efterprøvet ved at gøre bufferen mindre.
+
+### Vagten mod en gammel binær virkede af sig selv
+Midt i arbejdet nægtede prøverne at køre, fordi jeg havde ændret kildekode
+efter sidste bygning af værktøjet. Præcis det den blev lavet til i dag.
+
+**Status:** 8 vagter, 1075 prøver på maskinen, 79 hele vejen igennem,
+fuzzerne rent, firmwaren bygger.
+
 ## 2026-10-08 02:45
 
 ### Testkørslen byggede alt undtagen det der skal ud på skærmen

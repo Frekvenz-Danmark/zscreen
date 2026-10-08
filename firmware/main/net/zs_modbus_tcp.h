@@ -310,6 +310,34 @@ typedef struct {
 zs_mb_timeout_t zs_mb_timeout_vaelg(uint32_t oenske, uint32_t nuvaerende);
 
 /*
+ * Er laengden i svarets header noget vi tror paa?
+ *
+ * MBAP-headeren fortaeller hvor mange bytes der foelger. Tallet kommer fra
+ * den anden ende, altsaa fra noget vi ikke bestemmer over.
+ *
+ * DER ER TO VAGTER, OG DE ER IKKE DEN SAMME:
+ *
+ *   1. den her, som er PROTOKOLREGLEN: mindst unit + funktionskode +
+ *      kode = 3 bytes, hoejst unit + funktionskode + byte-taeller + 250
+ *      data = 253. Den afviser et meningsloest tal tidligt og skriver
+ *      hvad der var i vejen, saa man kan se det i loggen.
+ *
+ *   2. og lige efter den, i modtagelsen: at MBAP_LEN + len kan VAERE i
+ *      bufferen. Det er den haarde stopklods mod et overloeb.
+ *
+ * Og det skal siges praecist, for jeg skrev foerst noget andet her: at
+ * fjerne DEN HER vagt alene giver IKKE et overloeb. Nummer to fanger det,
+ * og proeven hele vejen igennem kan ikke se forskel. Det er maalt: med kun
+ * den her fjernet bestaar alt, med BEGGE fjernet falder proeven "en loegn
+ * om laengden giver intet overloeb".
+ *
+ * Den er altsaa to ting: en regel der staar skrevet ét sted i stedet for
+ * at vaere et tal midt i en loekke, og et lag mere. Ikke den eneste
+ * stopklods.
+ */
+bool zs_mb_pdu_laengde_ok(uint16_t len);
+
+/*
  * Er vaert og port noget vi overhovedet kan forsoege?
  *
  * Vagten stod to steder, i zs_mb_connect og i zs_mb_probe_port, og de to

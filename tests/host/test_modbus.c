@@ -511,6 +511,51 @@ void test_modbus_sokkel(void)
     CHECK_INT("og to gange i træk gør ingen skade", luk.fd, -1);
     CHECK("og den regnes stadig som lukket", !zs_mb_is_open(&luk));
 
+    ZS_SUITE("Modbus: længden i svarets header er en sikkerhedsvagt");
+
+    /*
+     * Tallet kommer fra den anden ende, altsaa fra noget vi ikke bestemmer
+     * over. Vagten stod midt i modtagelsen hvor den ikke kunne proeves, og
+     * en mutationstest lavede "eller" til "og" uden at noget sagde fra.
+     *
+     * Hvad det KOSTER, maalt og ikke gaettet: ingenting alene. Der er en
+     * vagt mere lige efter, paa bufferens stoerrelse, og den fanger
+     * overloebet. Med kun den her fjernet bestaar alt. Med BEGGE fjernet
+     * falder proeven hele vejen igennem.
+     *
+     * Reglen staar alligevel fast her, for to grunde: den afviser et
+     * meningsloest tal tidligt med en besked man kan se i loggen, og to
+     * lag er bedre end ét naar tallet kommer fra en enhed vi ikke
+     * bestemmer over.
+     */
+    CHECK("nul afvises", !zs_mb_pdu_laengde_ok(0));
+    CHECK("én afvises", !zs_mb_pdu_laengde_ok(1));
+    CHECK("to afvises, for der skal mindst være unit, kode og fejlkode",
+          !zs_mb_pdu_laengde_ok(2));
+    CHECK("tre er det mindste lovlige", zs_mb_pdu_laengde_ok(3));
+    CHECK("fire er lovligt", zs_mb_pdu_laengde_ok(4));
+    CHECK("253 er det største lovlige", zs_mb_pdu_laengde_ok(253));
+    CHECK("254 afvises", !zs_mb_pdu_laengde_ok(254));
+    CHECK("255 afvises", !zs_mb_pdu_laengde_ok(255));
+    CHECK("256 afvises", !zs_mb_pdu_laengde_ok(256));
+    CHECK("og 65535, som er det en fjendtlig enhed ville sende",
+          !zs_mb_pdu_laengde_ok(65535));
+
+    /* Hele området. En grænse der er sat ved siden af slipper ikke
+     * igennem, og det er netop kanterne der gør skade her. */
+    int len_galt = 0;
+    for (long i = 0; i <= 65535; i++) {
+        bool ok = zs_mb_pdu_laengde_ok((uint16_t)i);
+        bool vent = (i >= 3 && i <= 253);
+        if (ok != vent) { len_galt++; }
+    }
+    CHECK_INT("alle 65536 længder opfører sig som aftalt", len_galt, 0);
+
+    /* At den størst tillade længde kan VÆRE i bufferen, er sikret ved
+     * oversættelsen i zs_modbus_tcp.c, hvor både MBAP_LEN og PDU_MAX er
+     * synlige. Det hører der og ikke her: en prøve kan køre efter at
+     * skaden er sket, en _Static_assert kan ikke. */
+
     ZS_SUITE("Modbus: vagterne på at skrive");
 
     /*

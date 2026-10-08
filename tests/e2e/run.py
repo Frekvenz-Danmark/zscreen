@@ -643,6 +643,89 @@ def test_fejlkoder():
                 fail("uden fejl: telefonnummeret står der ikke")
 
 
+def test_loegn_om_laengden():
+    suite("En enhed der lyver om hvor langt svaret er")
+
+    # HVORFOR DEN HER PROEVE FINDES.
+    #
+    # MBAP-headeren fortaeller hvor mange bytes der foelger. Tallet kommer
+    # fra den anden ende, altsaa fra noget vi ikke bestemmer over. Siger
+    # den 65535, og vi tror paa det, laeser vi 65535 bytes ind i en buffer
+    # paa 259. Det er et overloeb en fjendtlig enhed paa samme net kan
+    # udloese med ÉT svar.
+    #
+    # Der er TO vagter: protokolreglen paa 3 til 253, og en paa om det kan
+    # vaere i bufferen. Den her proeve er stopklodsen under nummer to.
+    #
+    # Og det er maalt, ikke gaettet: fjerner man bare den foerste, bestaar
+    # alt, for den anden fanger det. Fjerner man BEGGE, falder proeven her.
+    # Saa den daekker noget den anden proeve ikke gjorde: "skrald i stedet
+    # for svar" sender 160 bytes og lukker, saa modtagelsen giver op foer
+    # der er skrevet uden for bufferen. Her lyver serveren om laengden OG
+    # sender 80 KB, saa den rigtige vej bliver gaaet til ende.
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    port = srv.getsockname()[1]
+
+    import threading
+    stop = threading.Event()
+
+    def loegneserver():
+        srv.settimeout(0.5)
+        while not stop.is_set():
+            try:
+                c, _ = srv.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            try:
+                # Laes forespoergslen, saa vi kan svare med det SAMME
+                # transaktions-ID. Ellers bliver svaret afvist af en
+                # anden grund, og saa har vi ikke proevet det vi tror.
+                req = c.recv(12)
+                tid = req[0:2] if len(req) >= 2 else b"\x00\x01"
+                unit = req[6:7] if len(req) >= 7 else b"\x01"
+                # tid, protokol 0, laengde 65535, unit, funktionskode 3
+                c.sendall(tid + b"\x00\x00" + b"\xff\xff" + unit + b"\x03")
+                # Og saa rigeligt med bytes, saa modtagelsen ikke bare
+                # giver op fordi forbindelsen lukkede.
+                fyld = b"A" * 4096
+                for _ in range(20):          # 80 KB, mere end 65535
+                    c.sendall(fyld)
+            except OSError:
+                pass
+            finally:
+                c.close()
+
+    t = threading.Thread(target=loegneserver, daemon=True)
+    t.start()
+    try:
+        r = subprocess.run([PROBE, "127.0.0.1", str(port)],
+                           capture_output=True, text=True, timeout=40)
+        alt = (r.stdout or "") + (r.stderr or "")
+
+        # Det vigtigste: INTET nedbrud og ingen sanitizer-melding.
+        nedbrud = ("AddressSanitizer" in alt or "runtime error" in alt
+                   or "SUMMARY:" in alt or r.returncode < 0)
+        if not nedbrud:
+            ok("en løgn om længden giver intet overløb")
+        else:
+            fail("en løgn om længden giver intet overløb", alt[-600:])
+
+        # Og den skal sige fra, ikke vise opdigtede tal.
+        if r.returncode != 0:
+            ok("og den siger fra i stedet for at vise tal")
+        else:
+            fail("og den siger fra", alt[:400])
+    finally:
+        stop.set()
+        srv.close()
+        t.join(timeout=2)
+
+
 def test_naar_det_gaar_galt():
     suite("Når det går galt")
 
@@ -1477,6 +1560,7 @@ def main():
     test_sunspec_base_40001()
     test_fejlkoder()
     test_naar_det_gaar_galt()
+    test_loegn_om_laengden()
     test_genfind()
     test_ikke_en_inverter()
     test_model_kan_ikke_laeses()

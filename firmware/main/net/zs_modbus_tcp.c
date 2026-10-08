@@ -28,6 +28,20 @@ static const char *TAG = "modbus";
 #define MBAP_LEN            6   /* tid(2) + pid(2) + len(2)                */
 #define PDU_MAX             253 /* unit(1) + fc(1) + bytecount(1) + 250    */
 
+/*
+ * DE TO TAL SKAL PASSE SAMMEN, og det skal holdes fast her.
+ *
+ * Vi laeser MBAP_LEN bytes, ser hvad laengden siger, og laeser saa den
+ * laengde mere ind i SAMME buffer. Er PDU_MAX stoerre end der er plads
+ * til, skriver vi uden for bufferen, og det er praecis det vagten paa
+ * laengden skal forhindre. Saettes ZS_MB_MAX_REGS ned en dag, eller
+ * PDU_MAX op, falder oversaettelsen her i stedet for at nogen opdager det
+ * paa en vaeg.
+ */
+_Static_assert(MBAP_LEN + PDU_MAX <= ZS_MB_MAX_FRAME,
+               "en ramme med den stoerst tillade laengde kan ikke vaere i "
+               "frame[ZS_MB_MAX_FRAME]. Se zs_mb_pdu_laengde_ok.");
+
 /* ------------------------------------------------------------------ */
 /* Hjaelpere                                                           */
 /* ------------------------------------------------------------------ */
@@ -490,6 +504,12 @@ zs_mb_err_t zs_mb_connect(zs_mb_t *mb, const char *host, uint16_t port,
 }
 
 /* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
+bool zs_mb_pdu_laengde_ok(uint16_t len)
+{
+    return len >= 3 && len <= PDU_MAX;
+}
+
+/* Se zs_modbus_tcp.h: ligger som egen funktion saa den kan proeves af. */
 uint16_t zs_mb_naeste_tid(uint16_t *taeller)
 {
     if (taeller == NULL) {
@@ -666,10 +686,9 @@ zs_mb_err_t zs_mb_read_holding(zs_mb_t *mb, uint8_t unit_id, uint16_t address,
     }
 
     uint16_t len = rd_u16(frame + 4);
-    /* Mindst unit + fc + kode = 3, hoejst unit + fc + bc + 250 = 253.
-     * Uden denne graense kunne et fjendtligt svar bede os laese
-     * 65535 bytes ind i en buffer paa 259. */
-    if (len < 3 || len > PDU_MAX) {
+    /* Protokolreglen, se zs_mb_pdu_laengde_ok. Den haarde stopklods mod
+     * et overloeb er den naeste if, paa bufferens stoerrelse. */
+    if (!zs_mb_pdu_laengde_ok(len)) {
         ZS_LOGW(TAG, "urimeligt laengdefelt %u, lukker forbindelsen", len);
         return luk_med_grund(mb, ZS_MB_ERR_FRAME);
     }
