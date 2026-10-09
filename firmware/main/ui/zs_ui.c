@@ -260,6 +260,22 @@ void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode,
                        int min_igen)
 {
     if (!s_ready) { return; }
+    /*
+     * Kun naar siden faktisk vises.
+     *
+     * App'en kalder herind ved HVERT tik, altsaa hvert andet sekund, og
+     * uden den her linje tog vi LVGL-laasen, satte tre labels og kodede
+     * QR'en forfra - 441 pixels - hele tiden, ogsaa mens skaermen stod
+     * paa hovedsiden. Kommentaren i tilmeld_tik lovede at det var gratis
+     * naar siden ikke vises. Det var den ikke, foer nu.
+     *
+     * Siden bliver ikke gammel af det: naar den aabnes, sender
+     * brugerfladen ZS_CMD_TILMELD_VIS, og app'en tegner den om med det
+     * samme i svaret paa den kommando.
+     */
+    if (zs_ui_current() != ZS_SCREEN_TILMELD) {
+        return;
+    }
     lv_port_sem_take();
     zs_tilmeld_page_update(stand, kode, min_igen);
     lv_port_sem_give();

@@ -31,6 +31,7 @@ static lv_obj_t  *s_qr;          /* selve QR'en, tegnet modul for modul */
  */
 #define QR_MAKS_MODULER  (17 + ZS_QR_MAKS_UDGAVE * 4 + 2 * ZS_QR_KANT_MODULER)
 #define QR_MAAL_PX       145
+#define PLADE_LUFT_PX     8   /* luft mellem QR og pladens kant */
 
 static lv_color_t s_qr_lae[QR_MAKS_MODULER * QR_MAKS_MODULER];
 static uint8_t    s_qr_data[ZS_QR_BUF];
@@ -109,8 +110,18 @@ static void tegn_qr(const char *kode)
     lv_img_set_zoom(s_qr, (uint16_t)(256 * skala));
 
     int px = zs_qr_px(moduler, skala);
-    lv_obj_set_size(s_plade, px + 2 * ZS_QR_KANT_MODULER,
-                    px + 2 * ZS_QR_KANT_MODULER);
+    /*
+     * Luft rundt om pladen, i PIXELS.
+     *
+     * Her stod "px + 2 * ZS_QR_KANT_MODULER", og det lagde et antal
+     * MODULER til et antal PIXELS. Det gav 8 pixels og saa rigtigt ud,
+     * men kun fordi kanten tilfaeldigvis er 4. Blev kanten sat til 6
+     * moduler for at foelge en strengere laeser, ville pladen vokse med
+     * 4 pixels i stedet for de 12 man bad om. QR'ens egen lyse kant
+     * ligger allerede INDE i laerredet, saa det her er bare luft til
+     * kanten af pladen.
+     */
+    lv_obj_set_size(s_plade, px + 2 * PLADE_LUFT_PX, px + 2 * PLADE_LUFT_PX);
     lv_obj_clear_flag(s_plade, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -235,14 +246,6 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
         vis_knap = true;
         break;
 
-    case ZS_TILMELD_TILMELDT:
-        lv_label_set_text(s_over, "Anlægget er tilmeldt.");
-        lv_label_set_text(s_kode, ZS_ICON_CHECK);
-        zs_style_text(s_kode, &zs_font_28, ZS_C_GOOD);
-        lv_label_set_text(s_under,
-            "Der skal ikke laves flere koder. Skal anlægget flyttes til "
-            "en anden kunde, sker det hos Frekvenz.");
-        break;
     }
 
     /* Ingen kode, ingen QR. En QR der blev staaende efter koden doede,

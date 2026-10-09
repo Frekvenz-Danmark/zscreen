@@ -94,8 +94,26 @@ typedef enum {
     ZS_TILMELD_KLAR,
     /* Koden er udloebet. Der laves en ny naar nogen beder om det. */
     ZS_TILMELD_UDLOEBET,
-    /* Skaermen er tilmeldt en kunde. Der er ikke mere at vise. */
-    ZS_TILMELD_TILMELDT,
+    /*
+     * HER STOD ÉN MERE: ZS_TILMELD_TILMELDT, "skaermen er tilmeldt en
+     * kunde, der er ikke mere at vise".
+     *
+     * Den er taget ud fordi den ikke kunne NAAS. Funktionen der satte
+     * den blev kun kaldt fra proeverne, og firmwaren har ingen maade at
+     * vide at tilmeldingen lykkedes: det sker paa serveren, og skaermen
+     * faar ikke noget at vide.
+     *
+     * En tilstand brugerfladen lover og firmwaren aldrig naar, er vaerre
+     * end ingen tilstand: den ser proevet ud.
+     *
+     * SAADAN KOMMER DEN TILBAGE. Serveren rydder selv kodefeltet naar
+     * koden bliver brugt - det er braend() i scripts/tilmeld.py. Skaermen
+     * kan altsaa abonnere paa sit eget enrollCode, praecis som den i dag
+     * lytter efter firmwareTarget, og saa betyder "feltet blev tomt uden
+     * at JEG ryddede det" at tilmeldingen lykkedes. Mekanismen findes
+     * allerede, det er bare ikke koblet paa. Det hoerer i den fase hvor
+     * serveren skal sende ned.
+     */
 } zs_tilmeld_stand_t;
 
 /*
@@ -108,7 +126,6 @@ typedef struct {
     char    kode[ZS_TILMELD_KODE_LEN + 1];
     int64_t doer_ms;        /* hvornaar den udloeber, samme ur som nu_ms */
     bool    har_kode;
-    bool    tilmeldt;       /* kunden er oprettet, koden er opbrugt     */
 } zs_tilmeld_t;
 
 /*
@@ -151,9 +168,6 @@ bool zs_tilmeld_bed_om(zs_tilmeld_t *s, bool inverter_fundet,
  * ogsaa holder op med at virke. Det er regel 2.
  */
 void zs_tilmeld_ryd(zs_tilmeld_t *s);
-
-/* Kunden er oprettet. Koden er opbrugt og kommer ikke igen. */
-void zs_tilmeld_tilmeldt(zs_tilmeld_t *s);
 
 /*
  * Koden, eller en tom streng hvis der ikke er en gyldig at vise.

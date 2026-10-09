@@ -155,22 +155,6 @@ void test_tilmeld(void)
     CHECK("og bufferen er tom, så koden ikke ligger i RAM",
           s.kode[0] == '\0');
 
-    /* Tilmeldt: opbrugt for altid. */
-    (void)zs_tilmeld_bed_om(&s, true, true, 6000, t, sizeof(t));
-    zs_tilmeld_tilmeldt(&s);
-    CHECK("tilmeldt: der er ikke mere at vise",
-          zs_tilmeld_stand(&s, true, true, 6000) == ZS_TILMELD_TILMELDT);
-    CHECK("og koden er ryddet", s.kode[0] == '\0');
-    CHECK("der kan ikke bedes om en ny",
-          zs_tilmeld_bed_om(&s, true, true, 7000, t, sizeof(t)) == false);
-    /*
-     * Og det gælder OGSÅ hvis inverteren forsvinder bagefter. En skærm
-     * der mister inverteren i fem minutter, må ikke begynde at tilbyde
-     * en ny tilmelding af en kunde der allerede findes.
-     */
-    CHECK("tilmeldt vejer tungere end en forsvunden inverter",
-          zs_tilmeld_stand(&s, false, false, 8000) == ZS_TILMELD_TILMELDT);
-
     ZS_SUITE("Tilmelding: hvor længe koden gælder endnu");
 
     zs_tilmeld_t m;
@@ -195,8 +179,6 @@ void test_tilmeld(void)
               zs_tilmeld_min_igen(&m, levetid_min_ms()), 0);
     CHECK_INT("og efter udløb også",
               zs_tilmeld_min_igen(&m, levetid_min_ms() + 99999), 0);
-    zs_tilmeld_tilmeldt(&m);
-    CHECK_INT("tilmeldt giver nul", zs_tilmeld_min_igen(&m, 0), 0);
 
     ZS_SUITE("Tilmelding: hvornår koden sendes til serveren");
 
@@ -269,6 +251,5 @@ void test_tilmeld(void)
     CHECK_STR("NULL giver en tom kode",
               zs_tilmeld_kode_nu(NULL, true, true, 0), "");
     zs_tilmeld_ryd(NULL);
-    zs_tilmeld_tilmeldt(NULL);
-    CHECK("og NULL i ryd og tilmeldt går ikke ned", true);
+    CHECK("og NULL i ryd går ikke ned", true);
 }

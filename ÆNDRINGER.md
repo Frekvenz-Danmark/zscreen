@@ -1,3 +1,62 @@
+## 2026-10-09 21:12
+
+### Fire fejl i Fase B, fundet ved at laese koden igennem med fjendtlige oejne
+Proeverne var groenne og alle mutanter doede. Det fandt ikke de her, for
+de sidder i KALDESTEDER og i loefter, ikke i de funktioner der bliver
+muteret.
+
+**1. Koden kunne vises uden at serveren hoerte om den.**
+
+`tilmeld_tik()` stod nede i blokken der kun naas naar inverteren SVARER,
+sammen med energien og kvarteret. Men de to sender maalinger, og uden en
+inverter der svarer er der ingen maalinger. Koden er ikke en maaling: den
+kraever kun at inverteren er FUNDET, altsaa konfigureret, og det er den
+stadig mens den er nede.
+
+Saa en skaerm med en inverter der ikke svarede, viste en kode paa
+skaermen som serveren ALDRIG fik at vide. Montoeren ville proeve den, faa
+nej, og lede efter fejlen i Frekvenz' app hvor den ikke er. Det er
+praecis den fejl hele modulet blev skrevet for at undgaa, og den sad i
+kaldestedet.
+
+Kaldet staar nu allerfoerst i runden, sammen med lysstyrken, og af samme
+grund: alt nedenfor er grene der slutter med `continue`. Den lektie var
+allerede skrevet ned ét sted i filen, og jeg gentog fejlen alligevel.
+
+**2. En kommentar der loej.**
+
+`tilmeld_tik` lovede at brugerfladen "kun tegner om naar den staar paa
+tilmeldingssiden, saa det koster ingenting naar den ikke goer". Der var
+ingen saadan betingelse. Hvert andet sekund blev LVGL-laasen taget, tre
+labels sat, og QR'en kodet forfra og tegnet modul for modul - ogsaa mens
+skaermen stod paa hovedsiden. Nu staar betingelsen der, og
+kommentaren er sand. Siden bliver ikke gammel af det: naar den aabnes,
+tegnes den om med det samme i svaret paa `ZS_CMD_TILMELD_VIS`.
+
+**3. En tilstand brugerfladen lovede, og firmwaren aldrig naaede.**
+
+`ZS_TILMELD_TILMELDT` og `zs_tilmeld_tilmeldt()` blev kun kaldt fra
+proeverne. Firmwaren har ingen maade at vide at tilmeldingen lykkedes:
+det sker paa serveren, og skaermen faar ikke noget at vide. Siden kunne
+altsaa aldrig vise "Anlægget er tilmeldt", men koden saa proevet ud.
+
+Taget ud. Og der staar skrevet hvordan den kommer tilbage: serveren
+rydder selv kodefeltet naar koden bruges, saa skaermen kan abonnere paa
+sit eget `enrollCode` praecis som den i dag lytter efter
+`firmwareTarget`. Saa betyder "feltet blev tomt uden at JEG ryddede det"
+at tilmeldingen lykkedes. Mekanismen findes, den er bare ikke koblet paa.
+
+**4. Moduler lagt til pixels.**
+
+`px + 2 * ZS_QR_KANT_MODULER` lagde et antal MODULER til et antal
+PIXELS. Det gav 8 pixels og saa rigtigt ud, men kun fordi kanten
+tilfaeldigvis er 4. Blev kanten sat til 6 moduler for at foelge en
+strengere laeser, ville pladen vokse med 4 pixels i stedet for de 12 man
+bad om. Der staar nu `PLADE_LUFT_PX` med sin egen enhed.
+
+1359 proever, alle 22 mutanter i `zs_tilmeld` doer, firmwaren bygger,
+alle 9 vagter tilfredse, og Linux er groen.
+
 ## 2026-10-09 20:50
 
 ### Fase B: QR'en paa tilmeldingssiden, maalt foer den kom ind

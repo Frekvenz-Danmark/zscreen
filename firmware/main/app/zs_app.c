@@ -1392,6 +1392,26 @@ static void app_task(void *arg)
             continue;
         }
 
+        /*
+         * Tilmeldingskoden. Den staar HER, sammen med lysstyrken, og af
+         * praecis samme grund: alt nedenfor er grene der slutter med
+         * continue.
+         *
+         * Den sad foer nede sammen med energien og kvarteret, inde i
+         * blokken der kun naas naar inverteren SVARER. Men de to andre
+         * sender maalinger, og uden en inverter der svarer er der ingen
+         * maalinger. Koden er ikke en maaling: den kraever kun at
+         * inverteren er FUNDET, altsaa konfigureret, og det er den
+         * stadig mens den er nede.
+         *
+         * Konsekvensen var at en skaerm med en inverter der ikke svarede,
+         * viste en kode paa skaermen som serveren ALDRIG fik at vide.
+         * Montoeren ville proeve den, faa nej, og lede efter fejlen i
+         * Frekvenz' app hvor den ikke er. Det er den fejl hele modulet
+         * blev skrevet for at undgaa, og den sad i kaldestedet.
+         */
+        tilmeld_tik();
+
         int64_t t = now_ms();
 
         /*
@@ -1716,9 +1736,6 @@ static void app_task(void *arg)
 
             /* Og kvarterets gennemsnit, som sender 96 gange i doegnet. */
             kvarter_tik(&s_home.live);
-
-            /* Og tilmeldingskoden, som tier naesten altid. */
-            tilmeld_tik();
 
             /*
              * Har vi ikke faaet et brugbart svar laenge, saa luk og

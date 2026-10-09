@@ -73,15 +73,6 @@ zs_tilmeld_stand_t zs_tilmeld_stand(const zs_tilmeld_t *s,
     if (s == NULL) {
         return ZS_TILMELD_MANGLER_INVERTER;
     }
-    /*
-     * Tilmeldt gaar FOERST. Er kunden oprettet, er der ikke mere at
-     * vise, og det gaelder ogsaa hvis inverteren senere forsvinder: en
-     * skaerm der mister sin inverter i fem minutter, skal ikke begynde
-     * at tilbyde en ny tilmelding af en kunde der allerede findes.
-     */
-    if (s->tilmeldt) {
-        return ZS_TILMELD_TILMELDT;
-    }
     if (!inverter_fundet) {
         return ZS_TILMELD_MANGLER_INVERTER;
     }
@@ -111,7 +102,7 @@ bool zs_tilmeld_bed_om(zs_tilmeld_t *s, bool inverter_fundet,
      * rigtig ud, mens serveren ikke kendte den. Montoeren ville proeve
      * den, faa nej, og lede efter fejlen et helt andet sted.
      */
-    if (s->tilmeldt || !inverter_fundet || !paa_flaaden) {
+    if (!inverter_fundet || !paa_flaaden) {
         return false;
     }
     /* Er der en gyldig, bliver den staaende. Ellers ville koden skifte
@@ -129,7 +120,7 @@ bool zs_tilmeld_bed_om(zs_tilmeld_t *s, bool inverter_fundet,
 
 int zs_tilmeld_min_igen(const zs_tilmeld_t *s, int64_t nu_ms)
 {
-    if (s == NULL || !s->har_kode || s->tilmeldt || udloebet(s, nu_ms)) {
+    if (s == NULL || !s->har_kode || udloebet(s, nu_ms)) {
         return 0;
     }
     int64_t igen_ms = s->doer_ms - nu_ms;
@@ -147,15 +138,6 @@ void zs_tilmeld_ryd(zs_tilmeld_t *s)
     memset(s->kode, 0, sizeof(s->kode));
     s->doer_ms  = 0;
     s->har_kode = false;
-}
-
-void zs_tilmeld_tilmeldt(zs_tilmeld_t *s)
-{
-    if (s == NULL) {
-        return;
-    }
-    zs_tilmeld_ryd(s);
-    s->tilmeldt = true;
 }
 
 const char *zs_tilmeld_kode_nu(const zs_tilmeld_t *s,
