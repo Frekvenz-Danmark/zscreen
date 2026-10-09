@@ -1,3 +1,31 @@
+## 2026-10-09 18:41
+
+### Tidszonen hang paa at SNTP blev startet i den rigtige raekkefoelge
+`setenv("TZ", ...)` og `tzset()` stod nede i `clock_start`, efter
+`esp_sntp_init` og **bag en tidlig udgang** paa `esp_sntp_enabled()`.
+
+Det virkede, fordi `clock_start` er det eneste sted der starter SNTP i
+dag. Men saa hang hele den danske tid paa netop det: bliver SNTP en dag
+startet et andet sted foerst, springer `clock_start` ud paa foerste linje,
+TZ bliver aldrig sat, og saa giver **hver** `localtime_r` i firmwaren UTC
+i stedet.
+
+Det er fem steder, og ingen af dem ville klage: uret paa skaermen,
+natdaempningen i `zs_display.c`, elpriserne i `zs_price.c` og
+`zs_price_now.c`, timeenergien og kvartersgennemsnittet. Alle ville ligge
+en eller to timer forskudt, og alle ville se rigtige ud.
+
+Tidszonen saettes nu i `tidszone_saet()`, kaldt som det **foerste** i
+`zs_app_start`, foer nogen opgave er startet og dermed foer noget kan
+naa at laese et ur. Den koster to kald og kan ikke fejle. SNTP bliver ved
+med at ligge i `clock_start`, hvor den hoerer til.
+
+Efterset samtidig at der ikke er andre steder der blander urene: alle
+forbrugere bruger `localtime_r`. Det ene `gmtime_r` i `zs_price_now.c`
+staar der med vilje, for den sammenligner netop lokal tid med UTC.
+
+Firmwaren bygger, alle 9 vagter er tilfredse, 1274 tjek bestaaet.
+
 ## 2026-10-09 18:34
 
 ### Fase A i firmwaren: ét gennemsnit per kvarter, og dag og time fra samme ur

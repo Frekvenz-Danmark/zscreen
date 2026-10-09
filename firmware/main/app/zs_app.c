@@ -201,6 +201,25 @@ static void net_job(net_job_t job)
 /* Uret                                                                */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Tidszonen saettes ÉN gang, foer noget som helst kan laese et ur.
+ *
+ * Den stod foer nede i clock_start, efter esp_sntp_init og bag en tidlig
+ * udgang paa esp_sntp_enabled(). Det virkede, men hele den danske tid
+ * hang paa at SNTP aldrig blev startet et andet sted foerst: sker det,
+ * springer clock_start ud paa foerste linje, TZ bliver aldrig sat, og saa
+ * giver HVER localtime_r i firmwaren UTC i stedet. Uret paa skaermen,
+ * natdaempningen, elpriserne, timeenergien og kvartersgennemsnittet ville
+ * alle vaere en eller to timer forskudt, og ingen af dem ville klage.
+ *
+ * Nu haenger den ikke paa noget. Den koster to kald og kan ikke fejle.
+ */
+static void tidszone_saet(void)
+{
+    setenv("TZ", ZS_TIMEZONE, 1);
+    tzset();
+}
+
 static void clock_start(void)
 {
     if (esp_sntp_enabled()) {
@@ -210,9 +229,6 @@ static void clock_start(void)
     esp_sntp_setservername(0, ZS_NTP_SERVER_1);
     esp_sntp_setservername(1, ZS_NTP_SERVER_2);
     esp_sntp_init();
-
-    setenv("TZ", ZS_TIMEZONE, 1);
-    tzset();
     ESP_LOGI(TAG, "henter tid fra %s", ZS_NTP_SERVER_1);
 }
 
@@ -1617,6 +1633,9 @@ static void app_task(void *arg)
 
 bool zs_app_start(void)
 {
+    /* Foerst af alt, saa ingen opgave kan naa at laese et ur uden den. */
+    tidszone_saet();
+
     /* Otte pladser er rigeligt: brugeren kan ikke trykke hurtigere end
      * opgaven arbejder, og bliver koen alligevel fuld, er den foerste
      * besked allerede paa vej. */
