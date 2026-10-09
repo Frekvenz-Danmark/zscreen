@@ -155,6 +155,18 @@ void zs_fleet_publish_inverter(bool online);
  */
 void zs_fleet_publish_kvarter(const zs_kvarter_ud_t *ud);
 
+/*
+ * Tilmeldingens engangskode, eller en TOM streng for at rydde den.
+ *
+ * En tom streng er ikke "ingenting at sende". Den er beskeden om at
+ * koden ikke gaelder laengere, og den SKAL frem: ellers bliver koden ved
+ * med at virke paa serveren efter skaermen er holdt op med at vise den.
+ *
+ * Beslutningen om hvornaar der sendes, ligger i zs_tilmeld_skal_sende i
+ * zs_tilmeld.h, saa den kan proeves af paa en almindelig maskine.
+ */
+void zs_fleet_publish_tilmeld(const char *kode);
+
 /* Hvor langt vi er. */
 zs_fleet_state_t zs_fleet_state(void);
 

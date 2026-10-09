@@ -143,3 +143,31 @@ const char *zs_tilmeld_kode_nu(const zs_tilmeld_t *s,
     }
     return s->kode;
 }
+
+bool zs_tilmeld_skal_sende(zs_tilmeld_sendt_t *s, const char *kode)
+{
+    if (s == NULL || kode == NULL) {
+        return false;
+    }
+    if (s->sagt && strncmp(s->sidst, kode, sizeof(s->sidst)) == 0) {
+        return false;           /* uaendret, og serveren ved det */
+    }
+    /* strncpy med haanden paa nulbyten: koden er kort og kendt, men en
+     * afkortet kode ville vaere en kode montoeren proever forgaeves. */
+    size_t n = strlen(kode);
+    if (n >= sizeof(s->sidst)) {
+        return false;           /* kan ikke vaere en kode vi har lavet */
+    }
+    memcpy(s->sidst, kode, n + 1);
+    s->sagt = true;
+    return true;
+}
+
+void zs_tilmeld_sendt_nulstil(zs_tilmeld_sendt_t *s)
+{
+    if (s == NULL) {
+        return;
+    }
+    memset(s->sidst, 0, sizeof(s->sidst));
+    s->sagt = false;
+}

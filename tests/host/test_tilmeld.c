@@ -164,6 +164,69 @@ void test_tilmeld(void)
     CHECK("tilmeldt vejer tungere end en forsvunden inverter",
           zs_tilmeld_stand(&s, false, false, 8000) == ZS_TILMELD_TILMELDT);
 
+    ZS_SUITE("Tilmelding: hvornår koden sendes til serveren");
+
+    zs_tilmeld_sendt_t sendt;
+    memset(&sendt, 0, sizeof(sendt));
+
+    CHECK("første gang sendes der, også selv om der ikke er nogen kode",
+          zs_tilmeld_skal_sende(&sendt, "") == true);
+    CHECK("og så tier den om det samme",
+          zs_tilmeld_skal_sende(&sendt, "") == false);
+    CHECK("en ny kode sendes", zs_tilmeld_skal_sende(&sendt, "ABC123") == true);
+    CHECK("og den tier om den samme kode igen",
+          zs_tilmeld_skal_sende(&sendt, "ABC123") == false);
+    bool tav = true;
+    for (int i = 0; i < 100; i++) {
+        if (zs_tilmeld_skal_sende(&sendt, "ABC123")) { tav = false; }
+    }
+    CHECK("hundrede uændrede runder giver ikke én afsendelse mere", tav);
+    CHECK("en anden kode sendes", zs_tilmeld_skal_sende(&sendt, "ZZZ999") == true);
+
+    /*
+     * At koden bliver TOM skal også sendes. Ellers bliver den ved med at
+     * virke på serveren efter skærmen er holdt op med at vise den, og det
+     * er regel 2 der falder.
+     */
+    CHECK("at koden er ryddet, sendes også",
+          zs_tilmeld_skal_sende(&sendt, "") == true);
+    CHECK("men kun én gang", zs_tilmeld_skal_sende(&sendt, "") == false);
+
+    /*
+     * Efter en NY indmeldelse står feltet tomt på serveren, mens vi tror
+     * vi har sagt det. Så skal det siges forfra - ellers ser montøren en
+     * kode skærmen viser, som serveren ikke kender.
+     */
+    (void)zs_tilmeld_skal_sende(&sendt, "KODE42");
+    CHECK("og den tier bagefter", zs_tilmeld_skal_sende(&sendt, "KODE42") == false);
+    zs_tilmeld_sendt_nulstil(&sendt);
+    CHECK("efter en ny indmeldelse siges det forfra",
+          zs_tilmeld_skal_sende(&sendt, "KODE42") == true);
+
+    /*
+     * GRAENSEN, lige på tegnet. Bufferen er seks tegn og en nulbyte.
+     *
+     * Mutationstesten fandt den: ">= sizeof" byttet til "> sizeof"
+     * overlevede, fordi ingen prøve ramte PRÆCIS syv tegn. Og med den
+     * mutant ville syv tegn slippe igennem og kopiere otte bytes ind i en
+     * buffer på syv. Det er ikke en afrunding, det er en overskrivning.
+     */
+    zs_tilmeld_sendt_nulstil(&sendt);
+    CHECK("seks tegn er det længste der kan være, og det sendes",
+          zs_tilmeld_skal_sende(&sendt, "ABCDEF") == true);
+    CHECK("syv tegn afvises, og bufferen bliver ikke overskrevet",
+          zs_tilmeld_skal_sende(&sendt, "ABCDEFG") == false);
+    CHECK_STR("og den gamle kode står urørt", sendt.sidst, "ABCDEF");
+
+    /* En kode der er for lang, er ikke en vi har lavet. */
+    CHECK("en for lang kode sendes ikke",
+          zs_tilmeld_skal_sende(&sendt, "FOR-LANG-KODE") == false);
+    CHECK("NULL-kode sendes ikke", zs_tilmeld_skal_sende(&sendt, NULL) == false);
+    CHECK("NULL-tilstand sender ikke",
+          zs_tilmeld_skal_sende(NULL, "ABC123") == false);
+    zs_tilmeld_sendt_nulstil(NULL);
+    CHECK("og NULL i nulstil går ikke ned", true);
+
     /* NULL må ikke gå ned. */
     CHECK("NULL-tilstand giver mangler inverter",
           zs_tilmeld_stand(NULL, true, true, 0) == ZS_TILMELD_MANGLER_INVERTER);

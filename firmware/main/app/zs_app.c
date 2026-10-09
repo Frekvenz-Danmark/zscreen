@@ -30,6 +30,8 @@
 #include "zs_screen_setup.h"
 #include "zs_ota.h"
 #include "zs_tid.h"
+#include "zs_tilmeld.h"
+#include "esp_random.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -85,6 +87,7 @@ static bool s_energi_tav;
 /* Hvornaar vi sidst fik et helt sæt tal, i millisekunder siden start. */
 static int64_t s_last_good_ms;
 static zs_kvarter_t s_kvarter;   /* se kvarter_tik */
+static zs_tilmeld_t s_tilmeld;   /* se tilmeld_tik. ALDRIG i flashen */
 
 /*
  * Demo gemmes ALDRIG.
@@ -278,6 +281,85 @@ static void clock_update(void)
  * samme grund: boetten skal taelle opad over midnat, og det kan den kun
  * hvis dagen og kvarteret kommer fra det samme ur. Se zs_tid.h.
  */
+/*
+ * Tilmeldingens engangskode. Fase B.
+ *
+ * Her laves der IKKE en kode af sig selv. Den bliver til naar nogen
+ * aabner tilmeldingen paa skaermen, og den doer naar de forlader den.
+ * Det er regel 2: koden virker kun mens skaermen faktisk viser den.
+ *
+ * Det her kald sender bare den kode der er lige nu, og en tom streng
+ * naar der ikke er nogen. Afsendelsen tier af sig selv naar der ikke er
+ * noget nyt at sige - se zs_tilmeld_skal_sende.
+ */
+static void tilmeld_tik(void)
+{
+    bool inverter = (s_cfg.inverter_serial[0] != '\0');
+    bool paa_flaaden = (zs_fleet_state() == ZS_FLEET_READY);
+    int64_t nu_ms = esp_timer_get_time() / 1000;
+    zs_fleet_publish_tilmeld(
+        zs_tilmeld_kode_nu(&s_tilmeld, inverter, paa_flaaden, nu_ms));
+}
+
+/* De tre forudsaetninger ét sted, saa de tre kald nedenfor ikke kan
+ * komme til at svare forskelligt paa det samme spoergsmaal. */
+static void tilmeld_nu(bool *inverter, bool *paa_flaaden, int64_t *nu_ms)
+{
+    *inverter    = (s_cfg.inverter_serial[0] != '\0');
+    *paa_flaaden = (zs_fleet_state() == ZS_FLEET_READY);
+    *nu_ms       = esp_timer_get_time() / 1000;
+}
+
+/*
+ * Skaermen aabner eller lukker tilmeldingen. Kaldes fra brugerfladen.
+ *
+ * Giver true hvis der er en kode at vise bagefter. Er svaret false, skal
+ * skaermen vise HVORFOR, og det siger zs_app_tilmeld_stand.
+ */
+bool zs_app_tilmeld_vis(bool vis)
+{
+    bool inverter, paa_flaaden;
+    int64_t nu_ms;
+    tilmeld_nu(&inverter, &paa_flaaden, &nu_ms);
+
+    if (!vis) {
+        /* Vaek fra skaermen, vaek fra serveren. Selve afsendelsen sker
+         * ved naeste tik, hvor koden nu er tom. */
+        zs_tilmeld_ryd(&s_tilmeld);
+        return false;
+    }
+    /*
+     * Tilfaeldigheden kommer fra esp_random, som er en rigtig
+     * stoejkilde paa denne chip naar radioen koerer - og radioen koerer,
+     * for uden flaade laves der slet ingen kode. En rand() med et
+     * forudsigeligt udgangspunkt ville give den samme kode paa hver
+     * skaerm der starter ens.
+     */
+    uint8_t tilf[ZS_TILMELD_TILF_BYTES];
+    esp_fill_random(tilf, sizeof(tilf));
+    return zs_tilmeld_bed_om(&s_tilmeld, inverter, paa_flaaden, nu_ms,
+                             tilf, sizeof(tilf));
+}
+
+/* Hvad skaermen skal vise. Se zs_tilmeld_stand_t for hvorfor der er en
+ * stand og ikke bare en kode: naar der ikke er en, skal der staa hvorfor. */
+zs_tilmeld_stand_t zs_app_tilmeld_stand(void)
+{
+    bool inverter, paa_flaaden;
+    int64_t nu_ms;
+    tilmeld_nu(&inverter, &paa_flaaden, &nu_ms);
+    return zs_tilmeld_stand(&s_tilmeld, inverter, paa_flaaden, nu_ms);
+}
+
+/* Koden til at vise, eller en tom streng. Aldrig NULL. */
+const char *zs_app_tilmeld_kode(void)
+{
+    bool inverter, paa_flaaden;
+    int64_t nu_ms;
+    tilmeld_nu(&inverter, &paa_flaaden, &nu_ms);
+    return zs_tilmeld_kode_nu(&s_tilmeld, inverter, paa_flaaden, nu_ms);
+}
+
 static void kvarter_tik(const zs_fr_live_t *live)
 {
     if (!s_clock_ok || live == NULL) {
@@ -1610,6 +1692,9 @@ static void app_task(void *arg)
 
             /* Og kvarterets gennemsnit, som sender 96 gange i doegnet. */
             kvarter_tik(&s_home.live);
+
+            /* Og tilmeldingskoden, som tier naesten altid. */
+            tilmeld_tik();
 
             /*
              * Har vi ikke faaet et brugbart svar laenge, saa luk og

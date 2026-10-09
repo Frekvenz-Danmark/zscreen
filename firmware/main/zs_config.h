@@ -474,6 +474,24 @@
 #define ZS_FLEET_KVARTER_FELT     "quarterOfDay"
 
 /*
+ * Tilmeldingens engangskode. Fase B.
+ *
+ * Skaermen skriver den HER, og serveren laeser den naar Frekvenz melder
+ * en kunde ind med den. Feltet er ejet af zScreen som alle de andre, saa
+ * ingen anden end skaermen kan skrive en kode ind.
+ *
+ * Det er et TEKSTfelt, og en TOM streng betyder "koden gaelder ikke
+ * laengere". Det er ikke det samme som at feltet aldrig har haft en
+ * vaerdi: skaermen rydder det udtrykkeligt naar den holder op med at vise
+ * koden, og det er netop den regel der goer at en kode man har
+ * fotograferet, ikke kan bruges bagefter.
+ *
+ * Og feltet GEMMES IKKE som historik. En liste over alle koder en skaerm
+ * har vist, er en liste man ikke vil have liggende.
+ */
+#define ZS_FLEET_TILMELD_FELT     "enrollCode"
+
+/*
  * Under den her graense kalder vi det nul.
  *
  * Et anlaeg staar aldrig helt stille. Maaleren svinger nogle faa watt

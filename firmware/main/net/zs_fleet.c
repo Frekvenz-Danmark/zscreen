@@ -4,6 +4,7 @@
  */
 
 #include "zs_fleet.h"
+#include "zs_tilmeld.h"
 #include "zs_tekst.h"
 #include "zs_config.h"
 #include "zs_fleet_msg.h"
@@ -947,6 +948,58 @@ void zs_fleet_publish_kvarter(const zs_kvarter_ud_t *ud)
     }
 }
 
+void zs_fleet_publish_tilmeld(const char *kode)
+{
+    /* Som ved inverterfeltet: tilstanden ligger STATISK her, saa der kun
+     * er ét sted der ved hvad serveren er blevet fortalt. */
+    static zs_tilmeld_sendt_t s_sendt;
+
+    if (s_klient == NULL || kode == NULL) {
+        return;
+    }
+    LAAS();
+    bool klar = (s_abonneret && s_asset[0] != '\0');
+    char asset[sizeof(s_asset)];
+    snprintf(asset, sizeof(asset), "%s", s_asset);
+    SLIP();
+    if (!klar) {
+        /* Ikke indmeldt. Glem hvad vi har sagt, saa koden bliver sagt
+         * forfra naar vi kommer ind: serveren kan have faaet enheden
+         * oprettet forfra, og saa staar feltet tomt dér. */
+        zs_tilmeld_sendt_nulstil(&s_sendt);
+        return;
+    }
+    if (!zs_tilmeld_skal_sende(&s_sendt, kode)) {
+        return;
+    }
+
+    char emne[160];
+    if (zs_fleet_msg_topic(emne, sizeof(emne), ZS_FLEET_REALM,
+                           zs_fleet_unique_id(), ZS_FLEET_TILMELD_FELT,
+                           asset) == 0) {
+        /* Kunne vi ikke bygge emnet, har vi ikke sagt noget. */
+        zs_tilmeld_sendt_nulstil(&s_sendt);
+        return;
+    }
+    /*
+     * Kroppen bygges her og IKKE med send_tekst.
+     *
+     * send_tekst springer ud paa en tom streng, og det er rigtigt for
+     * modelnavne: et tomt modelnavn er ingenting at sige. Men her er en
+     * tom streng selve beskeden - "koden gaelder ikke laengere" - og
+     * sprang vi ud, ville koden blive ved med at virke paa serveren
+     * efter skaermen var holdt op med at vise den.
+     */
+    char krop[ZS_TILMELD_KODE_LEN + 3];
+    snprintf(krop, sizeof(krop), "\"%s\"", kode);
+    esp_mqtt_client_publish(s_klient, emne, krop, 0, 0, 0);
+    if (kode[0] == '\0') {
+        ESP_LOGI(TAG, "tilmeldingskoden er ryddet");
+    } else {
+        ESP_LOGI(TAG, "tilmeldingskoden er sendt");   /* ALDRIG koden selv */
+    }
+}
+
 void zs_fleet_publish_inverter(bool online)
 {
     /* Tilstanden ligger STATISK her og ikke hos kalderen, saa der kun er
@@ -1107,6 +1160,7 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
 { (void)wh; (void)har; (void)time; }
 void zs_fleet_publish_inverter(bool online) { (void)online; }
+void zs_fleet_publish_tilmeld(const char *kode) { (void)kode; }
 void zs_fleet_publish_kvarter(const zs_kvarter_ud_t *ud) { (void)ud; }
 zs_fleet_state_t zs_fleet_state(void) { return ZS_FLEET_OFF; }
 const char *zs_fleet_state_text(void) { return "Slået fra"; }

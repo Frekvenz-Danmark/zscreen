@@ -1,3 +1,47 @@
+## 2026-10-09 19:41
+
+### Fase B: koden naar serveren, og en tom streng er selve beskeden
+Skaermen sender nu tilmeldingskoden op i feltet `enrollCode`, og rydder
+det igen naar den holder op med at vise koden. Det er regel 2 der bliver
+til kode: koden virker kun mens skaermen faktisk viser den.
+
+**En TOM streng er ikke "ingenting at sende".** Den er beskeden om at
+koden ikke gaelder laengere. Derfor bygges kroppen i
+`zs_fleet_publish_tilmeld` i haanden og IKKE med `send_tekst`:
+`send_tekst` springer ud paa en tom streng, og det er rigtigt for
+modelnavne, hvor et tomt navn er ingenting at sige. Her ville det
+betyde at koden blev ved med at virke paa serveren efter skaermen var
+holdt op med at vise den.
+
+Og det er maalt mod serveren, for det var ikke selvfoelgeligt: en tom
+streng bliver IKKE lavet til null. `None` og `''` er to forskellige
+tilstande paa attributten, saa "har aldrig haft en kode" og "koden er
+ryddet" kan skelnes. Mange systemer slaar de to sammen.
+
+**Hvornaar der sendes** ligger i `zs_tilmeld_skal_sende`, saa det kan
+proeves paa en almindelig maskine. Samme tre tilstande som
+inverterfeltet, og af samme grund: "har det aendret sig" er ikke nok.
+Melder skaermen sig ind IGEN, staar feltet tomt paa serveren mens vi
+stadig tror vi har sagt det - og saa ville montoeren se en kode paa
+skaermen som serveren ikke kendte. Tilstanden nulstilles derfor naar vi
+ikke er indmeldt.
+
+Mutationstesten fandt én ting her, og den var reel: `n >= sizeof` byttet
+til `n > sizeof` overlevede, fordi ingen proeve ramte PRAECIS syv tegn. Og
+med den mutant ville syv tegn slippe igennem og kopiere otte bytes ind i
+en buffer paa syv. Det er ikke en afrunding, det er en overskrivning. Der
+staar nu proever paa baade seks og syv tegn, og alle 21 mutanter doer.
+
+**Loggen siger at koden er sendt, men ALDRIG hvad den er.** En kode i en
+log er en kode der kan laeses af alle der kan laese loggen.
+
+**Det er ikke faerdigt endnu.** Skaermen laver ingen kode af sig selv:
+den bliver til naar brugerfladen kalder `zs_app_tilmeld_vis(true)`, og
+den side findes ikke. Det kan man se i binaeren - linkeren har fjernet
+`zs_tilmeld_bed_om` og hele alfabetet, fordi intet kalder dem. Tilbage af
+Fase B er altsaa siden med QR'en, og vores API som Frekvenz kalder med
+koden.
+
 ## 2026-10-09 19:24
 
 ### Tre moduler slap uden om mutationstesten, og en enkeltmodul-koersel kunne slet ikke koere

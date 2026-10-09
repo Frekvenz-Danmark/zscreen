@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "zs_nvs.h"
+#include "zs_tilmeld.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -126,6 +127,22 @@ const char *zs_version(void);
  * traek, og saa er den foerste besked allerede paa vej.
  */
 bool zs_app_send(const zs_cmd_t *cmd);
+
+/*
+ * Tilmeldingen. Fase B.
+ *
+ * zs_app_tilmeld_vis(true) naar siden aabnes, (false) naar den lukkes.
+ * Koden virker KUN mens skaermen viser den, saa det andet kald er lige
+ * saa vigtigt som det foerste.
+ *
+ * Giver false hvis der ikke kan laves en kode. Spoerg saa
+ * zs_app_tilmeld_stand hvorfor, og skriv det paa skaermen: en montoer der
+ * staar med en skaerm uden kode, skal kunne se om han mangler en inverter
+ * eller et netvaerk.
+ */
+bool zs_app_tilmeld_vis(bool vis);
+zs_tilmeld_stand_t zs_app_tilmeld_stand(void);
+const char *zs_app_tilmeld_kode(void);
 
 #ifdef __cplusplus
 }

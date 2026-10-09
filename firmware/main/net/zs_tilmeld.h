@@ -165,6 +165,41 @@ const char *zs_tilmeld_kode_nu(const zs_tilmeld_t *s,
                                bool inverter_fundet, bool paa_flaaden,
                                int64_t nu_ms);
 
+/*
+ * HVORNAAR KODEN SENDES TIL SERVEREN.
+ *
+ * "Har den aendret sig" er ikke nok, praecis som ved inverterfeltet i
+ * zs_fleet_msg.h. Melder skaermen sig ind IGEN - fordi enheden er
+ * oprettet forfra, eller fordi beskeden gik tabt - saa staar feltet tomt
+ * paa serveren, mens vi stadig tror vi har sagt det. Og saa ville
+ * montoeren se en kode paa skaermen som serveren ikke kendte.
+ *
+ * Derfor: har vi sagt noget, og hvad sagde vi saa. Og nulstil ved en ny
+ * indmeldelse.
+ *
+ * En nulstillet struct betyder "aldrig sagt noget".
+ */
+typedef struct {
+    bool sagt;
+    char sidst[ZS_TILMELD_KODE_LEN + 1];
+} zs_tilmeld_sendt_t;
+
+/*
+ * Skal koden sendes nu?
+ *
+ *   kode  det zs_tilmeld_kode_nu gav. En TOM streng er ikke ingenting:
+ *         den betyder "ryd den hos dig ogsaa", og den skal ogsaa sendes
+ *         én gang, ellers bliver koden ved med at virke paa serveren
+ *         efter skaermen er holdt op med at vise den.
+ *
+ * Giver true hvis der skal sendes, og opdaterer s. Kaldes ved hver
+ * aflaesning og tier naesten altid.
+ */
+bool zs_tilmeld_skal_sende(zs_tilmeld_sendt_t *s, const char *kode);
+
+/* Glem hvad vi har sagt. Kaldes ved en ny indmeldelse. */
+void zs_tilmeld_sendt_nulstil(zs_tilmeld_sendt_t *s);
+
 #ifdef __cplusplus
 }
 #endif
