@@ -25,6 +25,7 @@ static lv_obj_t *s_det_col;
 static zs_row_t  s_row_demo;
 static zs_row_t  s_row_zone;
 static zs_row_t  s_row_tema;
+static zs_row_t  s_row_tilmeld;
 static zs_page_t s_tema;
 static zs_row_t  s_row_soft;
 
@@ -126,6 +127,18 @@ static void on_change_tema(lv_event_t *e)
 {
     (void)e;
     zs_ui_show(ZS_SCREEN_THEME);
+}
+
+static void on_tilmeld(lv_event_t *e)
+{
+    (void)e;
+    /* Siden bliver aabnet. Koden laves nu og doer naar den forlades. */
+    zs_cmd_t c;
+    memset(&c, 0, sizeof(c));
+    c.type = ZS_CMD_TILMELD_VIS;
+    c.flag = true;
+    zs_app_send(&c);
+    zs_ui_show(ZS_SCREEN_TILMELD);
 }
 
 static void on_tema_tilbage(lv_event_t *e)
@@ -345,6 +358,19 @@ static void build_settings(void)
      * aabner en side hvor man vaelger. */
     zs_row_create(&s_row_tema, col, ZS_ICON_SUN, "Tema", "", true);
     lv_obj_set_width(s_row_tema.row, ZS_CONTENT_WIDTH);
+
+    /*
+     * Tilmeldingen staar under Indstillinger og ikke i opsaetningen.
+     *
+     * Opsaetningen er kundens: wifi, inverter, prisomraade. Tilmeldingen
+     * er montoerens eller Frekvenz', og den sker ofte EFTER kunden har
+     * sat skaermen op. Stod den i opsaetningen, skulle den hele vejen
+     * igennem igen for at naa den.
+     */
+    zs_row_create(&s_row_tilmeld, col, ZS_ICON_PLUG, "Tilmeld anlægget",
+                  "", true);
+    lv_obj_set_width(s_row_tilmeld.row, ZS_CONTENT_WIDTH);
+    lv_obj_add_event_cb(s_row_tilmeld.row, on_tilmeld, LV_EVENT_CLICKED, NULL);
     lv_obj_add_flag(s_row_tema.row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(s_row_tema.row, on_change_tema, LV_EVENT_CLICKED, NULL);
 

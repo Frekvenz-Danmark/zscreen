@@ -197,6 +197,15 @@ typedef struct {
  */
 bool zs_tilmeld_skal_sende(zs_tilmeld_sendt_t *s, const char *kode);
 
+/*
+ * Hvor mange minutter koden gaelder endnu, rundet OP.
+ *
+ * Rundet op med vilje: staar der "0 minutter" paa en kode der stadig
+ * virker, tror montoeren den er doed og laver en ny uden grund. Giver 0
+ * naar der ikke er en gyldig kode.
+ */
+int zs_tilmeld_min_igen(const zs_tilmeld_t *s, int64_t nu_ms);
+
 /* Glem hvad vi har sagt. Kaldes ved en ny indmeldelse. */
 void zs_tilmeld_sendt_nulstil(zs_tilmeld_sendt_t *s);
 

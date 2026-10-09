@@ -1,6 +1,13 @@
 #include "zs_test.h"
 #include "../../firmware/main/net/zs_tilmeld.h"
 
+/* Levetiden i millisekunder. Ét sted, saa proeverne ikke gentager
+ * regnestykket og kan komme ud af trit med headeren. */
+static int64_t levetid_min_ms(void)
+{
+    return (int64_t)ZS_TILMELD_LEVETID_MIN * 60 * 1000;
+}
+
 /* Fire bytes som ét tal, saa proeverne kan skrives laeseligt. */
 static void fire(uint8_t *ud, uint32_t v)
 {
@@ -163,6 +170,33 @@ void test_tilmeld(void)
      */
     CHECK("tilmeldt vejer tungere end en forsvunden inverter",
           zs_tilmeld_stand(&s, false, false, 8000) == ZS_TILMELD_TILMELDT);
+
+    ZS_SUITE("Tilmelding: hvor længe koden gælder endnu");
+
+    zs_tilmeld_t m;
+    memset(&m, 0, sizeof(m));
+    CHECK_INT("uden kode er der nul minutter igen", zs_tilmeld_min_igen(&m, 0), 0);
+    CHECK_INT("NULL giver nul", zs_tilmeld_min_igen(NULL, 0), 0);
+
+    (void)zs_tilmeld_bed_om(&m, true, true, 0, t, sizeof(t));
+    CHECK_INT("en ny kode gælder hele levetiden",
+              zs_tilmeld_min_igen(&m, 0), ZS_TILMELD_LEVETID_MIN);
+    /*
+     * Rundet OP. Står der "0 minutter" på en kode der stadig virker,
+     * tror montøren den er død og laver en ny uden grund.
+     */
+    CHECK_INT("ét millisekund igen er stadig ét minut",
+              zs_tilmeld_min_igen(&m, levetid_min_ms() - 1), 1);
+    CHECK_INT("61 sekunder igen er to minutter",
+              zs_tilmeld_min_igen(&m, levetid_min_ms() - 61000), 2);
+    CHECK_INT("præcis 60 sekunder igen er ét minut",
+              zs_tilmeld_min_igen(&m, levetid_min_ms() - 60000), 1);
+    CHECK_INT("ved udløb er der nul igen",
+              zs_tilmeld_min_igen(&m, levetid_min_ms()), 0);
+    CHECK_INT("og efter udløb også",
+              zs_tilmeld_min_igen(&m, levetid_min_ms() + 99999), 0);
+    zs_tilmeld_tilmeldt(&m);
+    CHECK_INT("tilmeldt giver nul", zs_tilmeld_min_igen(&m, 0), 0);
 
     ZS_SUITE("Tilmelding: hvornår koden sendes til serveren");
 

@@ -299,6 +299,20 @@ static void tilmeld_tik(void)
     int64_t nu_ms = esp_timer_get_time() / 1000;
     zs_fleet_publish_tilmeld(
         zs_tilmeld_kode_nu(&s_tilmeld, inverter, paa_flaaden, nu_ms));
+
+    /*
+     * Og fladen faar den samme sandhed. Den tegner kun om naar den staar
+     * paa tilmeldingssiden, saa det koster ingenting naar den ikke goer.
+     *
+     * Det er HER og ikke i siden selv, fordi nedtaellingen skal loebe af
+     * sig selv: en montoer der staar og kigger paa koden, skal kunne se
+     * at der er tre minutter tilbage og ikke ti.
+     */
+    zs_ui_set_tilmeld(zs_tilmeld_stand(&s_tilmeld, inverter, paa_flaaden,
+                                       nu_ms),
+                      zs_tilmeld_kode_nu(&s_tilmeld, inverter, paa_flaaden,
+                                         nu_ms),
+                      zs_tilmeld_min_igen(&s_tilmeld, nu_ms));
 }
 
 /* De tre forudsaetninger ét sted, saa de tre kald nedenfor ikke kan
@@ -1045,6 +1059,16 @@ static void handle_cmd(const zs_cmd_t *c)
         s_cfg.night_dimming = c->flag;
         zs_display_set_night_dimming(c->flag);
         gem_snart();
+        break;
+
+    case ZS_CMD_TILMELD_VIS:
+        (void)zs_app_tilmeld_vis(c->flag);
+        /* Tegn siden om med det samme. Ellers staar der "ingen kode" i op
+         * til to sekunder efter der er trykket, og saa tror montoeren at
+         * knappen ikke virkede og trykker igen. */
+        zs_ui_set_tilmeld(zs_app_tilmeld_stand(), zs_app_tilmeld_kode(),
+                          zs_tilmeld_min_igen(&s_tilmeld,
+                                              esp_timer_get_time() / 1000));
         break;
 
     case ZS_CMD_SET_THEME:

@@ -1,3 +1,64 @@
+## 2026-10-09 19:57
+
+### Fase B: siden hvor anlaegget tilmeldes, og hvorfor den ogsaa er der uden en kode
+Under Indstillinger er der nu "Tilmeld anlægget". Siden viser
+engangskoden paa seks tegn og hvor laenge den gaelder endnu.
+
+**Siden er ogsaa der naar der IKKE er nogen kode, og det er hele
+pointen.** En kode kraever at inverteren er fundet og at skaermen er paa
+flaaden. Mangler én af dem, staar montoeren med en skaerm der ikke vil
+give en kode, og saa staar der nu HVORFOR og HVAD man goer:
+
+* mangler inverteren: "Skærmen skal finde inverteren, før anlægget kan
+  tilmeldes. Gå til Indstillinger og vælg Inverter."
+* mangler flaaden: "Koden skal også kendes af serveren, ellers virker den
+  ikke. Tjek netværket under Indstillinger."
+
+Det var den dyre halvdel af beslutningen 8. oktober. Jakob valgte det
+strammere - ingen tilmelding foer anlaegget er fundet - og prisen er
+netop den montoer der staar og venter. Uden de beskeder ville han lede
+efter fejlen i Frekvenz' app, hvor den ikke er.
+
+**Koden doer naar siden forlades.** Tilbageknappen siger det til app'en,
+som rydder koden og sender en tom streng op, saa den ogsaa holder op med
+at virke paa serveren. Det er regel 2, og den skal staa i
+tilbageknappen og ikke i sideskiftet: en kode der blev ved med at virke
+fordi nogen gik tilbage ad en anden vej, er en kode man kan fotografere
+og bruge bagefter.
+
+**Nedtaellingen loeber af sig selv**, fordi app'en foeder siden ved hvert
+tik og ikke kun naar den aabnes. En montoer skal kunne se at der er tre
+minutter tilbage og ikke ti. Minutterne rundes OP: staar der "0
+minutter" paa en kode der stadig virker, laver han en ny uden grund.
+
+**Koden staar i zs_font_28 og ikke i den store.** `zs_font_num_64` har
+med vilje kun cifre og skilletegn - den blev lavet til wattene paa
+hovedskaermen - og koden har bogstaver. Skal den staa stoerre, skal de 32
+tegn med i den store skrifttype, og det koster flash vi foerst vil maale.
+
+**To vagter fangede noget undervejs.** Tegnsaetsvagten: jeg havde skrevet
+en tankestreg som pladsholder, og den findes ikke i nogen af de fem
+skrifttyper - LVGL tegner ingenting for et manglende tegn, saa der ville
+have staaet en tom plads paa skaermen. Nu bruges husets egen streg, som
+resten af fladen. Og blindgydevagten taeller nu 11 sider, 10 med
+tilbageknap.
+
+**Mutationstesten fandt at udloeb blev afgjort TO steder.** Mutanten
+">=" -> ">" i `min_igen` kunne ikke slaas ihjel, fordi regnestykket
+bagefter alligevel gav nul ved praecis udloeb. Men det betoed at
+graensen var proevet ét sted og ikke det andet, og de to kunne skride fra
+hinanden uden at nogen saa det. Nu afgoer `udloebet()` det ét sted, og
+alle 25 mutanter doer.
+
+**Efterset i binaeren, ikke i byggeloggen.** Den signerede binaer har
+samme stoerrelse som foer, hvilket er udfyldning og ikke manglende kode:
+teksten, alfabetet og alle tre nye symboler ligger i billedet. Foer siden
+fandtes, havde linkeren fjernet hele kodegenereringen fordi intet kaldte
+den - det kunne ses paa at alfabetet manglede i billedet.
+
+Tilbage af Fase B: vores API, som Frekvenz kalder med koden og kundens
+oplysninger. Og QR'en, naar et bibliotek er maalt paa licens og flash.
+
 ## 2026-10-09 19:41
 
 ### Fase B: koden naar serveren, og en tom streng er selve beskeden

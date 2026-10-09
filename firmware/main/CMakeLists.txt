@@ -45,6 +45,7 @@ idf_component_register(
         "ui/zs_tilegrid.c"
         "ui/zs_ui.c"
         "ui/zs_screen_home.c"
+        "ui/zs_screen_tilmeld.c"
         "ui/zs_screen_setup.c"
         "ui/zs_screen_settings.c"
         "ui/widgets/zs_tile.c"

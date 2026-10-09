@@ -15,6 +15,7 @@
  */
 
 #include "zs_ui.h"
+#include "zs_screen_tilmeld.h"
 #include "zs_theme.h"
 #include "zs_screen_home.h"
 #include "zs_screen_setup.h"
@@ -49,6 +50,7 @@ void zs_ui_init(void)
     zs_screen_home_create(on_gear, NULL);
     zs_setup_create();
     zs_settings_create();
+    zs_tilmeld_page_create();
 
     s_ready = true;
     /* Vi viser velkomstsiden med den laase-frie udgave.
@@ -77,11 +79,12 @@ static lv_obj_t *root_of(zs_screen_id_t id)
     case ZS_SCREEN_SETTINGS:      return zs_settings_root();
     case ZS_SCREEN_DETAILS:       return zs_details_root();
     case ZS_SCREEN_THEME:         return zs_theme_page_root();
+    case ZS_SCREEN_TILMELD:       return zs_tilmeld_page_root();
     }
     return NULL;
 }
 
-#define SCREEN_COUNT  (ZS_SCREEN_THEME + 1)
+#define SCREEN_COUNT  (ZS_SCREEN_TILMELD + 1)
 
 /*
  * Skifter side UDEN at tage laasen. Kalderen skal holde den.
@@ -250,5 +253,14 @@ void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi)
     if (!s_ready) { return; }
     lv_port_sem_take();
     zs_details_update(fr, own_ip, rssi);
+    lv_port_sem_give();
+}
+
+void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode,
+                       int min_igen)
+{
+    if (!s_ready) { return; }
+    lv_port_sem_take();
+    zs_tilmeld_page_update(stand, kode, min_igen);
     lv_port_sem_give();
 }

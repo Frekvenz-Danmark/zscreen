@@ -51,6 +51,21 @@ bool zs_tilmeld_kode(char *ud, size_t ud_len,
     return true;
 }
 
+/*
+ * Er koden loebet ud? ÉT sted, saa de to kaldere ikke kan komme til at
+ * svare forskelligt paa det samme spoergsmaal.
+ *
+ * Den stod foer begge steder. Mutationstesten pegede paa det: mutanten
+ * ">=" -> ">" i min_igen kunne ikke slaas ihjel, fordi regnestykket
+ * bagefter alligevel gav nul ved praecis udloeb. Grænsen var altsaa
+ * proevet ét sted og ikke det andet, og de to kunne skride fra hinanden
+ * uden at nogen saa det.
+ */
+static bool udloebet(const zs_tilmeld_t *s, int64_t nu_ms)
+{
+    return nu_ms >= s->doer_ms;
+}
+
 zs_tilmeld_stand_t zs_tilmeld_stand(const zs_tilmeld_t *s,
                                     bool inverter_fundet, bool paa_flaaden,
                                     int64_t nu_ms)
@@ -77,7 +92,7 @@ zs_tilmeld_stand_t zs_tilmeld_stand(const zs_tilmeld_t *s,
         /* Ingen endnu. Det er ikke en fejl, der er bare ikke bedt om en. */
         return ZS_TILMELD_UDLOEBET;
     }
-    if (nu_ms >= s->doer_ms) {
+    if (udloebet(s, nu_ms)) {
         return ZS_TILMELD_UDLOEBET;
     }
     return ZS_TILMELD_KLAR;
@@ -101,7 +116,7 @@ bool zs_tilmeld_bed_om(zs_tilmeld_t *s, bool inverter_fundet,
     }
     /* Er der en gyldig, bliver den staaende. Ellers ville koden skifte
      * under montoeren hver gang skaermen tegnede sig selv om. */
-    if (s->har_kode && nu_ms < s->doer_ms) {
+    if (s->har_kode && !udloebet(s, nu_ms)) {
         return true;
     }
     if (!zs_tilmeld_kode(s->kode, sizeof(s->kode), tilf, tilf_len)) {
@@ -110,6 +125,16 @@ bool zs_tilmeld_bed_om(zs_tilmeld_t *s, bool inverter_fundet,
     s->doer_ms  = nu_ms + (int64_t)ZS_TILMELD_LEVETID_MIN * 60 * 1000;
     s->har_kode = true;
     return true;
+}
+
+int zs_tilmeld_min_igen(const zs_tilmeld_t *s, int64_t nu_ms)
+{
+    if (s == NULL || !s->har_kode || s->tilmeldt || udloebet(s, nu_ms)) {
+        return 0;
+    }
+    int64_t igen_ms = s->doer_ms - nu_ms;
+    /* Rundet OP: 61 sekunder er "2 minutter" og ikke "1". Se headeren. */
+    return (int)((igen_ms + 59999) / 60000);
 }
 
 void zs_tilmeld_ryd(zs_tilmeld_t *s)

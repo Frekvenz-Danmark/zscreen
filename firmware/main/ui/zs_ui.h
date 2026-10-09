@@ -20,6 +20,7 @@
 #include "zs_theme.h"
 #include "zs_price.h"
 #include "zs_ota.h"
+#include "zs_tilmeld.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,6 +38,7 @@ typedef enum {
     ZS_SCREEN_SETTINGS,      /* indstillinger                       */
     ZS_SCREEN_DETAILS,       /* detaljer om anlægget                */
     ZS_SCREEN_THEME,         /* vælg tema                           */
+    ZS_SCREEN_TILMELD,       /* tilmeld anlægget til en kunde        */
 } zs_screen_id_t;
 
 /* Bygger alle skaerme. Kaldes én gang fra app_main, med LVGL-laasen
@@ -76,6 +78,11 @@ void zs_ui_set_demo(bool demo);
 void zs_ui_set_price(const zs_price_day_t *d);
 void zs_ui_set_ota(const zs_ota_status_t *o);
 void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi);
+
+/* Tilmeldingssiden. Se zs_screen_tilmeld.h for hvorfor der er en stand
+ * og ikke bare en kode. */
+void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode,
+                       int min_igen);
 
 #ifdef __cplusplus
 }

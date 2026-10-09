@@ -63,6 +63,14 @@ typedef enum {
     ZS_CMD_FACTORY_RESET,
     ZS_CMD_CHECK_UPDATE,      /* se efter ny firmware nu            */
     ZS_CMD_REBOOT,
+    /*
+     * Tilmeldingssiden er aabnet (flag true) eller forladt (false).
+     *
+     * Begge veje er lige vigtige: koden virker KUN mens skaermen viser
+     * den, saa den skal ryddes naar siden forlades. Ellers er den en kode
+     * man kan fotografere og bruge bagefter.
+     */
+    ZS_CMD_TILMELD_VIS,
 } zs_cmd_type_t;
 
 typedef struct {
