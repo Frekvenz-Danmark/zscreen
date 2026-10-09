@@ -68,6 +68,7 @@ int main(int argc, char **argv)
     test_pris_offset();
     test_kvarter();
     test_tid();
+    test_tilmeld();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

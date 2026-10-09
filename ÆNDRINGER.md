@@ -1,3 +1,56 @@
+## 2026-10-09 19:23
+
+### Fase B: engangskoden der binder skaermen til en kunde
+Skaermen melder sig selv ind paa flaaden med sit certifikat, og det siger
+HVILKEN skaerm det er. Men ikke hvis kunde den staar hos. Tilmeldingen er
+den der siger "den her skaerm hoerer til Hansen paa Testvej 1", og det
+foerste stykke af den er koden.
+
+Skaermen laver en engangskode og viser den som seks tegn og en QR. En
+montoer laeser den og giver den til Frekvenz sammen med kundens
+oplysninger. Frekvenz kalder vores API med koden, og saa oprettes kundens
+mappe og anlaeg. Det er praecis de oplysninger der i dag skrives i haanden
+i `scripts/kunder.json` paa serveren.
+
+**Koden er ikke adgang.** Den siger kun hvilken skaerm, og den er opbrugt
+bagefter. Hvem der maa laese kundens tal, afgoeres af en servicebruger med
+adgang til netop de kunder de maa se. Var koden adgang, kunne enhver der
+fotograferede en skaerm laese kundens forbrug.
+
+**Derfor staar enhedens identitet ikke i QR'en.** Den baerer KUN de seks
+tegn. Stod enhedens id i den, kunne enhver der fotograferer en skaerm i et
+vindue tilmelde den senere, ogsaa naar koden er doed. Og der staar ingen
+adresse i den: en adresse der er forkert eller flytter, er en QR der peger
+paa ingenting i tusind skaerme der allerede er sat op.
+
+**Fire ting holder koden taet, og laengden er ikke den foerste.** Den
+udloeber efter ti minutter. Den virker kun mens skaermen faktisk viser
+den, saa holder skaermen op, ryddes den ogsaa paa serveren. Den kan bruges
+én gang. Og serveren lukker ned efter faa forsoeg - det sidste er
+serverens, for kun den kan taelle forsoeg fra hele verden.
+
+Koden ligger **aldrig** i flashen. Den lever i RAM og kun der, saa en
+genstart doeber den. En kode der overlevede en genstart, ville vaere en
+kode man kunne finde i en skaerm der har staaet slukket i et halvt aar.
+
+**Alfabetet er Crockfords base32**, altsaa cifrene og de store bogstaver
+uden I, L, O og U. To grunde: 32 er en potens af to, saa fem bit bliver ét
+tegn uden rest og koden er jaevnt fordelt - med alle 36 tegn og modulo
+ville de foerste tegn komme lidt oftere. Og koden bliver LAEST paa en
+skaerm og SKREVET et andet sted af et menneske, hvor 0 og O, 1 og I og L
+ligner hinanden. Det koster en milliard muligheder i stedet for 2,2
+milliarder, og det er i orden: laengden var aldrig det der holdt den taet.
+
+**Ingen kode foer inverteren er fundet**, efter beslutningen 8. oktober.
+Et anlaeg uden inverter er ikke et anlaeg. Det koster at en montoer kan
+staa med en skaerm der ikke vil give en kode, saa standen siger
+udtrykkeligt HVORFOR: mangler inverter, eller mangler flaade. Og der laves
+slet ingen kode naar forudsaetningerne mangler - en kode serveren ikke
+kender, ville staa paa skaermen og se rigtig ud, og montoeren ville lede
+efter fejlen et helt andet sted.
+
+37 proever, og alle 14 mutanter i modulet doer.
+
 ## 2026-10-09 18:42
 
 ### Et testfelt var ét tegn for lille, og kun Linux sagde det

@@ -72,6 +72,7 @@ SRC=(
     test_pris.c
     test_kvarter.c
     test_tid.c
+    test_tilmeld.c
     test_layout.c
     test_layout_800.c
     test_maerker.c
@@ -79,6 +80,7 @@ SRC=(
     test_energi.c
     ../../firmware/main/util/zs_tekst.c
     ../../firmware/main/util/zs_tid.c
+    ../../firmware/main/net/zs_tilmeld.c
     ../../firmware/main/net/zs_modbus_tcp.c
     ../../firmware/main/net/zs_sunspec.c
     ../../firmware/main/net/zs_maerker.c

@@ -106,5 +106,6 @@ void test_format_vagter(void);
 void test_pris_offset(void);
 void test_kvarter(void);
 void test_tid(void);
+void test_tilmeld(void);
 
 #endif /* ZS_TEST_H */
