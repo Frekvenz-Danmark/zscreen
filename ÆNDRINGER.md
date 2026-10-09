@@ -1,3 +1,24 @@
+## 2026-10-09 18:42
+
+### Et testfelt var ét tegn for lille, og kun Linux sagde det
+`test_version.c` lagde den laengste gyldige version i `laengst`, og
+skrev den saa med et `v` foran i `med_v`. Begge felter var
+`ZS_VERSION_MAX * 2`, altsaa 48 tegn - men `med_v` skal rumme ét tegn
+mere end `laengst`, netop fordi v'et skal med.
+
+I praksis staar der 17 tegn, saa der blev aldrig klippet noget. Men gcc
+kan ikke se at strengen er kort, kun at et 48-tegns felt kan blive 49, og
+`-Wformat-truncation` er en fejl hos os. Resultatet var at **repoet ikke
+kunne bygge paa gcc** med vores egne flag, mens clang lod det ligge. Det
+blev foerst fundet da enhedstestene blev koert i en Linux-container.
+
+Feltet er nu `sizeof(laengst) + 1`, saa maalet siger hvad det skal rumme i
+stedet for at gentage et tal. Bygger nu rent paa baade clang og gcc med
+`-Wall -Wextra -Werror`, uden at noget er slaaet fra.
+
+CI var groen hele tiden, fordi ubuntu-24.04's gcc ikke brokkede sig over
+netop den linje. Den ville have bidt den dag CI flyttede billede.
+
 ## 2026-10-09 18:41
 
 ### Tidszonen hang paa at SNTP blev startet i den rigtige raekkefoelge

@@ -193,8 +193,13 @@ void test_version_tag(void)
     CHECK("og den staar hel, ikke klippet", strcmp(m.maal, laengst) == 0);
 
     /* Med v foran er den ét tegn laengere ind, men v'et bliver skrællet
-     * af, saa der skal staa det samme i feltet. */
-    char med_v[ZS_VERSION_MAX * 2];
+     * af, saa der skal staa det samme i feltet.
+     *
+     * Feltet er ét tegn stoerre end laengst, netop fordi v'et skal med.
+     * Stod der samme maal som laengst, kunne gcc ikke se at strengen er
+     * kort nok, og -Wformat-truncation faldt over det paa Linux mens
+     * clang lod det ligge. Maalet siger nu hvad det skal rumme. */
+    char med_v[sizeof(laengst) + 1];
     snprintf(med_v, sizeof(med_v), "v%s", laengst);
     m = zs_version_vaelg_maal("", med_v);
     CHECK("med v foran er den stadig gyldig", m.gyldig == true);
