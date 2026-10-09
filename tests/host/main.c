@@ -66,6 +66,8 @@ int main(int argc, char **argv)
     test_fleet_vagter();
     test_format_vagter();
     test_pris_offset();
+    test_kvarter();
+    test_tid();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

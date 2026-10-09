@@ -70,16 +70,20 @@ SRC=(
     test_fleet.c
     test_locate.c
     test_pris.c
+    test_kvarter.c
+    test_tid.c
     test_layout.c
     test_layout_800.c
     test_maerker.c
     test_tekst.c
     test_energi.c
     ../../firmware/main/util/zs_tekst.c
+    ../../firmware/main/util/zs_tid.c
     ../../firmware/main/net/zs_modbus_tcp.c
     ../../firmware/main/net/zs_sunspec.c
     ../../firmware/main/net/zs_maerker.c
     ../../firmware/main/net/zs_energi.c
+    ../../firmware/main/net/zs_kvarter.c
     ../../firmware/main/app/zs_format.c
     ../../firmware/main/net/zs_version.c
     ../../firmware/main/ui/zs_tilegrid.c

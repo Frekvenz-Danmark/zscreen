@@ -443,6 +443,37 @@
 #define ZS_FLEET_INVERTER_FELT   "inverterOnline"
 
 /*
+ * Kvartersgennemsnittene, og hvorfor de ikke er de samme felter.
+ *
+ * De fem live-tal sendes hvert andet sekund og GEMMES IKKE: fem felter
+ * gange 43.200 om dagen er tre millioner raekker om maaneden per skaerm.
+ * De er til at vise live, og til at se at skaermen er i live.
+ *
+ * Men saa er der ingen historik, og OpenRemotes forbrugsprognose regner
+ * paa GEMT historik. Uden den planlaegger en batterioptimering efter et
+ * hus der ikke bruger stroem.
+ *
+ * Derfor de her: ÉT gennemsnit per kvarter, altsaa 96 om dagen i stedet
+ * for 43.200. Et kvarter er ogsaa den takt OpenRemotes optimering regner
+ * i, saa de faar praecis den oploesning de bruger.
+ *
+ * Det er DE HER felter serveren fordeler videre til energi-assets, og det
+ * er dér historikken ligger. Live-tallene fordeles ikke.
+ *
+ * ZS_FLEET_KVARTER_FELT er hvilket kvarter gennemsnittet daekker, 0 til
+ * 95. Den sendes med af samme grund som timen paa energien: tidsstemplet
+ * paa et datapunkt er hvornaar beskeden kom frem, ikke hvad den daekker,
+ * og en besked der blev forsinket af en genopkobling ville ellers ligge i
+ * det forkerte kvarter uden at nogen kunne se det.
+ */
+#define ZS_FLEET_SOL_KV_FELT      "solarPowerQuarter"
+#define ZS_FLEET_FORBRUG_KV_FELT  "housePowerQuarter"
+#define ZS_FLEET_BATTERI_KV_FELT  "batteryPowerQuarter"
+#define ZS_FLEET_NET_KV_FELT      "gridPowerQuarter"
+#define ZS_FLEET_SOC_KV_FELT      "batteryLevelQuarter"
+#define ZS_FLEET_KVARTER_FELT     "quarterOfDay"
+
+/*
  * Under den her graense kalder vi det nul.
  *
  * Et anlaeg staar aldrig helt stille. Maaleren svinger nogle faa watt

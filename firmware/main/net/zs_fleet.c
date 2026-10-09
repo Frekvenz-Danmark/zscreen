@@ -899,6 +899,54 @@ void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
     }
 }
 
+/*
+ * Feltnavnene i SAMME raekkefoelge som zs_kv_felt_t i zs_kvarter.h.
+ *
+ * Raekkefoelgen er ÉN sandhed. Byttes to om her, lander solen i forbruget
+ * og der kommer ingen fejl nogen steder: begge er tal, begge er watt, og
+ * serveren tager imod. Derfor et tjek ved bygningen paa at der er praecis
+ * ét navn per felt.
+ */
+static const char *const KV_NAVNE[ZS_KV_ANTAL] = {
+    ZS_FLEET_SOL_KV_FELT,
+    ZS_FLEET_FORBRUG_KV_FELT,
+    ZS_FLEET_BATTERI_KV_FELT,
+    ZS_FLEET_NET_KV_FELT,
+    ZS_FLEET_SOC_KV_FELT,
+};
+_Static_assert(sizeof(KV_NAVNE) / sizeof(KV_NAVNE[0]) == ZS_KV_ANTAL,
+               "der skal vaere praecis ét feltnavn per kvartersfelt");
+
+void zs_fleet_publish_kvarter(const zs_kvarter_ud_t *ud)
+{
+    if (s_klient == NULL || ud == NULL || !ud->klar) {
+        return;
+    }
+    LAAS();
+    bool klar = (s_abonneret && s_asset[0] != '\0');
+    char asset[sizeof(s_asset)];
+    snprintf(asset, sizeof(asset), "%s", s_asset);
+    SLIP();
+    if (!klar) {
+        return;
+    }
+
+    int sendt = 0;
+    for (int i = 0; i < ZS_KV_ANTAL; i++) {
+        if (!ud->har[i]) {
+            continue;       /* vi sender ikke et felt vi ikke har */
+        }
+        send_tal(KV_NAVNE[i], asset, ud->vaerdi[i]);
+        sendt++;
+    }
+    /* Kvarteret sendes KUN hvis der ogsaa kom et tal. Et kvarternummer
+     * alene siger ingenting, og det ville se ud som en maaling. */
+    if (sendt > 0) {
+        send_tal(ZS_FLEET_KVARTER_FELT, asset, (float)ud->kvarter);
+        ESP_LOGI(TAG, "kvarter %d sendt, %d felter", (int)ud->kvarter, sendt);
+    }
+}
+
 void zs_fleet_publish_inverter(bool online)
 {
     /* Tilstanden ligger STATISK her og ikke hos kalderen, saa der kun er
@@ -1059,6 +1107,7 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
 { (void)wh; (void)har; (void)time; }
 void zs_fleet_publish_inverter(bool online) { (void)online; }
+void zs_fleet_publish_kvarter(const zs_kvarter_ud_t *ud) { (void)ud; }
 zs_fleet_state_t zs_fleet_state(void) { return ZS_FLEET_OFF; }
 const char *zs_fleet_state_text(void) { return "Slået fra"; }
 void zs_fleet_asset_id(char *ud, size_t ud_len)

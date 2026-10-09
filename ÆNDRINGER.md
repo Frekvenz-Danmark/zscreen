@@ -1,3 +1,64 @@
+## 2026-10-09 18:34
+
+### Fase A i firmwaren: ét gennemsnit per kvarter, og dag og time fra samme ur
+Fundamentet siger at effekt gemmes hvert kvarter i 8 uger, og at skaermen
+selv skal regne gennemsnittet. Grunden er at `attributeLinks` fordeler ved
+HVER skrivning: fem felter gange 43.200 om dagen er tre millioner raekker
+om maaneden per skaerm. Nu sendes 96 raekker per felt om dagen, og et
+kvarter er ogsaa den takt optimeringen regner i, saa de faar praecis den
+oploesning de bruger.
+
+`zs_kvarter.c` samler tallene mens de kommer ind og giver ÉT gennemsnit
+naar kvarteret skifter. Et felt uden maaler eller uden batteri kommer
+**ikke** med som nul: et nul for "koebt fra nettet" ser ud som et anlaeg
+der aldrig koeber stroem, og det er en loegn man ikke kan gennemskue.
+
+**Undervejs blev en fejl maalt i det der allerede koerte.**
+
+Dagnummeret blev regnet af UTC-sekunder mens timen kom fra `localtime_r`.
+`zs_energi_tik` lagde dem sammen til ét maal for hvor laenge der var
+gaaet, og de to skiftede ikke samtidig:
+
+- ved lokal midnat wrappede timen 23 -> 0 mens UTC-dagnummeret stod
+  stille, saa svaret blev -23
+- ved UTC-midnat (lokal 01 om vinteren, 02 om sommeren) skiftede
+  dagnummeret mens timen gik jaevnt videre, saa svaret blev 25
+
+Begge blev kaldt huller, og timen blev smidt vaek. Maalt gennem modulets
+egen kode over syv doegn: **time 23 og time 00/01 blev aldrig sendt.** To
+af 24 timer hver eneste dag, i netop den historik forbrugsprognosen
+regner paa. Over et aar 730 huller.
+
+`util/zs_tid.c` regner nu dagnummeret af den **lokale dato**, saa dag og
+time skifter samtidig ved lokal midnat. Et helt aar igennem giver ét hul,
+ved foraarsskiftet hvor timen 02 ikke findes. Om efteraaret kommer timen
+02 to gange, og den anden lander i samme boette som den foerste: intet
+tabt, men den time daekker to. `tm_gmtoff` findes IKKE i ESP-IDF's newlib,
+kun bag `__TM_GMTOFF` som ikke er defineret, saa dagnummeret regnes af
+`tm_year`, `tm_mon` og `tm_mday`.
+
+De to ting hoerer sammen. Boetten skal taelle opad over midnat, ellers
+smider kvartersmodulet selv kvarteret vaek som et hul - og saa havde det
+nye modul arvet fejlen fra det gamle.
+
+**Hvorfor 1258 groenne tjek ikke saa det.** De gav modulet et
+boettenummer vi selv havde regnet ud, med dag og kvarter fra samme ur.
+Firmwaren gav det to tal fra hver sit ur. `test_tid.c` fodrer nu
+modulerne som `zs_app.c` goer, med klokken fra `localtime_r` og
+firmwarens egen `ZS_TIMEZONE`. Muteret tilbage til dagskifte kl. 02 giver
+11 roede tjek, heriblandt "time 23 blev sendt 0 gange" og "et helt aar
+giver 734 huller".
+
+Efterproevet: 1274 tjek paa Mac og paa Linux, hele datavejen, fuzzerne og
+vagterne. Firmwaren bygger til ESP32-S3 med 50 procent af partitionen fri.
+Linux fangede at `localtime_r` er POSIX og skjules af glibc under
+`-std=c11`, praecis som i `zs_price_now.c`.
+
+**Én ting at vide ved opdateringen:** udgangspunktet for timeenergien
+ligger i flashen med det gamle UTC-dagnummer. Det kan afvige med én dag
+fra det nye, og saa logges den foerste time som et hul. Én gang, og den
+siger det i loggen.
+
 ## 2026-10-08 23:05
 
 ### Man kan nu se om en skaerm er i live, og om inverteren svarer

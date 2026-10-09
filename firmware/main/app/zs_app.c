@@ -29,6 +29,7 @@
 #include "zs_price.h"
 #include "zs_screen_setup.h"
 #include "zs_ota.h"
+#include "zs_tid.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -83,6 +84,7 @@ static bool s_energi_tav;
 
 /* Hvornaar vi sidst fik et helt sæt tal, i millisekunder siden start. */
 static int64_t s_last_good_ms;
+static zs_kvarter_t s_kvarter;   /* se kvarter_tik */
 
 /*
  * Demo gemmes ALDRIG.
@@ -246,6 +248,56 @@ static void clock_update(void)
  * hellere til uret er sat end at sende noget der ligger et tilfaeldigt
  * sted paa doegnet.
  */
+/*
+ * Kvartersgennemsnittet. Samme sted og samme takt som timeenergien.
+ *
+ * HVORFOR DET IKKE ER DE SAMME TAL DER GEMMES.
+ *
+ * Live-tallene sendes hvert andet sekund og gemmes ikke. Her lægges de
+ * sammen, og ÉT gennemsnit sendes per kvarter. Det er dét der bliver
+ * historikken paa serveren, og det er dét OpenRemotes forbrugsprognose
+ * regner paa.
+ *
+ * Dagnummeret regnes af den lokale dato, praecis som i energi_tik og af
+ * samme grund: boetten skal taelle opad over midnat, og det kan den kun
+ * hvis dagen og kvarteret kommer fra det samme ur. Se zs_tid.h.
+ */
+static void kvarter_tik(const zs_fr_live_t *live)
+{
+    if (!s_clock_ok || live == NULL) {
+        return;
+    }
+    time_t nu = time(NULL);
+    struct tm lt;
+    localtime_r(&nu, &lt);
+
+    int k = zs_kvarter_nummer(lt.tm_hour, lt.tm_min);
+    if (k < 0) {
+        return;             /* uret siger noget umuligt */
+    }
+    uint16_t dagnr = zs_tid_dagnr(&lt);
+
+    /*
+     * Raekkefoelgen er zs_kv_felt_t. Den staar tre steder: her, i
+     * KV_NAVNE i zs_fleet.c, og i serverens fordeling. Byttes to om,
+     * lander solen i forbruget uden at nogen kan se det.
+     */
+    const float v[ZS_KV_ANTAL] = {
+        live->solar_w.v, live->house_w.v, live->battery_w.v,
+        live->grid_w.v, live->soc_pct.v,
+    };
+    const bool har[ZS_KV_ANTAL] = {
+        live->solar_w.ok, live->house_w.ok, live->battery_w.ok,
+        live->grid_w.ok, live->soc_pct.ok,
+    };
+
+    zs_kvarter_ud_t ud = zs_kvarter_tik(&s_kvarter, v, har,
+                                        zs_kvarter_boette(dagnr, k));
+    if (ud.klar) {
+        zs_fleet_publish_kvarter(&ud);
+    }
+}
+
 static void energi_tik(const zs_fr_live_t *live, const zs_fr_info_t *info)
 {
     if (!s_clock_ok || live == NULL || info == NULL) {
@@ -256,13 +308,16 @@ static void energi_tik(const zs_fr_live_t *live, const zs_fr_info_t *info)
     localtime_r(&nu, &lt);
 
     /*
-     * Dagnummeret regnes af UTC og ikke af lokal tid.
+     * Dagnummeret regnes af den LOKALE dato, samme ur som timen.
      *
-     * Lokal tid springer en time frem og tilbage to gange om aaret, og
-     * saa ville dagnummeret kunne skifte midt i et doegn. Timen i
-     * soejlen er stadig den lokale, for det er den kunden kender.
+     * Foer kom dagnummeret af UTC-sekunder mens timen kom fra
+     * localtime_r. De to skiftede ikke samtidig, og zs_energi_tik
+     * lagde dem sammen til ét maal for hvor laenge der var gaaet. Ved
+     * lokal midnat blev svaret -23 og ved UTC-midnat 25, og begge blev
+     * kaldt huller. Time 23 og time 00/01 blev ALDRIG sendt. Se
+     * zs_tid.h.
      */
-    uint16_t dagnr = (uint16_t)(nu / ZS_ENERGI_SEK_PR_DOEGN);
+    uint16_t dagnr = zs_tid_dagnr(&lt);
 
     const float taeller[ZS_E_ANTAL] = {
         live->prod_wh.v, live->imp_wh.v, live->exp_wh.v,
@@ -1536,6 +1591,9 @@ static void app_task(void *arg)
 
             /* Og timens energi, som kun sender én gang i timen. */
             energi_tik(&s_home.live, &s_fr.info);
+
+            /* Og kvarterets gennemsnit, som sender 96 gange i doegnet. */
+            kvarter_tik(&s_home.live);
 
             /*
              * Har vi ikke faaet et brugbart svar laenge, saa luk og

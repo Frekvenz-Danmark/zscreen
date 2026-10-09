@@ -73,6 +73,7 @@
 #include <stdint.h>
 
 #include "zs_fronius.h"
+#include "zs_kvarter.h"
 #include "zs_energi.h"
 
 #ifdef __cplusplus
@@ -143,6 +144,16 @@ void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time);
  * almindelig maskine. Her staar kun afsendelsen.
  */
 void zs_fleet_publish_inverter(bool online);
+
+/*
+ * Sender ét kvarters gennemsnit. Kaldes naar zs_kvarter_tik siger der er
+ * et, altsaa 96 gange i doegnet.
+ *
+ * Et felt der ikke har noget, sendes IKKE. Et nul for "koebt fra nettet"
+ * paa et anlaeg uden elmaaler ville se ud som et anlaeg der aldrig koeber
+ * stroem, og det er en loegn. Samme regel som timeenergien.
+ */
+void zs_fleet_publish_kvarter(const zs_kvarter_ud_t *ud);
 
 /* Hvor langt vi er. */
 zs_fleet_state_t zs_fleet_state(void);
