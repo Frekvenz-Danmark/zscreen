@@ -65,3 +65,49 @@ Det skal maales paa stedet hvad der faktisk sker naar batteriet rammer
 5. Om inverteren kvitterer. En skrivning der tavst ignoreres er den
    vaerste udgave, og vi har allerede en tilbagelaesning i Modbus-laget
    der kan fange det
+
+## Hvad der ER bevist, uden en inverter
+
+Oversaettelsen. `firmware/main/net/zs_ladeplan.c` laver fire
+registervaerdier af en tilstand og en rate, og tabellen ovenfor er
+proevet raekke for raekke i `tests/host/test_ladeplan.c` - med tallene
+skrevet ud, ikke laant fra koden, saa en aendret skala ikke kan bestaa
+sin egen proeve. `tools/check-dokumentation.py` sammenligner desuden
+tabellen HER med tabellen i koden, begge veje, saa de ikke kan drive fra
+hinanden.
+
+Modulet SENDER stadig ingenting. Fronius-laget er skrivebeskyttet, og
+Modbus-laget har slet ingen skrivefunktion - efterset 9. oktober 2026.
+
+**To ting blev maalt paa selve oversaettelsen, og de var ikke til at se:**
+
+- **Rate 0 er ikke "ingenting".** `oplad` med rate 0 gav `OutWRte = 0` og
+  `MinRsvPct = 9900`: al afladning blokeret, og 99 % reserve - og
+  forklaringen ovenfor siger selv at 99 % skubber inverteren mod at lade,
+  altsaa KOEBE fra nettet. Den der bad om nul effekt, fik en plan der
+  handler stroem. `aflad` med 0 gav `InWRte = 0`, altsaa al LADNING
+  blokeret. Begge afvises nu. Vil man ingenting, er det tilstand 3.
+- **Doedmandsknappen havde kun et gulv.** 65535 sekunder - 18 timer og 12
+  minutter - blev godtaget. Der er nu et loft paa 900 sekunder, ét
+  kvarter, samme rytme som skaermens egne tal. **Det er vores beslutning,
+  ikke en maaling**: skal den vaere laengere, skal nogen sige hvorfor.
+  Der er med vilje ingen nedre graense ud over nul - en timer paa ét
+  sekund ville faa batteriet til at skifte mellem plan og normal hvert
+  sekund, men vi har ikke maalt registret, og et tal vi finder paa er et
+  gaet. Det hoerer paa listen ovenfor.
+
+## Paa serveren mangler der et sted at skrive timeren
+
+Maalt 9. oktober 2026 paa vores egen OpenRemote: `ElectricityBatteryAsset`
+har 29 standardattributter, og **ingen af dem er en timer, en udloebstid
+eller en gyldighed**. Beslutningen om at nulstillingstimeren skal med paa
+hver plan, har altsaa ikke et felt at staa i endnu. Platformen kan ikke
+sende den, og skaermen kan ikke melde tilbage hvad den satte.
+
+Samtidig: `powerSetpoint` er ét fortegnet tal i **kilowatt**, mens
+ladeplanen her regner i raa registertal uden fortegn plus en tilstand. De
+to ender passer ikke sammen endnu, og **ingen kode oversaetter imellem**.
+`powerSetpoint` tog ogsaa imod 99999 og -99999 uden at blinke, og
+`powerExportMax`/`powerImportMax` paa batteriet staar tomme, saa der er
+ingen graense nogen steder. Det skal besluttes foer Fase E kan bygges
+videre - det er ikke noget vi kan maale os frem til.

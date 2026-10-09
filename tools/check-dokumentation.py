@@ -17,6 +17,14 @@ Den tjekker tre ting, og kun ting der KAN tjekkes:
   1. Hver raekke i registertabellen mod konstanterne i zs_sunspec.h
   2. Hver ZS_-konstant der naevnes findes faktisk
   3. Hver filhenvisning peger paa en fil der findes
+  4. Hver raekke i batteritabellen mod TABEL i zs_ladeplan.c
+
+Punkt 4 kom til 9. oktober 2026. Tjekket her var haardkodet til
+fronius-modbus.md, saa batteritabellen i docs/batteristyring.md kunne
+drive fra koden uden at noget sagde fra - og den tabel er hele grunden
+til at zs_ladeplan.c findes: "tallene skal kunne sammenlignes med noterne
+linje for linje den dag de maales". En note der ikke passer med koden er
+vaerre end ingen note, for man tror man ved hvad skaermen sender.
 
 Den kan IKKE tjekke om teksten er sand. Det maa et menneske laese.
 """
@@ -62,6 +70,112 @@ def tabelraekker(tekst):
         if m:
             ud.append((nr, int(m.group(1)), m.group(2), int(m.group(3))))
     return ud
+
+
+def batteritabellen():
+    """Noternes tilstandstabel mod TABEL i zs_ladeplan.c.
+
+    Doc:   | 1. Oplad | 3 | -rate (gulv) | 10000 | 9900 |
+    Kode:  { ZS_LADE_OPLAD, 3, RESERVE_HOEJ, true, GULV, FAST(...), "oplad" }
+
+    Begge sider laeses, oversaettes til de samme fire tal, og sammenlignes.
+    Tilstand 4 staar IKKE i tabellen - den er beskrevet i prosa - saa den
+    kraeves kun at findes i koden, ikke i tabellen.
+    """
+    dok = ROD / "docs/batteristyring.md"
+    kode = ROD / "firmware/main/net/zs_ladeplan.c"
+    hdr = ROD / "firmware/main/net/zs_ladeplan.h"
+    fejl = []
+    if not (dok.exists() and kode.exists() and hdr.exists()):
+        return fejl, 0
+
+    kt, ht = kode.read_text(encoding="utf-8"), hdr.read_text(encoding="utf-8")
+
+    # Tallene bag navnene, saa en aendret skala ikke slipper igennem.
+    tal = {}
+    for m in re.finditer(r"#define\s+(\w+)\s+\(?\s*(-?\d+)\s*\)?", kt + ht):
+        tal[m.group(1)] = int(m.group(2))
+
+    # Tilstandsnumrene fra enummen: ZS_LADE_OPLAD = 1
+    numre = {m.group(1): int(m.group(2)) for m in
+             re.finditer(r"(ZS_LADE_[A-Z_]+)\s*=\s*(\d+)", ht)}
+
+    def felt(tekst):
+        """GULV eller FAST(x) -> 'gulv' eller et tal."""
+        tekst = tekst.strip()
+        if tekst == "GULV":
+            return "gulv"
+        m = re.match(r"FAST\(\s*([A-Za-z_0-9]+)\s*\)$", tekst)
+        if not m:
+            return None
+        v = m.group(1)
+        return tal.get(v, v if not v.lstrip("-").isdigit() else int(v))
+
+    # Kodens raekker. Hele filen paa én linje, saa en ombrudt raekke
+    # stadig kan laeses.
+    flad = " ".join(kt.split())
+    kode_raekker = {}
+    for m in re.finditer(
+            r"\{\s*(ZS_LADE_[A-Z_]+)\s*,\s*(\d+)\s*,\s*(\w+)\s*,"
+            r"\s*(true|false)\s*,\s*(GULV|FAST\([^)]*\))\s*,"
+            r"\s*(GULV|FAST\([^)]*\))\s*,\s*\"([^\"]*)\"\s*\}", flad):
+        nr = numre.get(m.group(1))
+        if nr is None:
+            fejl.append(f"zs_ladeplan.c: {m.group(1)} staar i TABEL men "
+                        f"ikke i enummen i zs_ladeplan.h")
+            continue
+        rsv = tal.get(m.group(3))
+        if rsv is None:
+            fejl.append(f"zs_ladeplan.c: reserven {m.group(3)} i raekke "
+                        f"{m.group(1)} er ikke et tal vi kan slaa op")
+            continue
+        kode_raekker[nr] = (int(m.group(2)), felt(m.group(5)),
+                            felt(m.group(6)), rsv)
+
+    if not kode_raekker:
+        fejl.append("zs_ladeplan.c: TABEL kunne slet ikke laeses. "
+                    "Er formen aendret, skal det her tjek foelge med")
+        return fejl, 0
+
+    # Noternes raekker: | 1. Oplad | 3 | -rate (gulv) | 10000 | 9900 |
+    def celle(s):
+        s = s.strip().replace("`", "")
+        if "rate" in s:
+            return "gulv"
+        return int(s) if s.lstrip("-").isdigit() else s
+
+    sete = set()
+    for nr, l in enumerate(dok.read_text(encoding="utf-8").split("\n"), 1):
+        m = re.match(r"\s*\|\s*(\d+)\.\s*([^|]+)\|([^|]*)\|([^|]*)\|"
+                     r"([^|]*)\|([^|]*)\|", l)
+        if not m:
+            continue
+        t_nr = int(m.group(1))
+        sete.add(t_nr)
+        vil = (celle(m.group(3)), celle(m.group(4)),
+               celle(m.group(5)), celle(m.group(6)))
+        har = kode_raekker.get(t_nr)
+        if har is None:
+            fejl.append(f"docs/batteristyring.md:{nr}: tabellen har tilstand "
+                        f"{t_nr}, men TABEL i zs_ladeplan.c har den ikke")
+            continue
+        for navn, a, b in zip(("StorCtl_Mod", "OutWRte", "InWRte", "MinRsvPct"),
+                              vil, har):
+            if a != b:
+                fejl.append(f"docs/batteristyring.md:{nr}: tilstand {t_nr} "
+                            f"{navn}: noterne siger {a}, koden har {b}")
+
+    # En raekke i koden som noterne ikke kender. Tilstand 4 er beskrevet i
+    # prosa og derfor undtaget - men den SKAL findes i koden.
+    for t_nr in sorted(kode_raekker):
+        if t_nr not in sete and t_nr != 4:
+            fejl.append(f"zs_ladeplan.c: TABEL har tilstand {t_nr}, som "
+                        f"ikke staar i docs/batteristyring.md. En tilstand "
+                        f"skaermen kan saette, skal staa i noterne")
+    if 4 not in kode_raekker:
+        fejl.append("zs_ladeplan.c: tilstand 4, zero export, mangler i TABEL")
+
+    return fejl, len(kode_raekker)
 
 
 def main():
@@ -114,12 +228,17 @@ def main():
                     continue
                 fejl.append(f"{d.name}:{nr}: filen {p} findes ikke")
 
+    # 4. Batteritabellen i noterne mod TABEL i koden
+    bfejl, braekker = batteritabellen()
+    fejl += bfejl
+
     if fejl:
         for f in fejl:
             print(f"  {ROED}FEJL{SLUT} {f}")
         return 1
-    print(f"  {GROEN} OK{SLUT} {raekker} registerrækker, {nk} konstanter og "
-          f"{nf} filhenvisninger passer med koden.")
+    print(f"  {GROEN} OK{SLUT} {raekker} registerrækker, {braekker} "
+          f"batteritilstande, {nk} konstanter og {nf} filhenvisninger "
+          f"passer med koden.")
     return 0
 
 

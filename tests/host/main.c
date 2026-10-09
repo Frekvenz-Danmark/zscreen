@@ -70,6 +70,8 @@ int main(int argc, char **argv)
     test_tid();
     test_tilmeld();
     test_qr();
+    test_ladeplan();
+    test_ladeplan_vagter();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

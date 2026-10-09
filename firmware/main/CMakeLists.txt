@@ -35,6 +35,7 @@ idf_component_register(
         "net/zs_energi.c"
         "net/zs_kvarter.c"
         "net/zs_tilmeld.c"
+        "net/zs_ladeplan.c"
         "app/zs_status.c"
 
         "storage/zs_nvs.c"
