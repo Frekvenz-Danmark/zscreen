@@ -1,3 +1,47 @@
+## 2026-10-09 19:24
+
+### Tre moduler slap uden om mutationstesten, og en enkeltmodul-koersel kunne slet ikke koere
+Mutationstesten har en fast liste over de moduler den oedelaegger med
+vilje. Listen stod i samme raekkefoelge som `run.sh`, med kommentaren
+"saa det er let at se om der mangler et".
+
+Det var ikke nok. `zs_tid`, `zs_kvarter` og `zs_tilmeld` var skrevet med
+proever og stod i `run.sh`, men ingen havde skrevet dem i listen. De slap
+altsaa helt uden om, og **intet sagde fra**: testen meldte "alle mutanter
+blev fanget" om de elleve moduler den kendte, og det lignede at hele koden
+var daekket.
+
+Nu laeser `tjek_listen` selve `run.sh`. Staar et modul der, men hverken i
+`MODULER` eller i `UDEN_MUTATION` med en grund, falder koerslen med
+udfald 1 og siger hvilket. Proevet ved at tage et modul ud af listen:
+den siger fra. 14 moduler og 399 mutanter nu, mod 11 foer.
+
+**Og en fejl i vagten mod foraeldede undtagelser.** `tjek_undtagelser`
+maalte undtagelserne mod de moduler der var VALGT paa kommandolinjen i
+stedet for mod dem alle. Saa faldt `mutationstest.py zs_tekst` altid:
+undtagelsen for `EAGAIN` staar i Modbus-laget og passer naturligvis ikke
+paa et modul om tekst. Den dokumenterede enkeltmodul-koersel har altsaa
+vaeret umulig siden vagten kom ind, og fejlen lignede en foraeldet
+undtagelse. Undtagelserne maales nu mod alle moduler. Det koster kun at
+laese filerne, ikke at oversaette.
+
+### En gren i dagnummeret kunne ikke skelnes fra sin egen mutant
+Da `zs_tid` endelig kom med i mutationstesten, overlevede én af tre
+mutanter: `aar >= 0` byttet til `aar > 0`.
+
+Den kunne ikke slaas ihjel af nogen proeve, og det var ikke proevernes
+skyld. De to giver det SAMME svar: de kan kun vaere uenige om aar 0, og
+dér trunkerer C mod nul, saa baade `0/400` og `-399/400` er nul.
+
+Grenen er Hinnants egen maade at faa divisionen til at runde nedad for aar
+foer aar 0. Den er doed hos os: aaret kommer fra `localtime_r`'s
+`tm_year`, som ikke giver et negativt aarstal, og alt foer 1970 fanges i
+forvejen af `d < 0`. En gren hvis to sider ikke kan skelnes, er ikke en
+vagt. Den er vaek, og nu doer alle mutanter i modulet.
+
+Det er anden gang mutationstesten finder doed kode i en graense. Det er
+ogsaa derfor de tre moduler skulle have vaeret paa listen fra starten.
+
 ## 2026-10-09 19:23
 
 ### Fase B: engangskoden der binder skaermen til en kunde

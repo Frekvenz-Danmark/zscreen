@@ -110,21 +110,70 @@ def forbered():
     return mappe
 
 # Modulerne der koerer i tests/host, altsaa dem en mutant kan maales paa.
-# De rene beslutninger, ikke hardware. Rækkefoelgen er den de staar i
+# De rene beslutninger, ikke hardware. Raekkefoelgen er den de staar i
 # run.sh, saa det er let at se om der mangler et.
+#
+# "Let at se" var ikke nok. Tre moduler - zs_tid, zs_kvarter og
+# zs_tilmeld - blev skrevet med proever og stod i run.sh, men ingen
+# huskede at skrive dem her. De slap altsaa helt uden om mutationstesten,
+# og det var ikke til at se paa noget: testen sagde "alle mutanter doer"
+# om de moduler den kendte. Derfor staar der nu en vagt nedenfor der
+# laeser run.sh og siger fra. Se tjek_listen.
 MODULER = [
     "firmware/main/util/zs_tekst.c",
+    "firmware/main/util/zs_tid.c",
+    "firmware/main/net/zs_tilmeld.c",
     "firmware/main/net/zs_modbus_tcp.c",
     "firmware/main/net/zs_sunspec.c",
     "firmware/main/net/zs_maerker.c",
     "firmware/main/net/zs_energi.c",
-    "firmware/main/net/zs_locate.c",
-    "firmware/main/net/zs_fleet_msg.c",
-    "firmware/main/net/zs_price_now.c",
-    "firmware/main/net/zs_version.c",
+    "firmware/main/net/zs_kvarter.c",
     "firmware/main/app/zs_format.c",
+    "firmware/main/net/zs_version.c",
     "firmware/main/ui/zs_tilegrid.c",
+    "firmware/main/net/zs_price_now.c",
+    "firmware/main/net/zs_fleet_msg.c",
+    "firmware/main/net/zs_locate.c",
 ]
+
+# De moduler i run.sh der med vilje IKKE muteres, og hvorfor. Staar et
+# modul hverken her eller i MODULER, falder tjek_listen.
+UDEN_MUTATION = {
+    "firmware/main/app/zs_demo.c":
+        "grunden er ikke skrevet ned. Skal ses paa: den har proever i "
+        "test_demo.c, saa den kan sandsynligvis muteres",
+    "firmware/main/net/zs_discovery.c":
+        "aabner sockets og scanner netvaerket, saa en mutant maales paa "
+        "hardware og timing og ikke paa en beslutning",
+}
+
+
+def tjek_listen():
+    """Siger fra hvis et modul i run.sh hverken muteres eller er undtaget.
+
+    Den gamle aftale var at MODULER stod i samme raekkefoelge som run.sh,
+    "saa det er let at se om der mangler et". Det holdt ikke: tre moduler
+    blev glemt, og intet sagde fra. Nu laeses run.sh.
+    """
+    sti = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "..", "tests", "host", "run.sh")
+    with open(sti, encoding="utf-8") as f:
+        tekst = f.read()
+    i_run = re.findall(r"\.\./\.\./(firmware/main/[a-z]+/zs_[a-z_0-9]+\.c)",
+                       tekst)
+    glemt = [m for m in i_run
+             if m not in MODULER and m not in UDEN_MUTATION]
+    doede = [m for m in MODULER if m not in i_run]
+    if glemt:
+        sig("  DE HER MODULER KOERER I TESTENE MEN MUTERES IKKE:")
+        for m in glemt:
+            sig(f"    {m}")
+        sig("  Skriv dem i MODULER, eller i UDEN_MUTATION med en grund.")
+    if doede:
+        sig("  DE HER STAAR I MODULER MEN IKKE I run.sh LAENGERE:")
+        for m in doede:
+            sig(f"    {m}")
+    return not (glemt or doede)
 
 # Hvad vi bytter om. Kun aendringer der stadig kan oversaettes, og kun
 # saadanne hvor en rigtig fejl ville se praecis saadan ud.
@@ -298,6 +347,12 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     bare_vis = "--vis" in sys.argv
 
+    # Foerst: koerer der et modul i testene som INGEN muterer? Det skal
+    # siges foer noget andet, for ellers lyder "alle mutanter doede" som
+    # om hele koden var daekket.
+    if not tjek_listen():
+        return 1
+
     global ROOT
     if bare_vis:
         ROOT = KILDE          # der skrives ikke noget, saa en kopi er spild
@@ -332,7 +387,23 @@ def main():
             alle.append((fil, tekst, nr, gammel, ny, fra_tegn, til))
 
     # Foer der bruges timer paa at oversaette: passer undtagelserne stadig?
-    if not tjek_undtagelser(alle):
+    #
+    # Og de maales mod ALLE moduler, ikke mod dem der er valgt paa
+    # kommandolinjen. Gjorde vi det sidste, ville "mutationstest.py
+    # zs_tekst" altid falde: undtagelsen for EAGAIN staar i Modbus-laget,
+    # og den passer naturligvis ikke paa et modul om tekst. Saa var den
+    # dokumenterede enkeltmodul-koersel umulig, og den fejl lignede en
+    # foraeldet undtagelse.
+    #
+    # Det koster kun at laese filerne igennem, ikke at oversaette.
+    til_tjek = alle
+    if valgte is not MODULER and len(valgte) != len(MODULER):
+        til_tjek = []
+        for fil in MODULER:
+            tekst, ms = mutanter(fil)
+            for nr, gammel, ny, fra_tegn, til in ms:
+                til_tjek.append((fil, tekst, nr, gammel, ny, fra_tegn, til))
+    if not tjek_undtagelser(til_tjek):
         return 2
 
     sig(f"\n\033[1mMutationstest\033[0m")

@@ -15,7 +15,20 @@
 static int32_t dage_af_dato(int32_t aar, int32_t maaned, int32_t dag)
 {
     aar -= (maaned <= 2) ? 1 : 0;
-    const int32_t aera = (aar >= 0 ? aar : aar - 399) / 400;
+    /*
+     * Hinnants egen udgave skriver (aar >= 0 ? aar : aar - 399) / 400,
+     * saa divisionen runder NEDAD ogsaa for aar foer aar 0. Den gren er
+     * doed hos os: aaret kommer fra localtime_r's tm_year, og den giver
+     * ikke et negativt aarstal. Alt foer 1970 fanges desuden af d < 0
+     * nede i zs_tid_dagnr.
+     *
+     * Den stod her indtil mutationstesten pegede paa den: mutanten
+     * ">= 0" -> "> 0" kunne ikke slaas ihjel af nogen proeve, fordi de to
+     * giver det SAMME svar for aar 0 - C trunkerer mod nul, saa baade
+     * 0/400 og -399/400 er nul. En gren hvis to sider ikke kan skelnes,
+     * er ikke en vagt. Den er vaek.
+     */
+    const int32_t aera = aar / 400;
     const int32_t aar_i_aera = aar - aera * 400;                /* 0..399   */
     const int32_t dag_i_aar =
         (153 * (maaned + (maaned > 2 ? -3 : 9)) + 2) / 5 + dag - 1;
