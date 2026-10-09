@@ -1,3 +1,61 @@
+## 2026-10-09 20:50
+
+### Fase B: QR'en paa tilmeldingssiden, maalt foer den kom ind
+Tilmeldingssiden viser nu koden som QR ved siden af de seks tegn. QR'en
+er ren bekvemmelighed - montoeren slipper for at skrive dem af - og
+koden virker uden den.
+
+**Biblioteket blev maalt foerst, og det var betingelsen.** Project
+Nayukis QR-Code-generator, C-udgaven:
+
+    licens                      MIT, teksten staar uroert i filerne
+    stoerrelse                  1412 linjer, ingen afhaengigheder
+    projektets strenge flag     rent, ikke én advarsel
+    flash paa ESP32-S3, -Os     7512 bytes i alt
+    fri plads i partitionen     1.568.768 bytes
+
+Altsaa under en halv promille, og det er foer linkeren smider de
+funktioner vi ikke kalder. Valget stod mellem den og
+`espressif/qrcode` fra IDF's komponentregister; registeret ville
+indfoere managed components i et projekt der ikke bruger dem, og
+komponenten hentes ved bygningen, mens vi med vilje laaser alt. Se
+`vendor/qrcodegen/HVORFOR.md`.
+
+**GEOMETRIEN LIGGER I RENE FUNKTIONER, og det er ikke pynt.**
+
+QR-standarden kraever en lys kant paa FIRE moduler hele vejen rundt.
+Uden den kan laeseren ikke finde kodens kant - og koden ser helt rigtig
+ud paa skaermen. Det er den hyppigste grund til at en QR ikke virker.
+Derfor regnes skala og kant i `zs_qr.c`, hvor de kan proeves: 27 proever
+i `test_qr.c`, heriblandt at det tegnede minus luften paa begge sider
+giver praecis modulerne, for hver bredde og hver plads fra 40 til 400
+pixels.
+
+**Og proeven ser paa soegemoenstret, ikke paa et checksum.** De tre 7x7
+maerker i hjoernerne er dét en laeser finder koden med. Er de forkerte,
+bliver koden ikke laest, og et checksum ville ogsaa passe paa et moenster
+der er rigtigt forkert. Alle tre efterses modul for modul.
+
+**Tegnet smaat og skaleret op med HELE tal.** Laerredet er ét pixel per
+modul, 29 x 29 for den mindste kode med luft, og saa zoomes der et helt
+antal gange med udjaevningen slaaet FRA. Tegnet vi i fuld stoerrelse,
+skulle laerredet vaere 42 kB i stedet for 3,4 kB. Og skalerede vi med
+udjaevning, blev modulernes kanter udtvaeret - og en udtvaeret QR er den
+slags der virker paa tre telefoner ud af fire.
+
+**Altid moerkt paa lyst, ogsaa i moerkt tema.** Der ligger en hvid plade
+bag. En omvendt QR bliver afvist af mange laesere, og vi kan ikke vide
+hvilken telefon montoeren har.
+
+Mutationstestens egen vagt fangede at `zs_qr.c` koerte i testene uden at
+blive muteret - den vagt kom ind i dag, og den virkede paa min egen
+forglemmelse. Alle 14 mutanter doer nu. 15 moduler og 423 mutanter i alt.
+
+**DET DER IKKE ER EFTERPROEVET:** hvordan den SER UD paa en rigtig
+skaerm. Jeg har ikke en enhed. Dataene er bevist, geometrien er bevist,
+og den bygger - men at QR'en faktisk kan scannes af en telefon fra en
+vaeg, skal proeves paa hardware.
+
 ## 2026-10-09 19:57
 
 ### Fase B: siden hvor anlaegget tilmeldes, og hvorfor den ogsaa er der uden en kode

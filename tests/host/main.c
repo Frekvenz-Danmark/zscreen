@@ -69,6 +69,7 @@ int main(int argc, char **argv)
     test_kvarter();
     test_tid();
     test_tilmeld();
+    test_qr();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

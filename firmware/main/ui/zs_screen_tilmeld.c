@@ -5,6 +5,7 @@
 
 #include "zs_app.h"
 #include "zs_icons.h"
+#include "zs_qr.h"
 #include "zs_theme.h"
 #include "zs_ui.h"
 
@@ -13,6 +14,26 @@ static lv_obj_t  *s_over;        /* linjen over koden              */
 static lv_obj_t  *s_kode;        /* de seks tegn, eller en besked  */
 static lv_obj_t  *s_under;       /* linjen under                   */
 static lv_obj_t  *s_knap;        /* "Lav en kode", kun naar der ingen er */
+static lv_obj_t  *s_plade;       /* hvid bund under QR'en              */
+static lv_obj_t  *s_qr;          /* selve QR'en, tegnet modul for modul */
+
+/*
+ * QR'EN TEGNES SMAA OG SKALERES OP MED HELE TAL.
+ *
+ * Laerredet er praecis ét pixel per modul, altsaa 29 x 29 for den
+ * mindste kode med luft. Saa saettes zoom til et HELT antal gange, og
+ * udjaevningen slaas FRA. Resultatet er skarpe kanter.
+ *
+ * Tegnede vi i fuld stoerrelse i stedet, skulle lærredet vaere 145 x 145
+ * i to bytes per pixel, altsaa 42 kB i stedet for 1,7 kB. Og skalerede vi
+ * med udjaevning, ville modulernes kanter blive udtvaeret, og en udtvaeret
+ * QR er den slags der virker paa tre telefoner ud af fire.
+ */
+#define QR_MAKS_MODULER  (17 + ZS_QR_MAKS_UDGAVE * 4 + 2 * ZS_QR_KANT_MODULER)
+#define QR_MAAL_PX       145
+
+static lv_color_t s_qr_lae[QR_MAKS_MODULER * QR_MAKS_MODULER];
+static uint8_t    s_qr_data[ZS_QR_BUF];
 
 /* Luft mellem de tre linjer. Ikke et skaermmaal, bare tekstens rytme. */
 #define LUFT_OVER    40
@@ -44,6 +65,53 @@ static void on_lav_kode(lv_event_t *e)
     c.type = ZS_CMD_TILMELD_VIS;
     c.flag = true;
     zs_app_send(&c);
+}
+
+/*
+ * Tegner koden som QR, eller skjuler den hvis den ikke kan laves.
+ *
+ * Den hvide plade bliver ved med at vaere hvid i moerkt tema. En omvendt
+ * QR - lyse moduler paa moerk bund - bliver afvist af mange laesere, og
+ * vi kan ikke vide hvilken telefon montoeren har.
+ */
+static void tegn_qr(const char *kode)
+{
+    if (s_qr == NULL || s_plade == NULL) {
+        return;
+    }
+    int moduler = 0;
+    if (kode == NULL || kode[0] == '\0'
+        || !zs_qr_lav(kode, s_qr_data, sizeof(s_qr_data), &moduler)) {
+        lv_obj_add_flag(s_plade, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    int skala = zs_qr_skala(moduler, QR_MAAL_PX);
+    if (skala <= 0) {
+        lv_obj_add_flag(s_plade, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    int i_alt = moduler + 2 * ZS_QR_KANT_MODULER;
+
+    lv_canvas_set_buffer(s_qr, s_qr_lae, i_alt, i_alt, LV_IMG_CF_TRUE_COLOR);
+    /* Hele lærredet lyst FOERST, saa luften rundt om bliver lys af sig
+     * selv. Den luft er et krav, ikke pynt - se zs_qr.h. */
+    lv_canvas_fill_bg(s_qr, lv_color_white(), LV_OPA_COVER);
+    for (int y = 0; y < moduler; y++) {
+        for (int x = 0; x < moduler; x++) {
+            if (zs_qr_modul(s_qr_data, x, y)) {
+                lv_canvas_set_px(s_qr, x + ZS_QR_KANT_MODULER,
+                                 y + ZS_QR_KANT_MODULER, lv_color_black());
+            }
+        }
+    }
+    /* Udjaevning FRA, og zoom et helt antal gange. 256 er 1:1 i LVGL. */
+    lv_img_set_antialias(s_qr, false);
+    lv_img_set_zoom(s_qr, (uint16_t)(256 * skala));
+
+    int px = zs_qr_px(moduler, skala);
+    lv_obj_set_size(s_plade, px + 2 * ZS_QR_KANT_MODULER,
+                    px + 2 * ZS_QR_KANT_MODULER);
+    lv_obj_clear_flag(s_plade, LV_OBJ_FLAG_HIDDEN);
 }
 
 void zs_tilmeld_page_create(void)
@@ -78,6 +146,19 @@ void zs_tilmeld_page_create(void)
     lv_obj_set_width(s_under, ZS_CONTENT_WIDTH);
     lv_obj_set_style_text_align(s_under, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(s_under, ZS_EDGE, LUFT_OVER + LUFT_KODE + LUFT_UNDER);
+
+    /* Hvid plade med luft, saa QR'en staar paa lyst uanset tema. */
+    s_plade = lv_obj_create(s_side.content);
+    lv_obj_set_style_bg_color(s_plade, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(s_plade, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_plade, 0, 0);
+    lv_obj_set_style_pad_all(s_plade, 0, 0);
+    lv_obj_clear_flag(s_plade, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(s_plade, LV_ALIGN_TOP_MID, 0,
+                 LUFT_OVER + LUFT_KODE + 2 * LUFT_UNDER);
+    s_qr = lv_canvas_create(s_plade);
+    lv_obj_center(s_qr);
+    lv_obj_add_flag(s_plade, LV_OBJ_FLAG_HIDDEN);
 
     s_knap = zs_btn_primary_create(s_side.content, "Lav en kode");
     lv_obj_set_width(s_knap, ZS_CONTENT_WIDTH);
@@ -122,6 +203,7 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
                      "Gælder under et minut endnu. Så skal der laves en ny.");
         }
         lv_label_set_text(s_under, under);
+        tegn_qr(kode);
         break;
 
     case ZS_TILMELD_MANGLER_INVERTER:
@@ -161,6 +243,12 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
             "Der skal ikke laves flere koder. Skal anlægget flyttes til "
             "en anden kunde, sker det hos Frekvenz.");
         break;
+    }
+
+    /* Ingen kode, ingen QR. En QR der blev staaende efter koden doede,
+     * ville blive fotograferet og proevet forgaeves. */
+    if (stand != ZS_TILMELD_KLAR && s_plade != NULL) {
+        lv_obj_add_flag(s_plade, LV_OBJ_FLAG_HIDDEN);
     }
 
     if (s_knap != NULL) {

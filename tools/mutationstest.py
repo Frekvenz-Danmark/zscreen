@@ -131,6 +131,7 @@ MODULER = [
     "firmware/main/app/zs_format.c",
     "firmware/main/net/zs_version.c",
     "firmware/main/ui/zs_tilegrid.c",
+    "firmware/main/ui/zs_qr.c",
     "firmware/main/net/zs_price_now.c",
     "firmware/main/net/zs_fleet_msg.c",
     "firmware/main/net/zs_locate.c",

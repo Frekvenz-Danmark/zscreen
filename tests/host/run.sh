@@ -42,6 +42,7 @@ CFLAGS=(
     -I../../firmware/main/app
     -I../../firmware/main/net
     -I../../firmware/main/ui
+    -I../../firmware/vendor/qrcodegen
     -I../../firmware/main/storage
     -I../../firmware/main/util
     # Hvor proevekludene ligger. Eksplicit, saa en test ikke skal gaette
@@ -73,6 +74,7 @@ SRC=(
     test_kvarter.c
     test_tid.c
     test_tilmeld.c
+    test_qr.c
     test_layout.c
     test_layout_800.c
     test_maerker.c
@@ -81,6 +83,8 @@ SRC=(
     ../../firmware/main/util/zs_tekst.c
     ../../firmware/main/util/zs_tid.c
     ../../firmware/main/net/zs_tilmeld.c
+    ../../firmware/main/ui/zs_qr.c
+    ../../firmware/vendor/qrcodegen/qrcodegen.c
     ../../firmware/main/net/zs_modbus_tcp.c
     ../../firmware/main/net/zs_sunspec.c
     ../../firmware/main/net/zs_maerker.c
