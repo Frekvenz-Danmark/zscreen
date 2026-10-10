@@ -8,6 +8,7 @@
 #include "zs_tekst.h"
 #include "zs_config.h"
 #include "zs_fleet_msg.h"
+#include "zs_ladeordre.h"
 #include "zs_ota.h"
 #include "esp_app_desc.h"
 #include "../zs_log.h"
@@ -307,6 +308,119 @@ static void send_indmeldelse(void)
  * i dashboardet kommer der null. Begge dele skal forstaas: null betyder
  * "foelg nyeste igen", og det er den vej tilbage til normal drift.
  */
+/*
+ * LADEORDREN FRA PLATFORMEN.
+ *
+ * Den ligger her og ikke i zs_app, fordi den kommer ind her: felterne
+ * ankommer som to separate beskeder, og zs_ladeordre samler dem. Alt
+ * der roerer den, gor det bag LAAS() - MQTT-opgaven skriver, og enhver
+ * anden opgave kan laese.
+ *
+ * INGEN HANDLER PAA DEN ENDNU. Den bliver samlet, efterset og sat paa
+ * tid, og saa ligger den. Vejen ud til inverteren findes ikke:
+ * zs_fronius er skrivebeskyttet, og registeradresserne er aldrig
+ * fundet. Det staar her saa ingen tror batteriet er styret.
+ */
+static zs_ladeordre_t s_ordre;
+
+/*
+ * Det MONOTONE ur, i millisekunder siden opstart. Samme kilde som resten
+ * af filen bruger til sine pauser.
+ *
+ * Og det er ikke tilfaeldigt: doedmandsknappen regnes af den her, ikke
+ * af vaeguret. Et NTP-spring flytter vaeguret med timer, og saa ville
+ * knappen slaa til for tidligt eller aldrig. Se zs_ladeordre.h.
+ */
+static int64_t lade_nu_ms(void)
+{
+    return esp_timer_get_time() / 1000;
+}
+
+static void saet_ordre_tilstand(const char *navn)
+{
+    LAAS();
+    bool godt = zs_ladeordre_tilstand(&s_ordre, navn, lade_nu_ms());
+    zs_ordre_stand_t stand = zs_ladeordre_stand(&s_ordre, lade_nu_ms());
+    SLIP();
+    if (godt) {
+        ZS_LOGI(TAG, "ladeplan: tilstand %s, ordren er nu %s",
+                navn, zs_ladeordre_stand_navn(stand));
+    } else {
+        /*
+         * Et navn vi ikke kender roerer ikke den ordre der staar. Det
+         * skal ses i loggen: symptomet ellers er "Platformen satte en
+         * plan og skaermen gjorde noget andet".
+         */
+        ZS_LOGW(TAG, "ladeplan: tilstanden \"%.24s\" kendes ikke, "
+                     "ordren staar uroert", navn ? navn : "(null)");
+    }
+}
+
+static void saet_ordre_sekunder(int32_t sek)
+{
+    LAAS();
+    bool godt = zs_ladeordre_sekunder(&s_ordre, sek, lade_nu_ms());
+    zs_ordre_stand_t stand = zs_ladeordre_stand(&s_ordre, lade_nu_ms());
+    SLIP();
+    if (godt) {
+        ZS_LOGI(TAG, "ladeplan: timer %d s, ordren er nu %s",
+                (int)sek, zs_ladeordre_stand_navn(stand));
+    } else {
+        ZS_LOGW(TAG, "ladeplan: timeren %d s er uden for 1..%d, "
+                     "ordren staar uroert",
+                (int)sek, ZS_LADE_DOEDMAND_MAKS_S);
+    }
+}
+
+/*
+ * Laeser ét af ladeplanens felter ud af en besked eller et svar.
+ *
+ * Den samme afkodning bruges begge steder: beskeden naar feltet aendres,
+ * og svaret ved indmelding. Stod den to steder, kunne de komme ud af
+ * trit - og saa ville en plan sat mens skaermen var slukket blive laest
+ * anderledes end en sat mens den koerte.
+ */
+static void brug_lade_vaerdi(const char *felt, const cJSON *vaerdi)
+{
+    if (felt == NULL || vaerdi == NULL || cJSON_IsNull(vaerdi)) {
+        return;             /* ryddet paa serveren: lad ordren udloebe */
+    }
+    if (strcmp(felt, ZS_FLEET_LADE_TILSTAND_FELT) == 0) {
+        if (cJSON_IsString(vaerdi)) {
+            saet_ordre_tilstand(vaerdi->valuestring);
+        } else {
+            ZS_LOGW(TAG, "ladeplan: tilstanden var ikke tekst");
+        }
+    } else if (strcmp(felt, ZS_FLEET_LADE_SEKUNDER_FELT) == 0) {
+        if (cJSON_IsNumber(vaerdi)) {
+            /*
+             * Afkortning og ikke afrunding: et halvt sekund i en
+             * doedmandstimer er ikke noget vi runder OP. Og
+             * zs_ladeordre_sekunder afviser selv 0 og det der er over
+             * loftet, saa graensen staar ét sted.
+             */
+            saet_ordre_sekunder((int32_t)vaerdi->valuedouble);
+        } else {
+            ZS_LOGW(TAG, "ladeplan: timeren var ikke et tal");
+        }
+    }
+}
+
+/* Ét af ladeplanens felter er aendret paa serveren. */
+static void laes_ladeplan(const char *felt, const char *data, int len)
+{
+    if (data == NULL || len <= 0) {
+        return;
+    }
+    cJSON *rod = cJSON_ParseWithLength(data, (size_t)len);
+    if (rod == NULL) {
+        ZS_LOGW(TAG, "ladeplanens %s kunne ikke laeses", felt);
+        return;
+    }
+    brug_lade_vaerdi(felt, rod);
+    cJSON_Delete(rod);
+}
+
 static void laes_maalversion(const char *data, int len)
 {
     if (data == NULL || len <= 0) {
@@ -367,14 +481,26 @@ static void laes_svar(const char *data, int len)
              * ikke er markeret laesbart for en begraenset bruger. Der
              * kommer ingen fejl, der kommer bare aldrig noget.
              */
+            /*
+             * Ét abonnement PER FELT, fra listen i zs_config.h. Og IKKE
+             * et jokertegn i asset-positionen: maalt 10. oktober 2026
+             * svarer serveren "Granted QoS 0" paa attributevalue/+/+ og
+             * sender saa INGENTING. Tre runder, nul beskeder. Det ligner
+             * ét abonnement til alt, og det er det ikke.
+             */
             char lyt[160];
-            if (zs_fleet_msg_lyt_topic(lyt, sizeof(lyt), ZS_FLEET_REALM,
-                                       zs_fleet_unique_id(),
-                                       ZS_FLEET_TARGET_FELT,
-                                       id->valuestring) > 0) {
-                esp_mqtt_client_subscribe(s_klient, lyt, 0);
-                ZS_LOGI(TAG, "lytter efter målversion");
+            static const char *const NED[] = { ZS_FLEET_NED_FELTER };
+            int lyttede = 0;
+            for (size_t lf = 0; lf < sizeof(NED) / sizeof(NED[0]); lf++) {
+                if (zs_fleet_msg_lyt_topic(lyt, sizeof(lyt), ZS_FLEET_REALM,
+                                           zs_fleet_unique_id(),
+                                           NED[lf],
+                                           id->valuestring) > 0) {
+                    esp_mqtt_client_subscribe(s_klient, lyt, 0);
+                    lyttede++;
+                }
             }
+            ZS_LOGI(TAG, "lytter paa %d felter ned i skaermen", lyttede);
 
             /*
              * OG TAG MAALVERSIONEN MED FRA SVARET HER.
@@ -416,6 +542,36 @@ static void laes_svar(const char *data, int len)
                  * et: er det ryddet i dashboardet mens vi var vaek, er
                  * det ogsaa en ordre. */
                 zs_ota_set_target("");
+            }
+
+            /*
+             * OG LADEPLANEN MED FRA SVARET, af samme grund som
+             * maalversionen: et abonnement giver kun beskeder mens man
+             * lytter, og forbindelsen er "clean session". En plan sat
+             * mens skaermen var slukket ville ellers aldrig naa frem,
+             * mens serveren stadig havde den.
+             *
+             * Maalt 8. oktober 2026 paa maalversionen: skaermen fik
+             * INGENTING ved at komme tilbage. Svaret her har alle
+             * felterne MED vaerdier, saa der skal ikke et ekstra kald
+             * til.
+             *
+             * TILSTANDEN FOERST. Den nulstiller de andre felter naar den
+             * er ny, saa kom timeren foerst, ville den blive kastet vaek
+             * igen - og ordren ville staa ufuld til naeste besked.
+             */
+            const char *lade_raekke[] = {
+                ZS_FLEET_LADE_TILSTAND_FELT,
+                ZS_FLEET_LADE_SEKUNDER_FELT,
+            };
+            for (size_t lf = 0;
+                 lf < sizeof(lade_raekke) / sizeof(lade_raekke[0]); lf++) {
+                const cJSON *at = attrs
+                    ? cJSON_GetObjectItemCaseSensitive(attrs, lade_raekke[lf])
+                    : NULL;
+                const cJSON *v = at
+                    ? cJSON_GetObjectItemCaseSensitive(at, "value") : NULL;
+                brug_lade_vaerdi(lade_raekke[lf], v);
             }
         } else {
             ZS_LOGW(TAG, "svaret havde intet enheds-id");
@@ -537,6 +693,14 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
          */
         if (zs_fleet_emne_har_led(s_saml.emne, ZS_FLEET_TARGET_FELT)) {
             laes_maalversion(s_saml.buf, (int)s_saml.har);
+        } else if (zs_fleet_emne_har_led(s_saml.emne,
+                                         ZS_FLEET_LADE_TILSTAND_FELT)) {
+            laes_ladeplan(ZS_FLEET_LADE_TILSTAND_FELT,
+                          s_saml.buf, (int)s_saml.har);
+        } else if (zs_fleet_emne_har_led(s_saml.emne,
+                                         ZS_FLEET_LADE_SEKUNDER_FELT)) {
+            laes_ladeplan(ZS_FLEET_LADE_SEKUNDER_FELT,
+                          s_saml.buf, (int)s_saml.har);
         } else if (zs_fleet_emne_har_led(s_saml.emne, "response")) {
             laes_svar(s_saml.buf, (int)s_saml.har);
         } else {

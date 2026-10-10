@@ -398,6 +398,44 @@
 #define ZS_FLEET_VERSION_FELT  "firmwareVersion"
 
 /*
+ * LADEPLANEN, ogsaa den anden vej: fra serveren og ned i skaermen.
+ *
+ * Platformen skriver planen paa BATTERIET hos OpenRemote - der er den
+ * bundet, og kun der. Et attributeLink baerer de to felter over paa
+ * skaermens eget asset, som er det eneste skaermen kan se. Formen staar
+ * i scripts/felter.py og scripts/anlaeg.py i zScreen-server.
+ *
+ * SETPUNKTET ER IKKE MED HER, OG DET ER MED VILJE. powerSetpoint
+ * bliver ikke baaret over paa skaermen, fordi raten ikke kan omregnes
+ * fra kilowatt til noternes raa registertal uden skalafaktoren - punkt 2
+ * paa maalelisten i docs/batteristyring.md. Derfor kan skaermen i dag
+ * modtage netop de tre tilstande der IKKE ser paa raten: normal,
+ * zeroExport og laas. Se zs_ladeordre.h.
+ */
+#define ZS_FLEET_LADE_TILSTAND_FELT  "ladeplanTilstand"
+#define ZS_FLEET_LADE_SEKUNDER_FELT  "ladeplanSekunder"
+
+/*
+ * ALLE FELTER DER GAAR NED I SKAERMEN, ÉT STED.
+ *
+ * Listen BLIVER BRUGT: zs_fleet.c abonnerer paa netop den, og
+ * kryds.py i zScreen-server laeser den for at vide hvilke felter
+ * skaermen LAESER i stedet for skriver.
+ *
+ * Foer stod reglen i kryds.py som "alt andet end targetVersion
+ * skriver skaermen". Den slags "hvad den ikke er"-regel holder lige til
+ * der kommer et tredje felt - og saa meldte den at firmwaren skrev i
+ * ladeplanen, hvad den ikke gor. Det skete 10. oktober 2026.
+ *
+ * Et nyt felt ned i skaermen skal skrives HER, og saa foelger baade
+ * abonnementet og krydstjekket med af sig selv.
+ */
+#define ZS_FLEET_NED_FELTER \
+    ZS_FLEET_TARGET_FELT, \
+    ZS_FLEET_LADE_TILSTAND_FELT, \
+    ZS_FLEET_LADE_SEKUNDER_FELT
+
+/*
  * ALLE DE ANDRE FELTER skaermen skriver til serveren.
  *
  * HVORFOR DE STAAR HER OG IKKE I AFSENDELSEN.
