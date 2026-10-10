@@ -76,8 +76,18 @@ sin egen proeve. `tools/check-dokumentation.py` sammenligner desuden
 tabellen HER med tabellen i koden, begge veje, saa de ikke kan drive fra
 hinanden.
 
-Modulet SENDER stadig ingenting. Fronius-laget er skrivebeskyttet, og
-Modbus-laget har slet ingen skrivefunktion - efterset 9. oktober 2026.
+Modulet SENDER stadig ingenting. Men vejen ud er laengere bygget end
+foerst skrevet her - efterset 10. oktober 2026:
+
+- `zs_modbus_tcp` **kan** skrive. `zs_mb_write_verified` skriver og
+  laeser tilbage, netop fordi Fronius svarer uden fejl ogsaa naar en
+  skrivning bliver afvist. Det er proevet i `test_modbus_skriv`
+- `zs_fronius` er skrivebeskyttet og kalder ingen af dem
+- **ingen** kalder `zs_mb_write_verified` - nul steder i firmwaren
+
+Vejen findes altsaa, men den er ikke forbundet. Og
+`zs_mb_write_verified` er praecis den tilbagelaesning
+`zs_ladeplan_kvitter` doemmer paa.
 
 **To ting blev maalt paa selve oversaettelsen, og de var ikke til at se:**
 

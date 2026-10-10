@@ -4,10 +4,24 @@
  * LAES DET HER FOERST.
  *
  * Modulet sender INGENTING. Det regner kun ud HVILKE vaerdier de fire
- * registre skulle have, hvis man ville saette en tilstand. Firmwarens
- * Fronius-lag er skrivebeskyttet, og Modbus-laget har slet ingen
- * skrivefunktion - efterset 9. oktober 2026. Det bliver staaende indtil
- * fem ting er maalt paa rigtig hardware, se docs/batteristyring.md.
+ * registre skulle have, hvis man ville saette en tilstand.
+ *
+ * HVOR LANGT VEJEN UD ER BYGGET, efterset 10. oktober 2026. Jeg havde
+ * foerst skrevet at Modbus-laget ikke kunne skrive, og det var FORKERT:
+ *
+ *   zs_modbus_tcp   KAN skrive. zs_mb_build_write_request bygger en
+ *                   FC16-ramme, zs_mb_parse_write_response laeser svaret,
+ *                   og zs_mb_write_verified skriver og LAESER TILBAGE -
+ *                   netop fordi Fronius svarer uden fejl ogsaa naar en
+ *                   skrivning bliver afvist. Det er proevet i
+ *                   test_modbus_skriv
+ *   zs_fronius      er skrivebeskyttet. Den kalder ingen af dem, og det
+ *                   staar i dens egen header: "Alt er skrivebeskyttet"
+ *   ingen           kalder zs_mb_write_verified. Nul steder i hele
+ *                   firmwaren
+ *
+ * Saa vejen findes, men den er ikke forbundet, og det bliver den indtil
+ * fem ting er maalt paa rigtig hardware - se docs/batteristyring.md.
  *
  * DET HER ER DEN DEL DER KAN PROEVES UDEN EN INVERTER.
  *
