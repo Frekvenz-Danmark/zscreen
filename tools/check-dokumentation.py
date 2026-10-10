@@ -45,8 +45,16 @@ NAVNE = {
     "DCW_SF": "DCW_SF", "N": "N",
 }
 
-# Projekter der ligger ved siden af, ikke i vores repo.
-UDENFOR = ("DESIGN.txt", "modbus_controller.py")
+# Filer der ligger ved siden af, ikke i vores repo.
+#
+# anlaeg.py, felter.py og tilmeld.py hoerer i zScreen-server. De maa
+# naevnes - faseplanen og batteristyringen peger paa dem, fordi det er
+# DER beslutningerne staar - men de kan ikke eftersees herfra: paa en
+# CI-maskine er serverrepoet slet ikke hentet, og saa ville vagten falde
+# paa noget der er helt i orden.
+UDENFOR = ("DESIGN.txt", "modbus_controller.py",
+           "anlaeg.py", "felter.py", "tilmeld.py", "kunder.py",
+           "servicebrugere.py", "proev-frekvenz.py")
 
 
 def konstanter():
