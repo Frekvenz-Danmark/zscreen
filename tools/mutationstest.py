@@ -124,6 +124,7 @@ MODULER = [
     "firmware/main/util/zs_tid.c",
     "firmware/main/net/zs_tilmeld.c",
     "firmware/main/net/zs_ladeplan.c",
+    "firmware/main/net/zs_ladeordre.c",
     "firmware/main/net/zs_modbus_tcp.c",
     "firmware/main/net/zs_sunspec.c",
     "firmware/main/net/zs_maerker.c",

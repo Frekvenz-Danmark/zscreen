@@ -74,6 +74,10 @@ int main(int argc, char **argv)
     test_ladeplan_vagter();
     test_ladeplan_navne();
     test_ladeplan_kvittering();
+    test_ladeordre();
+    test_ladeordre_blandet();
+    test_ladeordre_doedmand();
+    test_ladeordre_vagter();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

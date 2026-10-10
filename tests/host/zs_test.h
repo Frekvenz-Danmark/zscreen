@@ -112,5 +112,9 @@ void test_ladeplan(void);
 void test_ladeplan_vagter(void);
 void test_ladeplan_navne(void);
 void test_ladeplan_kvittering(void);
+void test_ladeordre(void);
+void test_ladeordre_blandet(void);
+void test_ladeordre_doedmand(void);
+void test_ladeordre_vagter(void);
 
 #endif /* ZS_TEST_H */
