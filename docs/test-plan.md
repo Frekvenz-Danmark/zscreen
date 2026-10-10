@@ -35,6 +35,21 @@ Dækker:
 
 ## 2. Hele vejen igennem, mod simulatoren
 
+> **DET MESTE AF DETTE AFSNIT KØRER AUTOMATISK.** `tests/e2e/run.py`,
+> som `tests/run-all.sh` kalder, starter simulatoren og kører alle seks
+> profiler nedenfor igennem — plus fejlindsprøjtning, forkert tid, et
+> andet basisregister og en nægtet model 160. Den sidste kørsel var
+> grøn.
+>
+> Afkrydsningsfelterne herunder står tomme, og det er bogføring og ikke
+> et hul: ingen har sat kryds i dem siden de blev skrevet. Står du og
+> skal vide hvad der er dækket, så **kør den** i stedet for at læse
+> kasserne — præcis som tælleren i afsnit 1 blev taget ud fordi et
+> forkert tal er værre end ingen tal.
+>
+> Det der IKKE kan automatiseres, er at se på en rigtig skærm om det
+> ser rigtigt ud. Det hører i afsnit 3.
+
 Start den simulerede Fronius på din Mac:
 
 ```bash
