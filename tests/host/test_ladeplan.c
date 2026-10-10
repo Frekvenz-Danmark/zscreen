@@ -116,7 +116,7 @@ void test_ladeplan(void)
     CHECK_STR("navn oplad",       zs_ladeplan_navn(ZS_LADE_OPLAD), "oplad");
     CHECK_STR("navn aflad",       zs_ladeplan_navn(ZS_LADE_AFLAD), "aflad");
     CHECK_STR("navn normal",      zs_ladeplan_navn(ZS_LADE_NORMAL), "normal");
-    CHECK_STR("navn zero export", zs_ladeplan_navn(ZS_LADE_ZERO_EXPORT), "zero export");
+    CHECK_STR("navn zeroExport", zs_ladeplan_navn(ZS_LADE_ZERO_EXPORT), "zeroExport");
     CHECK_STR("navn laas",        zs_ladeplan_navn(ZS_LADE_LAAS), "laas");
 }
 
@@ -222,4 +222,154 @@ void test_ladeplan_vagter(void)
         CHECK("seks afslag roerte ikke den plan der stod der",
               memcmp(&foer, &p, sizeof(p)) == 0);
     }
+}
+
+
+/*
+ * NAVNENE PAA TRAADEN.
+ *
+ * Platformen skriver tilstanden som tekst i et felt paa serveren, og
+ * serveren haandhaever en liste over tilladte vaerdier. Maalt 10. oktober
+ * 2026: den afviser "OPLAD", "oplad " med mellemrum og den tomme streng
+ * med HTTP 406, og den gamle vaerdi bliver staaende.
+ *
+ * De fem navne staar skrevet ud her, saa listen i zScreen-server
+ * (scripts/anlaeg.py) kan sammenlignes med ét blik. Staar de ikke ens,
+ * kan Platformen skrive en tilstand firmwaren ikke forstaar - eller
+ * omvendt, og saa bliver planen aldrig sat.
+ */
+void test_ladeplan_navne(void)
+{
+    zs_lade_tilstand_t t;
+    ZS_SUITE("Ladeplanen: navnene paa traaden");
+
+    /* Serverens allowedValues, skrevet ud. Samme fem, samme stavemaade. */
+    const char *liste[] = { "oplad", "aflad", "normal", "zeroExport", "laas" };
+    const zs_lade_tilstand_t svarer[] = {
+        ZS_LADE_OPLAD, ZS_LADE_AFLAD, ZS_LADE_NORMAL,
+        ZS_LADE_ZERO_EXPORT, ZS_LADE_LAAS,
+    };
+    for (size_t i = 0; i < sizeof(liste) / sizeof(liste[0]); i++) {
+        char navn[80];
+        snprintf(navn, sizeof(navn), "\"%s\" bliver den rigtige tilstand", liste[i]);
+        t = (zs_lade_tilstand_t)0;
+        CHECK(navn, zs_ladeplan_tilstand(liste[i], &t) && t == svarer[i]);
+        snprintf(navn, sizeof(navn), "og tilbage igen: %s", liste[i]);
+        CHECK_STR(navn, zs_ladeplan_navn(svarer[i]), liste[i]);
+    }
+
+    /*
+     * INGEN TOLERANCE. Serveren godtager kun den praecise streng, saa
+     * firmwaren maa ikke vaere mere tilgivende: et navn vi "retter" i
+     * tavshed, er en tilstand kunden ikke bad om.
+     */
+    const char *nej[] = {
+        "OPLAD", "Oplad", "oplad ", " oplad", "oplad\n", "",
+        "opladning", "opl", "zero export", "zeroexport", "ZeroExport",
+        "noedstop", "ukendt", "3", "normal2",
+    };
+    for (size_t i = 0; i < sizeof(nej) / sizeof(nej[0]); i++) {
+        char navn[80];
+        snprintf(navn, sizeof(navn), "\"%s\" afvises", nej[i]);
+        t = ZS_LADE_LAAS;
+        CHECK(navn, !zs_ladeplan_tilstand(nej[i], &t));
+        snprintf(navn, sizeof(navn), "og \"%s\" roerte ikke ud", nej[i]);
+        CHECK(navn, t == ZS_LADE_LAAS);
+    }
+    CHECK("NULL-navn afvises", !zs_ladeplan_tilstand(NULL, &t));
+    CHECK("NULL-ud afvises", !zs_ladeplan_tilstand("oplad", NULL));
+}
+
+/*
+ * KVITTERINGEN.
+ *
+ * Besluttet 10. oktober 2026: enheden skal efterse at skrivningen blev
+ * udfoert. Det her er dommen, og den kan proeves uden en inverter.
+ *
+ * Navnene er ogsaa serverens, fordi OpenRemotes egen executionStatus
+ * ikke kunne bruges: maalt 10. oktober er dens tilladte vaerdier
+ * REQUEST_START, REQUEST_REPEATING, REQUEST_CANCEL, READY, COMPLETED,
+ * RUNNING og CANCELLED - og ingen af dem betyder "inverteren gjorde det
+ * ikke".
+ */
+void test_ladeplan_kvittering(void)
+{
+    zs_ladeplan_t vil, fik;
+    ZS_SUITE("Ladeplanen: blev planen faktisk sat");
+
+    CHECK("en plan at efterse", zs_ladeplan_lav(&vil, ZS_LADE_OPLAD, 3700, TIMER));
+
+    fik = vil;
+    CHECK_INT("alt stemmer -> ok", zs_ladeplan_kvitter(&vil, &fik), ZS_LADE_KVIT_OK);
+
+    /*
+     * ÉT felt forkert ad gangen. Hver af dem skal udpeges ved navn, for
+     * den der staar med en log skal vide HVILKET register der ikke tog
+     * imod - ikke bare at noget gik galt.
+     */
+    fik = vil; fik.doedmand_s = (uint16_t)(vil.doedmand_s - 1);
+    CHECK_INT("timeren tog ikke -> doedmand",
+              zs_ladeplan_kvitter(&vil, &fik), ZS_LADE_KVIT_DOEDMAND);
+    fik = vil; fik.stor_ctl_mod = 0;
+    CHECK_INT("StorCtl_Mod forkert -> tilstand",
+              zs_ladeplan_kvitter(&vil, &fik), ZS_LADE_KVIT_TILSTAND);
+    fik = vil; fik.out_w_rte = 0;
+    CHECK_INT("OutWRte forkert -> ud",
+              zs_ladeplan_kvitter(&vil, &fik), ZS_LADE_KVIT_UD);
+    fik = vil; fik.in_w_rte = 0;
+    CHECK_INT("InWRte forkert -> ind",
+              zs_ladeplan_kvitter(&vil, &fik), ZS_LADE_KVIT_IND);
+    fik = vil; fik.min_rsv_pct = 0;
+    CHECK_INT("MinRsvPct forkert -> reserve",
+              zs_ladeplan_kvitter(&vil, &fik), ZS_LADE_KVIT_RESERVE);
+
+    /*
+     * TIMEREN FOERST. Er baade timeren og et register forkert, skal
+     * svaret vaere timeren: den er den ene der kan efterlade en kundes
+     * batteri fastlaast hvis forbindelsen gaar.
+     */
+    fik = vil;
+    fik.doedmand_s = 1;
+    fik.out_w_rte = 0;
+    fik.min_rsv_pct = 0;
+    CHECK_INT("timeren vejer tungest naar flere er forkerte",
+              zs_ladeplan_kvitter(&vil, &fik), ZS_LADE_KVIT_DOEDMAND);
+
+    /* Ingen tilbagelaesning. Og det maa ALDRIG se ud som held. */
+    CHECK_INT("ingen tilbagelaesning -> ingenSvar",
+              zs_ladeplan_kvitter(&vil, NULL), ZS_LADE_KVIT_INTET_SVAR);
+    CHECK_INT("heller ikke uden en oensket plan",
+              zs_ladeplan_kvitter(NULL, &fik), ZS_LADE_KVIT_INTET_SVAR);
+    CHECK_INT("og slet ikke med to NULL",
+              zs_ladeplan_kvitter(NULL, NULL), ZS_LADE_KVIT_INTET_SVAR);
+
+    /*
+     * ALLE FEM FELTER SKAL VEJE. Et felt der ikke blev efterset, ville
+     * se ud som en kvittering og vaere en loegn. Her aendres hvert felt
+     * for sig og INGEN af dem maa give ok.
+     */
+    for (int i = 0; i < 5; i++) {
+        char navn[72];
+        fik = vil;
+        switch (i) {
+        case 0: fik.stor_ctl_mod += 1; break;
+        case 1: fik.out_w_rte    += 1; break;
+        case 2: fik.in_w_rte     += 1; break;
+        case 3: fik.min_rsv_pct  += 1; break;
+        default: fik.doedmand_s  = (uint16_t)(fik.doedmand_s + 1); break;
+        }
+        snprintf(navn, sizeof(navn), "felt %d taelder med: ét forkert tal giver ikke ok", i);
+        CHECK(navn, zs_ladeplan_kvitter(&vil, &fik) != ZS_LADE_KVIT_OK);
+    }
+
+    /* Navnene, som de ogsaa staar paa serveren. */
+    CHECK_STR("kvit ok",        zs_ladeplan_kvit_navn(ZS_LADE_KVIT_OK), "ok");
+    CHECK_STR("kvit doedmand",  zs_ladeplan_kvit_navn(ZS_LADE_KVIT_DOEDMAND), "doedmand");
+    CHECK_STR("kvit tilstand",  zs_ladeplan_kvit_navn(ZS_LADE_KVIT_TILSTAND), "tilstand");
+    CHECK_STR("kvit ud",        zs_ladeplan_kvit_navn(ZS_LADE_KVIT_UD), "ud");
+    CHECK_STR("kvit ind",       zs_ladeplan_kvit_navn(ZS_LADE_KVIT_IND), "ind");
+    CHECK_STR("kvit reserve",   zs_ladeplan_kvit_navn(ZS_LADE_KVIT_RESERVE), "reserve");
+    CHECK_STR("kvit ingenSvar", zs_ladeplan_kvit_navn(ZS_LADE_KVIT_INTET_SVAR), "ingenSvar");
+    CHECK_STR("kvit uden for listen", zs_ladeplan_kvit_navn((zs_lade_kvit_t)99), "ukendt");
+    CHECK_STR("og negativ",     zs_ladeplan_kvit_navn((zs_lade_kvit_t)-1), "ukendt");
 }

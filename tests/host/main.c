@@ -72,6 +72,8 @@ int main(int argc, char **argv)
     test_qr();
     test_ladeplan();
     test_ladeplan_vagter();
+    test_ladeplan_navne();
+    test_ladeplan_kvittering();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

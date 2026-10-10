@@ -150,8 +150,83 @@ typedef struct {
 bool zs_ladeplan_lav(zs_ladeplan_t *ud, zs_lade_tilstand_t tilstand,
                      int32_t rate, uint16_t doedmand_s);
 
-/* Navnet, til en log. Aldrig NULL. */
+/*
+ * Navnet. Aldrig NULL, og "ukendt" for en tilstand der ikke findes.
+ *
+ * DET ER OGSAA NAVNET PAA TRAADEN. Platformen skriver tilstanden som
+ * tekst i et felt paa serveren, og serveren haandhaever en liste over
+ * tilladte vaerdier - maalt 10. oktober 2026: den afviser baade "OPLAD",
+ * "oplad " med et mellemrum og den tomme streng, med HTTP 406.
+ *
+ * Derfor er der ÉN stavemaade, og den kan staa i et felt: "zeroExport"
+ * uden mellemrum. Foer stod der "zero export" fordi navnet kun skulle i
+ * en log. To stavemaader af samme tilstand er en fejl der foerst viser
+ * sig den dag nogen skriver den forkerte.
+ *
+ * Listen paa serveren staar i scripts/anlaeg.py i zScreen-server, og den
+ * skal vaere PRAECIS de fem navne her. Begge sider har en proeve der
+ * holder sin egen ende fast.
+ */
 const char *zs_ladeplan_navn(zs_lade_tilstand_t tilstand);
+
+/*
+ * Den anden vej: teksten fra Platformen bliver en tilstand.
+ *
+ * Giver false og roerer ikke ud hvis navnet ikke er ét af de fem. Der
+ * bliver IKKE set bort fra store bogstaver eller mellemrum - serveren
+ * godtager kun den praecise streng, og saa skal firmwaren ikke vaere
+ * mere tilgivende end den. Et navn vi "retter" i tavshed, er en tilstand
+ * kunden ikke bad om.
+ */
+bool zs_ladeplan_tilstand(const char *navn, zs_lade_tilstand_t *ud);
+
+/*
+ * KVITTERINGEN: blev planen faktisk sat?
+ *
+ * Besluttet 10. oktober 2026: enheden skal efterse at skrivningen blev
+ * udfoert og melde tilbage. En skrivning der tavst ignoreres er den
+ * vaerste udgave - det er punkt 5 paa maalelisten i
+ * docs/batteristyring.md - og vi har en tilbagelaesning i Modbus-laget
+ * der kan fange det.
+ *
+ * Det her er den del der kan proeves uden en inverter: SELVE DOMMEN.
+ * Givet hvad vi ville saette, og hvad vi laeste tilbage, hvad er saa
+ * svaret. Modulet laeser ikke selv noget.
+ *
+ * Navnene er ogsaa dem der staar paa serveren, af samme grund som
+ * ovenfor. OpenRemotes egen executionStatus kunne IKKE bruges: dens
+ * tilladte vaerdier er REQUEST_START, REQUEST_REPEATING, REQUEST_CANCEL,
+ * READY, COMPLETED, RUNNING og CANCELLED - maalt 10. oktober 2026 - og
+ * ingen af dem betyder "inverteren gjorde det ikke".
+ */
+typedef enum {
+    ZS_LADE_KVIT_OK = 0,        /* alt stod som vi satte det        */
+    ZS_LADE_KVIT_DOEDMAND,      /* timeren tog ikke. Vaerst af alle */
+    ZS_LADE_KVIT_TILSTAND,      /* StorCtl_Mod                      */
+    ZS_LADE_KVIT_UD,            /* OutWRte                          */
+    ZS_LADE_KVIT_IND,           /* InWRte                           */
+    ZS_LADE_KVIT_RESERVE,       /* MinRsvPct                        */
+    ZS_LADE_KVIT_INTET_SVAR,    /* vi fik slet ikke laest tilbage    */
+} zs_lade_kvit_t;
+
+/*
+ * Sammenligner den oenskede plan med den laeste.
+ *
+ *   laest == NULL   betyder "tilbagelaesningen lykkedes ikke", og svaret
+ *                   er ZS_LADE_KVIT_INTET_SVAR
+ *
+ * Den giver ALDRIG OK uden at hvert felt stemmer. Det er hele pointen:
+ * en kvittering man ikke kan stole paa, er vaerre end ingen.
+ *
+ * Doedmandsknappen efterses FOERST, fordi den er den ene der ikke maa
+ * vaere forkert: er timeren ikke sat, kan en mistet forbindelse
+ * efterlade batteriet fastlaast, uanset hvor rigtige de andre tre er.
+ */
+zs_lade_kvit_t zs_ladeplan_kvitter(const zs_ladeplan_t *oensket,
+                                   const zs_ladeplan_t *laest);
+
+/* Kvitteringens navn, til loggen og til serverens felt. Aldrig NULL. */
+const char *zs_ladeplan_kvit_navn(zs_lade_kvit_t kvit);
 
 #ifdef __cplusplus
 }

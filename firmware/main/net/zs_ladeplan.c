@@ -71,7 +71,7 @@ static const raekke_t TABEL[] = {
      * tilstanden ikke laeser den - fulde rate er indbygget her.
      */
     { ZS_LADE_ZERO_EXPORT, 3, RESERVE_HOEJ, false,
-      GULV, FAST(ZS_LADE_FULD_RATE), "zero export" },
+      GULV, FAST(ZS_LADE_FULD_RATE), "zeroExport" },
     /*
      * Laas: OutWRte 0 blokerer AL afladning, baade til installationen og
      * til nettet. MinRsvPct 5 % betyder "tving ikke opladning", saa den
@@ -160,4 +160,72 @@ const char *zs_ladeplan_navn(zs_lade_tilstand_t tilstand)
 {
     const raekke_t *r = find(tilstand);
     return r ? r->navn : "ukendt";
+}
+
+bool zs_ladeplan_tilstand(const char *navn, zs_lade_tilstand_t *ud)
+{
+    if (navn == NULL || ud == NULL) {
+        return false;
+    }
+    /*
+     * strcmp og ikke strncmp: "oplad" og "opladning" maa ikke vaere det
+     * samme. Og ingen tolerance for store bogstaver eller mellemrum -
+     * serveren godtager kun den praecise streng, saa firmwaren skal ikke
+     * vaere mere tilgivende end den.
+     */
+    for (size_t i = 0; i < sizeof(TABEL) / sizeof(TABEL[0]); i++) {
+        if (strcmp(TABEL[i].navn, navn) == 0) {
+            *ud = TABEL[i].tilstand;
+            return true;
+        }
+    }
+    return false;
+}
+
+/*
+ * Kvitteringernes navne. Samme liste som paa serveren, og de staar i
+ * samme raekkefoelge som enummen, saa de ikke kan komme ud af trit.
+ */
+static const char *const KVIT_NAVNE[] = {
+    "ok", "doedmand", "tilstand", "ud", "ind", "reserve", "ingenSvar",
+};
+
+zs_lade_kvit_t zs_ladeplan_kvitter(const zs_ladeplan_t *oensket,
+                                   const zs_ladeplan_t *laest)
+{
+    /*
+     * Intet svar daekker ogsaa det kalderen ikke burde goere. Et manglende
+     * oensket ER en programfejl, men svaret maa aldrig blive OK af den
+     * grund: det eneste der maa give OK, er fire tal og en timer der
+     * stemmer.
+     */
+    if (oensket == NULL || laest == NULL) {
+        return ZS_LADE_KVIT_INTET_SVAR;
+    }
+    /* Timeren foerst. Se headeren: den er den ene der ikke maa fejle. */
+    if (laest->doedmand_s != oensket->doedmand_s) {
+        return ZS_LADE_KVIT_DOEDMAND;
+    }
+    if (laest->stor_ctl_mod != oensket->stor_ctl_mod) {
+        return ZS_LADE_KVIT_TILSTAND;
+    }
+    if (laest->out_w_rte != oensket->out_w_rte) {
+        return ZS_LADE_KVIT_UD;
+    }
+    if (laest->in_w_rte != oensket->in_w_rte) {
+        return ZS_LADE_KVIT_IND;
+    }
+    if (laest->min_rsv_pct != oensket->min_rsv_pct) {
+        return ZS_LADE_KVIT_RESERVE;
+    }
+    return ZS_LADE_KVIT_OK;
+}
+
+const char *zs_ladeplan_kvit_navn(zs_lade_kvit_t kvit)
+{
+    if ((int)kvit < 0 ||
+        (size_t)kvit >= sizeof(KVIT_NAVNE) / sizeof(KVIT_NAVNE[0])) {
+        return "ukendt";
+    }
+    return KVIT_NAVNE[kvit];
 }

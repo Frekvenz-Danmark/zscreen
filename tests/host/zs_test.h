@@ -110,5 +110,7 @@ void test_tilmeld(void);
 void test_qr(void);
 void test_ladeplan(void);
 void test_ladeplan_vagter(void);
+void test_ladeplan_navne(void);
+void test_ladeplan_kvittering(void);
 
 #endif /* ZS_TEST_H */
