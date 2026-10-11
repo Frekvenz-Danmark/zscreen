@@ -81,8 +81,28 @@ static const char *reason_text(uint8_t reason)
     case WIFI_REASON_AUTH_FAIL:
     case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
     case WIFI_REASON_HANDSHAKE_TIMEOUT:
-    case WIFI_REASON_AUTH_EXPIRE:
+        /*
+         * De tre betyder i praksis en forkert kode. En forkert WPA2-kode
+         * giver sjaeldent et paent afslag: fire-vejs-haandtrykket
+         * loeber bare ud, altsaa 15 eller 204.
+         */
         return "Kodeordet passer ikke";
+    case WIFI_REASON_AUTH_EXPIRE:
+        /*
+         * MEN IKKE DEN HER, OG DET STOD DEN SAMMEN MED FOER.
+         *
+         * Reason 2 er 802.11's "den tidligere godkendelse gaelder ikke
+         * mere" - efterset i esp_wifi_types.h. Det er FORBIGAAENDE: den
+         * kommer naar adgangspunktet dropper en forbindelse der var
+         * gyldig, og skaermen forbinder selv igen med det SAMME kodeord.
+         *
+         * Maalt paa rigtig hardware 11. oktober 2026: skaermen skrev
+         * "Kodeordet passer ikke", og var online igen 62 sekunder efter
+         * uden at nogen rorte noget. En montoer der laeser den besked,
+         * taster et rigtigt kodeord om - og leder efter en fejl der ikke
+         * er der.
+         */
+        return "Forbindelsen udløb, prøver igen";
     case WIFI_REASON_NO_AP_FOUND:
         return "Netværket blev ikke fundet";
     case WIFI_REASON_ASSOC_FAIL:

@@ -28,6 +28,7 @@
 #include "zs_demo.h"
 #include "zs_price.h"
 #include "zs_screen_setup.h"
+#include "zs_screen_tilmeld.h"
 #include "zs_ota.h"
 #include "zs_tid.h"
 #include "zs_tilmeld.h"
@@ -138,6 +139,25 @@ static int64_t s_price_next_try;
  * hver opdatering, og den er altid falsk. */
 static bool s_demo;
 #if ZS_DEMO_ENABLED
+/*
+ * TILMELDINGEN ER ET TRIN I OPSAETNINGEN, ikke kun et punkt i
+ * Indstillinger.
+ *
+ * Montoeren staar ved anlaegget NAAR han saetter skaermen op, og det er
+ * dér koden skal scannes - ikke naar han er gaaet hjem og skal forklare
+ * kunden hvor Indstillinger er. Siden BLIVER i Indstillinger, saa en
+ * skaerm kan tilmeldes bagefter.
+ *
+ * Flaget saettes naar inverteren er valgt og bruges ÉN gang: naar
+ * opsaetningen ellers ville slutte paa hovedskaermen, vises tilmeldingen
+ * foerst. Uden det ville en kunde der senere skifter prisomraade i
+ * Indstillinger ogsaa blive sendt til tilmeldingen.
+ */
+static bool s_tilmeld_naar_opsat;
+
+/* Erklaeres her, defineres naar zs_app_tilmeld_* er kendt. */
+static void slut_opsaetningen(void);
+
 static bool s_demo_restart;
 static zs_fr_info_t s_demo_info;
 #endif
@@ -876,6 +896,30 @@ static void do_inverter_scan(void)
     zs_ui_show(ZS_SCREEN_INVERTER_LIST);
 }
 
+/*
+ * HVOR OPSAETNINGEN SLUTTER. ÉT STED.
+ *
+ * Baade "inverter valgt" og "prisomraade valgt" kan vaere det sidste
+ * trin, afhaengigt af hvad der manglede. Stod beslutningen to steder,
+ * ville tilmeldingen blive glemt i den ene vej - og det er netop den
+ * slags der ikke opdages, fordi den anden vej virker.
+ */
+static void slut_opsaetningen(void)
+{
+    if (s_tilmeld_naar_opsat) {
+        s_tilmeld_naar_opsat = false;
+        zs_tilmeld_page_set_return(ZS_SCREEN_HOME);
+        (void)zs_app_tilmeld_vis(true);
+        zs_ui_set_tilmeld(zs_app_tilmeld_stand(), zs_app_tilmeld_kode(),
+                          zs_tilmeld_min_igen(&s_tilmeld,
+                                              esp_timer_get_time() / 1000));
+        zs_ui_show(ZS_SCREEN_TILMELD);
+        ESP_LOGI(TAG, "opsætningen er færdig, viser tilmeldingen");
+        return;
+    }
+    zs_ui_show(ZS_SCREEN_HOME);
+}
+
 static void handle_cmd(const zs_cmd_t *c)
 {
     switch (c->type) {
@@ -1003,11 +1047,17 @@ static void handle_cmd(const zs_cmd_t *c)
          * ÉT sted bestemmer hvor brugeren skal hen. Mangler der et
          * prisomraade, er opsaetningen ikke faerdig endnu.
          */
+        /*
+         * Inverteren er fundet og valgt. Montoeren staar ved anlaegget
+         * NU, saa tilmeldingen skal vises foer han gaar - se
+         * s_tilmeld_naar_opsat.
+         */
+        s_tilmeld_naar_opsat = true;
         if (s_cfg.price_zone[0] == '\0') {
             zs_setup_zone_set_return(ZS_SCREEN_INVERTER_LIST);
             zs_ui_show(ZS_SCREEN_PRICE_ZONE);
         } else {
-            zs_ui_show(ZS_SCREEN_HOME);
+            slut_opsaetningen();
         }
         break;
     }
@@ -1062,6 +1112,15 @@ static void handle_cmd(const zs_cmd_t *c)
         break;
 
     case ZS_CMD_TILMELD_VIS:
+        /*
+         * Fra Indstillinger. Tilbage-knappen skal derfor foere TILBAGE
+         * til Indstillinger - og det saettes HER og ikke én gang ved
+         * opstart, fordi opsaetningen saetter den til hovedskaermen.
+         * Gjorde vi det kun én gang, ville en tilmelding fra
+         * Indstillinger efter en opsaetning sende kunden til
+         * hovedskaermen i stedet.
+         */
+        zs_tilmeld_page_set_return(ZS_SCREEN_SETTINGS);
         (void)zs_app_tilmeld_vis(c->flag);
         /* Tegn siden om med det samme. Ellers staar der "ingen kode" i op
          * til to sekunder efter der er trykket, og saa tror montoeren at
@@ -1174,7 +1233,7 @@ static void handle_cmd(const zs_cmd_t *c)
         zs_ui_set_price(&s_price);
         /* Opsaetningen er faerdig naar der ogsaa er en inverter. */
         if (s_cfg.configured) {
-            zs_ui_show(ZS_SCREEN_HOME);
+            slut_opsaetningen();
         }
         break;
     }

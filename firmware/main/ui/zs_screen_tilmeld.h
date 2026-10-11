@@ -22,12 +22,26 @@
 
 #include "lvgl.h"
 #include "zs_tilmeld.h"
+#include "zs_ui.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void zs_tilmeld_page_create(void);
+
+/*
+ * Hvor tilbage-knappen foerer hen.
+ *
+ * Siden naas fra TO steder: fra Indstillinger, og som et trin i
+ * opsaetningen efter inverteren er valgt. De to skal gaa hver sin vej
+ * tilbage, og stod maalet fast, ville montoeren i opsaetningen blive
+ * sendt ind i Indstillinger midt i forloebet.
+ *
+ * Standard er ZS_SCREEN_SETTINGS. Den der viser siden, saetter maalet -
+ * se ZS_CMD_TILMELD_VIS og opsaetningens sidste trin i zs_app.c.
+ */
+void zs_tilmeld_page_set_return(zs_screen_id_t hvorhen);
 lv_obj_t *zs_tilmeld_page_root(void);
 
 /*

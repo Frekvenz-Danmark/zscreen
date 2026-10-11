@@ -41,6 +41,14 @@ static uint8_t    s_qr_data[ZS_QR_BUF];
 #define LUFT_KODE    36
 #define LUFT_UNDER   40
 
+/* Hvor tilbage foerer hen. Se headeren: siden naas fra to steder. */
+static zs_screen_id_t s_tilbage_til = ZS_SCREEN_SETTINGS;
+
+void zs_tilmeld_page_set_return(zs_screen_id_t hvorhen)
+{
+    s_tilbage_til = hvorhen;
+}
+
 static void on_tilbage(lv_event_t *e)
 {
     (void)e;
@@ -55,7 +63,7 @@ static void on_tilbage(lv_event_t *e)
     c.type = ZS_CMD_TILMELD_VIS;
     c.flag = false;
     zs_app_send(&c);
-    zs_ui_show(ZS_SCREEN_SETTINGS);
+    zs_ui_show(s_tilbage_til);
 }
 
 static void on_lav_kode(lv_event_t *e)
