@@ -77,6 +77,7 @@ SRC=(
     test_qr.c
     test_ladeplan.c
     test_ladeordre.c
+    test_status.c
     test_layout.c
     test_layout_800.c
     test_maerker.c
@@ -87,6 +88,7 @@ SRC=(
     ../../firmware/main/net/zs_tilmeld.c
     ../../firmware/main/net/zs_ladeplan.c
     ../../firmware/main/net/zs_ladeordre.c
+    ../../firmware/main/app/zs_status.c
     ../../firmware/main/ui/zs_qr.c
     ../../firmware/vendor/qrcodegen/qrcodegen.c
     ../../firmware/main/net/zs_modbus_tcp.c

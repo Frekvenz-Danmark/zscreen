@@ -131,6 +131,7 @@ MODULER = [
     "firmware/main/net/zs_energi.c",
     "firmware/main/net/zs_kvarter.c",
     "firmware/main/app/zs_format.c",
+    "firmware/main/app/zs_status.c",
     "firmware/main/net/zs_version.c",
     "firmware/main/ui/zs_tilegrid.c",
     "firmware/main/ui/zs_qr.c",

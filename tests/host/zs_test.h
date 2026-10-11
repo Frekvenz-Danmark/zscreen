@@ -117,5 +117,7 @@ void test_ladeordre_blandet(void);
 void test_ladeordre_doedmand(void);
 void test_ladeordre_vagter(void);
 void test_fleet_felt(void);
+void test_status(void);
+void test_status_tekster(void);
 
 #endif /* ZS_TEST_H */
