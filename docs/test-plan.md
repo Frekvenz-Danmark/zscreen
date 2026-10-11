@@ -209,6 +209,41 @@ simulator kan ikke svare på om tallene stemmer med SolarWeb.
 - [ ] Lad skærmen køre et døgn. Tællerne på Detaljer må gerne vise et
       par genforbindelser, men ikke hundredvis
 
+### Tilmeldingen på skærmen
+
+Det her kræver **én finger på skærmen**, og det er det eneste i
+tilmeldingen der gør. Resten er bevist uden jern: `zs_tilmeld_vejen`
+køres igennem i alle 42 kombinationer af netværks- og flådetilstand i
+`tests/host/test_tilmeld.c`, og alle mutanter i `zs_tilmeld.c` bliver
+fanget.
+
+Baggrunden er fejlen fra 11. oktober 2026: siden sagde "Skærmen er ikke
+på nettet endnu" på en skærm der var på nettet med IP. Indmeldelsen
+spredes over op til et minut med vilje, og i hele det minut var det ene
+bool falsk. Målt samme aften: 34,4 sekunder fra opstart til indmeldt i
+ét forsøg kl. 23:19, og 64 sekunder efter fem forsøg kl. 23:12 — samme
+skærm, samme server. Derfor må siden hverken love et tidspunkt eller
+være en blindgyde.
+
+Gør det **inden for det første minut efter en opstart**, ellers er
+flåden klar og der er intet at se:
+
+- [ ] Træk strømmen, sæt den i, og gå ind på Indstillinger →
+      Tilmeld anlægget med det samme
+- [ ] Der står "Skærmen er på nettet" og at koden kommer af sig selv.
+      Der står **ikke** at nettet mangler, og **ikke** "tjek netværket"
+- [ ] Koden kommer frem **af sig selv**, uden at nogen trykker på noget
+- [ ] QR'en kommer frem sammen med koden
+- [ ] Bliv på siden et par minutter: koden står stille, den skifter ikke
+- [ ] Gå tilbage, og ind igen: der er en kode med det samme
+- [ ] Slå wifi fra på routeren, og gå ind på siden: **nu** står der at
+      skærmen ikke er på et netværk
+
+Og den dyre halvdel, hvis der er en skærm uden certifikat til rådighed:
+
+- [ ] En skærm der ikke er provisioneret siger "Frekvenz kender ikke
+      skærmen" og at man skal ringe — den står **ikke** og venter
+
 ### Med en Zbox på samme inverter
 
 Fronius tåler omkring to samtidige Modbus-klienter.
