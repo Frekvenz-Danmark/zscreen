@@ -78,6 +78,7 @@ int main(int argc, char **argv)
     test_ladeordre_blandet();
     test_ladeordre_doedmand();
     test_ladeordre_vagter();
+    test_fleet_felt();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

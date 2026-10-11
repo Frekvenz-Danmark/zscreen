@@ -195,6 +195,29 @@ zs_saml_t zs_fleet_saml_tag(zs_fleet_saml_t *s,
  * Og halen kan ikke bruges i stedet: lytte-emnet SLUTTER paa enhedens
  * id, saa "targetVersion" staar i midten. Derfor led og ikke hale.
  */
+/*
+ * Feltnavnet ud af et emne. Emnet er
+ *
+ *     realm / unik / verbum / FELT / assetId
+ *
+ * og det er det FJERDE led der skal bruges til at afgoere hvilket felt
+ * en besked handler om.
+ *
+ * HVORFOR DEN FINDES, OG HVORFOR IKKE zs_fleet_emne_har_led.
+ *
+ * `emne_har_led` leder efter et led HVOR SOM HELST i emnet. Det er
+ * rigtigt naar man spoerger "er det et svar" - verbet staar paa tredje
+ * plads og kan ikke forveksles. Men til FELTET er det for loest: et
+ * asset-id, et klientnavn eller en realm der tilfaeldigvis heder det
+ * samme som et felt, ville afgoere fordelingen. Og fordelingen er
+ * netop det sted hvor en fejl er tavs: beskeden lander i det forkerte
+ * felt, eller slet ingen steder, og ingen siger fra.
+ *
+ * Giver laengden, eller 0 hvis emnet ikke har fem led. Ud bliver altid
+ * en gyldig streng.
+ */
+size_t zs_fleet_msg_felt(const char *emne, char *ud, size_t ud_len);
+
 bool zs_fleet_emne_har_led(const char *emne, const char *led);
 
 #ifdef __cplusplus

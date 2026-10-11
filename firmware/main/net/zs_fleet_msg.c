@@ -250,6 +250,46 @@ zs_saml_t zs_fleet_saml_tag(zs_fleet_saml_t *s,
     return ZS_SAML_VENTER;
 }
 
+size_t zs_fleet_msg_felt(const char *emne, char *ud, size_t ud_len)
+{
+    if (ud == NULL || ud_len == 0) {
+        return 0;
+    }
+    ud[0] = '\0';
+    if (emne == NULL) {
+        return 0;
+    }
+    /*
+     * Find starten af det fjerde led. Tre skraastreger skal passeres, og
+     * hvis der ikke er tre, er emnet ikke et vi kender - og saa svarer
+     * vi ingenting i stedet for at gaette paa hvad der saa staar hvor.
+     */
+    const char *p = emne;
+    for (int i = 0; i < 3; i++) {
+        p = strchr(p, '/');
+        if (p == NULL) {
+            return 0;
+        }
+        p++;
+    }
+    const char *slut = strchr(p, '/');
+    if (slut == NULL) {
+        return 0;       /* intet femte led: det er ikke vores form */
+    }
+    size_t n = (size_t)(slut - p);
+    if (n == 0 || n >= ud_len) {
+        /*
+         * Et tomt felt er ikke et felt. Og et afkortet navn ville
+         * kunne ramme et ANDET felt - "ladeplanTilstand" klippet til
+         * "ladeplan" er ikke det samme - saa hellere ingenting.
+         */
+        return 0;
+    }
+    memcpy(ud, p, n);
+    ud[n] = '\0';
+    return n;
+}
+
 bool zs_fleet_emne_har_led(const char *emne, const char *led)
 {
     if (emne == NULL || led == NULL) {

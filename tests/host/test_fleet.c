@@ -701,3 +701,90 @@ void test_fleet_vagter(void)
     CHECK_STR("og ser rigtigt ud", lige, "master/u/writeattributevalue/f/a");
 }
 
+
+/*
+ * HVILKET FELT HANDLER EN BESKED OM?
+ *
+ * Emnet er realm/unik/verbum/FELT/assetId, og fordelingen skal komme af
+ * det FJERDE led - ikke af at navnet staar et vilkaarligt sted i emnet.
+ *
+ * Det er netop den slags beslutning zs_fleet_msg.h findes for: lagde den
+ * inde i haendelseshaandteringen, kunne den ikke proeves af, og en fejl
+ * ville vaere tavs. Beskeden lander i det forkerte felt, eller slet
+ * ingen steder, og ingen siger fra.
+ */
+void test_fleet_felt(void)
+{
+    char ud[48];
+    ZS_SUITE("Feltnavnet ud af et emne");
+
+    CHECK_INT("et almindeligt emne giver feltets laengde",
+              (int)zs_fleet_msg_felt(
+                  "master/zscreen-abc/attributevalue/solarPower/4xYz",
+                  ud, sizeof(ud)), 10);
+    CHECK_STR("og det er feltet", ud, "solarPower");
+
+    CHECK("ladeplanens tilstand",
+          zs_fleet_msg_felt("master/z1/attributevalue/ladeplanTilstand/A1",
+                            ud, sizeof(ud)) > 0);
+    CHECK_STR("navnet er helt med", ud, "ladeplanTilstand");
+    CHECK("ladeplanens timer",
+          zs_fleet_msg_felt("master/z1/attributevalue/ladeplanSekunder/A1",
+                            ud, sizeof(ud)) > 0);
+    CHECK_STR("og det er den anden", ud, "ladeplanSekunder");
+
+    /*
+     * DET HER ER GRUNDEN TIL AT DEN FINDES.
+     *
+     * Et asset-id der heder det samme som et felt maa IKKE kunne afgoere
+     * fordelingen. Med en soegning efter navnet "et sted i emnet" ville
+     * de to her se ens ud.
+     */
+    CHECK("et asset-id der ligner et feltnavn",
+          zs_fleet_msg_felt("master/z1/attributevalue/power/ladeplanTilstand",
+                            ud, sizeof(ud)) > 0);
+    CHECK_STR("feltet er power, ikke asset-id'et", ud, "power");
+    CHECK("en klient der ligner et feltnavn",
+          zs_fleet_msg_felt("master/ladeplanTilstand/attributevalue/power/A1",
+                            ud, sizeof(ud)) > 0);
+    CHECK_STR("stadig power", ud, "power");
+
+    /* Et emne der ikke har vores form, giver ingenting. */
+    const char *daarlige[] = {
+        "master/z1/attributevalue/power",       /* intet femte led   */
+        "master/z1/attributevalue",             /* kun tre led       */
+        "master/z1",
+        "master",
+        "",
+        "////",                                  /* tomme led        */
+        "master/z1/attributevalue//A1",          /* tomt felt        */
+    };
+    for (size_t i = 0; i < sizeof(daarlige) / sizeof(daarlige[0]); i++) {
+        char navn[96];
+        snprintf(navn, sizeof(navn), "\"%s\" giver ingenting", daarlige[i]);
+        CHECK(navn, zs_fleet_msg_felt(daarlige[i], ud, sizeof(ud)) == 0);
+        snprintf(navn, sizeof(navn), "og ud er en tom streng bagefter");
+        CHECK(navn, ud[0] == '\0');
+    }
+    CHECK("NULL-emne", zs_fleet_msg_felt(NULL, ud, sizeof(ud)) == 0);
+    CHECK("NULL-ud", zs_fleet_msg_felt("a/b/c/d/e", NULL, 8) == 0);
+    CHECK("ud_len 0", zs_fleet_msg_felt("a/b/c/d/e", ud, 0) == 0);
+
+    /*
+     * ET FELT DER IKKE KAN VAERE I BUFFEREN GIVER INGENTING, ikke et
+     * afkortet navn. "ladeplanTilstand" klippet til "ladeplan" er et
+     * ANDET felt, og den slags afkortning er praecis hvad der sender en
+     * besked det forkerte sted hen.
+     */
+    char lille[9];
+    CHECK("et for langt felt afvises",
+          zs_fleet_msg_felt("master/z1/attributevalue/ladeplanTilstand/A1",
+                            lille, sizeof(lille)) == 0);
+    CHECK("og der staar ikke et afkortet navn", lille[0] == '\0');
+    /* Praecis plads: otte tegn plus afslutning. */
+    CHECK_INT("et felt der passer praecis",
+              (int)zs_fleet_msg_felt("m/z/a/12345678/A", lille, sizeof(lille)), 8);
+    CHECK_STR("og det er helt med", lille, "12345678");
+    CHECK("ét tegn for lidt afvises",
+          zs_fleet_msg_felt("m/z/a/123456789/A", lille, sizeof(lille)) == 0);
+}

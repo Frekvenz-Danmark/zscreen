@@ -691,16 +691,22 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
          * indmeldelsessvar", og saa ville en tredje slags besked en dag
          * blive laest som et svar.
          */
-        if (zs_fleet_emne_har_led(s_saml.emne, ZS_FLEET_TARGET_FELT)) {
+        /*
+         * HVILKET FELT HANDLER BESKEDEN OM? Det staar i det FJERDE led,
+         * og det bliver hentet praecis derfra - ikke ved at lede efter
+         * navnet et vilkaarligt sted i emnet. Et asset-id der
+         * tilfaeldigvis heder det samme som et felt, skal ikke kunne
+         * afgoere hvor beskeden lander. Se zs_fleet_msg_felt.
+         */
+        char felt[48];
+        bool har_felt = zs_fleet_msg_felt(s_saml.emne, felt,
+                                          sizeof(felt)) > 0;
+        if (har_felt && strcmp(felt, ZS_FLEET_TARGET_FELT) == 0) {
             laes_maalversion(s_saml.buf, (int)s_saml.har);
-        } else if (zs_fleet_emne_har_led(s_saml.emne,
-                                         ZS_FLEET_LADE_TILSTAND_FELT)) {
-            laes_ladeplan(ZS_FLEET_LADE_TILSTAND_FELT,
-                          s_saml.buf, (int)s_saml.har);
-        } else if (zs_fleet_emne_har_led(s_saml.emne,
-                                         ZS_FLEET_LADE_SEKUNDER_FELT)) {
-            laes_ladeplan(ZS_FLEET_LADE_SEKUNDER_FELT,
-                          s_saml.buf, (int)s_saml.har);
+        } else if (har_felt
+                   && (strcmp(felt, ZS_FLEET_LADE_TILSTAND_FELT) == 0
+                       || strcmp(felt, ZS_FLEET_LADE_SEKUNDER_FELT) == 0)) {
+            laes_ladeplan(felt, s_saml.buf, (int)s_saml.har);
         } else if (zs_fleet_emne_har_led(s_saml.emne, "response")) {
             laes_svar(s_saml.buf, (int)s_saml.har);
         } else {
