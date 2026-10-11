@@ -105,6 +105,48 @@ Rammer touch ved siden af, er det den samme indstilling.
 
 ---
 
+## Papirerne ind i en ny enhed
+
+Firmwaren læser sit certifikat, sin nøgle, serverens CA og serveradressen
+ud af NVS — rummet `zsfleet`, se `net/zs_fleet.c`. Uden dem springer den
+flådestyringen over, **tavst**.
+
+Der var ingen vej til at få dem ind. Det blev fundet 11. oktober 2026,
+da spørgsmålet var om vi kunne flashe en skærm og prøve forløbet på
+rigtigt jern. Svaret var nej — ikke fordi noget var i stykker, men fordi
+`ca-ny-enhed.sh` lavede PEM-filer og intet forbandt dem med enheden.
+
+```bash
+# i zScreen-server
+./scripts/ca-ny-enhed.sh <id>                  papirerne, hvis de mangler
+python3 scripts/enhed-nvs.py <id> --vaert 10.1.3.7
+```
+
+Den skriver en `nvs.bin` med fire nøgler og **efterser den bagefter** med
+IDF's eget `nvs_tool.py`: rummet, de fire nøgler, og at de er **strenge**
+— firmwaren læser dem med `nvs_get_str`, som kræver en NUL-afslutning.
+
+Den siger også fra hvis servercertifikatet ikke dækker den adresse du
+giver. Gør det ikke, afviser enheden serveren med en TLS-fejl der ser ud
+som *"EOF occurred in violation of protocol"* og ikke peger nogen steder.
+
+```bash
+esptool.py --chip esp32s3 -p /dev/cu.usbmodem* write_flash 0x9000 \
+    firmware-filer/nvs/zscreen-<id>-nvs.bin
+```
+
+**AT FLASHE NVS SLETTER ALT ANDET I NVS:** wifi-navn, kodeord, valgt
+inverter og tema. Det er rigtigt på en ny enhed og forkert på en der står
+og kører.
+
+**Og `--vaert` er det vigtige ved en prøve.** Firmwarens indbyggede
+`ZS_FLEET_HOST` er `fleet.frekvenz.nu`, og der er ingen server på det navn
+i dag — det peger på domænets webhosting. Derfor sættes adressen per
+enhed, så den samme firmware kan pege på en prøveserver og på den
+rigtige.
+
+---
+
 ## Partitionstabellen
 
 8 MB flash, delt sådan her:
