@@ -172,7 +172,24 @@ LVGL-tegningen. Det hører nedenfor.
 
 Kan først køres når der er en Fronius med Modbus TCP slået til.
 
-- [ ] Skærmen finder inverteren i søgningen, uden at nogen taster en IP
+**STATUS 11. oktober 2026: den første fysiske skærm har kørt.**
+`zscreen-44b176b06c60` blev provisioneret og meldte sig ind, mod
+`tools/fronius-sim` i stedet for en rigtig Fronius. Det der blev målt
+dér, er krydset af nedenfor. Resten venter stadig på et **anlæg** — en
+simulator kan ikke svare på om tallene stemmer med SolarWeb.
+
+- [x] Skærmen finder inverteren i søgningen, uden at nogen taster en IP
+      — *fandt simulatoren selv, `inverteren er online`*
+- [x] Fabrikat, model og serienummer stemmer — *mod simulatorens:
+      `Symo GEN24 10.0`, serie `31234567`, `ratedPower 10.0`,
+      `batteryCapacity 10.2`*
+- [x] **NETTETS fortegn:** *10 af 10 sammenhængende målinger balancerer
+      inden for 2 W, fra 7 kW eksport ned til batteri alene ved 95 W.
+      Kør `python3 scripts/proev-balance.py` i zScreen-server*
+- [x] Forbruget er positivt — *i alle 10 målinger*
+- [x] Uret: *`quarterOfDay 86` skrevet 21:45 lokal tid = kvarteret
+      21:30–21:45. Rigtigt*
+- [ ] Skærmen finder en RIGTIG inverter i søgningen
 - [ ] Fabrikat, model og serienummer stemmer med inverterens webside
 - [ ] Solproduktionen stemmer med SolarWeb, inden for et par hundrede W
 - [ ] Ladetilstanden i procent stemmer med SolarWeb
