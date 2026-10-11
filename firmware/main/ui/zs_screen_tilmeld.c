@@ -265,9 +265,17 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
         lv_label_set_text(s_over, "Skærmen er på nettet.");
         lv_label_set_text(s_kode, "-");
         zs_style_text(s_kode, &zs_font_28, ZS_C_TEXT_DIM);
+        /*
+         * Der står IKKE "om et øjeblik". Målt på jern 11. oktober 2026
+         * kl. 23: serveren lukkede forbindelsen fire gange i træk, og
+         * indmeldelsen var først i hus efter 64 sekunder. "Et øjeblik"
+         * ville have været en ny lille løgn oven i den vi lige fjernede.
+         * Der står hvad der sker, og hvad man skal gøre, og ikke hvor
+         * lang tid det tager - for det ved skærmen ikke.
+         */
         lv_label_set_text(s_under,
             "Den henter forbindelse til Frekvenz. Koden kommer af sig "
-            "selv om et øjeblik - bliv på siden.");
+            "selv, så snart der er forbindelse - bliv på siden.");
         break;
 
     case ZS_TILMELD_SERVER_NEJ:

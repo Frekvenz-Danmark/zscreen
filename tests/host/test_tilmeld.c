@@ -87,6 +87,98 @@ void test_tilmeld(void)
     CHECK("for få tilfældige bytes afvises",
           zs_tilmeld_kode(k, sizeof(k), t, ZS_TILMELD_TILF_BYTES - 1) == false);
 
+    ZS_SUITE("Tilmelding: vejen til serveren, alle kombinationer");
+
+    /*
+     * DET HER ER FEJLEN FRA 11. OKTOBER 2026, HOLDT FAST.
+     *
+     * Skærmen stod på wifi med IP og sagde "Skærmen er ikke på nettet
+     * endnu", fordi der kun var ét bool at sige det med. Her køres
+     * ALLE kombinationer af de to tilstande igennem, så den
+     * oversættelse ikke kan skride igen uden at nogen ser det.
+     */
+    CHECK("uden net er svaret intet net, uanset hvor flåden er",
+          zs_tilmeld_vejen(ZS_WIFI_CONNECTING, ZS_FLEET_READY)
+              == ZS_TILMELD_VEJ_INTET_NET);
+    CHECK("på nettet og indmeldt: hele vejen frem",
+          zs_tilmeld_vejen(ZS_WIFI_CONNECTED, ZS_FLEET_READY)
+              == ZS_TILMELD_VEJ_FLAADE);
+    CHECK("på nettet, på vej op: vi venter",
+          zs_tilmeld_vejen(ZS_WIFI_CONNECTED, ZS_FLEET_CONNECTING)
+              == ZS_TILMELD_VEJ_VENTER);
+    CHECK("på nettet, midt i indmeldelsen: vi venter",
+          zs_tilmeld_vejen(ZS_WIFI_CONNECTED, ZS_FLEET_ENROLLING)
+              == ZS_TILMELD_VEJ_VENTER);
+    /*
+     * ERROR er "på vej", ikke "gik i stå": modulet prøver igen af sig
+     * selv. Målt på jern: første forsøg faldt kl. 17,5 sekunder, nummer
+     * to kom ind fjorten sekunder senere uden at nogen rørte skærmen.
+     * Sagde vi "ring til Frekvenz" her, ville vi sende montøren til
+     * telefonen fjorten sekunder før koden kom af sig selv.
+     */
+    CHECK("på nettet, en netværksfejl undervejs: vi venter stadig",
+          zs_tilmeld_vejen(ZS_WIFI_CONNECTED, ZS_FLEET_ERROR)
+              == ZS_TILMELD_VEJ_VENTER);
+    /* De to der IKKE går væk af sig selv. En montør der venter på dem,
+     * venter for evigt. */
+    CHECK("afvist certifikat: serveren siger nej",
+          zs_tilmeld_vejen(ZS_WIFI_CONNECTED, ZS_FLEET_REJECTED)
+              == ZS_TILMELD_VEJ_NEJ);
+    CHECK("intet certifikat på enheden: serveren siger nej",
+          zs_tilmeld_vejen(ZS_WIFI_CONNECTED, ZS_FLEET_OFF)
+              == ZS_TILMELD_VEJ_NEJ);
+
+    /*
+     * Og så hele tabellen. Fem netværkstilstande gange seks
+     * flådetilstande, plus tal uden for begge enums: ingen kombination
+     * må give FLAADE uden at begge faktisk er fremme, for FLAADE er det
+     * ene svar der laver en kode.
+     */
+    const zs_wifi_state_t net_alle[] = {
+        ZS_WIFI_OFF, ZS_WIFI_SCANNING, ZS_WIFI_CONNECTING,
+        ZS_WIFI_CONNECTED, ZS_WIFI_FAILED, (zs_wifi_state_t)42,
+    };
+    const zs_fleet_state_t fl_alle[] = {
+        ZS_FLEET_OFF, ZS_FLEET_CONNECTING, ZS_FLEET_ENROLLING,
+        ZS_FLEET_READY, ZS_FLEET_REJECTED, ZS_FLEET_ERROR,
+        (zs_fleet_state_t)42,
+    };
+    int flaade_ja = 0, uden_for = 0, ingen_net = 0;
+    for (size_t i = 0; i < sizeof(net_alle) / sizeof(net_alle[0]); i++) {
+        for (size_t j = 0; j < sizeof(fl_alle) / sizeof(fl_alle[0]); j++) {
+            zs_tilmeld_vej_t v = zs_tilmeld_vejen(net_alle[i], fl_alle[j]);
+            if (v != ZS_TILMELD_VEJ_INTET_NET && v != ZS_TILMELD_VEJ_VENTER
+                && v != ZS_TILMELD_VEJ_NEJ && v != ZS_TILMELD_VEJ_FLAADE) {
+                uden_for++;
+            }
+            if (v == ZS_TILMELD_VEJ_FLAADE) {
+                flaade_ja++;
+                /* Det ene svar der laver en kode. Det må kun komme når
+                 * BEGGE er fremme. */
+                if (net_alle[i] != ZS_WIFI_CONNECTED
+                    || fl_alle[j] != ZS_FLEET_READY) {
+                    flaade_ja += 1000;
+                }
+            }
+            if (v == ZS_TILMELD_VEJ_INTET_NET) {
+                ingen_net++;
+                if (net_alle[i] == ZS_WIFI_CONNECTED) {
+                    ingen_net += 1000;   /* "intet net" om et net der er */
+                }
+            }
+        }
+    }
+    CHECK_INT("hver kombination giver en vej vi kender", uden_for, 0);
+    CHECK_INT("kun ÉN af 42 kombinationer laver en kode", flaade_ja, 1);
+    /*
+     * De syv flådetilstande - seks plus tallet uden for enummet - gange
+     * de fem netværkstilstande der ikke er CONNECTED. 7 * 5 = 35, og
+     * ingen af dem må sige "intet net" om et net der ER der. DET var
+     * fejlen.
+     */
+    CHECK_INT("og \"intet net\" siges kun når der ikke er et net",
+              ingen_net, 35);
+
     ZS_SUITE("Tilmelding: hvornår der er en kode at vise");
 
     zs_tilmeld_t s;

@@ -82,6 +82,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "zs_wifi.h"    /* zs_wifi_state_t  */
+#include "zs_fleet.h"   /* zs_fleet_state_t */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -125,6 +128,23 @@ typedef enum {
     /* Indmeldt. Serveren kan se koden, saa den kan bruges. */
     ZS_TILMELD_VEJ_FLAADE,
 } zs_tilmeld_vej_t;
+
+/*
+ * De to tilstande oversat til ÉN vej, og hvorfor det ligger her.
+ *
+ * Det stod i zs_app.c, hvor det ikke kunne proeves: app-laget bliver
+ * ikke oversat paa maskinen, saa de eneste maader at se om den
+ * oversaettelse var rigtig, var at flashe en skaerm og saette sig til at
+ * vente. Netop den slags gaetteri var fejlen: bool'en der sagde "ikke
+ * paa nettet" om et net der virkede, var aldrig blevet proevet med
+ * nettet oppe og flaaden nede paa samme tid.
+ *
+ * Her er den en ren funktion af to enum'er, og proeven koerer ALLE
+ * kombinationer af dem igennem - ogsaa tal der ikke findes i nogen af
+ * dem. Se test_tilmeld.c.
+ */
+zs_tilmeld_vej_t zs_tilmeld_vejen(zs_wifi_state_t net,
+                                  zs_fleet_state_t flaade);
 
 /*
  * Hvad skaermen skal vise. Raekkefoelgen er den man moeder dem i.

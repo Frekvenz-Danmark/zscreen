@@ -324,41 +324,13 @@ static void clock_update(void)
  *
  * Derfor spoerges der nu om BEGGE: wifi, og flaaden. De svarer paa to
  * forskellige spoergsmaal, og montoeren skal goere noget forskelligt.
+ *
+ * Selve oversaettelsen ligger i zs_tilmeld_vejen og ikke her, fordi den
+ * skal kunne proeves. Her samles bare de to svar.
  */
 static zs_tilmeld_vej_t tilmeld_vej(void)
 {
-    if (zs_wifi_state() != ZS_WIFI_CONNECTED) {
-        /* Ikke engang en IP. Det er den ene gang hvor det hjaelper at
-         * gaa ind i netvaerksindstillingerne. */
-        return ZS_TILMELD_VEJ_INTET_NET;
-    }
-    switch (zs_fleet_state()) {
-    case ZS_FLEET_READY:
-        return ZS_TILMELD_VEJ_FLAADE;
-    case ZS_FLEET_REJECTED:
-    case ZS_FLEET_OFF:
-        /*
-         * De to gaar IKKE vaek af sig selv. OFF betyder at der ikke er
-         * noget certifikat paa enheden, altsaa at den aldrig blev gjort
-         * klar hos Frekvenz, og REJECTED at serveren siger nej til det
-         * certifikat der er. Begge kraever et menneske hos Frekvenz, og
-         * en montoer der venter paa dem, venter for evigt.
-         */
-        return ZS_TILMELD_VEJ_NEJ;
-    case ZS_FLEET_CONNECTING:
-    case ZS_FLEET_ENROLLING:
-    case ZS_FLEET_ERROR:
-        /*
-         * ERROR er med her, og det er med vilje. Modulet proever igen
-         * af sig selv efter ZS_FLEET_RECONNECT_MS, saa den tilstand er
-         * "paa vej" og ikke "gik i staa" - maalt: foerste forsoeg faldt
-         * paa jernet kl. 17,5 sekunder, og nummer to kom ind 14
-         * sekunder senere uden at nogen roerte skaermen.
-         */
-        return ZS_TILMELD_VEJ_VENTER;
-    }
-    /* En tilstand vi ikke kender. Lov ingenting. */
-    return ZS_TILMELD_VEJ_NEJ;
+    return zs_tilmeld_vejen(zs_wifi_state(), zs_fleet_state());
 }
 
 /* De tre forudsaetninger ét sted, saa kaldene nedenfor ikke kan komme
