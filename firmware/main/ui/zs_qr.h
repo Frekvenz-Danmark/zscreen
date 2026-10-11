@@ -40,6 +40,33 @@ extern "C" {
 #define ZS_QR_KANT_MODULER  4
 
 /*
+ * HVOR STOR QR'EN TEGNES PAA SKAERMEN, I PIXELS.
+ *
+ * Tallet staar HER og ikke i zs_screen_tilmeld.c, fordi to ting skal
+ * vaere enige om det: siden der tegner den, og tools/qr-laes der beviser
+ * at en telefon kan laese den. Stod det to steder, kunne siden blive
+ * gjort stoerre uden at nogen proevede om den nye stoerrelse virkede -
+ * og saa beviste proeven en stoerrelse der ikke laengere findes.
+ *
+ * 232 er 8 pixels per modul for en kode paa seks tegn (21 moduler plus
+ * 2 x 4 moduler luft = 29). Det er MAALT paa jern 11. oktober 2026, og
+ * ikke regnet: skaermen skriver selv i loggen hvor mange pixels siden
+ * bruger, se maal_stakken i zs_screen_tilmeld.c.
+ *
+ *   145 px  -  den gamle stoerrelse
+ *   203 px  -  maalt: hele siden bruger 354 af de 424 der er
+ *   232 px  -  maalt: 383 af 424. Det er den der staar her
+ *   261 px  -  ville give 412 af 424, altsaa 12 px tilbage. For lidt
+ *              til at en skrifttype eller en tekst maa vokse
+ *
+ * Mit eget overslag sagde at 232 ikke kunne vaere der. Overslaget var
+ * 44 px galt, fordi det regnede med to tekstlinjer hvor der kun blev
+ * én. Derfor staar maalingen i loggen nu: saa skal den naeste ikke
+ * gaette heller.
+ */
+#define ZS_QR_SKAERM_MAAL_PX  232
+
+/*
  * Hvor mange pixels hvert modul maa vaere, hvis hele koden med luft skal
  * kunne staa i px pixels.
  *

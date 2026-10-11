@@ -59,8 +59,10 @@ int main(int argc, char **argv)
         fprintf(stderr, "zs_qr_lav sagde nej til \"%s\"\n", kode);
         return 1;
     }
-    /* Skaermens egen skala, med mindre der staar andet. */
-    int skala = (skala_ind > 0) ? skala_ind : zs_qr_skala(moduler, 145);
+    /* Skaermens egen skala, med mindre der staar andet. Tallet kommer
+     * fra zs_qr.h, det samme sted siden tegner efter. */
+    int skala = (skala_ind > 0) ? skala_ind
+                                : zs_qr_skala(moduler, ZS_QR_SKAERM_MAAL_PX);
     if (skala <= 0) {
         fprintf(stderr, "skalaen blev nul\n");
         return 1;

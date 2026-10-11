@@ -14,9 +14,14 @@
 # ikke praecis den samme kode ud, er QR'en ubrugelig - og saa er det
 # fundet her i stedet for hos en kunde der staar og scanner.
 #
-# DEN PROEVER VED SKAERMENS EGEN SKALA. zs_screen_tilmeld.c har
-# QR_MAAL_PX 145, og zs_qr_skala giver 5 px per modul for en kode paa
-# seks tegn. Derfor er 5 med i listen nedenfor, og det er den vigtigste.
+# DEN PROEVER VED SKAERMENS EGEN SKALA, OG DEN LAESER TALLET UD AF
+# KODEN. ZS_QR_SKAERM_MAAL_PX i zs_qr.h siger hvor mange pixels QR'en
+# fylder paa skaermen, og zs_qr_skala regner det om til pixels per
+# modul. Skalaen staar foerst i listen nedenfor og er den vigtigste.
+#
+# Den blev skrevet af HER foer, som et 5 i en liste. Da QR'en blev gjort
+# stoerre, beviste proeven stadig 5 px per modul - en stoerrelse der ikke
+# fandtes paa skaermen laengere. Nu kan de to ikke skride fra hinanden.
 #
 # HVAD DEN IKKE PROEVER: den rigtige skaerms kontrast, synsvinkel og
 # LVGL-tegningen. Det kraever hardware, og det staar i
@@ -45,8 +50,20 @@ KODER=( "${1:-}" )
 if [ -z "${KODER[0]}" ]; then
     KODER=( ABCDEF 234567 ZZZZZZ 0123AB HJKMNP QRSTVW X9Y8Z7 )
 fi
-# Skaermens egen skala foerst, saa de andre.
-SKALAER=(5 1 2 3 4 6 8)
+# Skaermens egen skala foerst, saa de andre. Tallet kommer fra
+# zs_qr.h, saa listen foelger med naar QR'en bliver gjort stoerre.
+MAAL_PX="$(sed -n 's/^#define ZS_QR_SKAERM_MAAL_PX *\([0-9]*\).*/\1/p' \
+           "$(dirname "$0")/../../firmware/main/ui/zs_qr.h")"
+if [ -z "$MAAL_PX" ]; then
+    echo "  kunne ikke laese ZS_QR_SKAERM_MAAL_PX ud af zs_qr.h" >&2
+    exit 1
+fi
+# 21 moduler for en kode paa seks tegn, plus 2 x 4 moduler luft.
+EGEN=$(( MAAL_PX / 29 ))
+SKALAER=("$EGEN")
+for s in 1 2 3 4 5 6 7 8; do
+    [ "$s" = "$EGEN" ] || SKALAER+=("$s")
+done
 
 FEJL=0
 for kode in "${KODER[@]}"; do
@@ -54,7 +71,7 @@ for kode in "${KODER[@]}"; do
         "$UD/qr-bmp" "$kode" "$UD/q.bmp" "$s" >/dev/null
         laest="$("$UD/laes" "$UD/q.bmp" 2>&1 | sed -n 's/^laest: \([^ ]*\).*/\1/p' | head -1)"
         maerke=""
-        [ "$s" = "5" ] && maerke="  <- skaermens egen skala"
+        [ "$s" = "$EGEN" ] && maerke="  <- skaermens egen skala ($MAAL_PX px)"
         if [ "$laest" = "$kode" ]; then
             printf "  \033[1;32m ok \033[0m %s ved %s px/modul%s\n" "$kode" "$s" "$maerke"
         else
