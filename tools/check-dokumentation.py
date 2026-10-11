@@ -53,8 +53,15 @@ NAVNE = {
 # CI-maskine er serverrepoet slet ikke hentet, og saa ville vagten falde
 # paa noget der er helt i orden.
 UDENFOR = ("DESIGN.txt", "modbus_controller.py",
+           # zScreen-server. Faseplanen, batteristyringen og
+           # hardware.md peger paa dem, fordi det er DER
+           # beslutningerne og papirerne er.
            "anlaeg.py", "felter.py", "tilmeld.py", "kunder.py",
-           "servicebrugere.py", "proev-frekvenz.py")
+           "servicebrugere.py", "proev-frekvenz.py",
+           "ca-ny-enhed.sh", "enhed-nvs.py", "servercert-ny.sh",
+           "online.py", "papirer.py",
+           # ESP-IDF's egne vaerktoejer.
+           "nvs_tool.py", "nvs_partition_gen.py", "esptool.py")
 
 
 def konstanter():
