@@ -39,8 +39,13 @@ FLAG=( -std=c11 -DZS_HOST_BUILD=1 -O1 -g -fno-omit-frame-pointer
 "${CC}" "${FLAG[@]}" tests/fuzz/fuzz_sunspec.c \
     firmware/main/net/zs_sunspec.c firmware/main/util/zs_tekst.c \
     -lm -o "$UD/sunspec"
+"${CC}" "${FLAG[@]}" tests/fuzz/fuzz_ladeordre.c \
+    firmware/main/net/zs_ladeordre.c firmware/main/net/zs_ladeplan.c \
+    -lm -o "$UD/ladeordre"
 
 echo "  Modbus-rammer:"
 "$UD/modbus" "$RUNDER" "$FROE" 2>/dev/null
 echo "  SunSpec-kaeden:"
 "$UD/sunspec" "$RUNDER" "$FROE" 2>/dev/null
+echo "  Ladeordren:"
+"$UD/ladeordre" "$RUNDER" "$FROE" 2>/dev/null
