@@ -56,6 +56,23 @@
  * anlaeg. Det koster: en montoer kan staa med en skaerm der ikke vil give
  * en kode. Derfor SKAL skaermen sige tydeligt hvorfor der ikke er nogen
  * endnu, og hvad man goer - se zs_tilmeld_stand_t.
+ *
+ * OG DEN KOMMER AF SIG SELV, SAA LAENGE SIDEN STAAR AABEN.
+ *
+ * Her blev der foer spurgt ÉN gang, nemlig da siden blev aabnet. Var
+ * forudsaetningerne ikke paa plads i netop det oejeblik, var siden en
+ * blindgyde: der kom aldrig en kode, heller ikke naar skaermen kom paa
+ * flaaden faa sekunder senere, for der var ingen der spurgte igen.
+ *
+ * Nu spoerger kalderen ved hvert tik mens siden staar aaben. Det er
+ * zs_tilmeld_bed_om der afgoer om der SKAL laves en ny - den giver den
+ * gyldige kode tilbage uroert - saa gentagne kald koster ingenting og
+ * kan ikke skifte koden under montoeren.
+ *
+ * Reglen om at koden kun lever mens skaermen viser den, bliver ikke
+ * svagere af det. Den bliver staerkere: den bliver til naar siden er
+ * aaben, og den ryddes naar siden lukkes, og de to ting er nu det samme
+ * sted i stedet for hver sit.
  */
 
 #ifndef ZS_TILMELD_H
@@ -81,15 +98,51 @@ extern "C" {
 #define ZS_TILMELD_LEVETID_MIN 10
 
 /*
+ * VEJEN TIL SERVEREN. Tre ting, ikke én.
+ *
+ * Her stod der foer ét bool: "paa_flaaden". Det var maalt forkert paa
+ * rigtigt jern 11. oktober 2026: en skaerm der var paa wifi med IP og
+ * laeste fra inverteren, sagde "Skaermen er ikke paa nettet endnu" og
+ * sendte montoeren ud at tjekke et netvaerk der virkede fint. Grunden
+ * var at indmeldelsen paa flaaden spredes tilfaeldigt over op til et
+ * minut efter opstart (ZS_FLEET_START_SPREAD_MS, maalt noedvendig mod
+ * en rigtig server), og i hele det minut var det ene bool falsk.
+ *
+ * Ét bool kan ikke kende forskel paa "der er intet net", "nettet er
+ * der, serveren er paa vej" og "serveren siger nej". De tre kraever tre
+ * FORSKELLIGE ting af montoeren: sæt net op, vent, ring til Frekvenz.
+ * Derfor er det her en enum og ikke et flag.
+ */
+typedef enum {
+    /* Ikke paa wifi. Her hjaelper det at tjekke netvaerket. */
+    ZS_TILMELD_VEJ_INTET_NET = 0,
+    /* Paa wifi, og paa vej ind paa flaaden. Det her er det normale i de
+     * foerste minutter efter en opstart, og det er IKKE en fejl. */
+    ZS_TILMELD_VEJ_VENTER,
+    /* Serveren vil ikke have skaermen, eller skaermen har intet
+     * certifikat. Det gaar ikke vaek af sig selv, og det skal siges. */
+    ZS_TILMELD_VEJ_NEJ,
+    /* Indmeldt. Serveren kan se koden, saa den kan bruges. */
+    ZS_TILMELD_VEJ_FLAADE,
+} zs_tilmeld_vej_t;
+
+/*
  * Hvad skaermen skal vise. Raekkefoelgen er den man moeder dem i.
  */
 typedef enum {
     /* Ingen kode: inverteren er ikke fundet endnu. Skaermen skal sige
      * HVORFOR, og hvad man goer: find anlaegget foerst. */
     ZS_TILMELD_MANGLER_INVERTER = 0,
-    /* Ingen kode: skaermen er ikke paa flaaden endnu, saa serveren kan
-     * ikke se koden, og saa kunne den ikke bruges til noget. */
-    ZS_TILMELD_MANGLER_FLAADE,
+    /* Ingen kode: skaermen er slet ikke paa noget net. DET er den ene
+     * gang hvor "tjek netvaerket" er det rigtige raad. */
+    ZS_TILMELD_MANGLER_NET,
+    /* Ingen kode ENDNU: nettet er der, og skaermen er paa vej ind paa
+     * flaaden. Koden kommer af sig selv, og siden skal sige det i stedet
+     * for at se ud som en fejl. Se noten ved zs_tilmeld_vej_t. */
+    ZS_TILMELD_VENTER_PAA_SERVER,
+    /* Ingen kode: serveren vil ikke have skaermen. Det bliver ikke
+     * bedre af at vente, saa her skal der staa ring til Frekvenz. */
+    ZS_TILMELD_SERVER_NEJ,
     /* Koden er klar og skal vises. */
     ZS_TILMELD_KLAR,
     /* Koden er udloebet. Der laves en ny naar nogen beder om det. */
@@ -144,11 +197,12 @@ bool zs_tilmeld_kode(char *ud, size_t ud_len,
  * Hvad skal skaermen vise lige nu. Ren funktion af tilstanden.
  *
  *   inverter_fundet  har skaermen en inverter at maale paa
- *   paa_flaaden      er den indmeldt, saa serveren kan se koden
+ *   vej              hvor langt skaermen er naaet mod serveren
  *   nu_ms            millisekunder siden start, samme ur som i tik
  */
 zs_tilmeld_stand_t zs_tilmeld_stand(const zs_tilmeld_t *s,
-                                    bool inverter_fundet, bool paa_flaaden,
+                                    bool inverter_fundet,
+                                    zs_tilmeld_vej_t vej,
                                     int64_t nu_ms);
 
 /*
@@ -160,7 +214,7 @@ zs_tilmeld_stand_t zs_tilmeld_stand(const zs_tilmeld_t *s,
  * montoeren proever forgaeves.
  */
 bool zs_tilmeld_bed_om(zs_tilmeld_t *s, bool inverter_fundet,
-                       bool paa_flaaden, int64_t nu_ms,
+                       zs_tilmeld_vej_t vej, int64_t nu_ms,
                        const uint8_t *tilf, size_t tilf_len);
 
 /*
@@ -176,7 +230,7 @@ void zs_tilmeld_ryd(zs_tilmeld_t *s);
  * udtrykkeligt "ryd den hos dig ogsaa".
  */
 const char *zs_tilmeld_kode_nu(const zs_tilmeld_t *s,
-                               bool inverter_fundet, bool paa_flaaden,
+                               bool inverter_fundet, zs_tilmeld_vej_t vej,
                                int64_t nu_ms);
 
 /*

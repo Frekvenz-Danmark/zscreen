@@ -106,6 +106,15 @@ bool zs_fleet_start(void);
 void zs_fleet_stop(void);
 
 /*
+ * Melder ind NU i stedet for at vente resten af spredningen af.
+ *
+ * Kaldes naar et menneske staar og venter paa svar fra serveren - i dag
+ * er det tilmeldingssiden. Uden virkning hvis indmeldelsen allerede er i
+ * gang. Se noten ved funktionen om hvorfor det ikke bryder spredningen.
+ */
+void zs_fleet_skynd_paa_indmeldelsen(void);
+
+/*
  * Sender én runde maalinger, hvis vi er klar.
  *
  * Kaldes fra hovedopgaven i samme takt som inverteren laeses, styret af

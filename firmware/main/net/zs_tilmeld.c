@@ -66,8 +66,38 @@ static bool udloebet(const zs_tilmeld_t *s, int64_t nu_ms)
     return nu_ms >= s->doer_ms;
 }
 
+/*
+ * Vejen oversat til det skaermen skal vise, naar der ikke er en kode.
+ *
+ * Hver vej har sin egen besked, fordi hver vej kraever noget forskelligt
+ * af montoeren. Se noten ved zs_tilmeld_vej_t.
+ */
+static zs_tilmeld_stand_t vejens_stand(zs_tilmeld_vej_t vej)
+{
+    switch (vej) {
+    case ZS_TILMELD_VEJ_INTET_NET: return ZS_TILMELD_MANGLER_NET;
+    case ZS_TILMELD_VEJ_VENTER:    return ZS_TILMELD_VENTER_PAA_SERVER;
+    case ZS_TILMELD_VEJ_NEJ:       return ZS_TILMELD_SERVER_NEJ;
+    case ZS_TILMELD_VEJ_FLAADE:    break;
+    }
+    /*
+     * En vej vi ikke kender, behandles som den vaerste af dem: ingen
+     * kode, og sig det. Et ukendt tal her maa ALDRIG blive en kode
+     * serveren ikke kender - saa ville montoeren proeve den forgaeves.
+     */
+    return ZS_TILMELD_SERVER_NEJ;
+}
+
+/* Er vejen helt fremme? ÉT sted, saa stand og bed_om ikke kan komme til
+ * at svare forskelligt paa om der maa laves en kode. */
+static bool fremme(zs_tilmeld_vej_t vej)
+{
+    return vej == ZS_TILMELD_VEJ_FLAADE;
+}
+
 zs_tilmeld_stand_t zs_tilmeld_stand(const zs_tilmeld_t *s,
-                                    bool inverter_fundet, bool paa_flaaden,
+                                    bool inverter_fundet,
+                                    zs_tilmeld_vej_t vej,
                                     int64_t nu_ms)
 {
     if (s == NULL) {
@@ -76,8 +106,8 @@ zs_tilmeld_stand_t zs_tilmeld_stand(const zs_tilmeld_t *s,
     if (!inverter_fundet) {
         return ZS_TILMELD_MANGLER_INVERTER;
     }
-    if (!paa_flaaden) {
-        return ZS_TILMELD_MANGLER_FLAADE;
+    if (!fremme(vej)) {
+        return vejens_stand(vej);
     }
     if (!s->har_kode) {
         /* Ingen endnu. Det er ikke en fejl, der er bare ikke bedt om en. */
@@ -90,7 +120,7 @@ zs_tilmeld_stand_t zs_tilmeld_stand(const zs_tilmeld_t *s,
 }
 
 bool zs_tilmeld_bed_om(zs_tilmeld_t *s, bool inverter_fundet,
-                       bool paa_flaaden, int64_t nu_ms,
+                       zs_tilmeld_vej_t vej, int64_t nu_ms,
                        const uint8_t *tilf, size_t tilf_len)
 {
     if (s == NULL) {
@@ -102,7 +132,7 @@ bool zs_tilmeld_bed_om(zs_tilmeld_t *s, bool inverter_fundet,
      * rigtig ud, mens serveren ikke kendte den. Montoeren ville proeve
      * den, faa nej, og lede efter fejlen et helt andet sted.
      */
-    if (!inverter_fundet || !paa_flaaden) {
+    if (!inverter_fundet || !fremme(vej)) {
         return false;
     }
     /* Er der en gyldig, bliver den staaende. Ellers ville koden skifte
@@ -141,10 +171,10 @@ void zs_tilmeld_ryd(zs_tilmeld_t *s)
 }
 
 const char *zs_tilmeld_kode_nu(const zs_tilmeld_t *s,
-                               bool inverter_fundet, bool paa_flaaden,
+                               bool inverter_fundet, zs_tilmeld_vej_t vej,
                                int64_t nu_ms)
 {
-    if (zs_tilmeld_stand(s, inverter_fundet, paa_flaaden, nu_ms)
+    if (zs_tilmeld_stand(s, inverter_fundet, vej, nu_ms)
         != ZS_TILMELD_KLAR) {
         return "";
     }

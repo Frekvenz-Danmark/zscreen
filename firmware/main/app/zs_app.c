@@ -312,13 +312,122 @@ static void clock_update(void)
  * naar der ikke er nogen. Afsendelsen tier af sig selv naar der ikke er
  * noget nyt at sige - se zs_tilmeld_skal_sende.
  */
+/*
+ * HVOR LANGT SKAERMEN ER NAAET MOD SERVEREN.
+ *
+ * Maalt paa jern 11. oktober 2026, paa en skaerm der stod paa nettet med
+ * IP 192.168.8.103 og laeste fra inverteren: fra opstart til indmeldt gik
+ * der 32 sekunder, og det kan vaere op til et minut mere, fordi
+ * indmeldelsen spredes med vilje (ZS_FLEET_START_SPREAD_MS). I hele det
+ * stykke tid sagde tilmeldingssiden "Skaermen er ikke paa nettet endnu",
+ * fordi den kun kendte ét bool. Nettet var der hele tiden.
+ *
+ * Derfor spoerges der nu om BEGGE: wifi, og flaaden. De svarer paa to
+ * forskellige spoergsmaal, og montoeren skal goere noget forskelligt.
+ */
+static zs_tilmeld_vej_t tilmeld_vej(void)
+{
+    if (zs_wifi_state() != ZS_WIFI_CONNECTED) {
+        /* Ikke engang en IP. Det er den ene gang hvor det hjaelper at
+         * gaa ind i netvaerksindstillingerne. */
+        return ZS_TILMELD_VEJ_INTET_NET;
+    }
+    switch (zs_fleet_state()) {
+    case ZS_FLEET_READY:
+        return ZS_TILMELD_VEJ_FLAADE;
+    case ZS_FLEET_REJECTED:
+    case ZS_FLEET_OFF:
+        /*
+         * De to gaar IKKE vaek af sig selv. OFF betyder at der ikke er
+         * noget certifikat paa enheden, altsaa at den aldrig blev gjort
+         * klar hos Frekvenz, og REJECTED at serveren siger nej til det
+         * certifikat der er. Begge kraever et menneske hos Frekvenz, og
+         * en montoer der venter paa dem, venter for evigt.
+         */
+        return ZS_TILMELD_VEJ_NEJ;
+    case ZS_FLEET_CONNECTING:
+    case ZS_FLEET_ENROLLING:
+    case ZS_FLEET_ERROR:
+        /*
+         * ERROR er med her, og det er med vilje. Modulet proever igen
+         * af sig selv efter ZS_FLEET_RECONNECT_MS, saa den tilstand er
+         * "paa vej" og ikke "gik i staa" - maalt: foerste forsoeg faldt
+         * paa jernet kl. 17,5 sekunder, og nummer to kom ind 14
+         * sekunder senere uden at nogen roerte skaermen.
+         */
+        return ZS_TILMELD_VEJ_VENTER;
+    }
+    /* En tilstand vi ikke kender. Lov ingenting. */
+    return ZS_TILMELD_VEJ_NEJ;
+}
+
+/* De tre forudsaetninger ét sted, saa kaldene nedenfor ikke kan komme
+ * til at svare forskelligt paa det samme spoergsmaal. */
+static void tilmeld_nu(bool *inverter, zs_tilmeld_vej_t *vej, int64_t *nu_ms)
+{
+    *inverter = (s_cfg.inverter_serial[0] != '\0');
+    *vej      = tilmeld_vej();
+    *nu_ms    = esp_timer_get_time() / 1000;
+}
+
 static void tilmeld_tik(void)
 {
-    bool inverter = (s_cfg.inverter_serial[0] != '\0');
-    bool paa_flaaden = (zs_fleet_state() == ZS_FLEET_READY);
-    int64_t nu_ms = esp_timer_get_time() / 1000;
+    bool inverter;
+    zs_tilmeld_vej_t vej;
+    int64_t nu_ms;
+    tilmeld_nu(&inverter, &vej, &nu_ms);
+
+    /*
+     * KODEN LAVES HER, OG IKKE KUN NAAR SIDEN BLIVER AABNET.
+     *
+     * Grunden staar i zs_tilmeld.h: blev siden aabnet et sekund foer
+     * skaermen kom paa flaaden, var der ingen der spurgte igen, og siden
+     * var en blindgyde montoeren maatte gaa ud og ind af for at komme ud
+     * af. Nu kommer koden af sig selv i samme sekund som
+     * forudsaetningerne er paa plads.
+     *
+     * Det her kald laver KUN en ny hvis der ikke er en gyldig. Se
+     * zs_tilmeld_bed_om: en kode der stadig lever, bliver staaende
+     * uroert, saa de fem tik i sekundet skifter ikke koden under
+     * montoeren.
+     *
+     * Og kun mens siden staar aaben. Det er regel 2, og den er grunden
+     * til at der er et flag og ikke bare "lav altid en kode".
+     */
+    /*
+     * OG "AABEN" SPOERGES SIDEN SELV OM, IKKE ET FLAG HER.
+     *
+     * Der laa et flag her foerst, sat af kommandoen der aabner og
+     * lukker siden. Det var en sandhed mere end der er sider, og den
+     * kunne skride: gik skaermen VAEK fra tilmeldingen ad en anden vej -
+     * demoen starter, fabriksnulstilling, hvad der kommer en dag - saa
+     * blev flaget staaende sandt. Og saa blev koden fornyet igen og igen
+     * paa en side ingen kunne se. Det er praecis det regel 2 skal
+     * forhindre.
+     *
+     * zs_ui_current() ER sandheden om hvad der staar paa skaermen, saa
+     * den spoerges direkte. Saa kan den ikke skride, uanset hvilken vej
+     * nogen gaar ud af siden i fremtiden.
+     */
+    bool aaben = (zs_ui_current() == ZS_SCREEN_TILMELD);
+    if (aaben) {
+        uint8_t tilf[ZS_TILMELD_TILF_BYTES];
+        esp_fill_random(tilf, sizeof(tilf));
+        (void)zs_tilmeld_bed_om(&s_tilmeld, inverter, vej, nu_ms,
+                                tilf, sizeof(tilf));
+    } else if (s_tilmeld.har_kode) {
+        /*
+         * Regel 2, og nu for ALLE veje ud af siden. Knappen tilbage
+         * siger det ogsaa selv og bliver ved med at goere det - den er
+         * hurtigere, for den venter ikke paa et tik - men den er ikke
+         * laengere det eneste der holder reglen.
+         */
+        zs_tilmeld_ryd(&s_tilmeld);
+        ESP_LOGI(TAG, "tilmeldingen er forladt, koden er ryddet");
+    }
+
     zs_fleet_publish_tilmeld(
-        zs_tilmeld_kode_nu(&s_tilmeld, inverter, paa_flaaden, nu_ms));
+        zs_tilmeld_kode_nu(&s_tilmeld, inverter, vej, nu_ms));
 
     /*
      * Og fladen faar den samme sandhed. Den tegner kun om naar den staar
@@ -328,20 +437,9 @@ static void tilmeld_tik(void)
      * sig selv: en montoer der staar og kigger paa koden, skal kunne se
      * at der er tre minutter tilbage og ikke ti.
      */
-    zs_ui_set_tilmeld(zs_tilmeld_stand(&s_tilmeld, inverter, paa_flaaden,
-                                       nu_ms),
-                      zs_tilmeld_kode_nu(&s_tilmeld, inverter, paa_flaaden,
-                                         nu_ms),
+    zs_ui_set_tilmeld(zs_tilmeld_stand(&s_tilmeld, inverter, vej, nu_ms),
+                      zs_tilmeld_kode_nu(&s_tilmeld, inverter, vej, nu_ms),
                       zs_tilmeld_min_igen(&s_tilmeld, nu_ms));
-}
-
-/* De tre forudsaetninger ét sted, saa de tre kald nedenfor ikke kan
- * komme til at svare forskelligt paa det samme spoergsmaal. */
-static void tilmeld_nu(bool *inverter, bool *paa_flaaden, int64_t *nu_ms)
-{
-    *inverter    = (s_cfg.inverter_serial[0] != '\0');
-    *paa_flaaden = (zs_fleet_state() == ZS_FLEET_READY);
-    *nu_ms       = esp_timer_get_time() / 1000;
 }
 
 /*
@@ -352,9 +450,10 @@ static void tilmeld_nu(bool *inverter, bool *paa_flaaden, int64_t *nu_ms)
  */
 bool zs_app_tilmeld_vis(bool vis)
 {
-    bool inverter, paa_flaaden;
+    bool inverter;
+    zs_tilmeld_vej_t vej;
     int64_t nu_ms;
-    tilmeld_nu(&inverter, &paa_flaaden, &nu_ms);
+    tilmeld_nu(&inverter, &vej, &nu_ms);
 
     if (!vis) {
         /* Vaek fra skaermen, vaek fra serveren. Selve afsendelsen sker
@@ -362,6 +461,16 @@ bool zs_app_tilmeld_vis(bool vis)
         zs_tilmeld_ryd(&s_tilmeld);
         return false;
     }
+    /*
+     * Og saa skynder vi paa flaaden. Spredningen findes for at tusind
+     * skaerme der faar stroem samtidig ikke rammer serveren i samme
+     * sekund - men her er der ét menneske der har trykket paa ÉN skaerm,
+     * og saa er der ingen flok at sprede. Uden det her kan montoeren
+     * staa og se paa "henter forbindelse" i op til et minut med et net
+     * der virker fint. Kaldet er uden virkning hvis vi allerede er i
+     * gang.
+     */
+    zs_fleet_skynd_paa_indmeldelsen();
     /*
      * Tilfaeldigheden kommer fra esp_random, som er en rigtig
      * stoejkilde paa denne chip naar radioen koerer - og radioen koerer,
@@ -371,7 +480,7 @@ bool zs_app_tilmeld_vis(bool vis)
      */
     uint8_t tilf[ZS_TILMELD_TILF_BYTES];
     esp_fill_random(tilf, sizeof(tilf));
-    return zs_tilmeld_bed_om(&s_tilmeld, inverter, paa_flaaden, nu_ms,
+    return zs_tilmeld_bed_om(&s_tilmeld, inverter, vej, nu_ms,
                              tilf, sizeof(tilf));
 }
 
@@ -379,19 +488,21 @@ bool zs_app_tilmeld_vis(bool vis)
  * stand og ikke bare en kode: naar der ikke er en, skal der staa hvorfor. */
 zs_tilmeld_stand_t zs_app_tilmeld_stand(void)
 {
-    bool inverter, paa_flaaden;
+    bool inverter;
+    zs_tilmeld_vej_t vej;
     int64_t nu_ms;
-    tilmeld_nu(&inverter, &paa_flaaden, &nu_ms);
-    return zs_tilmeld_stand(&s_tilmeld, inverter, paa_flaaden, nu_ms);
+    tilmeld_nu(&inverter, &vej, &nu_ms);
+    return zs_tilmeld_stand(&s_tilmeld, inverter, vej, nu_ms);
 }
 
 /* Koden til at vise, eller en tom streng. Aldrig NULL. */
 const char *zs_app_tilmeld_kode(void)
 {
-    bool inverter, paa_flaaden;
+    bool inverter;
+    zs_tilmeld_vej_t vej;
     int64_t nu_ms;
-    tilmeld_nu(&inverter, &paa_flaaden, &nu_ms);
-    return zs_tilmeld_kode_nu(&s_tilmeld, inverter, paa_flaaden, nu_ms);
+    tilmeld_nu(&inverter, &vej, &nu_ms);
+    return zs_tilmeld_kode_nu(&s_tilmeld, inverter, vej, nu_ms);
 }
 
 static void kvarter_tik(const zs_fr_live_t *live)

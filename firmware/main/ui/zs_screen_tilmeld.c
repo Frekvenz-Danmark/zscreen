@@ -235,22 +235,65 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
             "Gå til Indstillinger og vælg Inverter.");
         break;
 
-    case ZS_TILMELD_MANGLER_FLAADE:
-        lv_label_set_text(s_over, "Skærmen er ikke på nettet endnu.");
+    /*
+     * DE TRE HER STOD FOER SOM ÉN, OG DEN ENE LOEJ.
+     *
+     * Der stod "Skærmen er ikke på nettet endnu. Tjek netværket under
+     * Indstillinger" i hele det halve minut hvor skærmen var på nettet
+     * med IP og bare ikke indmeldt endnu. Montøren blev sendt ud at
+     * lede efter en fejl i et netværk der virkede. Se noten ved
+     * zs_tilmeld_vej_t.
+     *
+     * De tre kræver tre forskellige ting: sæt nettet op, vent, eller
+     * ring til Frekvenz. Derfor tre beskeder.
+     */
+    case ZS_TILMELD_MANGLER_NET:
+        lv_label_set_text(s_over, "Skærmen er ikke på et netværk.");
         lv_label_set_text(s_kode, "-");
         zs_style_text(s_kode, &zs_font_28, ZS_C_TEXT_DIM);
         lv_label_set_text(s_under,
             "Koden skal også kendes af serveren, ellers virker den ikke. "
-            "Tjek netværket under Indstillinger.");
+            "Vælg netværk under Indstillinger.");
         break;
 
-    case ZS_TILMELD_UDLOEBET:
-        lv_label_set_text(s_over, "Der er ingen kode lige nu.");
+    case ZS_TILMELD_VENTER_PAA_SERVER:
+        /*
+         * Der staar IKKE "fejl" nogen steder, for det er der ikke. Og
+         * der staar hvad man skal gøre: ingenting. En montør der tror
+         * han skal gribe ind, går ud af siden - og så var koden væk.
+         */
+        lv_label_set_text(s_over, "Skærmen er på nettet.");
         lv_label_set_text(s_kode, "-");
         zs_style_text(s_kode, &zs_font_28, ZS_C_TEXT_DIM);
         lv_label_set_text(s_under,
-            "En kode gælder i få minutter, så den laves når du skal "
-            "bruge den.");
+            "Den henter forbindelse til Frekvenz. Koden kommer af sig "
+            "selv om et øjeblik - bliv på siden.");
+        break;
+
+    case ZS_TILMELD_SERVER_NEJ:
+        lv_label_set_text(s_over, "Frekvenz kender ikke skærmen.");
+        lv_label_set_text(s_kode, "-");
+        zs_style_text(s_kode, &zs_font_28, ZS_C_TEXT_DIM);
+        lv_label_set_text(s_under,
+            "Det går ikke væk af sig selv. Ring til Frekvenz og oplys "
+            "skærmens nummer bag på kassen.");
+        break;
+
+    case ZS_TILMELD_UDLOEBET:
+        /*
+         * DEN HER SKAL NORMALT IKKE KUNNE SES.
+         *
+         * Koden laves af sig selv ved hvert tik så længe siden står
+         * åben - se zs_tilmeld.h. Så det her er sekundet før det første
+         * tik, og ellers kun hvis noget gik galt. Knappen bliver
+         * stående som nødudgang, og teksten lover ikke at den er
+         * nødvendig.
+         */
+        lv_label_set_text(s_over, "Koden laves nu.");
+        lv_label_set_text(s_kode, "-");
+        zs_style_text(s_kode, &zs_font_28, ZS_C_TEXT_DIM);
+        lv_label_set_text(s_under,
+            "Sker der ikke noget om et øjeblik, så tryk her.");
         vis_knap = true;
         break;
 

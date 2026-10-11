@@ -8,6 +8,7 @@
 #include "zs_tekst.h"
 #include "zs_config.h"
 #include "zs_fleet_msg.h"
+#include "zs_wifi.h"
 #include "zs_ladeordre.h"
 #include "zs_ota.h"
 #include "esp_app_desc.h"
@@ -151,6 +152,20 @@ static int64_t s_naeste_forsoeg_ms;
  * til et minut og alligevel optage sin stak hele tiden.
  */
 static esp_timer_handle_t s_spred_ur;
+
+/*
+ * Er esp_mqtt_client_start kaldt? Spredningsuret og
+ * zs_fleet_skynd_paa_indmeldelsen kan begge naa frem til starten, og
+ * esp-mqtt svarer fejl hvis man starter en klient to gange. Flaget
+ * laeses og saettes under laasen, saa de to ikke kan slippe forbi
+ * hinanden.
+ */
+static bool s_startet;
+
+/* Hvor laenge der ventes foer vi kigger efter en IP igen. Se
+ * start_klienten: uret gaar efter tid siden opstart, og nettet kommer
+ * naar det kommer. */
+#define IP_VENT_MS   2000
 
 /*
  * Er vi forbundet OG abonneret paa svaret?
@@ -810,9 +825,51 @@ static void start_klienten(void *arg)
         SLIP();                 /* stoppet imens, der er intet at starte */
         return;
     }
+    if (s_startet) {
+        SLIP();                 /* uret og et tryk naaede frem begge to */
+        return;
+    }
+    /*
+     * ER DER OVERHOVEDET ET NET ENDNU?
+     *
+     * Spredningsuret gaar efter tid siden opstart, og nettet kommer naar
+     * det kommer. Maalt paa jern 11. oktober 2026: uret gik kl. 17,5
+     * sekunder, IP'en kom kl. 17,96, og de 460 millisekunder kostede et
+     * "connect() error: Host is unreachable" i roedt og fjorten sekunder
+     * ekstra foer anden forsoeg. Fjorten sekunder hvor montoeren stod og
+     * ventede paa en kode.
+     *
+     * Saa vi venter paa IP'en i stedet. Spredningen er ikke brudt af
+     * det: er nettet der allerede, naar uret gaar, sker der praecis det
+     * samme som foer.
+     */
+    if (zs_wifi_state() != ZS_WIFI_CONNECTED) {
+        bool igen = (s_spred_ur != NULL)
+                    && (esp_timer_start_once(s_spred_ur,
+                                             (uint64_t)IP_VENT_MS * 1000)
+                        == ESP_OK);
+        SLIP();
+        if (igen) {
+            /* Ingen log her. Den ville komme hvert andet sekund hele
+             * vejen gennem en wifi-opsaetning der tager minutter. */
+            return;
+        }
+        /*
+         * Kan vi ikke faa uret igen, er det bedre at proeve nu end
+         * aldrig: esp-mqtt proever selv videre bagefter.
+         */
+        ZS_LOGW(TAG, "intet net endnu og intet ur, proever alligevel");
+        LAAS();
+        if (s_klient == NULL || s_startet) {
+            SLIP();
+            return;
+        }
+    }
     esp_err_t r = esp_mqtt_client_start(s_klient);
     if (r != ESP_OK) {
         s_state = ZS_FLEET_ERROR;
+    } else {
+        s_startet = true;
     }
     SLIP();
 
@@ -991,6 +1048,48 @@ bool zs_fleet_start(void)
     return true;
 }
 
+/*
+ * SPRING RESTEN AF SPREDNINGEN OVER.
+ *
+ * Spredningen findes fordi tres enheder der meldte ind inden for fem
+ * sekunder, vaeltede serverens Keycloak - det er maalt, se headeren. Men
+ * den maaling handler om en FLOK: en gade der faar stroemmen tilbage, et
+ * hus hvor sikringen slaar ind igen.
+ *
+ * Her er der ét menneske der har aabnet tilmeldingen paa ÉN skaerm. Der
+ * er ingen flok at sprede, og den ventetid er ren spildtid for en
+ * montoer der staar paa en stige. Tusind montoerer trykker ikke i samme
+ * sekund, og skulle de, er det stadig én indmeldelse per tryk.
+ *
+ * Kaldet er uden virkning hvis klienten allerede er startet, eller hvis
+ * floedestyringen er slaaet fra. Er nettet ikke klart endnu, venter
+ * start_klienten paa IP'en som den altid har gjort.
+ */
+void zs_fleet_skynd_paa_indmeldelsen(void)
+{
+    LAAS();
+    bool noget_at_goere = (s_klient != NULL) && !s_startet;
+    SLIP();
+    if (!noget_at_goere) {
+        return;
+    }
+    /*
+     * Uret stoppes foer vi starter selv. Naar det ikke at gaa alligevel,
+     * er det harmloest: start_klienten siger nej til den anden af dem,
+     * fordi s_startet laeses under laasen.
+     *
+     * Handtaget laeses uden laas, praecis som i zs_fleet_stop, og det er
+     * i orden fordi den ene kalder af zs_fleet_stop ligger inde i
+     * zs_fleet_start FOER uret bliver lavet. Der er altsaa ingen der kan
+     * slette uret under os.
+     */
+    if (s_spred_ur != NULL) {
+        esp_timer_stop(s_spred_ur);     /* ikke i gang: harmloes fejl */
+    }
+    ZS_LOGI(TAG, "tilmeldingen er aabnet, melder ind nu i stedet for at vente");
+    start_klienten(NULL);
+}
+
 void zs_fleet_stop(void)
 {
     /*
@@ -1006,6 +1105,7 @@ void zs_fleet_stop(void)
     LAAS();
     esp_mqtt_client_handle_t klient = s_klient;
     s_klient = NULL;
+    s_startet = false;
     SLIP();
 
     if (s_spred_ur != NULL) {
@@ -1358,6 +1458,7 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 
 bool zs_fleet_start(void) { return false; }
 void zs_fleet_stop(void) {}
+void zs_fleet_skynd_paa_indmeldelsen(void) {}
 void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
 { (void)live; (void)info; }
 void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)

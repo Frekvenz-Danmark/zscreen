@@ -96,28 +96,76 @@ void test_tilmeld(void)
     /* Uden inverter er der INGEN kode, og det er en beslutning, ikke en
      * fejl: et anlæg uden inverter er ikke et anlæg. */
     CHECK("uden inverter: mangler inverter",
-          zs_tilmeld_stand(&s, false, true, 0) == ZS_TILMELD_MANGLER_INVERTER);
+          zs_tilmeld_stand(&s, false, ZS_TILMELD_VEJ_FLAADE, 0) == ZS_TILMELD_MANGLER_INVERTER);
     CHECK("og der laves ingen kode",
-          zs_tilmeld_bed_om(&s, false, true, 0, t, sizeof(t)) == false);
+          zs_tilmeld_bed_om(&s, false, ZS_TILMELD_VEJ_FLAADE, 0, t, sizeof(t)) == false);
     CHECK("så der er heller ingen at sende",
-          strcmp(zs_tilmeld_kode_nu(&s, false, true, 0), "") == 0);
+          strcmp(zs_tilmeld_kode_nu(&s, false, ZS_TILMELD_VEJ_FLAADE, 0), "") == 0);
 
-    /* Uden flåden ville serveren ikke kende koden, så den laves ikke. */
-    CHECK("uden flåde: mangler flåde",
-          zs_tilmeld_stand(&s, true, false, 0) == ZS_TILMELD_MANGLER_FLAADE);
-    CHECK("og der laves ingen kode",
-          zs_tilmeld_bed_om(&s, true, false, 0, t, sizeof(t)) == false);
+    /*
+     * UDEN FLÅDEN ER DER TRE FORSKELLIGE GRUNDE, OG DE SKAL SIGES HVER
+     * FOR SIG.
+     *
+     * Her stod der før ét bool, og så var der kun én besked: "Skærmen er
+     * ikke på nettet endnu". Den blev vist på en skærm der var på nettet
+     * med IP, målt på jern 11. oktober 2026, fordi indmeldelsen spredes
+     * over op til et minut. Montøren blev sendt ud at tjekke et netværk
+     * der virkede fint.
+     */
+    CHECK("intet net: sig at der ikke er noget net",
+          zs_tilmeld_stand(&s, true, ZS_TILMELD_VEJ_INTET_NET, 0)
+              == ZS_TILMELD_MANGLER_NET);
+    CHECK("på nettet, på vej ind: sig at vi venter, ikke at nettet mangler",
+          zs_tilmeld_stand(&s, true, ZS_TILMELD_VEJ_VENTER, 0)
+              == ZS_TILMELD_VENTER_PAA_SERVER);
+    CHECK("serveren siger nej: sig DET, så ingen venter forgæves",
+          zs_tilmeld_stand(&s, true, ZS_TILMELD_VEJ_NEJ, 0)
+              == ZS_TILMELD_SERVER_NEJ);
+
+    /* Og ingen af de tre må lave en kode: serveren ville ikke kende den,
+     * og montøren ville prøve den forgæves. */
+    CHECK("intet net: ingen kode",
+          zs_tilmeld_bed_om(&s, true, ZS_TILMELD_VEJ_INTET_NET, 0,
+                            t, sizeof(t)) == false);
+    CHECK("på vej ind: ingen kode endnu",
+          zs_tilmeld_bed_om(&s, true, ZS_TILMELD_VEJ_VENTER, 0,
+                            t, sizeof(t)) == false);
+    CHECK("serveren siger nej: ingen kode",
+          zs_tilmeld_bed_om(&s, true, ZS_TILMELD_VEJ_NEJ, 0,
+                            t, sizeof(t)) == false);
+    CHECK("og ingen af dem har lagt en kode i strukturen",
+          s.har_kode == false && s.kode[0] == '\0');
+
+    /*
+     * EN VEJ VI IKKE KENDER MÅ ALDRIG GIVE EN KODE.
+     *
+     * Et tal uden for enummet kan komme af en fejl i kalderen. Svaret
+     * skal være det sikre: ingen kode, og sig at serveren ikke vil.
+     * Lavede den en kode, ville en fejl ét sted blive en kode montøren
+     * står med og som serveren ikke kender.
+     */
+    const zs_tilmeld_vej_t ukendt = (zs_tilmeld_vej_t)99;
+    CHECK("ukendt vej: ingen kode",
+          zs_tilmeld_bed_om(&s, true, ukendt, 0, t, sizeof(t)) == false);
+    CHECK("ukendt vej: og den lover ingenting",
+          zs_tilmeld_stand(&s, true, ukendt, 0) == ZS_TILMELD_SERVER_NEJ);
+
+    /* Inverteren vejer tungest: mangler den, er det DEN der skal stå,
+     * uanset hvor langt vi er nået mod serveren. */
+    CHECK("uden inverter OG uden net: inverteren står først",
+          zs_tilmeld_stand(&s, false, ZS_TILMELD_VEJ_INTET_NET, 0)
+              == ZS_TILMELD_MANGLER_INVERTER);
 
     /* Med begge: der er stadig ingen før nogen beder om en. */
     CHECK("med begge, men uden at bede: ingen kode endnu",
-          zs_tilmeld_stand(&s, true, true, 0) == ZS_TILMELD_UDLOEBET);
+          zs_tilmeld_stand(&s, true, ZS_TILMELD_VEJ_FLAADE, 0) == ZS_TILMELD_UDLOEBET);
 
     CHECK("der bedes om en, og den kommer",
-          zs_tilmeld_bed_om(&s, true, true, 1000, t, sizeof(t)) == true);
+          zs_tilmeld_bed_om(&s, true, ZS_TILMELD_VEJ_FLAADE, 1000, t, sizeof(t)) == true);
     CHECK("nu er den klar",
-          zs_tilmeld_stand(&s, true, true, 1000) == ZS_TILMELD_KLAR);
+          zs_tilmeld_stand(&s, true, ZS_TILMELD_VEJ_FLAADE, 1000) == ZS_TILMELD_KLAR);
     CHECK_STR("og den kan sendes",
-              zs_tilmeld_kode_nu(&s, true, true, 1000), s.kode);
+              zs_tilmeld_kode_nu(&s, true, ZS_TILMELD_VEJ_FLAADE, 1000), s.kode);
 
     /* Koden må IKKE skifte mens den er gyldig: montøren står og skriver
      * den af, og skærmen tegner sig selv om mange gange undervejs. */
@@ -125,7 +173,7 @@ void test_tilmeld(void)
     snprintf(foerste, sizeof(foerste), "%s", s.kode);
     uint8_t t2[ZS_TILMELD_TILF_BYTES];
     fire(t2, 0x87654321u);
-    (void)zs_tilmeld_bed_om(&s, true, true, 2000, t2, sizeof(t2));
+    (void)zs_tilmeld_bed_om(&s, true, ZS_TILMELD_VEJ_FLAADE, 2000, t2, sizeof(t2));
     CHECK_STR("den samme kode bliver stående mens den er gyldig",
               s.kode, foerste);
 
@@ -134,24 +182,24 @@ void test_tilmeld(void)
     const int64_t levetid = (int64_t)ZS_TILMELD_LEVETID_MIN * 60 * 1000;
 
     CHECK("et millisekund før udløb er den stadig klar",
-          zs_tilmeld_stand(&s, true, true, 1000 + levetid - 1)
+          zs_tilmeld_stand(&s, true, ZS_TILMELD_VEJ_FLAADE, 1000 + levetid - 1)
               == ZS_TILMELD_KLAR);
     CHECK("præcis ved udløb er den udløbet",
-          zs_tilmeld_stand(&s, true, true, 1000 + levetid)
+          zs_tilmeld_stand(&s, true, ZS_TILMELD_VEJ_FLAADE, 1000 + levetid)
               == ZS_TILMELD_UDLOEBET);
     CHECK("og så er der ingenting at sende",
-          strcmp(zs_tilmeld_kode_nu(&s, true, true, 1000 + levetid), "") == 0);
+          strcmp(zs_tilmeld_kode_nu(&s, true, ZS_TILMELD_VEJ_FLAADE, 1000 + levetid), "") == 0);
 
     /* Efter udløb laves der en NY, ikke den gamle igen. */
     CHECK("efter udløb kommer der en ny",
-          zs_tilmeld_bed_om(&s, true, true, 1000 + levetid, t2, sizeof(t2)));
+          zs_tilmeld_bed_om(&s, true, ZS_TILMELD_VEJ_FLAADE, 1000 + levetid, t2, sizeof(t2)));
     CHECK("og den er en anden end den gamle", strcmp(s.kode, foerste) != 0);
 
     /* At rydde er regel 2: holder skærmen op med at vise den, holder den
      * op med at virke. */
     zs_tilmeld_ryd(&s);
     CHECK("ryddet: der er ingen kode",
-          zs_tilmeld_stand(&s, true, true, 5000) == ZS_TILMELD_UDLOEBET);
+          zs_tilmeld_stand(&s, true, ZS_TILMELD_VEJ_FLAADE, 5000) == ZS_TILMELD_UDLOEBET);
     CHECK("og bufferen er tom, så koden ikke ligger i RAM",
           s.kode[0] == '\0');
 
@@ -162,7 +210,7 @@ void test_tilmeld(void)
     CHECK_INT("uden kode er der nul minutter igen", zs_tilmeld_min_igen(&m, 0), 0);
     CHECK_INT("NULL giver nul", zs_tilmeld_min_igen(NULL, 0), 0);
 
-    (void)zs_tilmeld_bed_om(&m, true, true, 0, t, sizeof(t));
+    (void)zs_tilmeld_bed_om(&m, true, ZS_TILMELD_VEJ_FLAADE, 0, t, sizeof(t));
     CHECK_INT("en ny kode gælder hele levetiden",
               zs_tilmeld_min_igen(&m, 0), ZS_TILMELD_LEVETID_MIN);
     /*
@@ -245,11 +293,11 @@ void test_tilmeld(void)
 
     /* NULL må ikke gå ned. */
     CHECK("NULL-tilstand giver mangler inverter",
-          zs_tilmeld_stand(NULL, true, true, 0) == ZS_TILMELD_MANGLER_INVERTER);
+          zs_tilmeld_stand(NULL, true, ZS_TILMELD_VEJ_FLAADE, 0) == ZS_TILMELD_MANGLER_INVERTER);
     CHECK("NULL kan ikke bede om en kode",
-          zs_tilmeld_bed_om(NULL, true, true, 0, t, sizeof(t)) == false);
+          zs_tilmeld_bed_om(NULL, true, ZS_TILMELD_VEJ_FLAADE, 0, t, sizeof(t)) == false);
     CHECK_STR("NULL giver en tom kode",
-              zs_tilmeld_kode_nu(NULL, true, true, 0), "");
+              zs_tilmeld_kode_nu(NULL, true, ZS_TILMELD_VEJ_FLAADE, 0), "");
     zs_tilmeld_ryd(NULL);
     CHECK("og NULL i ryd går ikke ned", true);
 }
