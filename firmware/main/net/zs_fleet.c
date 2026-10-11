@@ -615,6 +615,19 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
          * endnu ikke lytter, er svaret vaek.
          */
         char emne[80];
+        /*
+         * NULSTIL FOER ABONNEMENTET. s_abonneret afgoer nu om det NAESTE
+         * SUBSCRIBED er det foerste, og dermed om indmeldelsen sendes.
+         *
+         * Den nulstilles ogsaa ved DISCONNECTED, men esp-mqtt lover ikke
+         * at der KOMMER en disconnect foer en ny connect. Stod den
+         * tilbage som true, ville vi aldrig melde ind paa den nye
+         * forbindelse - og det ville se ud som en skaerm der tier.
+         */
+        LAAS();
+        s_abonneret = false;
+        SLIP();
+
         snprintf(emne, sizeof(emne), "provisioning/%s/response",
                  zs_fleet_unique_id());
         esp_mqtt_client_subscribe(s_klient, emne, 1);
@@ -636,10 +649,30 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
          * sender vi det samme afviste certifikat ved hver
          * genforbindelse, for evigt.
          */
+        /*
+         * KUN DET FOERSTE ABONNEMENT SENDER INDMELDELSEN.
+         *
+         * MQTT_EVENT_SUBSCRIBED fyrer én gang PER ABONNEMENT. Da der
+         * kun var ét - svaremnet - var "abonneret" og "klar til at
+         * melde ind" det samme. Det er det ikke laengere: efter
+         * indmeldelsen abonnerer vi paa ZS_FLEET_NED_FELTER, og hvert
+         * af dem fyrer sin egen haendelse.
+         *
+         * Uden vagten her sendte vi indmeldelsen igen for hvert af dem,
+         * og serveren afviste de gentagne. Saa ryddede afvisningen
+         * s_asset, vi meldte ind igen, abonnerede igen, og sad fast i
+         * en ring. MAALT PAA RIGTIG HARDWARE 11. oktober 2026 - og det
+         * er netop den slags der ikke kan ses andre steder end dér:
+         * haendelsesloekken i esp-mqtt koeres ikke af nogen proeve.
+         */
         LAAS();
         int64_t vent = s_naeste_forsoeg_ms;
+        bool foerste = !s_abonneret;
         s_abonneret = true;
         SLIP();
+        if (!foerste) {
+            break;      /* et af de senere abonnementer. Intet at goere. */
+        }
         if (vent > 0 && (esp_timer_get_time() / 1000) < vent) {
             ZS_LOGI(TAG, "vi blev afvist, venter foer vi proever igen");
             break;
