@@ -142,6 +142,32 @@ Sæt skærmen i USB, flash, og gå hele vejen igennem:
 
 ---
 
+## 2b. Kan QR'en faktisk læses?
+
+```bash
+./tools/qr-laes/koer.sh
+```
+
+`test_qr.c` prøver matricen — at modulerne står hvor de skal, at kanten
+er der. Den prøver **ikke** det eneste der betyder noget for kunden: at
+en telefon kan læse koden.
+
+Det her gør: firmwarens **egen** kode laver matricen, den skrives som et
+billede, og macOS' Vision-ramme læser den tilbage. Kommer der ikke
+præcis den samme kode ud, er QR'en ubrugelig.
+
+Den prøver ved **skærmens egen skala** — `QR_MAAL_PX` er 145, og
+`zs_qr_skala` giver 5 px per modul for en kode på seks tegn — og ved
+1 til 8 px for at se hvor grænsen ligger.
+
+Kun macOS. Vision er Apples egen, og værtstestene skal kunne køre på
+Linux i CI.
+
+**Det prøver IKKE** den rigtige skærms kontrast, synsvinkel eller
+LVGL-tegningen. Det hører nedenfor.
+
+---
+
 ## 3. På et rigtigt anlæg
 
 Kan først køres når der er en Fronius med Modbus TCP slået til.
