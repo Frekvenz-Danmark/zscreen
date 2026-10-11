@@ -189,6 +189,12 @@ simulator kan ikke svare på om tallene stemmer med SolarWeb.
 - [x] Forbruget er positivt — *i alle 10 målinger*
 - [x] Uret: *`quarterOfDay 86` skrevet 21:45 lokal tid = kvarteret
       21:30–21:45. Rigtigt*
+- [x] **Timeskiftet** — det sted hvor 730 timers historik gik tabt om
+      året. Målt: `energyHour 21` skrevet **22:00:01**, altså timen der
+      lige sluttede, i lokal tid. Og alle fem tællere kom med:
+      produceret 556,6, solgt 396,7, købt 0,4, batteri ind 38,1 ud 35,1 Wh
+- [x] **Kvartersskiftet** — `quarterOfDay 88` skrevet 22:15:01 =
+      kvarteret 22:00–22:15
 - [ ] Skærmen finder en RIGTIG inverter i søgningen
 - [ ] Fabrikat, model og serienummer stemmer med inverterens webside
 - [ ] Solproduktionen stemmer med SolarWeb, inden for et par hundrede W
