@@ -485,6 +485,80 @@ static void laes_zone(const char *data, int len)
     cJSON_Delete(rod);
 }
 
+/*
+ * KUNDENS NAVN, altsaa beskeden om at tilmeldingen lykkedes.
+ *
+ * Serveren skriver det paa vores eget asset naar anlaegget er oprettet.
+ * Kommer der et navn, ER vi tilmeldt. Se ZS_FLEET_KUNDE_FELT.
+ *
+ * Navnet gemmes ikke i flashen. Det er serverens oplysning, ikke vores,
+ * og den kommer igen ved hver indmeldelse.
+ */
+static char s_kunde[ZS_FLEET_KUNDE_MAKS];   /* under LAAS */
+static bool s_kunde_ny;                     /* under LAAS */
+
+static void laes_kunde(const char *data, int len)
+{
+    if (data == NULL || len <= 0) {
+        return;
+    }
+    cJSON *rod = cJSON_ParseWithLength(data, (size_t)len);
+    if (rod == NULL) {
+        ZS_LOGW(TAG, "kundenavnet kunne ikke læses");
+        return;
+    }
+    if (cJSON_IsString(rod) && rod->valuestring != NULL
+        && rod->valuestring[0] != '\0') {
+        LAAS();
+        if (strcmp(s_kunde, rod->valuestring) != 0) {
+            snprintf(s_kunde, sizeof(s_kunde), "%s", rod->valuestring);
+            s_kunde_ny = true;
+            ZS_LOGI(TAG, "tilmeldt til %s", s_kunde);
+        }
+        SLIP();
+    } else if (cJSON_IsNull(rod)) {
+        /*
+         * Ryddet paa serveren. Det sker hvis nogen fjerner tilmeldingen,
+         * og saa skal skaermen kunne tilmeldes igen - altsaa tilbage til
+         * at vise en kode.
+         */
+        LAAS();
+        if (s_kunde[0] != '\0') {
+            s_kunde[0] = '\0';
+            s_kunde_ny = true;
+            ZS_LOGI(TAG, "tilmeldingen er fjernet på serveren");
+        }
+        SLIP();
+    }
+    cJSON_Delete(rod);
+}
+
+bool zs_fleet_kunde_ny(char *ud, size_t ud_len)
+{
+    if (ud == NULL || ud_len == 0) {
+        return false;
+    }
+    bool ny = false;
+    LAAS();
+    if (s_kunde_ny) {
+        snprintf(ud, ud_len, "%s", s_kunde);
+        s_kunde_ny = false;
+        ny = true;
+    }
+    SLIP();
+    return ny;
+}
+
+void zs_fleet_kunde(char *ud, size_t ud_len)
+{
+    if (ud == NULL || ud_len == 0) {
+        return;
+    }
+    LAAS();
+    snprintf(ud, ud_len, "%s", s_kunde);
+    SLIP();
+}
+
 bool zs_fleet_zone_ny(char *ud, size_t ud_len)
 {
     if (ud == NULL || ud_len < 4) {
@@ -822,6 +896,8 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
             laes_ladeplan(felt, s_saml.buf, (int)s_saml.har);
         } else if (har_felt && strcmp(felt, ZS_FLEET_ZONE_FELT) == 0) {
             laes_zone(s_saml.buf, (int)s_saml.har);
+        } else if (har_felt && strcmp(felt, ZS_FLEET_KUNDE_FELT) == 0) {
+            laes_kunde(s_saml.buf, (int)s_saml.har);
         } else if (zs_fleet_emne_har_led(s_saml.emne, "response")) {
             laes_svar(s_saml.buf, (int)s_saml.har);
         } else {

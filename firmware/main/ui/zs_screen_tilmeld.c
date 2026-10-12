@@ -337,6 +337,7 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
         kode = "";
     }
     bool klar = (stand == ZS_TILMELD_KLAR);
+    bool tilmeldt = (stand == ZS_TILMELD_TILMELDT);
 
     switch (stand) {
     case ZS_TILMELD_KLAR:
@@ -437,6 +438,28 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
         lv_label_set_text(s_hjaelp, "Vent venligst");
         break;
 
+    case ZS_TILMELD_TILMELDT:
+        /*
+         * Navnet kommer i "kode"-parameteren.
+         *
+         * Det ser mærkeligt ud, og alternativet var værre: en parameter
+         * mere på en funktion der kaldes fra fire steder, og som i tre
+         * af dem altid ville være NULL. Strengen er "det der skal stå i
+         * den store linje", og i den her tilstand er det navnet.
+         *
+         * Og der står HVEM. Det er ikke pynt: det er den eneste måde
+         * montøren kan se at koden endte hos den rigtige kunde. Står der
+         * et navn han ikke kender, er anlægget tilmeldt den forkerte,
+         * og det skal opdages nu og ikke om en måned.
+         */
+        lv_label_set_text(s_over, "Anlægget er tilmeldt");
+        lv_label_set_text(s_kode, (kode != NULL && kode[0] != '\0')
+                                  ? kode : "-");
+        lv_label_set_text(s_hjaelp,
+            "Står der et navn du ikke kender, er anlægget tilmeldt den "
+            "forkerte kunde. Ring til Frekvenz.");
+        break;
+
     case ZS_TILMELD_SERVER_NEJ:
         lv_label_set_text(s_over, "Frekvenz kender ikke skærmen");
         lv_label_set_text(s_kode, "-");
@@ -471,8 +494,14 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
      * levetiden hoerer til koden - staar de under en besked om at
      * nettet mangler, ser de ud som en del af fejlen.
      */
+    /*
+     * QR'en vises KUN naar der er en kode. I tilmeldt-tilstanden staar
+     * der et navn i den store linje, og en QR ved siden af et navn
+     * ville blive scannet - og den kode er brugt.
+     */
     vis(s_plade, klar);
     vis(s_guide, klar);
+    (void)tilmeldt;
     vis(s_knap, stand == ZS_TILMELD_UDLOEBET);
     if (!klar) {
         /* Tankestregen staar i daempet farve naar der ikke er en kode,

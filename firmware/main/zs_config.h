@@ -438,6 +438,47 @@
 #define ZS_FLEET_ZONE_FELT           "prisZone"
 
 /*
+ * KUNDENS NAVN, OG DET ER SIGNALET OM AT TILMELDINGEN LYKKEDES.
+ *
+ * Skaermen kan ikke selv se at den er blevet tilmeldt: det sker paa
+ * serveren, og indtil nu fik skaermen ikke noget at vide. Derfor stod
+ * QR-koden paa skaermen for evigt, ogsaa efter at anlaegget var oprettet
+ * og kunden var paa plads. Montoeren kunne kun gaa ud af siden og haabe.
+ *
+ * Noten i zs_tilmeld.h beskrev hvorfor tilstanden ZS_TILMELD_TILMELDT
+ * blev TAGET UD: den kunne ikke naas. Det her felt er det der gor den
+ * naabar.
+ *
+ * Serveren skriver kundens navn paa skaermens eget asset naar
+ * tilmeldingen er gaaet igennem - se tilmeld.py. Kommer der et navn,
+ * ER skaermen tilmeldt, og den kan sige HVEM. At montoeren kan se
+ * navnet, er ikke pynt: det er den eneste maade han kan opdage at
+ * koden endte hos den forkerte kunde.
+ */
+#define ZS_FLEET_KUNDE_FELT          "kundeNavn"
+
+/*
+ * Hvor langt et kundenavn vi tager imod.
+ *
+ * 64 byte. Kunder.json's navne er efternavne og firmanavne, og det
+ * laengste i listen i dag er under tyve tegn. Serveren kan sende hvad
+ * som helst, saa der skal staa en graense et sted - og den skal vaere
+ * her og ikke i en buffer paa stakken, hvor den ville vaere let at
+ * glemme naar nogen laaner koden.
+ */
+#define ZS_FLEET_KUNDE_MAKS          64
+
+/*
+ * Hvor laenge "Anlaegget er tilmeldt" staar foer skaermen gaar hjem.
+ *
+ * Tolv sekunder. Montoeren skal kunne LAESE navnet - det er hele grunden
+ * til at det staar der - og han staar maaske med en skruetraekker i den
+ * anden haand. Kortere, og han ser det ikke. Laengere, og skaermen
+ * haenger og viser en kvittering i stedet for tal.
+ */
+#define ZS_TILMELDT_VIS_MS           12000
+
+/*
  * ALLE FELTER DER GAAR NED I SKAERMEN, ÉT STED.
  *
  * Listen BLIVER BRUGT: zs_fleet.c abonnerer paa netop den, og
@@ -456,7 +497,8 @@
     ZS_FLEET_TARGET_FELT, \
     ZS_FLEET_LADE_TILSTAND_FELT, \
     ZS_FLEET_LADE_SEKUNDER_FELT, \
-    ZS_FLEET_ZONE_FELT
+    ZS_FLEET_ZONE_FELT, \
+    ZS_FLEET_KUNDE_FELT
 
 /*
  * ALLE DE ANDRE FELTER skaermen skriver til serveren.

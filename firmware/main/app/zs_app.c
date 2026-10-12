@@ -89,6 +89,8 @@ static bool s_energi_tav;
 static int64_t s_last_good_ms;
 static zs_kvarter_t s_kvarter;   /* se kvarter_tik */
 static zs_tilmeld_t s_tilmeld;   /* se tilmeld_tik. ALDRIG i flashen */
+/* Hvornaar vi foerst saa kundens navn. Nul = vi er ikke tilmeldt. */
+static int64_t s_tilmeldt_vist_ms;
 
 /*
  * Demo gemmes ALDRIG.
@@ -400,6 +402,45 @@ static void tilmeld_tik(void)
 
     zs_fleet_publish_tilmeld(
         zs_tilmeld_kode_nu(&s_tilmeld, inverter, vej, nu_ms));
+
+    /*
+     * ER VI TILMELDT, VISES DET I STEDET FOR KODEN.
+     *
+     * Skaermen kunne ikke selv se at tilmeldingen lykkedes: det sker paa
+     * serveren. Derfor stod QR-koden paa skaermen for evigt, ogsaa efter
+     * at anlaegget var oprettet og kunden var paa plads, og montoeren
+     * kunne kun gaa ud af siden og haabe.
+     *
+     * Nu skriver serveren kundens navn paa vores eget asset, og det er
+     * signalet. Se ZS_FLEET_KUNDE_FELT og noten ved ZS_TILMELD_TILMELDT.
+     *
+     * Navnet gaar i kode-parameteren. Strengen er "det der skal staa i
+     * den store linje", og her er det navnet.
+     */
+    char kunde[ZS_FLEET_KUNDE_MAKS];
+    zs_fleet_kunde(kunde, sizeof(kunde));
+    if (kunde[0] != '\0') {
+        zs_ui_set_tilmeld(ZS_TILMELD_TILMELDT, kunde);
+        /*
+         * Og saa hjem af sig selv.
+         *
+         * Skaermen haenger paa en vaeg og skal vise tal, ikke en kvittering.
+         * Montoeren skal have tid til at LAESE navnet - det er hele
+         * grunden til at det staar der - saa der gaar et stykke tid foer
+         * den gaar videre. Uret startes ved den foerste tik hvor vi ser
+         * navnet, saa de sekunder er tid paa skaermen og ikke tid siden
+         * serveren skrev det.
+         */
+        if (s_tilmeldt_vist_ms == 0) {
+            s_tilmeldt_vist_ms = nu_ms;
+        } else if (nu_ms - s_tilmeldt_vist_ms > ZS_TILMELDT_VIS_MS
+                   && zs_ui_current() == ZS_SCREEN_TILMELD) {
+            ESP_LOGI(TAG, "tilmeldt til %s, viser hovedsiden", kunde);
+            zs_ui_show(ZS_SCREEN_HOME);
+        }
+        return;
+    }
+    s_tilmeldt_vist_ms = 0;
 
     /*
      * Og fladen faar den samme sandhed. Den tegner kun om naar den staar

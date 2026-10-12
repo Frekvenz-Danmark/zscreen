@@ -168,25 +168,27 @@ typedef enum {
     /* Koden er udloebet. Der laves en ny naar nogen beder om det. */
     ZS_TILMELD_UDLOEBET,
     /*
-     * HER STOD ÉN MERE: ZS_TILMELD_TILMELDT, "skaermen er tilmeldt en
-     * kunde, der er ikke mere at vise".
+     * Skaermen ER tilmeldt en kunde. Der er ikke mere at vise.
      *
-     * Den er taget ud fordi den ikke kunne NAAS. Funktionen der satte
-     * den blev kun kaldt fra proeverne, og firmwaren har ingen maade at
-     * vide at tilmeldingen lykkedes: det sker paa serveren, og skaermen
-     * faar ikke noget at vide.
+     * DEN HAR VAERET TAGET UD, og det er vaerd at vide hvorfor den er
+     * tilbage. Den blev fjernet fordi den ikke kunne NAAS: firmwaren
+     * havde ingen maade at vide at tilmeldingen lykkedes - det sker paa
+     * serveren, og skaermen fik ikke noget at vide. En tilstand
+     * brugerfladen lover og firmwaren aldrig naar, er vaerre end ingen
+     * tilstand: den ser proevet ud.
      *
-     * En tilstand brugerfladen lover og firmwaren aldrig naar, er vaerre
-     * end ingen tilstand: den ser proevet ud.
+     * Noten beskrev ogsaa vejen tilbage, og det er den der er bygget:
+     * serveren skriver kundens navn paa skaermens eget asset naar
+     * anlaegget er oprettet, og skaermen abonnerer paa det praecis som
+     * den lytter efter prisomraadet. Se ZS_FLEET_KUNDE_FELT og
+     * zs_fleet_kunde_ny.
      *
-     * SAADAN KOMMER DEN TILBAGE. Serveren rydder selv kodefeltet naar
-     * koden bliver brugt - det er braend() i scripts/tilmeld.py. Skaermen
-     * kan altsaa abonnere paa sit eget enrollCode, praecis som den i dag
-     * lytter efter firmwareTarget, og saa betyder "feltet blev tomt uden
-     * at JEG ryddede det" at tilmeldingen lykkedes. Mekanismen findes
-     * allerede, det er bare ikke koblet paa. Det hoerer i den fase hvor
-     * serveren skal sende ned.
+     * Forskellen fra den gamle plan: der lyttes paa et NAVN og ikke paa
+     * at kodefeltet bliver ryddet. Saa kan skaermen sige HVEM den blev
+     * tilmeldt, og det er den eneste maade montoeren kan opdage at
+     * koden endte hos den forkerte kunde.
      */
+    ZS_TILMELD_TILMELDT,
 } zs_tilmeld_stand_t;
 
 /*

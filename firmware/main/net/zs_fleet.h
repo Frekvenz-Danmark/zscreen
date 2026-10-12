@@ -213,6 +213,23 @@ void zs_fleet_asset_id(char *ud, size_t ud_len);
  */
 bool zs_fleet_zone_ny(char *ud, size_t ud_len);
 
+/*
+ * KUNDENS NAVN: beskeden om at tilmeldingen lykkedes.
+ *
+ * zs_fleet_kunde_ny returnerer true ÉN gang per aendring. Er navnet tomt
+ * naar den gor det, er tilmeldingen FJERNET paa serveren, og skaermen
+ * skal kunne tilmeldes igen.
+ *
+ * zs_fleet_kunde giver det navn vi har nu, eller en tom streng. Begge
+ * skriver hoejst ud_len byte, med nul til sidst.
+ *
+ * Skaermen kan ikke selv se at den er tilmeldt - det sker paa serveren.
+ * Det her felt er den eneste vej, og det er derfor tilstanden
+ * ZS_TILMELD_TILMELDT kan naas nu. Se noten i zs_tilmeld.h.
+ */
+bool zs_fleet_kunde_ny(char *ud, size_t ud_len);
+void zs_fleet_kunde(char *ud, size_t ud_len);
+
 const char *zs_fleet_unique_id(void);
 
 #ifdef __cplusplus
