@@ -20,7 +20,6 @@ static lv_obj_t  *s_qr;          /* selve QR'en, tegnet modul for modul */
 static lv_obj_t  *s_kode;        /* de seks tegn, eller en besked      */
 static lv_obj_t  *s_hjaelp;      /* hvad man goer hvis man ikke kan scanne */
 static lv_obj_t  *s_guide;       /* hvor vejledningen staar            */
-static lv_obj_t  *s_gaelder;     /* hvor laenge koden gaelder endnu    */
 static lv_obj_t  *s_knap;        /* "Lav en kode", noedudgang          */
 
 /*
@@ -75,7 +74,6 @@ static uint8_t    s_qr_data[ZS_QR_BUF];
 #define LUFT_FOER_KODE 8
 #define LUFT_FOER_HJ   4
 #define LUFT_FOER_GU   4
-#define LUFT_FOER_GAE  4
 #define Y_BUND         8   /* luft der skal vaere tilbage nederst */
 
 /* Hvor tilbage foerer hen. Se headeren: siden naas fra to steder. */
@@ -198,7 +196,6 @@ static int stak(void)
         { s_kode,    LUFT_FOER_KODE },
         { s_hjaelp,  LUFT_FOER_HJ   },
         { s_guide,   LUFT_FOER_GU   },
-        { s_gaelder, LUFT_FOER_GAE  },
         { s_knap,    LUFT_FOER_HJ   },
     };
 
@@ -242,7 +239,7 @@ static void maal_stakken(void)
      *
      * En kode der ligner en rigtig: seks tegn af det samme alfabet.
      */
-    zs_tilmeld_page_update(ZS_TILMELD_KLAR, "ABCDEF", ZS_TILMELD_LEVETID_MIN);
+    zs_tilmeld_page_update(ZS_TILMELD_KLAR, "ABCDEF");
     int brugt = stak();
     int plads = lv_obj_get_height(s_side.content);
     if (brugt + Y_BUND > plads) {
@@ -303,7 +300,6 @@ void zs_tilmeld_page_create(void)
     s_kode   = linje(&zs_font_28, ZS_C_VALUE);
     s_hjaelp = linje(&zs_font_16, ZS_C_TEXT_DIM);
     s_guide  = linje(&zs_font_16, ZS_C_TEXT_DIM);
-    s_gaelder = linje(&zs_font_16, ZS_C_TEXT_DIM);
 
     s_knap = zs_btn_primary_create(s_side.content, "Lav en kode");
     lv_obj_set_width(s_knap, ZS_CONTENT_WIDTH);
@@ -313,7 +309,7 @@ void zs_tilmeld_page_create(void)
      * rigtige og skaermen er den rigtige. Saa staar tallet i loggen. */
     maal_stakken();
 
-    zs_tilmeld_page_update(ZS_TILMELD_MANGLER_INVERTER, "", 0);
+    zs_tilmeld_page_update(ZS_TILMELD_MANGLER_INVERTER, "");
 }
 
 lv_obj_t *zs_tilmeld_page_root(void) { return s_side.root; }
@@ -332,8 +328,7 @@ static void vis(lv_obj_t *o, bool paa)
     }
 }
 
-void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
-                            int min_igen)
+void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
 {
     if (s_kode == NULL) {
         return;
@@ -342,7 +337,6 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
         kode = "";
     }
     bool klar = (stand == ZS_TILMELD_KLAR);
-    char gaelder[64];
 
     switch (stand) {
     case ZS_TILMELD_KLAR:
@@ -369,18 +363,17 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
             "Kan du ikke scanne? Indtast koden i appen eller på portalen.");
         lv_label_set_text(s_guide, "Vejledning: www.frekvenz.nu/qr-guide");
         /*
-         * Der staar hvor laenge den gaelder, og ikke bare "den udloeber".
-         * En montoer der ikke ved om han har ti minutter eller ti
-         * sekunder, skriver den af i hast og laeser forkert.
+         * Der staar IKKE hvor laenge koden gaelder.
+         *
+         * Den stod her foer, med minutter og det hele. Men koden fornyes
+         * af sig selv: tilmeld_tik i zs_app.c beder om en ny fem gange i
+         * sekundet mens siden er aaben, og zs_tilmeld_bed_om laver kun en
+         * ny naar den gamle er doed. Kunden kan altsaa ikke komme til at
+         * staa med en kode der ikke virker, og saa er en nedtaelling
+         * noget man skal forholde sig til uden at kunne bruge den til
+         * noget. Udloebet selv bliver, se zs_tilmeld_min_igen og
+         * tests/host/test_tilmeld.c.
          */
-        if (min_igen > 1) {
-            snprintf(gaelder, sizeof(gaelder),
-                     "Koden gælder i %d minutter endnu", min_igen);
-        } else {
-            snprintf(gaelder, sizeof(gaelder),
-                     "Koden gælder under et minut endnu");
-        }
-        lv_label_set_text(s_gaelder, gaelder);
         tegn_qr(kode);
         break;
 
@@ -471,7 +464,6 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
      */
     vis(s_plade, klar);
     vis(s_guide, klar);
-    vis(s_gaelder, klar);
     vis(s_knap, stand == ZS_TILMELD_UDLOEBET);
     if (!klar) {
         /* Tankestregen staar i daempet farve naar der ikke er en kode,

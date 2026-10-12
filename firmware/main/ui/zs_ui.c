@@ -256,8 +256,7 @@ void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi)
     lv_port_sem_give();
 }
 
-void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode,
-                       int min_igen)
+void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode)
 {
     if (!s_ready) { return; }
     /*
@@ -277,6 +276,6 @@ void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode,
         return;
     }
     lv_port_sem_take();
-    zs_tilmeld_page_update(stand, kode, min_igen);
+    zs_tilmeld_page_update(stand, kode);
     lv_port_sem_give();
 }

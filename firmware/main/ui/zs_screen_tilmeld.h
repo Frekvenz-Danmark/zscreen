@@ -49,10 +49,8 @@ lv_obj_t *zs_tilmeld_page_root(void);
  *
  *   stand       hvad der skal staa
  *   kode        de seks tegn, eller en tom streng
- *   min_igen    minutter til koden doer. Kun brugt ved ZS_TILMELD_KLAR
  */
-void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode,
-                            int min_igen);
+void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode);
 
 #ifdef __cplusplus
 }

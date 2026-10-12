@@ -405,13 +405,13 @@ static void tilmeld_tik(void)
      * Og fladen faar den samme sandhed. Den tegner kun om naar den staar
      * paa tilmeldingssiden, saa det koster ingenting naar den ikke goer.
      *
-     * Det er HER og ikke i siden selv, fordi nedtaellingen skal loebe af
-     * sig selv: en montoer der staar og kigger paa koden, skal kunne se
-     * at der er tre minutter tilbage og ikke ti.
+     * Der sendes ingen nedtaelling med. Den stod paa siden foer, men
+     * koden fornyes af sig selv her i tik'et, saa kunden kan ikke komme
+     * til at staa med en doed kode - og saa er minutterne noget man skal
+     * forholde sig til uden at kunne bruge dem.
      */
     zs_ui_set_tilmeld(zs_tilmeld_stand(&s_tilmeld, inverter, vej, nu_ms),
-                      zs_tilmeld_kode_nu(&s_tilmeld, inverter, vej, nu_ms),
-                      zs_tilmeld_min_igen(&s_tilmeld, nu_ms));
+                      zs_tilmeld_kode_nu(&s_tilmeld, inverter, vej, nu_ms));
 }
 
 /*
@@ -993,9 +993,7 @@ static void slut_opsaetningen(void)
         s_tilmeld_naar_opsat = false;
         zs_tilmeld_page_set_return(ZS_SCREEN_HOME);
         (void)zs_app_tilmeld_vis(true);
-        zs_ui_set_tilmeld(zs_app_tilmeld_stand(), zs_app_tilmeld_kode(),
-                          zs_tilmeld_min_igen(&s_tilmeld,
-                                              esp_timer_get_time() / 1000));
+        zs_ui_set_tilmeld(zs_app_tilmeld_stand(), zs_app_tilmeld_kode());
         zs_ui_show(ZS_SCREEN_TILMELD);
         ESP_LOGI(TAG, "opsætningen er færdig, viser tilmeldingen");
         return;
@@ -1208,9 +1206,7 @@ static void handle_cmd(const zs_cmd_t *c)
         /* Tegn siden om med det samme. Ellers staar der "ingen kode" i op
          * til to sekunder efter der er trykket, og saa tror montoeren at
          * knappen ikke virkede og trykker igen. */
-        zs_ui_set_tilmeld(zs_app_tilmeld_stand(), zs_app_tilmeld_kode(),
-                          zs_tilmeld_min_igen(&s_tilmeld,
-                                              esp_timer_get_time() / 1000));
+        zs_ui_set_tilmeld(zs_app_tilmeld_stand(), zs_app_tilmeld_kode());
         break;
 
     case ZS_CMD_SET_THEME:

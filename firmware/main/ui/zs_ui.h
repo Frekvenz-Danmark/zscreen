@@ -81,8 +81,7 @@ void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi);
 
 /* Tilmeldingssiden. Se zs_screen_tilmeld.h for hvorfor der er en stand
  * og ikke bare en kode. */
-void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode,
-                       int min_igen);
+void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode);
 
 #ifdef __cplusplus
 }
