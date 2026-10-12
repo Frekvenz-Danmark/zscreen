@@ -40,14 +40,28 @@ int main(int argc, char **argv)
         tilf[i] = (uint8_t)(froe >> 33);
     }
 
-    /* Skaermens egen tilstand: inverter fundet, paa flaaden. */
+    /*
+     * Skaermens egen tilstand: inverter fundet, paa flaaden.
+     *
+     * VEJEN ER EN ENUM, IKKE ET FLAG. Her stod der "true", og det er 1,
+     * altsaa ZS_TILMELD_VEJ_VENTER - "paa vej ind paa flaaden". Saa
+     * sagde zs_tilmeld_bed_om nej, helt rigtigt, og proeven meldte at
+     * skaermen ikke kunne lave en kode.
+     *
+     * Oversaetteren sagde ingenting: C lader et heltal glide ind i en
+     * enum, saa hverken -Wall eller -Werror fanger det. Den tredje
+     * parameter var en bool engang, og det her kald fulgte ikke med.
+     * Fundet 12. oktober 2026.
+     */
     zs_tilmeld_t s;
     memset(&s, 0, sizeof(s));
-    if (!zs_tilmeld_bed_om(&s, true, true, 1000, tilf, sizeof(tilf))) {
+    if (!zs_tilmeld_bed_om(&s, true, ZS_TILMELD_VEJ_FLAADE, 1000,
+                           tilf, sizeof(tilf))) {
         fprintf(stderr, "zs_tilmeld_bed_om sagde nej\n");
         return 1;
     }
-    const char *kode = zs_tilmeld_kode_nu(&s, true, true, 1000);
+    const char *kode = zs_tilmeld_kode_nu(&s, true, ZS_TILMELD_VEJ_FLAADE,
+                                          1000);
     if (kode == NULL || kode[0] == '\0') {
         fprintf(stderr, "der kom ingen kode\n");
         return 1;
