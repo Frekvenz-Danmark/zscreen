@@ -426,11 +426,14 @@ static void on_inv_pick(lv_event_t *e)
     /*
      * Vi skifter IKKE side her.
      *
-     * Appen bestemmer hvor brugeren skal hen, for den er den eneste
-     * der ved om der ogsaa mangler et prisomraade. Gjorde vi begge
-     * dele, ville de to kappes om det, og LVGL holder laasen gennem
-     * hele sin runde, saa appens valg altid vandt. Resultatet var at
-     * trinnet med prisomraade aldrig blev vist.
+     * Appen bestemmer hvor brugeren skal hen, i slut_opsaetningen. Gjorde
+     * vi begge dele, ville de to kappes om det, og LVGL holder laasen
+     * gennem hele sin runde, saa appens valg altid vandt: den side vi
+     * satte her, blev erstattet foer nogen saa den.
+     *
+     * Dengang var det trinnet med prisomraade der aldrig blev vist. Det
+     * trin findes ikke mere - prisomraadet kommer ned fra serveren - men
+     * reglen staar, for den handler om laasen og ikke om det trin.
      */
 }
 

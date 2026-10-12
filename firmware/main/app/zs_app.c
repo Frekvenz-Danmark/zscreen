@@ -384,7 +384,30 @@ static void tilmeld_tik(void)
      * nogen gaar ud af siden i fremtiden.
      */
     bool aaben = (zs_ui_current() == ZS_SCREEN_TILMELD);
-    if (aaben) {
+
+    /*
+     * ER VI TILMELDT, ER DER INGEN KODE AT LAVE.
+     *
+     * Navnet hentes FOER koden, og det er med vilje. Her blev koden
+     * lavet foerst, og saa laa en indmeldt skaerm og lavede en frisk
+     * kode hver gang siden stod aaben - mens den samtidig viste
+     * "Anlægget er tilmeldt". Maalt 12. oktober 2026: produktionens
+     * asset fik en ny kode kl. 17:35, ti minutter EFTER at anlaegget
+     * blev oprettet 17:26.
+     *
+     * Den kode kan ikke bruges til noget - serveren siger nej, for
+     * skaermen ligger allerede i en kundemappe - saa det er en kode der
+     * kun kan forvirre: scanner montoeren den, faar han et nej han ikke
+     * kan forstaa, paa en skaerm der lige har sagt at alt er i orden.
+     *
+     * Og feltet paa serveren bliver skrevet igen og igen, saa laenge
+     * nogen staar paa siden.
+     */
+    char kunde[ZS_FLEET_KUNDE_MAKS];
+    zs_fleet_kunde(kunde, sizeof(kunde));
+    bool tilmeldt = (kunde[0] != '\0');
+
+    if (aaben && !tilmeldt) {
         uint8_t tilf[ZS_TILMELD_TILF_BYTES];
         esp_fill_random(tilf, sizeof(tilf));
         (void)zs_tilmeld_bed_om(&s_tilmeld, inverter, vej, nu_ms,
@@ -397,9 +420,19 @@ static void tilmeld_tik(void)
          * laengere det eneste der holder reglen.
          */
         zs_tilmeld_ryd(&s_tilmeld);
-        ESP_LOGI(TAG, "tilmeldingen er forladt, koden er ryddet");
+        /* "%s" og ikke teksten direkte: ESP_LOGI saetter formatstrengen
+         * sammen i en makro, saa den skal vaere et bogstaveligt
+         * tekststykke og ikke et udtryk. */
+        ESP_LOGI(TAG, "%s", tilmeldt
+                 ? "anlægget er tilmeldt, koden er ryddet"
+                 : "tilmeldingen er forladt, koden er ryddet");
     }
 
+    /*
+     * Og serveren faar den tomme streng, saa koden holder op med at
+     * gaelde dér ogsaa. Det er selve beskeden og ikke ingenting, se
+     * noten i zs_fleet_publish_tilmeld.
+     */
     zs_fleet_publish_tilmeld(
         zs_tilmeld_kode_nu(&s_tilmeld, inverter, vej, nu_ms));
 
@@ -416,10 +449,12 @@ static void tilmeld_tik(void)
      *
      * Navnet gaar i kode-parameteren. Strengen er "det der skal staa i
      * den store linje", og her er det navnet.
+     *
+     * Navnet blev hentet ÉN gang i toppen. Det stod to steder foer, og
+     * saa kunne det skifte midt i tik'et: koden blev lavet fordi der
+     * ikke var et navn, og et oejeblik senere var der et.
      */
-    char kunde[ZS_FLEET_KUNDE_MAKS];
-    zs_fleet_kunde(kunde, sizeof(kunde));
-    if (kunde[0] != '\0') {
+    if (tilmeldt) {
         zs_ui_set_tilmeld(ZS_TILMELD_TILMELDT, kunde);
         /*
          * Og saa hjem af sig selv.
@@ -1277,10 +1312,15 @@ static void handle_cmd(const zs_cmd_t *c)
         s_home.have_data = false;
         s_state = ST_CONNECTING;
         /*
-         * ÉT sted bestemmer hvor brugeren skal hen. Mangler der et
-         * prisomraade, er opsaetningen ikke faerdig endnu.
-         */
-        /*
+         * ÉT sted bestemmer hvor brugeren skal hen, og det er
+         * slut_opsaetningen nedenfor.
+         *
+         * Her stod der ogsaa "mangler der et prisomraade, er
+         * opsaetningen ikke faerdig endnu". Det er ikke sandt laengere,
+         * og en kommentar der siger det modsatte af koden er vaerre end
+         * ingen kommentar: den naeste der laeser den, leder efter et
+         * trin der ikke findes.
+         *
          * Inverteren er fundet og valgt. Montoeren staar ved anlaegget
          * NU, saa tilmeldingen skal vises foer han gaar - se
          * s_tilmeld_naar_opsat.
