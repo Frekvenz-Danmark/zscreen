@@ -511,16 +511,34 @@ static void laes_kunde(const char *data, int len)
         && rod->valuestring[0] != '\0') {
         LAAS();
         if (strcmp(s_kunde, rod->valuestring) != 0) {
-            snprintf(s_kunde, sizeof(s_kunde), "%s", rod->valuestring);
+            /*
+             * zs_tekst_kopi og ikke snprintf: navnet kommer UDEFRA og
+             * maa fylde hele bufferen, og en klipning midt i et æ ville
+             * staa paa vaeggen som et hul der ikke kan tegnes. Se noten
+             * ved funktionen.
+             */
+            (void)zs_tekst_kopi(s_kunde, sizeof(s_kunde), rod->valuestring);
             s_kunde_ny = true;
             ZS_LOGI(TAG, "tilmeldt til %s", s_kunde);
         }
         SLIP();
-    } else if (cJSON_IsNull(rod)) {
+    } else if (cJSON_IsNull(rod)
+               || (cJSON_IsString(rod) && rod->valuestring != NULL
+                   && rod->valuestring[0] == '\0')) {
         /*
          * Ryddet paa serveren. Det sker hvis nogen fjerner tilmeldingen,
          * og saa skal skaermen kunne tilmeldes igen - altsaa tilbage til
          * at vise en kode.
+         *
+         * OG EN TOM STRENG RYDDER OGSAA, ikke kun null.
+         *
+         * Her stod der kun null, og saa faldt "" igennem uden at rydde
+         * og uden at sige noget. Men serveren rydder netop et felt ved
+         * at skrive en tom streng - det er det braend() gor med koden,
+         * og maalt 12. oktober 2026 staar feltet bagefter som '' og ikke
+         * som null. Saa ville skaermen have staaet paa "Anlægget er
+         * tilmeldt" for evigt, med en tilmelding der var fjernet, og den
+         * kunne ikke tilmeldes igen uden at nogen slettede hele assetet.
          */
         LAAS();
         if (s_kunde[0] != '\0') {
@@ -529,6 +547,11 @@ static void laes_kunde(const char *data, int len)
             ZS_LOGI(TAG, "tilmeldingen er fjernet på serveren");
         }
         SLIP();
+    } else {
+        /* Hverken en tekst eller null. Siges der fra om, som ved
+         * prisomraadet: et felt der tavst bliver kastet vaek, er det
+         * samme som et felt der ikke findes. */
+        ZS_LOGW(TAG, "kundenavnet var hverken tekst eller tomt");
     }
     cJSON_Delete(rod);
 }

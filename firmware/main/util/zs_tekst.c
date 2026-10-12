@@ -38,6 +38,29 @@ bool zs_tekst_kopi(char *ud, size_t ud_len, const char *fra)
     bool hele = (n < ud_len);
     if (!hele) {
         n = ud_len - 1;
+        /*
+         * OG KLIPNINGEN SKAL LANDE MELLEM TO TEGN, IKKE INDE I ÉT.
+         *
+         * Teksten er UTF-8, og æ, ø og å fylder TO bytes. Klippede vi
+         * midt i et saadant par, stod der en halv byte-foelge til sidst,
+         * og den kan ikke tegnes: LVGL tegner det som ingenting eller
+         * som et firkantet hul, og det staar paa en vaeg hos en kunde.
+         *
+         * Det blev fundet 12. oktober 2026, da serveren begyndte at
+         * sende KUNDENS NAVN ned til skaermen. Vores egne tekster er
+         * proevet af check-text.py, men et navn kommer udefra, det maa
+         * fylde 63 bytes, og "Søndergaard" har et ø der kan ligge
+         * praecis paa graensen.
+         *
+         * En fortsaettelses-byte har de to oeverste bit sat til 10. Vi
+         * gaar tilbage mens den byte vi er ved at DROPPE er en saadan:
+         * saa ender det vi beholder paa en hel foelge. Er teksten slet
+         * ikke gyldig UTF-8, kan n gaa i nul, og en tom streng er stadig
+         * bedre end noget der ikke kan tegnes.
+         */
+        while (n > 0 && ((unsigned char)fra[n] & 0xC0) == 0x80) {
+            n--;
+        }
     }
     memcpy(ud, fra, n);
     ud[n] = '\0';

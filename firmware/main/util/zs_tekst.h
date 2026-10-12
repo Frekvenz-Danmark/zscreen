@@ -73,6 +73,11 @@ char zs_tekst_stort(char c);
  *   fra == NULL                    ud bliver en tom streng
  *   fra laengere end der er plads  den bliver klippet, stadig afsluttet
  *
+ * EN KLIPNING LANDER MELLEM TO TEGN. Teksten er UTF-8, og æ, ø og å
+ * fylder to bytes; en klipning midt i et par kan ikke tegnes. Derfor kan
+ * en klippet streng vaere ÉN byte kortere end der var plads til. Se
+ * noten i .c-filen.
+ *
  * Returnerer true hvis hele strengen kom med, saa en kalder der ikke maa
  * taale en klipning kan sige fra. De fleste kaldere er ligeglade.
  */

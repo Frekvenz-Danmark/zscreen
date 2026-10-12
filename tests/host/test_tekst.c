@@ -137,6 +137,61 @@ void test_tekst(void)
         free(noejagtig);
     }
 
+    ZS_SUITE("Tekst: en klipning lander mellem to tegn");
+
+    /*
+     * æ, ø og å fylder TO bytes i UTF-8. Klippes der midt i et par,
+     * staar der en halv byte-foelge til sidst, og LVGL kan ikke tegne
+     * den: der staar ingenting eller et firkantet hul paa en vaeg hos en
+     * kunde.
+     *
+     * Det her blev skrevet 12. oktober 2026, fordi serveren begyndte at
+     * sende KUNDENS NAVN ned. Vores egne tekster holdes mod
+     * skrifttyperne af check-text.py, men et navn kommer udefra og maa
+     * fylde hele bufferen.
+     */
+    char u[8];
+
+    /* "Sø" er S + to bytes. Med plads til 3 tegn plus nul passer det
+     * praecis, og saa skal der ikke klippes noget. */
+    CHECK("et tegn paa to bytes passer praecis",
+          zs_tekst_kopi(u, 4, "S\xc3\xb8"));
+    CHECK_STR("og staar helt", u, "S\xc3\xb8");
+
+    /*
+     * "Søn" er FIRE bytes: S, to for ø, og n. Med plads til 3 bytes
+     * stopper byte-klipningen midt i ø'et og ville efterlade "S\xc3".
+     * Her skal den gaa ÉT skridt tilbage og give "S".
+     */
+    CHECK("en klipning midt i et tegn tager hele tegnet med ud",
+          zs_tekst_kopi(u, 3, "S\xc3\xb8n") == false);
+    CHECK_STR("saa der staar et helt tegn mindre", u, "S");
+
+    /* Og kun naar det er noedvendigt: med plads til 3 bytes falder
+     * graensen praecis EFTER ø'et, saa der skal ikke gaas tilbage. */
+    CHECK("klipper ikke mere end den skal",
+          zs_tekst_kopi(u, 4, "S\xc3\xb8n") == false);
+    CHECK_STR("tegnet foer graensen bliver staaende", u, "S\xc3\xb8");
+
+    /*
+     * Et tegn paa TRE bytes, altsaa uden for Latin-1. Det er samme regel
+     * og en anden laengde, og det er netop laengden der plejer at vaere
+     * forkert naar den slags skrives forfra.
+     */
+    CHECK("tre-byte-tegn klippes ogsaa helt",
+          zs_tekst_kopi(u, 4, "a\xe2\x82\xac") == false);
+    CHECK_STR("saa der staar kun det der er helt", u, "a");
+
+    /*
+     * Og en tekst der slet IKKE er gyldig UTF-8: kun
+     * fortsaettelses-bytes. Saa gaar den i nul, og en tom streng er
+     * stadig bedre end noget der ikke kan tegnes. Her ville en
+     * tilbagegang uden vagten "n > 0" laese uden for bufferen.
+     */
+    CHECK("ugyldig tekst ender som tom og ikke som halve tegn",
+          zs_tekst_kopi(u, 3, "\x80\x80\x80\x80") == false);
+    CHECK_STR("altsaa ingenting", u, "");
+
     ZS_SUITE("Tekst: find uden at skele til store og smaa");
 
     CHECK("samme tekst", zs_tekst_indeholder("Fronius", "Fronius"));

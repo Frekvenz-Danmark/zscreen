@@ -424,17 +424,32 @@ static void tilmeld_tik(void)
         /*
          * Og saa hjem af sig selv.
          *
-         * Skaermen haenger paa en vaeg og skal vise tal, ikke en kvittering.
-         * Montoeren skal have tid til at LAESE navnet - det er hele
-         * grunden til at det staar der - saa der gaar et stykke tid foer
-         * den gaar videre. Uret startes ved den foerste tik hvor vi ser
-         * navnet, saa de sekunder er tid paa skaermen og ikke tid siden
-         * serveren skrev det.
+         * Skaermen haenger paa en vaeg og skal vise tal, ikke en
+         * kvittering. Montoeren skal have tid til at LAESE navnet - det
+         * er hele grunden til at det staar der - saa der gaar et stykke
+         * tid foer den gaar videre.
+         *
+         * URET MAALER TID PAA SIDEN, og derfor nulstilles det naar siden
+         * ikke staar aaben.
+         *
+         * Her stod der kun "er uret ikke startet, saa start det", og det
+         * her tik koerer fem gange i sekundet uanset hvilken side der
+         * vises. Navnet staar paa serveren for altid, saa uret blev
+         * startet ved FOERSTE tik efter en opstart. Foerste gang gik det
+         * godt, for siden stod aaben da navnet kom. Men aabnede montoeren
+         * siden bagefter - for at se HVEM den blev tilmeldt - var de
+         * tolv sekunder for laengst gaaet, og saa blev han kastet hjem
+         * inden for 200 ms uden at kunne laese noget.
+         *
+         * Netop det navn er det eneste der kan vise at koden endte hos
+         * den forkerte kunde, saa en side han ikke kan faa til at staa
+         * stille, er det samme som ingen besked.
          */
-        if (s_tilmeldt_vist_ms == 0) {
+        if (!aaben) {
+            s_tilmeldt_vist_ms = 0;
+        } else if (s_tilmeldt_vist_ms == 0) {
             s_tilmeldt_vist_ms = nu_ms;
-        } else if (nu_ms - s_tilmeldt_vist_ms > ZS_TILMELDT_VIS_MS
-                   && zs_ui_current() == ZS_SCREEN_TILMELD) {
+        } else if (nu_ms - s_tilmeldt_vist_ms > ZS_TILMELDT_VIS_MS) {
             ESP_LOGI(TAG, "tilmeldt til %s, viser hovedsiden", kunde);
             zs_ui_show(ZS_SCREEN_HOME);
         }
