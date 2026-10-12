@@ -1179,12 +1179,17 @@ static void handle_cmd(const zs_cmd_t *c)
          * s_tilmeld_naar_opsat.
          */
         s_tilmeld_naar_opsat = true;
-        if (s_cfg.price_zone[0] == '\0') {
-            zs_setup_zone_set_return(ZS_SCREEN_INVERTER_LIST);
-            zs_ui_show(ZS_SCREEN_PRICE_ZONE);
-        } else {
-            slut_opsaetningen();
-        }
+        /*
+         * Og saa er opsaetningen faerdig.
+         *
+         * Her stod et trin mere, hvor montoeren valgte DK1 eller DK2.
+         * Vaek 12. oktober 2026: prisomraadet kommer ned fra serveren
+         * gennem prisZone, se brug_prisomraade og ZS_FLEET_ZONE_FELT.
+         * Det er ikke montoerens oplysning - Platformen kender kundens
+         * adresse - og et menneske der gaetter paa en skaerm, gaetter
+         * nogle gange forkert.
+         */
+        slut_opsaetningen();
         break;
     }
 
@@ -1318,7 +1323,7 @@ static void handle_cmd(const zs_cmd_t *c)
         s_price_next_try = 0;
         if (s_cfg.price_zone[0] == '\0') {
             snprintf(s_price.fejl, sizeof(s_price.fejl),
-                     "Vælg dit prisområde under Indstillinger");
+                     "Venter på prisområdet fra Frekvenz");
         }
         zs_ui_set_price(&s_price);
         /* Tilbage til det skaermen ellers ville have lavet: drift hvis
@@ -1337,14 +1342,6 @@ static void handle_cmd(const zs_cmd_t *c)
         /* Demoen er slaaet fra i denne udgave. Se ZS_DEMO_ENABLED. */
         break;
 #endif
-
-    case ZS_CMD_SET_PRICE_ZONE:
-        brug_prisomraade(c->ssid);
-        /* Opsaetningen er faerdig naar der ogsaa er en inverter. */
-        if (s_cfg.configured) {
-            slut_opsaetningen();
-        }
-        break;
 
     case ZS_CMD_FACTORY_RESET:
         ESP_LOGW(TAG, "fabriksnulstilling");
@@ -1431,7 +1428,7 @@ static void app_task(void *arg)
                   "elmåler %s, inverter %s:%u enhed %u",
              s_cfg.brightness,
              s_cfg.night_dimming ? "til" : "fra",
-             s_cfg.price_zone[0] != '\0' ? s_cfg.price_zone : "ikke valgt",
+             s_cfg.price_zone[0] != '\0' ? s_cfg.price_zone : "ikke sat endnu",
              s_cfg.meter_import_positive ? "import positiv" : "import negativ",
              s_cfg.inverter_ip[0] != '\0' ? s_cfg.inverter_ip : "ingen",
              s_cfg.inverter_port, s_cfg.inverter_unit);
@@ -1474,8 +1471,11 @@ static void app_task(void *arg)
      * hvorfor der ikke er priser.
      */
     if (s_cfg.price_zone[0] == '\0') {
+        /* Og der staar IKKE "vælg dit prisområde". Det kan kunden ikke
+         * laengere, og et raad man ikke kan foelge, er vaerre end
+         * ingenting. Omraadet kommer fra serveren, se brug_prisomraade. */
         snprintf(s_price.fejl, sizeof(s_price.fejl),
-                 "Vælg dit prisområde under Indstillinger");
+                 "Venter på prisområdet fra Frekvenz");
     } else {
         snprintf(s_price.fejl, sizeof(s_price.fejl), "Henter priser ...");
     }

@@ -202,17 +202,6 @@ void zs_settings_set_theme(zs_theme_mode_t m)
     }
 }
 
-static void on_change_zone(lv_event_t *e)
-{
-    (void)e;
-    /* Samme side som i opsaetningen. Ét sted at rette hvis teksten
-     * skal aendres, og kunden ser noget de kender igen. Vi siger hvor
-     * tilbage foerer hen, saa den ikke ender paa opsaetningens
-     * inverterliste. */
-    zs_setup_zone_set_return(ZS_SCREEN_SETTINGS);
-    zs_ui_show(ZS_SCREEN_PRICE_ZONE);
-}
-
 static void on_change_inverter(lv_event_t *e)
 {
     (void)e;
@@ -339,10 +328,17 @@ static void build_settings(void)
     lv_obj_add_flag(s_row_inv.row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(s_row_inv.row, on_change_inverter, LV_EVENT_CLICKED, NULL);
 
-    zs_row_create(&s_row_zone, col, ZS_ICON_ZAP, "Prisområde", "", true);
+    /*
+     * Prisomraadet VISES, det vaelges ikke.
+     *
+     * Raekken var en knap der aabnede et valg mellem DK1 og DK2. Vaek
+     * 12. oktober 2026: omraadet kommer ned fra serveren, se prisZone og
+     * brug_prisomraade. Derfor ingen pil og intet tryk - en raekke der
+     * ser ud som en knap og ikke goer noget, er vaerre end en raekke der
+     * bare staar der.
+     */
+    zs_row_create(&s_row_zone, col, ZS_ICON_ZAP, "Prisområde", "", false);
     lv_obj_set_width(s_row_zone.row, ZS_CONTENT_WIDTH);
-    lv_obj_add_flag(s_row_zone.row, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(s_row_zone.row, on_change_zone, LV_EVENT_CLICKED, NULL);
 
     zs_row_t det;
     zs_row_create(&det, col, ZS_ICON_INFO, "Detaljer om anlægget", NULL, true);
@@ -503,7 +499,8 @@ void zs_settings_update(const zs_settings_t *s, const char *ip)
     if (s_row_zone.value != NULL) {
         /* Vi skriver hvor det er, ikke kun koden. "DK2" siger ingen
          * kunde noget. */
-        const char *tekst = "Ikke valgt";
+        /* Ikke "Ikke valgt": kunden vaelger den ikke. */
+        const char *tekst = "Ikke sat endnu";
         if (strcmp(s->price_zone, "DK1") == 0) {
             tekst = "Vest for Storebælt";
         } else if (strcmp(s->price_zone, "DK2") == 0) {

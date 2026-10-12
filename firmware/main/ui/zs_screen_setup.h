@@ -33,7 +33,6 @@ lv_obj_t *zs_setup_root_password(void);
 lv_obj_t *zs_setup_root_connecting(void);
 lv_obj_t *zs_setup_root_scan(void);
 lv_obj_t *zs_setup_root_inverter(void);
-lv_obj_t *zs_setup_root_zone(void);
 
 void zs_setup_set_wifi_list(const zs_ap_t *aps, int n);
 void zs_setup_set_wifi_scanning(bool scanning);
@@ -42,7 +41,6 @@ void zs_setup_set_scan_progress(int done, int total, int found);
 void zs_setup_set_inverter_list(const zs_found_t *list, int n);
 
 /* Siger hvor "tilbage" foerer hen fra siden med prisomraade. */
-void zs_setup_zone_set_return(zs_screen_id_t hvorhen);
 
 
 /* River opsaetningens sider ned. Se noten ved zs_screen_home_destroy. */

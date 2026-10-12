@@ -33,7 +33,6 @@ typedef enum {
     ZS_SCREEN_CONNECTING,    /* forbinder til netværket             */
     ZS_SCREEN_INVERTER_SCAN, /* søger efter inverteren              */
     ZS_SCREEN_INVERTER_LIST, /* vælg inverter                       */
-    ZS_SCREEN_PRICE_ZONE,    /* vælg prisområde                     */
     ZS_SCREEN_HOME,          /* de fire kort                        */
     ZS_SCREEN_SETTINGS,      /* indstillinger                       */
     ZS_SCREEN_DETAILS,       /* detaljer om anlægget                */

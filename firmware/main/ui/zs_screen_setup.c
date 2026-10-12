@@ -12,7 +12,7 @@
 /* Tilstand                                                            */
 /* ------------------------------------------------------------------ */
 
-static zs_page_t s_welcome, s_wifi, s_pass, s_connect, s_scan, s_inv, s_zone;
+static zs_page_t s_welcome, s_wifi, s_pass, s_connect, s_scan, s_inv;
 
 static lv_obj_t      *s_wifi_list;
 static lv_obj_t      *s_wifi_hint;
@@ -455,76 +455,11 @@ static void build_inverter(void)
 }
 
 /* ------------------------------------------------------------------ */
-/* 7. Vælg prisområde                                                  */
-/* ------------------------------------------------------------------ */
-
-static void send_zone(const char *zone)
-{
-    zs_cmd_t c;
-    memset(&c, 0, sizeof(c));
-    c.type = ZS_CMD_SET_PRICE_ZONE;
-    /* ssid-feltet genbruges til teksten. Det er den eneste streng i
-     * beskeden, og at lave et felt mere kun til tre bogstaver ville
-     * bare goere beskeden stoerre for alle andre kommandoer. */
-    snprintf(c.ssid, sizeof(c.ssid), "%s", zone);
-    zs_app_send(&c);
-}
-
-static void on_zone_dk1(lv_event_t *e) { (void)e; send_zone("DK1"); }
-static void on_zone_dk2(lv_event_t *e) { (void)e; send_zone("DK2"); }
-
-/*
- * Hvor "tilbage" foerer hen fra prisomraade.
- *
- * Siden naas to steder fra: som sidste trin i opsaetningen, og fra
- * Indstillinger. Hardkodede vi det ene, ville den anden vej ende paa
- * en side der ikke giver mening. Den der viser siden, siger hvor
- * tilbage foerer hen.
- */
-static zs_screen_id_t s_zone_tilbage = ZS_SCREEN_INVERTER_LIST;
-
-void zs_setup_zone_set_return(zs_screen_id_t hvorhen)
-{
-    s_zone_tilbage = hvorhen;
-}
-
-static void on_zone_back(lv_event_t *e)
-{
-    (void)e;
-    zs_ui_show(s_zone_tilbage);
-}
-
-/* Ét stort valg med forklaring under. To knapper der fylder halvdelen
- * hver ville tvinge teksten ned i to smalle spalter. */
-
-static void build_zone(void)
-{
-    zs_page_create(&s_zone, "Hvor bor du", on_zone_back, NULL, false);
-
-    lv_obj_t *h = lv_label_create(s_zone.content);
-    lv_label_set_text(h, "Elprisen er ikke den samme i hele landet.");
-    zs_style_text(h, &zs_font_16, ZS_C_LABEL);
-    lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(h, ZS_CONTENT_WIDTH);
-    lv_obj_set_pos(h, ZS_EDGE, 16);
-
-    /* Samme knap som paa tema-siden. Se zs_choice_create. */
-    zs_choice_create(s_zone.content, "Vest for Storebælt",
-                     "Jylland og Fyn. Kaldes DK1.", 56, false,
-                     on_zone_dk1, NULL);
-    zs_choice_create(s_zone.content, "Øst for Storebælt",
-                     "Sjælland, Lolland, Falster og Bornholm. Kaldes DK2.",
-                     56 + ZS_CHOICE_HEIGHT + ZS_CHOICE_GAP, false,
-                     on_zone_dk2, NULL);
-}
-
-/* ------------------------------------------------------------------ */
 /* Udadtil                                                             */
 /* ------------------------------------------------------------------ */
 
 void zs_setup_create(void)
 {
-    build_zone();
     build_welcome();
     build_wifi();
     build_password();
@@ -539,7 +474,6 @@ lv_obj_t *zs_setup_root_password(void)   { return s_pass.root; }
 lv_obj_t *zs_setup_root_connecting(void) { return s_connect.root; }
 lv_obj_t *zs_setup_root_scan(void)       { return s_scan.root; }
 lv_obj_t *zs_setup_root_inverter(void)   { return s_inv.root; }
-lv_obj_t *zs_setup_root_zone(void)       { return s_zone.root; }
 
 /* Netvaerkene skal overleve at listen tegnes om, fordi hver rad peger
  * paa sin egen post. Derfor en kopi her og ikke en pegepind udefra. */
@@ -728,7 +662,7 @@ void zs_setup_set_inverter_list(const zs_found_t *list, int n)
 void zs_setup_destroy(void)
 {
     zs_page_t *sider[] = { &s_welcome, &s_wifi, &s_pass, &s_connect,
-                           &s_scan, &s_inv, &s_zone };
+                           &s_scan, &s_inv };
     for (size_t i = 0; i < sizeof(sider) / sizeof(sider[0]); i++) {
         if (sider[i]->root != NULL) {
             lv_obj_del(sider[i]->root);

@@ -74,7 +74,6 @@ static lv_obj_t *root_of(zs_screen_id_t id)
     case ZS_SCREEN_CONNECTING:    return zs_setup_root_connecting();
     case ZS_SCREEN_INVERTER_SCAN: return zs_setup_root_scan();
     case ZS_SCREEN_INVERTER_LIST: return zs_setup_root_inverter();
-    case ZS_SCREEN_PRICE_ZONE:    return zs_setup_root_zone();
     case ZS_SCREEN_HOME:          return zs_screen_home_root();
     case ZS_SCREEN_SETTINGS:      return zs_settings_root();
     case ZS_SCREEN_DETAILS:       return zs_details_root();

@@ -54,7 +54,6 @@ typedef enum {
      * ejer tilstanden.
      */
     ZS_CMD_SETUP_CANCEL,
-    ZS_CMD_SET_PRICE_ZONE,    /* ssid bruges til "DK1" eller "DK2"   */
     ZS_CMD_SET_NIGHT_DIM,     /* flag                               */
     ZS_CMD_SET_METER_SIGN,    /* flag: positiv betyder køb          */
     ZS_CMD_SET_THEME,         /* u8 er zs_theme_mode_t              */
