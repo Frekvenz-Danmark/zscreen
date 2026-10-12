@@ -742,6 +742,51 @@ static bool gem_konfiguration(void)
 }
 
 /*
+ * Tag et prisomraade i brug: gem det, og hent priserne forfra.
+ *
+ * Staar ÉT sted fordi der er to kilder: serveren, som saetter det ned
+ * gennem prisZone, og opsaetningens trin saa laenge det findes. To kopier
+ * af den her raekkefoelge ville kunne komme ud af trit, og symptomet
+ * ville vaere priser fra den gamle zone indtil naeste genstart.
+ */
+static void brug_prisomraade(const char *z)
+{
+    if (z == NULL || (strcmp(z, "DK1") != 0 && strcmp(z, "DK2") != 0)) {
+        return;
+    }
+    if (strcmp(s_cfg.price_zone, z) == 0) {
+        return;                 /* samme som vi har: ingen grund til noget */
+    }
+    /* Praecis tre tegn. Feltet er 4 bytes, og z kan komme fra en besked
+     * hvor strengen er laengere. */
+    snprintf(s_cfg.price_zone, sizeof(s_cfg.price_zone), "%.3s", z);
+    if (!gem_konfiguration()) {
+        ESP_LOGW(TAG, "prisområdet kunne ikke gemmes");
+    }
+    ESP_LOGI(TAG, "prisområde sat til %s", s_cfg.price_zone);
+    /*
+     * Hent med det samme, og ryd det vi har.
+     *
+     * Uden rydningen ville de gamle zones priser blive staaende paa
+     * skaermen indtil det naeste opslag lykkedes, og en kunde der netop
+     * har faaet landsdelen rettet, ville se de forkerte tal lidt
+     * laengere - uden at kunne se at de er forkerte.
+     */
+    s_price_next_try = 0;
+    memset(&s_price, 0, sizeof(s_price));
+    zs_ui_set_price(&s_price);
+}
+
+/* Har serveren sat et nyt prisomraade? Spoerges i tik'et. */
+static void zone_tik(void)
+{
+    char z[4];
+    if (zs_fleet_zone_ny(z, sizeof(z))) {
+        brug_prisomraade(z);
+    }
+}
+
+/*
  * Gemmer med det samme hvis der venter noget.
  *
  * Kaldes foer vi gaar ind i noget der blokerer laenge. Den udskudte
@@ -1293,29 +1338,13 @@ static void handle_cmd(const zs_cmd_t *c)
         break;
 #endif
 
-    case ZS_CMD_SET_PRICE_ZONE: {
-        const char *z = c->ssid;
-        if (strcmp(z, "DK1") != 0 && strcmp(z, "DK2") != 0) {
-            break;
-        }
-        /* Praecis tre tegn. Feltet er 4 bytes, og z kommer fra en
-         * besked hvor strengen kan vaere op til 32. */
-        snprintf(s_cfg.price_zone, sizeof(s_cfg.price_zone), "%.3s", z);
-        if (!gem_konfiguration()) {
-            ESP_LOGW(TAG, "prisområdet kunne ikke gemmes");
-        }
-        ESP_LOGI(TAG, "prisområde sat til %s", z);
-        /* Hent med det samme, saa siden ikke staar tom mens kunden
-         * kigger paa den. */
-        s_price_next_try = 0;
-        memset(&s_price, 0, sizeof(s_price));
-        zs_ui_set_price(&s_price);
+    case ZS_CMD_SET_PRICE_ZONE:
+        brug_prisomraade(c->ssid);
         /* Opsaetningen er faerdig naar der ogsaa er en inverter. */
         if (s_cfg.configured) {
             slut_opsaetningen();
         }
         break;
-    }
 
     case ZS_CMD_FACTORY_RESET:
         ESP_LOGW(TAG, "fabriksnulstilling");
@@ -1549,6 +1578,7 @@ static void app_task(void *arg)
          * blev skrevet for at undgaa, og den sad i kaldestedet.
          */
         tilmeld_tik();
+        zone_tik();
 
         int64_t t = now_ms();
 
