@@ -38,6 +38,13 @@ SLUT = "\033[0m"
 UNDTAGELSER = {
     "": "velkomstsiden: der er ingenting foer den, og den har "
         "\"Kom i gang\" fremad",
+    "Ingen forbindelse":
+        "netvaerkssiden: der er ikke noget at gaa tilbage TIL - siden "
+        "vises netop fordi hovedsiden ikke har noget at vise. Den har "
+        "\"Fix fejl\" fremad til netvaerkstrinnet, hvorfra tilbage "
+        "sender SETUP_CANCEL, og app'en viser hovedsiden af sig selv i "
+        "samme sekund som nettet er tilbage. Skaermen kan altsaa ikke "
+        "gaa i staa paa den",
 }
 
 # zs_page_create(&var, "Titel", tilbage_cb, ...)
