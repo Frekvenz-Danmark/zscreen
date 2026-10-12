@@ -255,3 +255,31 @@ void zs_tilmeld_sendt_nulstil(zs_tilmeld_sendt_t *s)
     memset(s->sidst, 0, sizeof(s->sidst));
     s->sagt = false;
 }
+
+bool zs_tilmeld_hjem_nu(bool aaben, int64_t nu_ms, int64_t vis_ms,
+                        int64_t *uret)
+{
+    if (uret == NULL) {
+        return false;
+    }
+    if (!aaben) {
+        /* Uret maaler tid PAA SIDEN. Se noten i headeren for hvad det
+         * kostede at maale tid siden navnet kom i stedet. */
+        *uret = 0;
+        return false;
+    }
+    if (*uret == 0) {
+        /*
+         * Nul betyder "ikke startet", saa et ur der tilfaeldigvis
+         * starter paa millisekund nul ville blive startet igen ved
+         * naeste tik. Det er 0 ms efter opstart, og da er der ingen
+         * flaade og derfor intet navn, saa det kan ikke naas. Men
+         * bufferen skal ikke staa paa en tilfaeldighed: nu_ms kan ikke
+         * vaere nul HER, for saa var vi faldet i den foerste gren ved
+         * forrige tik.
+         */
+        *uret = (nu_ms == 0) ? 1 : nu_ms;
+        return false;
+    }
+    return (nu_ms - *uret) > vis_ms;
+}

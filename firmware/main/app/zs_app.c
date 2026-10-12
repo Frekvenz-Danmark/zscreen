@@ -480,11 +480,8 @@ static void tilmeld_tik(void)
          * den forkerte kunde, saa en side han ikke kan faa til at staa
          * stille, er det samme som ingen besked.
          */
-        if (!aaben) {
-            s_tilmeldt_vist_ms = 0;
-        } else if (s_tilmeldt_vist_ms == 0) {
-            s_tilmeldt_vist_ms = nu_ms;
-        } else if (nu_ms - s_tilmeldt_vist_ms > ZS_TILMELDT_VIS_MS) {
+        if (zs_tilmeld_hjem_nu(aaben, nu_ms, ZS_TILMELDT_VIS_MS,
+                               &s_tilmeldt_vist_ms)) {
             ESP_LOGI(TAG, "tilmeldt til %s, viser hovedsiden", kunde);
             zs_ui_show(ZS_SCREEN_HOME);
         }

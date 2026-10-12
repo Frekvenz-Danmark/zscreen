@@ -392,4 +392,65 @@ void test_tilmeld(void)
               zs_tilmeld_kode_nu(NULL, true, ZS_TILMELD_VEJ_FLAADE, 0), "");
     zs_tilmeld_ryd(NULL);
     CHECK("og NULL i ryd går ikke ned", true);
+
+    ZS_SUITE("Tilmeldt: uret maaler tid PAA SIDEN");
+
+    /*
+     * Reglen stod i zs_app.c, hvor den ikke kunne proeves, og den var
+     * forkert: uret blev startet ved foerste tik hvor navnet var der,
+     * uanset om siden var aaben. Navnet staar paa serveren for altid, og
+     * tik'et koerer fem gange i sekundet - saa uret blev startet ved
+     * opstart. Aabnede montoeren siden bagefter, var de tolv sekunder
+     * gaaet, og han blev kastet hjem inden for 200 ms.
+     *
+     * Her er den en ren funktion, og alle fire veje proeves.
+     */
+    const int64_t VIS = 12000;
+    int64_t ur = 0;
+
+    /* Siden er ikke aaben: uret skal nulstilles, og vi gaar ikke hjem. */
+    ur = 500;
+    CHECK("lukket side gaar ikke hjem",
+          zs_tilmeld_hjem_nu(false, 99000, VIS, &ur) == false);
+    CHECK("og uret er nulstillet", ur == 0);
+
+    /* Foerste tik med siden aaben: uret startes, vi venter. */
+    CHECK("foerste tik starter uret",
+          zs_tilmeld_hjem_nu(true, 60000, VIS, &ur) == false);
+    CHECK("uret staar paa nu", ur == 60000);
+
+    /* Undervejs: ikke hjem endnu. Og lige PAA graensen heller ikke -
+     * der staar > og ikke >=, og den kant er den der plejer at vaere
+     * forkert. */
+    CHECK("et sekund efter: bliver staaende",
+          zs_tilmeld_hjem_nu(true, 61000, VIS, &ur) == false);
+    CHECK("praecis paa graensen: bliver staaende",
+          zs_tilmeld_hjem_nu(true, 60000 + VIS, VIS, &ur) == false);
+    CHECK("ét millisekund efter: hjem",
+          zs_tilmeld_hjem_nu(true, 60000 + VIS + 1, VIS, &ur) == true);
+
+    /*
+     * OG DET AFGOERENDE: gaar montoeren fra siden og tilbage, starter
+     * uret forfra. Det var praecis det der var i stykker.
+     */
+    ur = 60000;
+    (void)zs_tilmeld_hjem_nu(false, 200000, VIS, &ur);   /* han gaar fra */
+    CHECK("naar han gaar fra, er uret nulstillet", ur == 0);
+    CHECK("og naar han kommer igen, gaar den IKKE hjem straks",
+          zs_tilmeld_hjem_nu(true, 200000, VIS, &ur) == false);
+    CHECK("uret er startet forfra paa det nye tidspunkt", ur == 200000);
+    CHECK("der er stadig tid tilbage efter elleve sekunder",
+          zs_tilmeld_hjem_nu(true, 211000, VIS, &ur) == false);
+    CHECK("og foerst efter de tolv gaar den hjem",
+          zs_tilmeld_hjem_nu(true, 213000, VIS, &ur) == true);
+
+    /* Uret kan ikke startes paa nul, for nul betyder "ikke startet". */
+    ur = 0;
+    CHECK("tidspunkt nul starter uret alligevel",
+          zs_tilmeld_hjem_nu(true, 0, VIS, &ur) == false);
+    CHECK("og uret staar ikke paa nul bagefter", ur != 0);
+
+    /* NULL maa ikke gaa ned. */
+    CHECK("NULL-ur gaar ikke hjem og gaar ikke ned",
+          zs_tilmeld_hjem_nu(true, 99000, VIS, NULL) == false);
 }

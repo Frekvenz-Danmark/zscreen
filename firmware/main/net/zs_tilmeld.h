@@ -299,6 +299,39 @@ int zs_tilmeld_min_igen(const zs_tilmeld_t *s, int64_t nu_ms);
 /* Glem hvad vi har sagt. Kaldes ved en ny indmeldelse. */
 void zs_tilmeld_sendt_nulstil(zs_tilmeld_sendt_t *s);
 
+/*
+ * NAAR SKAERMEN ER TILMELDT: holder siden, eller gaar den hjem?
+ *
+ * Giver true naar hovedsiden skal vises. uret er kalderens eget ur og
+ * bliver sat her: nul betyder "ikke startet".
+ *
+ *   aaben == false   uret nulstilles, og svaret er false
+ *   uret == 0        uret startes paa nu_ms, svaret er false
+ *   ellers           true naar der er gaaet mere end vis_ms
+ *
+ * DEN LIGGER HER OG IKKE I zs_app.c, af samme grund som
+ * zs_tilmeld_vejen ovenfor: app-laget bliver ikke oversat paa maskinen,
+ * saa en regel derinde kan kun proeves ved at flashe en skaerm og saette
+ * sig til at vente.
+ *
+ * Og det kostede. Reglen stod i tilmeld_tik som "er uret ikke startet,
+ * saa start det", uden at se paa om siden var aaben. Det tik koerer fem
+ * gange i sekundet uanset hvilken side der vises, og navnet staar paa
+ * serveren for altid - saa uret blev startet ved FOERSTE tik efter en
+ * opstart. Foerste gang gik det godt, for siden stod aaben da navnet
+ * kom. Men aabnede montoeren siden bagefter, for at se HVEM anlaegget
+ * blev tilmeldt, var de tolv sekunder for laengst gaaet, og han blev
+ * kastet hjem inden for 200 ms uden at kunne laese noget.
+ *
+ * Netop det navn er det eneste der kan vise at koden endte hos den
+ * forkerte kunde. En side han ikke kan faa til at staa stille, er det
+ * samme som ingen besked.
+ *
+ * Uret maaler altsaa tid PAA SIDEN. Se test_tilmeld.c.
+ */
+bool zs_tilmeld_hjem_nu(bool aaben, int64_t nu_ms, int64_t vis_ms,
+                        int64_t *uret);
+
 #ifdef __cplusplus
 }
 #endif
