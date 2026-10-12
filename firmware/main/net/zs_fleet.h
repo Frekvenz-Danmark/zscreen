@@ -200,6 +200,19 @@ void zs_fleet_asset_id(char *ud, size_t ud_len);
  * enhed. Derfor er den det rigtige id: den kan ikke komme til at vaere
  * ens paa to skaerme, og den foelger hardwaren og ikke firmwaren.
  */
+/*
+ * Serverens prisomraade, hvis der er kommet et nyt siden sidst.
+ *
+ * Returnerer true ÉN gang per aendring og skriver tre tegn plus nul i
+ * ud. Saa kan app'en gemme det og hente priser forfra, uden at det sker
+ * ved hvert tik.
+ *
+ * Kun DK1 og DK2 slipper igennem. Se laes_zone og ZS_FLEET_ZONE_FELT:
+ * en zone skaermen ikke kender, ville gaa med ud i prisadressen og give
+ * et svar ingen kan bruge, saa den afvises og den gamle bliver staaende.
+ */
+bool zs_fleet_zone_ny(char *ud, size_t ud_len);
+
 const char *zs_fleet_unique_id(void);
 
 #ifdef __cplusplus

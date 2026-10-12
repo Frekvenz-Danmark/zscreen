@@ -436,6 +436,71 @@ static void laes_ladeplan(const char *felt, const char *data, int len)
     cJSON_Delete(rod);
 }
 
+/*
+ * PRISOMRAADET FRA SERVEREN.
+ *
+ * Vaerdien laegges til side her, og app'en henter den i sit tik med
+ * zs_fleet_zone_ny. Den bliver IKKE skrevet i flashen herfra: det er
+ * app'en der ejer konfigurationen, og to steder der gemmer den samme
+ * ting, er to steder der kan komme ud af trit.
+ *
+ * Kun DK1 og DK2 godtages. Serveren kan tage fejl - et felt et menneske
+ * har tastet i - og en zone skaermen ikke kender, ville ellers gaa med
+ * ud i den adresse der hentes priser fra, hvor den giver et svar ingen
+ * kan bruge. Afvises den, bliver den gamle staaende, og det er det
+ * rigtige: en kendt zone er bedre end ingen.
+ */
+static char s_zone[4];          /* under LAAS */
+static bool s_zone_ny;          /* under LAAS */
+
+static void laes_zone(const char *data, int len)
+{
+    if (data == NULL || len <= 0) {
+        return;
+    }
+    cJSON *rod = cJSON_ParseWithLength(data, (size_t)len);
+    if (rod == NULL) {
+        ZS_LOGW(TAG, "prisområdet kunne ikke læses");
+        return;
+    }
+    if (cJSON_IsString(rod) && rod->valuestring != NULL
+        && (strcmp(rod->valuestring, "DK1") == 0
+            || strcmp(rod->valuestring, "DK2") == 0)) {
+        LAAS();
+        if (strcmp(s_zone, rod->valuestring) != 0) {
+            snprintf(s_zone, sizeof(s_zone), "%.3s", rod->valuestring);
+            s_zone_ny = true;
+            ZS_LOGI(TAG, "serveren satte prisområdet til %s", s_zone);
+        }
+        SLIP();
+    } else if (cJSON_IsNull(rod)) {
+        /* Ryddet paa serveren. Vi beholder den vi har: en tom zone
+         * ville faa prisopslaget til at falde tilbage til DK2, og saa
+         * kunne en rydning flytte en skaerm paa Sjaelland til Jylland. */
+        ZS_LOGI(TAG, "prisområdet blev ryddet på serveren, vi beholder "
+                     "det vi har");
+    } else {
+        ZS_LOGW(TAG, "prisområdet var ikke DK1 eller DK2, det bruges ikke");
+    }
+    cJSON_Delete(rod);
+}
+
+bool zs_fleet_zone_ny(char *ud, size_t ud_len)
+{
+    if (ud == NULL || ud_len < 4) {
+        return false;
+    }
+    bool ny = false;
+    LAAS();
+    if (s_zone_ny) {
+        snprintf(ud, ud_len, "%.3s", s_zone);
+        s_zone_ny = false;
+        ny = true;
+    }
+    SLIP();
+    return ny;
+}
+
 static void laes_maalversion(const char *data, int len)
 {
     if (data == NULL || len <= 0) {
@@ -755,6 +820,8 @@ static void paa_haendelse(void *arg, esp_event_base_t base, int32_t id, void *da
                    && (strcmp(felt, ZS_FLEET_LADE_TILSTAND_FELT) == 0
                        || strcmp(felt, ZS_FLEET_LADE_SEKUNDER_FELT) == 0)) {
             laes_ladeplan(felt, s_saml.buf, (int)s_saml.har);
+        } else if (har_felt && strcmp(felt, ZS_FLEET_ZONE_FELT) == 0) {
+            laes_zone(s_saml.buf, (int)s_saml.har);
         } else if (zs_fleet_emne_har_led(s_saml.emne, "response")) {
             laes_svar(s_saml.buf, (int)s_saml.har);
         } else {

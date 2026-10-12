@@ -416,6 +416,28 @@
 #define ZS_FLEET_LADE_SEKUNDER_FELT  "ladeplanSekunder"
 
 /*
+ * PRISOMRAADET KOMMER NED FRA SERVEREN, OG VAELGES IKKE PAA SKAERMEN.
+ *
+ * Det var et trin i opsaetningen foer, hvor montoeren trykkede DK1 eller
+ * DK2. Det er vaek, besluttet 12. oktober 2026, af to grunde.
+ *
+ * Den ene: det er ikke montoerens oplysning. Platformen kender kundens
+ * adresse, og den ved derfor hvilken landsdel anlaegget staar i. Et
+ * menneske der skal gaette paa en skaerm, gaetter nogle gange forkert, og
+ * saa viser skaermen priser fra den anden side af Storebaelt uden at
+ * nogen kan se at det er sket.
+ *
+ * Den anden: zs_price_fetch falder tilbage til DK2 naar der ikke er et
+ * omraade. Det er den rigtige opfoersel - der skal staa NOGET - men det
+ * betyder at et glemt trin bliver til stille forkerte tal for den halve
+ * del af landet. Kommer vaerdien ned fra serveren, kan den rettes ét
+ * sted bagefter, ogsaa for en skaerm der allerede haenger paa en vaeg.
+ *
+ * Feltet heder det samme paa serveren, se prisZone i anlaeg.py.
+ */
+#define ZS_FLEET_ZONE_FELT           "prisZone"
+
+/*
  * ALLE FELTER DER GAAR NED I SKAERMEN, ÉT STED.
  *
  * Listen BLIVER BRUGT: zs_fleet.c abonnerer paa netop den, og
@@ -433,7 +455,8 @@
 #define ZS_FLEET_NED_FELTER \
     ZS_FLEET_TARGET_FELT, \
     ZS_FLEET_LADE_TILSTAND_FELT, \
-    ZS_FLEET_LADE_SEKUNDER_FELT
+    ZS_FLEET_LADE_SEKUNDER_FELT, \
+    ZS_FLEET_ZONE_FELT
 
 /*
  * ALLE DE ANDRE FELTER skaermen skriver til serveren.
