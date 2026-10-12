@@ -421,11 +421,20 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
          * sekunder. Når ventetiden svinger sådan, er "et øjeblik" en ny
          * lille løgn oven i den vi lige fjernede.
          */
-        lv_label_set_text(s_over, "Skærmen er på nettet");
+        /*
+         * OG DEN ER KORT, som de andre ventesider.
+         *
+         * Her stod tre linjer der forklarede hvad der skete og hvad man
+         * ikke skulle gøre. Det er rigtigt indhold, men det er for meget
+         * paa en side man staar og venter paa: en montoer laeser ikke tre
+         * linjer, han ser om der sker noget.
+         *
+         * Husets egne ventesider siger "Søger" og "Leder efter din
+         * inverter". Den her siger nu det samme slags.
+         */
+        lv_label_set_text(s_over, "Henter forbindelse");
         lv_label_set_text(s_kode, "-");
-        lv_label_set_text(s_hjaelp,
-            "Den henter forbindelse til Frekvenz. Koden kommer af sig "
-            "selv, så snart der er forbindelse - bliv på siden.");
+        lv_label_set_text(s_hjaelp, "Vent venligst");
         break;
 
     case ZS_TILMELD_SERVER_NEJ:
