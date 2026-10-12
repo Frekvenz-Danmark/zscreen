@@ -777,6 +777,57 @@ static void brug_prisomraade(const char *z)
     zs_ui_set_price(&s_price);
 }
 
+/*
+ * VISER OG SKJULER SIDEN DER SIGER AT NETTET ER VAEK.
+ *
+ * Reglen er med vilje smal, og begge halvdele af den er der for en
+ * grund.
+ *
+ * DEN VENTER. Et wifi der falder ud i to sekunder og kommer igen, skal
+ * ikke blinke roedt hos kunden. Routeren genstarter, naboen taender en
+ * mikroboelgeovn, kanalen skifter: den slags sker, og skaermen henter
+ * sig selv. Foerst naar nettet har vaeret vaek i ZS_NONET_GRAENSE_MS,
+ * er det noget et menneske skal se paa.
+ *
+ * OG DEN RIVER IKKE NOGEN UD AF NOGET. Siden vises kun naar kunden
+ * staar paa hovedsiden. Staar hun i Indstillinger eller paa
+ * tilmeldingen, bliver hun der - et skift under fingeren er vaerre end
+ * den besked der kom med det. Naar hun saa gaar hjem, er siden der.
+ *
+ * Og den vej tilbage: er nettet tilbage mens siden staar, gaar vi hjem
+ * af os selv. Det er netop derfor siden ikke har en tilbageknap.
+ */
+#define ZS_NONET_GRAENSE_MS  20000
+
+static int64_t s_net_tabt_ms;        /* 0 = nettet er der, eller vi ved det ikke */
+
+static void nonet_tik(int64_t nu_ms)
+{
+    bool paa_nettet = (zs_wifi_state() == ZS_WIFI_CONNECTED);
+
+    if (paa_nettet) {
+        s_net_tabt_ms = 0;
+        if (zs_ui_current() == ZS_SCREEN_NONET) {
+            ESP_LOGI(TAG, "nettet er tilbage, viser hovedsiden igen");
+            zs_ui_show(ZS_SCREEN_HOME);
+        }
+        return;
+    }
+
+    if (s_net_tabt_ms == 0) {
+        s_net_tabt_ms = nu_ms;
+        return;
+    }
+    if (nu_ms - s_net_tabt_ms < ZS_NONET_GRAENSE_MS) {
+        return;                      /* for tidligt, det kan rette sig selv */
+    }
+    if (zs_ui_current() == ZS_SCREEN_HOME) {
+        ESP_LOGW(TAG, "nettet har været væk i %lld s, viser beskeden",
+                 (long long)((nu_ms - s_net_tabt_ms) / 1000));
+        zs_ui_show(ZS_SCREEN_NONET);
+    }
+}
+
 /* Har serveren sat et nyt prisomraade? Spoerges i tik'et. */
 static void zone_tik(void)
 {
@@ -1817,6 +1868,8 @@ static void app_task(void *arg)
         if (s_state == ST_SETUP) {
             continue;
         }
+
+        nonet_tik(t);
 
         /* ── forbind hvis vi ikke er forbundet ── */
         if (zs_wifi_state() != ZS_WIFI_CONNECTED) {

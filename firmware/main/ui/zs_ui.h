@@ -38,6 +38,7 @@ typedef enum {
     ZS_SCREEN_DETAILS,       /* detaljer om anlægget                */
     ZS_SCREEN_THEME,         /* vælg tema                           */
     ZS_SCREEN_TILMELD,       /* tilmeld anlægget til en kunde        */
+    ZS_SCREEN_NONET,         /* netværket er væk, blinker rødt       */
 } zs_screen_id_t;
 
 /* Bygger alle skaerme. Kaldes én gang fra app_main, med LVGL-laasen

@@ -48,6 +48,7 @@ idf_component_register(
         "ui/zs_ui.c"
         "ui/zs_screen_home.c"
         "ui/zs_screen_tilmeld.c"
+        "ui/zs_screen_nonet.c"
         "ui/zs_qr.c"
         # QR til tilmeldingen. Udefra, MIT. Se
         # vendor/qrcodegen/HVORFOR.md for maalingerne.

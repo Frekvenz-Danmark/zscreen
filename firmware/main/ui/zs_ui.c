@@ -16,6 +16,7 @@
 
 #include "zs_ui.h"
 #include "zs_screen_tilmeld.h"
+#include "zs_screen_nonet.h"
 #include "zs_theme.h"
 #include "zs_screen_home.h"
 #include "zs_screen_setup.h"
@@ -51,6 +52,7 @@ void zs_ui_init(void)
     zs_setup_create();
     zs_settings_create();
     zs_tilmeld_page_create();
+    zs_nonet_page_create();
 
     s_ready = true;
     /* Vi viser velkomstsiden med den laase-frie udgave.
@@ -79,11 +81,12 @@ static lv_obj_t *root_of(zs_screen_id_t id)
     case ZS_SCREEN_DETAILS:       return zs_details_root();
     case ZS_SCREEN_THEME:         return zs_theme_page_root();
     case ZS_SCREEN_TILMELD:       return zs_tilmeld_page_root();
+    case ZS_SCREEN_NONET:         return zs_nonet_page_root();
     }
     return NULL;
 }
 
-#define SCREEN_COUNT  (ZS_SCREEN_TILMELD + 1)
+#define SCREEN_COUNT  (ZS_SCREEN_NONET + 1)
 
 /*
  * Skifter side UDEN at tage laasen. Kalderen skal holde den.
@@ -110,6 +113,16 @@ static void show_locked(zs_screen_id_t id)
         }
     }
     s_current = id;
+    /*
+     * Blinket paa netvaerkssiden koerer kun mens siden vises.
+     *
+     * En LVGL-timer bliver ved med at tikke paa en skjult side, og saa
+     * ville skaermen blive tegnet om hvert 700. millisekund resten af
+     * tiden - for en farve ingen kan se. Det staar HER og ikke i siden
+     * selv, saa den ikke kan glemmes naar nogen skifter side ad en ny
+     * vej i fremtiden.
+     */
+    zs_nonet_page_set_active(id == ZS_SCREEN_NONET);
 }
 
 void zs_ui_show(zs_screen_id_t id)

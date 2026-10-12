@@ -42,6 +42,11 @@ static const zs_screen_id_t ALLE[] = {
     ZS_SCREEN_CONNECTING, ZS_SCREEN_INVERTER_SCAN, ZS_SCREEN_INVERTER_LIST,
     ZS_SCREEN_HOME, ZS_SCREEN_SETTINGS,
     ZS_SCREEN_DETAILS,
+    /* Netvaerkssiden er med fordi den TAENDER OG SLUKKER en LVGL-timer
+     * naar den vises og forlades. Bliver timeren ikke ryddet, vokser
+     * hukommelsen for hver gennemgang, og det er netop det den her
+     * proeve maaler. */
+    ZS_SCREEN_NONET,
 };
 #define ANTAL_SIDER (sizeof(ALLE) / sizeof(ALLE[0]))
 
