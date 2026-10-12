@@ -80,3 +80,6 @@ wifi-credentials.*
 
 # Den sanitiserede udgave af vaerktoejet, bygget af testene.
 tools/zs-probe/zs-probe-san
+
+# Kodeord. Maa ALDRIG i git, og det her repo er offentligt.
+kode.txt
