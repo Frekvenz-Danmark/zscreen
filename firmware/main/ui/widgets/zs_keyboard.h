@@ -49,6 +49,16 @@ const char *zs_keyboard_get_text(zs_keyboard_t *kb);
 
 void zs_keyboard_clear(zs_keyboard_t *kb);
 
+/*
+ * Starter paa TALTASTATURET i stedet for bogstaverne.
+ *
+ * Til felter hvor der skal staa en adresse eller et tal. Uden den skal
+ * brugeren selv finde "123"-tasten foerst, og paa et felt der kun kan
+ * indeholde cifre og punktummer er bogstaverne i vejen fra foerste
+ * tastetryk. Tasterne er de samme - det er kun hvilket lag der vises.
+ */
+void zs_keyboard_set_numeric(zs_keyboard_t *kb, bool paa);
+
 /* Viser eller skjuler tegnene i indtastningsfeltet. */
 void zs_keyboard_set_password_hidden(zs_keyboard_t *kb, bool hidden);
 bool zs_keyboard_get_password_hidden(zs_keyboard_t *kb);

@@ -242,6 +242,53 @@
                              + ZS_G_WAIT_GAP)
 
 /* ------------------------------------------------------------------ */
+/* VENTETRINNET: titel, forklaring, bjaelke                            */
+/* ------------------------------------------------------------------ */
+/*
+ * To sider venter paa noget og viser en bjaelke: inverter-soegningen i
+ * zs_screen_setup.c og tilmeldingens "Henter forbindelse" i
+ * zs_screen_tilmeld.c. De skal se PRAECIS ens ud, og de gjorde det ikke.
+ *
+ * MAALT I KODEN 13. oktober 2026, foer det her blev lavet:
+ *
+ *     inverter-soegningen        tilmeldingen
+ *     titel  zs_font_28          titel  zs_font_20
+ *     tekst  ZS_C_LABEL          tekst  ZS_C_TEXT_DIM
+ *     bredde 480 - 4*12 = 432    bredde 480 - 2*12 = 456
+ *     y      80 / 124 / 190      y      en flex-stak fra 8
+ *
+ * Fire forskelle paa to sider der skulle vaere den samme. Og der stod i
+ * BEGGE filer, i en kommentar, at de havde de samme maal - det var
+ * skrevet i god tro og var ikke sandt. En kommentar kan ikke holde to
+ * filer enige; kun én kilde kan.
+ *
+ * HVORFOR TALLENE STAAR SOM POSITIONER OG IKKE UDREGNES.
+ *
+ * Resten af den her fil regner: kortets hoejde, prissidens stak. Det
+ * kan den, fordi der er en REGEL - tre blokke der skal fylde kortet, en
+ * stak der skal gaa op i sidens hoejde.
+ *
+ * Her er der ikke nogen regel. 80, 124 og 190 er valgt af et menneske,
+ * der har set paa siden. Regnede jeg dem ud af linjehoejder jeg ikke har
+ * maalt, ville tallene flytte sig, og sidens udseende ville aendre sig
+ * uden at nogen havde bedt om det. Et gaet pyntet som et regnestykke er
+ * vaerre end et tal.
+ *
+ * De staar derfor som de er, ét sted, med vagter der fanger den dag
+ * nogen flytter dem forbi hinanden eller ud over sidens kant.
+ */
+
+/* Bredden. Smallere end sidens indhold, saa teksten faar luft i begge
+ * sider - det er inverter-soegningens maal, og nu ogsaa tilmeldingens. */
+#define ZS_G_STEP_WIDTH     (ZS_G_SCR_WIDTH - 4 * ZS_G_EDGE)
+
+#define ZS_G_STEP_TITLE_Y   80
+#define ZS_G_STEP_BODY_Y    124
+#define ZS_G_STEP_BAR_Y     190
+#define ZS_G_STEP_BAR_HEIGHT     8
+#define ZS_G_STEP_NOTE_Y    214
+
+/* ------------------------------------------------------------------ */
 /* Reglerne, tjekket naar der BYGGES                                   */
 /* ------------------------------------------------------------------ */
 
@@ -319,6 +366,14 @@ _Static_assert(ZS_G_BAR_TIME_RIGHT == 388,
                "klokkeslaettet er flyttet. Paa en 480 px skaerm skal det "
                "slutte paa 388 som foer.");
 _Static_assert(ZS_G_CX == 240, "midterlinjen er ikke midten af 480");
+/*
+ * Og ventetrinnet skal se ud PRAECIS som inverter-soegningen gjorde foer
+ * den blev flyttet herind. Tallene stod skrevet ind i build_scan() i
+ * zs_screen_setup.c, og det er dem der staar her.
+ */
+_Static_assert(ZS_G_STEP_WIDTH == 432,
+               "ventetrinnets bredde er aendret. Paa en 480 px skaerm skal "
+               "den vaere 432 som inverter-soegningens var.");
 #endif
 
 /* Og uanset skaermbredde: tandhjulet skal kunne vaere der, og ikke rage
@@ -341,6 +396,28 @@ _Static_assert(ZS_G_PRICE_CHART_HEIGHT > 0,
 _Static_assert(ZS_G_PRICE_Y_NOTE + ZS_G_PRICE_NOTE_HEIGHT + ZS_G_PRICE_BOTTOM
                == ZS_G_PAGE_HEIGHT,
                "noten nederst paa prissiden ender ikke hvor siden slutter");
+
+/*
+ * VENTETRINNET: raekkefoelgen skal holde, og det skal passe paa siden.
+ *
+ * Positionerne er valgt i haanden, saa der er ingen udregning der kan
+ * fejle. Det der KAN ske, er at nogen retter ét af tallene og kommer til
+ * at lade to blokke bytte plads - fx en bjaelke der havner over
+ * forklaringen. Det ser man ikke paa et tal, men det ser man her.
+ */
+_Static_assert(ZS_G_STEP_TITLE_Y < ZS_G_STEP_BODY_Y,
+               "ventetrinnet: forklaringen skal staa UNDER titlen");
+_Static_assert(ZS_G_STEP_BODY_Y < ZS_G_STEP_BAR_Y,
+               "ventetrinnet: bjaelken skal staa UNDER forklaringen");
+_Static_assert(ZS_G_STEP_BAR_Y + ZS_G_STEP_BAR_HEIGHT <= ZS_G_STEP_NOTE_Y,
+               "ventetrinnet: noten ligger oven i bjaelken");
+_Static_assert(ZS_G_STEP_NOTE_Y + ZS_G_CARD_SUB_HEIGHT <= ZS_G_PAGE_HEIGHT,
+               "ventetrinnet: noten nederst har ikke plads paa siden");
+_Static_assert(ZS_G_STEP_WIDTH > 0,
+               "skaermen er for smal til ventetrinnet");
+_Static_assert(ZS_G_STEP_WIDTH < ZS_G_CONTENT_WIDTH,
+               "ventetrinnet skal vaere SMALLERE end sidens indhold: det "
+               "er luften i siderne der goer at teksten kan laeses");
 
 _Static_assert(ZS_G_WAIT_TEXT_Y == 160,
                "teksten paa ventesiden er flyttet. Den skal staa paa 160 "

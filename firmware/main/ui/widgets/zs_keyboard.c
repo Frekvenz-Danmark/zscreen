@@ -372,6 +372,18 @@ const char *zs_keyboard_get_text(zs_keyboard_t *kb)
     return kb != NULL ? kb->text : "";
 }
 
+void zs_keyboard_set_numeric(zs_keyboard_t *kb, bool paa)
+{
+    if (kb == NULL || kb->numeric == paa) {
+        return;
+    }
+    kb->numeric = paa;
+    /* Samme vej som naar brugeren selv trykker "123": gitteret bygges om
+     * i naeste runde og ikke midt i den haendelse vi staar i. Se noten
+     * ved set_map_later. */
+    set_map_later(kb);
+}
+
 void zs_keyboard_clear(zs_keyboard_t *kb)
 {
     if (kb == NULL) {

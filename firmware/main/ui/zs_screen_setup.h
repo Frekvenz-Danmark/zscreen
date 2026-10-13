@@ -33,6 +33,7 @@ lv_obj_t *zs_setup_root_password(void);
 lv_obj_t *zs_setup_root_connecting(void);
 lv_obj_t *zs_setup_root_scan(void);
 lv_obj_t *zs_setup_root_inverter(void);
+lv_obj_t *zs_setup_root_inverter_manual(void);
 
 void zs_setup_set_wifi_list(const zs_ap_t *aps, int n);
 void zs_setup_set_wifi_scanning(bool scanning);

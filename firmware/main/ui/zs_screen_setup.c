@@ -2,8 +2,10 @@
 #include "zs_ui.h"
 #include "zs_theme.h"
 #include "zs_keyboard.h"
+#include "zs_step.h"
 #include "zs_app.h"
 #include "zs_config.h"
+#include "zs_modbus_tcp.h"  /* zs_mb_maal_ok: samme vagt som forbindelsen */
 
 #include <stdio.h>
 #include <string.h>
@@ -27,12 +29,19 @@ static lv_obj_t      *s_connect_icon;
 static lv_obj_t      *s_connect_text;
 static lv_obj_t      *s_connect_retry;
 
-static lv_obj_t      *s_scan_bar;
-static lv_obj_t      *s_scan_text;
-static lv_obj_t      *s_scan_found;
+/* Ventetrinnet: titel, forklaring, bjaelke og noten under den. Maalene
+ * staar i zs_layout.h og deles med tilmeldingssiden - se zs_step.h. */
+static zs_step_t      s_scan_step;
 
 static lv_obj_t      *s_inv_list;
 static lv_obj_t      *s_inv_hint;
+/* "Find manuelt": siden, feltet, tastaturet og linjen der siger fra. */
+static zs_page_t      s_man;
+static lv_obj_t      *s_man_field;
+static lv_obj_t      *s_man_fejl;
+static zs_keyboard_t *s_man_kb;
+static lv_obj_t      *s_inv_rescan;
+static lv_obj_t      *s_inv_manual;
 
 /* Det netvaerk brugeren valgte, mens kodeordet skrives. */
 static char s_chosen_ssid[ZS_SSID_MAX];
@@ -363,33 +372,17 @@ static void build_scan(void)
 {
     zs_page_create(&s_scan, "Søger", on_scan_back, NULL, false);
 
-    lv_obj_t *t = lv_label_create(s_scan.content);
-    lv_label_set_text(t, "Leder efter din inverter");
-    zs_style_text(t, &zs_font_28, ZS_C_TEXT);
-    lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 80);
-
-    s_scan_text = lv_label_create(s_scan.content);
-    lv_label_set_text(s_scan_text,
-        "Enheden gennemgår netværket. Det tager få sekunder.");
-    zs_style_text(s_scan_text, &zs_font_16, ZS_C_LABEL);
-    lv_obj_set_style_text_align(s_scan_text, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_width(s_scan_text, ZS_SCR_WIDTH - 4 * ZS_EDGE);
-    lv_obj_align(s_scan_text, LV_ALIGN_TOP_MID, 0, 124);
-
-    s_scan_bar = lv_bar_create(s_scan.content);
-    lv_obj_set_size(s_scan_bar, ZS_SCR_WIDTH - 4 * ZS_EDGE, 8);
-    lv_obj_align(s_scan_bar, LV_ALIGN_TOP_MID, 0, 190);
-    lv_bar_set_range(s_scan_bar, 0, 100);
-    lv_bar_set_value(s_scan_bar, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s_scan_bar, lv_color_hex(ZS_C_CARD), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(s_scan_bar, lv_color_hex(ZS_C_ACCENT), LV_PART_INDICATOR);
-    lv_obj_set_style_radius(s_scan_bar, 4, LV_PART_MAIN);
-    lv_obj_set_style_radius(s_scan_bar, 4, LV_PART_INDICATOR);
-
-    s_scan_found = lv_label_create(s_scan.content);
-    lv_label_set_text(s_scan_found, "");
-    zs_style_text(s_scan_found, &zs_font_16, ZS_C_ACCENT);
-    lv_obj_align(s_scan_found, LV_ALIGN_TOP_MID, 0, 214);
+    /*
+     * HELE TRINNET KOMMER FRA ÉT STED NU.
+     *
+     * Her stod skrift, farve, bredde og fire y-positioner skrevet ind.
+     * Tilmeldingssiden havde sit eget saet, og de to var ikke de samme -
+     * se noten i zs_step.h. Tallene er uaendrede paa 480, og der staar
+     * en vagt paa det i zs_layout.h.
+     */
+    zs_step_create(&s_scan_step, s_scan.content);
+    zs_step_saet(&s_scan_step, "Leder efter din inverter",
+                 "Enheden gennemgår netværket. Det tager få sekunder.");
 }
 
 /* ------------------------------------------------------------------ */
@@ -437,9 +430,178 @@ static void on_inv_pick(lv_event_t *e)
      */
 }
 
+/*
+ * SIDENS LODRETTE REGNESTYKKE, ÉT STED.
+ *
+ * Siden har ingen fod - de to knapper staar nederst i indholdet - saa
+ * indholdet er hele hoejden under overskriften. Listen faar det der er
+ * tilbage naar hjaelpelinjen foeroven og de to knapper nederst har faaet
+ * deres.
+ *
+ * Tallene staar HER og ikke inde i build_inverter, fordi de skal gaa op:
+ * aendrer nogen knaphoejden, skal listen blive kortere af sig selv og
+ * ikke loebe ind under dem.
+ */
+#define ZS_INV_LIST_Y   56           /* under hjaelpelinjen           */
+#define ZS_INV_BTN_GAP  8            /* mellem de to knapper          */
+/* Plads til: luft, knap, mellemrum, knap, luft. */
+#define ZS_INV_BTNS_HEIGHT   (ZS_EDGE + ZS_BTN_HEIGHT + ZS_INV_BTN_GAP \
+                         + ZS_BTN_HEIGHT + ZS_EDGE)
+#define ZS_INV_CONTENT_HEIGHT (ZS_SCR_HEIGHT - ZS_PAGE_HEAD_HEIGHT)
+#define ZS_INV_LIST_HEIGHT   (ZS_INV_CONTENT_HEIGHT - ZS_INV_LIST_Y - ZS_INV_BTNS_HEIGHT)
+
+_Static_assert(ZS_INV_LIST_HEIGHT >= ZS_ROW_HEIGHT,
+               "listen over invertere har ikke plads til én raekke: "
+               "knapperne nederst fylder for meget");
+
+/* ------------------------------------------------------------------ */
+/* 6b. Find manuelt                                                    */
+/* ------------------------------------------------------------------ */
+/*
+ * HVORFOR SIDEN FINDES.
+ *
+ * Soegningen gennemgaar undernettet og giver hver adresse 250 ms. Paa et
+ * net hvor svartiderne svinger - maalt paa en mobil router 13. oktober
+ * 2026: 3 til 180 ms til samme enhed - rammer den ikke altid. Og en
+ * inverter kan staa paa et andet undernet end skaermen, hvor der ikke er
+ * nogen soegning der kan naa den.
+ *
+ * Saa er der to muligheder: at montoeren proever igen og haaber, eller at
+ * han skriver den adresse han kan laese paa inverterens egen webside. Den
+ * sidste virker ogsaa naar soegningen aldrig vil kunne.
+ *
+ * SERIENUMMERET KOMMER AF SIG SELV.
+ *
+ * Vi sender den samme kommando som et valg fra listen,
+ * ZS_CMD_INVERTER_SELECT. Appen taemmer serienummeret naar adressen ikke
+ * stod i soegningens liste og tager det ved foerste forbindelse - se
+ * noten dér. Der skal altsaa ingen ny vej gennem appen til, og de to
+ * maader at vaelge en inverter paa kan ikke komme ud af trit.
+ */
+
+static void on_man_back(lv_event_t *e)
+{
+    (void)e;
+    zs_ui_show(ZS_SCREEN_INVERTER_LIST);
+}
+
+static void on_inv_manual(lv_event_t *e)
+{
+    (void)e;
+    /* Feltet starter TOMT og ikke med den sidste adresse.
+     *
+     * Den der staar her, er kommet fordi soegningen ikke fandt noget. Stod
+     * der en adresse i forvejen, skulle han foerst slette den - og han
+     * ville ikke kunne se om den var hans egen eller noget vi havde
+     * gaettet. */
+    if (s_man_kb != NULL) {
+        zs_keyboard_clear(s_man_kb);
+    }
+    if (s_man_field != NULL) {
+        lv_label_set_text(s_man_field, "");
+    }
+    if (s_man_fejl != NULL) {
+        lv_label_set_text(s_man_fejl, "");
+    }
+    zs_ui_show(ZS_SCREEN_INVERTER_MANUAL);
+}
+
+/* Fluebenet paa tastaturet, og knappen i foden, gaar samme vej. */
+static void on_man_brug(lv_event_t *e)
+{
+    (void)e;
+    if (s_man_kb == NULL) {
+        return;
+    }
+    const char *ip = zs_keyboard_get_text(s_man_kb);
+
+    /*
+     * ADRESSEN PROEVES HER, OG MED MODBUS' EGEN REGEL.
+     *
+     * zs_mb_maal_ok er den samme vagt forbindelsen selv bruger. En
+     * adresse der godtages her og afvises dér, ville give en skaerm der
+     * siger ja og saa staar og ikke kan forbinde - uden at nogen kan se
+     * hvorfor. Én regel, ét sted.
+     */
+    if (!zs_mb_maal_ok(ip, ZS_MB_DEFAULT_PORT)) {
+        lv_label_set_text(s_man_fejl,
+            "Det ser ikke ud som en adresse. Den skal være fire tal med "
+            "punktum imellem, fx 192.168.1.50");
+        return;
+    }
+    lv_label_set_text(s_man_fejl, "");
+
+    zs_cmd_t c;
+    memset(&c, 0, sizeof(c));
+    c.type = ZS_CMD_INVERTER_SELECT;
+    snprintf(c.ip, sizeof(c.ip), "%s", ip);
+    zs_app_send(&c);
+    /* Appen bestemmer hvor brugeren skal hen, som ved et valg fra
+     * listen. Se noten i on_inv_pick om hvorfor vi ikke skifter side. */
+}
+
+static void build_manual(void)
+{
+    zs_page_create(&s_man, "Find manuelt", on_man_back, NULL, false);
+
+    lv_obj_t *lbl = zs_label_create(s_man.content, "INVERTERENS IP-ADRESSE");
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, 16);
+
+    /* Samme felt som kodeordssiden: en ramme med teksten i. To felter der
+     * ser ens ud, er to felter montoeren ikke skal laere hver for sig. */
+    lv_obj_t *box = lv_obj_create(s_man.content);
+    lv_obj_remove_style_all(box);
+    lv_obj_set_size(box, ZS_CONTENT_WIDTH, 56);
+    lv_obj_align(box, LV_ALIGN_TOP_LEFT, ZS_EDGE, 42);
+    lv_obj_set_style_bg_color(box, lv_color_hex(ZS_C_CARD), 0);
+    lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(box, 14, 0);
+    lv_obj_set_style_border_width(box, 1, 0);
+    lv_obj_set_style_border_color(box, lv_color_hex(ZS_C_BORDER), 0);
+    lv_obj_set_style_pad_hor(box, 16, 0);
+    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+
+    s_man_field = lv_label_create(box);
+    lv_label_set_text(s_man_field, "");
+    zs_style_text(s_man_field, &zs_font_20, ZS_C_TEXT);
+    lv_label_set_long_mode(s_man_field, LV_LABEL_LONG_CLIP);
+    lv_obj_set_width(s_man_field, ZS_CONTENT_WIDTH - 32);
+    lv_obj_align(s_man_field, LV_ALIGN_LEFT_MID, 0, 0);
+
+    /* Hvor man finder den. Det er det foerste spoergsmaal der kommer. */
+    lv_obj_t *hj = lv_label_create(s_man.content);
+    lv_label_set_text(hj,
+        "Står på inverterens webside under Kommunikation, hvor Modbus TCP "
+        "også slås til.");
+    zs_style_text(hj, &zs_font_16, ZS_C_LABEL);
+    lv_label_set_long_mode(hj, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(hj, ZS_CONTENT_WIDTH);
+    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, 110);
+
+    /*
+     * FEJLLINJEN HAR SIN EGEN PLADS, OGSAA NAAR DEN ER TOM.
+     *
+     * Stod den ikke der, ville alt nedenfor hoppe en linje ned foerste
+     * gang en adresse blev afvist - og saa flytter knappen sig lige
+     * inden man trykker paa den igen.
+     */
+    s_man_fejl = lv_label_create(s_man.content);
+    lv_label_set_text(s_man_fejl, "");
+    zs_style_text(s_man_fejl, &zs_font_16, ZS_C_BAD);
+    lv_label_set_long_mode(s_man_fejl, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(s_man_fejl, ZS_CONTENT_WIDTH);
+    lv_obj_align(s_man_fejl, LV_ALIGN_TOP_LEFT, ZS_EDGE, 168);
+
+    /* Tastaturet ligger paa siden selv og ikke i indholdet, saa det
+     * bliver staaende naar indholdet rulles. Som paa kodeordssiden. */
+    s_man_kb = zs_keyboard_create(s_man.root, s_man_field, on_man_brug, NULL);
+    /* Cifre fra foerste tastetryk: der skal staa en adresse. */
+    zs_keyboard_set_numeric(s_man_kb, true);
+}
+
 static void build_inverter(void)
 {
-    zs_page_create(&s_inv, "Vælg inverter", on_inv_back, NULL, true);
+    zs_page_create(&s_inv, "Vælg inverter", on_inv_back, NULL, false);
 
     s_inv_hint = lv_label_create(s_inv.content);
     lv_label_set_text(s_inv_hint, "");
@@ -449,12 +611,49 @@ static void build_inverter(void)
     lv_obj_align(s_inv_hint, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_EDGE);
 
     s_inv_list = zs_column_create(s_inv.content, 8);
-    lv_obj_align(s_inv_list, LV_ALIGN_TOP_LEFT, ZS_EDGE, 56);
+    lv_obj_align(s_inv_list, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_INV_LIST_Y);
+    /*
+     * LISTEN FAAR SIN EGEN HOEJDE OG RULLER INDE I DEN.
+     *
+     * Kolonnen er LV_SIZE_CONTENT, altsaa saa hoej som sit indhold.
+     * Knapperne nedenfor er bundet til indholdets NEDERSTE kant, saa med
+     * otte fundne invertere - ZS_DISCOVERY_MAX - ville raekkerne loebe
+     * ind under dem. To ting oven i hinanden, hvor den oeverste kan
+     * trykkes, er den slags der vaelger en anden inverter end den
+     * montoeren sigtede efter.
+     *
+     * Nu stopper listen dér hvor knapperne begynder, og ruller indeni.
+     * Regnestykket staar i ZS_INV_LIST_HEIGHT, saa de to tal ikke kan komme
+     * ud af trit.
+     */
+    lv_obj_set_height(s_inv_list, ZS_INV_LIST_HEIGHT);
+    lv_obj_add_flag(s_inv_list, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(s_inv_list, LV_DIR_VER);
 
-    lv_obj_t *btn = zs_btn_secondary_create(s_inv.footer, "Søg igen");
-    lv_obj_set_width(btn, ZS_CONTENT_WIDTH);
-    lv_obj_center(btn);
-    lv_obj_add_event_cb(btn, on_inv_rescan, LV_EVENT_CLICKED, NULL);
+    /*
+     * TO KNAPPER, OG DE KAN IKKE BEGGE VAERE I FODEN.
+     *
+     * Foden er ZS_PAGE_FOOT_HEIGHT hoej med ZS_EDGE luft hele vejen
+     * rundt, altsaa praecis plads til ÉN knap paa ZS_BTN_HEIGHT. Lagde
+     * vi to derned, ville den nederste rage ud over skaermkanten, og det
+     * ses ikke paa en oversigt - kun paa glasset.
+     *
+     * De staar derfor nederst i INDHOLDET, stablet, og siden har ingen
+     * fod. Raekkefoelgen er med vilje: "Søg igen" er det man vil i ni af
+     * ti tilfaelde, saa den staar OVERST og er den primaere. At skrive en
+     * adresse i haanden er undtagelsen, og den skal se ud som en
+     * undtagelse.
+     */
+    s_inv_rescan = zs_btn_primary_create(s_inv.content, "Søg igen");
+    lv_obj_set_width(s_inv_rescan, ZS_CONTENT_WIDTH);
+    lv_obj_align(s_inv_rescan, LV_ALIGN_BOTTOM_MID, 0,
+                 -(ZS_EDGE + ZS_BTN_HEIGHT + ZS_INV_BTN_GAP));
+    lv_obj_add_event_cb(s_inv_rescan, on_inv_rescan, LV_EVENT_CLICKED, NULL);
+
+    s_inv_manual = zs_btn_secondary_create(s_inv.content, "Find manuelt");
+    lv_obj_set_width(s_inv_manual, ZS_CONTENT_WIDTH);
+    lv_obj_align(s_inv_manual, LV_ALIGN_BOTTOM_MID, 0, -ZS_EDGE);
+    lv_obj_add_event_cb(s_inv_manual, on_inv_manual, LV_EVENT_CLICKED, NULL);
 }
 
 /* ------------------------------------------------------------------ */
@@ -469,9 +668,11 @@ void zs_setup_create(void)
     build_connecting();
     build_scan();
     build_inverter();
+    build_manual();
 }
 
 lv_obj_t *zs_setup_root_welcome(void)    { return s_welcome.root; }
+lv_obj_t *zs_setup_root_inverter_manual(void) { return s_man.root; }
 lv_obj_t *zs_setup_root_wifi(void)       { return s_wifi.root; }
 lv_obj_t *zs_setup_root_password(void)   { return s_pass.root; }
 lv_obj_t *zs_setup_root_connecting(void) { return s_connect.root; }
@@ -554,12 +755,13 @@ void zs_setup_set_connect_status(const char *text, bool is_error, bool can_retry
 
 void zs_setup_set_scan_progress(int done, int total, int found)
 {
-    if (s_scan_bar == NULL) {
+    if (s_scan_step.bjaelke == NULL) {
         return;
     }
-    int pct = (total > 0) ? (done * 100 / total) : 0;
-    if (pct > 100) { pct = 100; }
-    lv_bar_set_value(s_scan_bar, pct, LV_ANIM_OFF);
+    /* Klipningen ligger i zs_step_fremdrift, altsaa dér hvor bjaelken
+     * bor. Her regnes der kun om til procent. */
+    zs_step_fremdrift(&s_scan_step,
+                      (total > 0) ? (done * 100 / total) : 0);
 
     char t[64];
     if (found <= 0) {
@@ -569,7 +771,7 @@ void zs_setup_set_scan_progress(int done, int total, int found)
     } else {
         snprintf(t, sizeof(t), "%d invertere fundet", found);
     }
-    lv_label_set_text(s_scan_found, t);
+    zs_step_note(&s_scan_step, t);
 }
 
 void zs_setup_set_inverter_list(const zs_found_t *list, int n)
@@ -683,9 +885,14 @@ void zs_setup_destroy(void)
     s_connect_icon  = NULL;
     s_connect_text  = NULL;
     s_connect_retry = NULL;
-    s_scan_bar      = NULL;
-    s_scan_text     = NULL;
-    s_scan_found    = NULL;
+    s_scan_step     = (zs_step_t){ 0 };
     s_inv_list      = NULL;
     s_inv_hint      = NULL;
+    s_inv_rescan    = NULL;
+    s_inv_manual    = NULL;
+    s_man_field     = NULL;
+    s_man_fejl      = NULL;
+    /* Tastaturet ryddes af LVGL med siden, se kb_on_delete. Her nulstilles
+     * kun pegeren, saa den ikke peger paa noget der er vaek. */
+    s_man_kb        = NULL;
 }

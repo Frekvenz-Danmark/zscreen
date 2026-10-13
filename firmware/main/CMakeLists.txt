@@ -60,6 +60,7 @@ idf_component_register(
         "ui/widgets/zs_price_page.c"
         "ui/widgets/zs_statusbar.c"
         "ui/widgets/zs_keyboard.c"
+        "ui/widgets/zs_step.c"
 
         # Genererede skrifttyper, ikoner og logoer.
         # Bygges af tools/build-assets.sh.

@@ -8,6 +8,7 @@
 #include "zs_app.h"
 #include "zs_icons.h"
 #include "zs_qr.h"
+#include "zs_step.h"  /* ventetrinnet, delt med inverter-soegningen */
 #include "zs_fleet.h"   /* zs_fleet_state, til bjaelkens fremdrift */
 #include "zs_theme.h"
 #include "zs_ui.h"
@@ -22,7 +23,20 @@ static lv_obj_t  *s_kode;        /* de seks tegn, eller en besked      */
 static lv_obj_t  *s_hjaelp;      /* hvad man goer hvis man ikke kan scanne */
 static lv_obj_t  *s_guide;       /* hvor vejledningen staar            */
 static lv_obj_t  *s_knap;        /* "Lav en kode", noedudgang          */
-static lv_obj_t  *s_bjaelke;     /* fremdrift mens vi venter paa flaaden */
+/*
+ * VENTETILSTANDEN ER ET HELT ANDET LAYOUT, OG DET ER DEN SAMME SOM
+ * INVERTER-SOEGNINGENS.
+ *
+ * Her stod en bjaelke alene, som blev vist midt i sidens egen stak.
+ * Resultatet var en side der LIGNEDE inverter-soegningen uden at vaere
+ * den: titlen i 20 px mod 28, forklaringen i en anden daempet farve, og
+ * bjaelken 456 px bred mod 432. Se noten i zs_step.h.
+ *
+ * Nu vises trinnet i stedet for stakken naar vi venter, og det er det
+ * SAMME element som soegningen bruger. De kan ikke skride fra hinanden
+ * mere, for der er kun ét sted at rette.
+ */
+static zs_step_t  s_trin;
 
 /*
  * QR'EN TEGNES SMAA OG SKALERES OP MED HELE TAL.
@@ -197,11 +211,8 @@ static int stak(void)
         { s_plade,   LUFT_FOER_QR   },
         { s_kode,    LUFT_FOER_KODE },
         { s_hjaelp,  LUFT_FOER_HJ   },
-        /* Bjaelken staar HER, altsaa efter forklaringen, praecis som paa
-         * inverter-soegningen: stor linje, forklaring, bjaelke. To
-         * ventesider der ser ens ud, er to sider montoeren ikke skal
-         * laere hver for sig. */
-        { s_bjaelke, LUFT_FOER_HJ   },
+        /* Bjaelken er IKKE i stakken mere. Den hoerer til ventetrinnet,
+         * som har faste positioner - se noten ved s_trin. */
         { s_guide,   LUFT_FOER_GU   },
         { s_knap,    LUFT_FOER_HJ   },
     };
@@ -308,21 +319,17 @@ void zs_tilmeld_page_create(void)
     s_hjaelp = linje(&zs_font_16, ZS_C_TEXT_DIM);
 
     /*
-     * Fremdriftsbjaelken, med de samme maal og farver som
-     * inverter-soegningens. Den staar ÉT sted i hver fil og ikke i en
-     * faelles hjaelper, fordi de to sider ellers ville skulle enes om et
-     * tredje modul for otte linjer - men tallene er de samme med vilje.
+     * VENTETRINNET.
+     *
+     * Her stod otte linjer der byggede en bjaelke med "de samme maal og
+     * farver som inverter-soegningens" - og en kommentar der sagde at
+     * tallene var de samme med vilje. De var ikke. En kommentar kan ikke
+     * holde to filer enige.
+     *
+     * Hele trinnet kommer nu fra zs_step.c, og maalene fra zs_layout.h.
      */
-    s_bjaelke = lv_bar_create(s_side.content);
-    lv_obj_set_size(s_bjaelke, ZS_CONTENT_WIDTH, 8);
-    lv_bar_set_range(s_bjaelke, 0, 100);
-    lv_bar_set_value(s_bjaelke, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s_bjaelke, lv_color_hex(ZS_C_CARD),
-                              LV_PART_MAIN);
-    lv_obj_set_style_bg_color(s_bjaelke, lv_color_hex(ZS_C_ACCENT),
-                              LV_PART_INDICATOR);
-    lv_obj_set_style_radius(s_bjaelke, 4, LV_PART_MAIN);
-    lv_obj_set_style_radius(s_bjaelke, 4, LV_PART_INDICATOR);
+    zs_step_create(&s_trin, s_side.content);
+    zs_step_vis(&s_trin, false);
 
     s_guide  = linje(&zs_font_16, ZS_C_TEXT_DIM);
 
@@ -363,6 +370,10 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
     }
     bool klar = (stand == ZS_TILMELD_KLAR);
     bool tilmeldt = (stand == ZS_TILMELD_TILMELDT);
+    /* Beregnes HER og ikke nede ved bjaelken. Den afgoer nu hele sidens
+     * udseende og ikke bare om der er en bjaelke, saa den skal vaere
+     * kendt foer der bliver vist eller skjult noget. */
+    bool venter = (stand == ZS_TILMELD_VENTER_PAA_SERVER);
 
     switch (stand) {
     case ZS_TILMELD_KLAR:
@@ -458,20 +469,18 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
          * Husets egne ventesider siger "Søger" og "Leder efter din
          * inverter". Den her siger nu det samme slags.
          */
-        lv_label_set_text(s_over, "Henter forbindelse");
         /*
-         * INGEN TANKESTREG HER.
+         * TEKSTEN STAAR I TRINNET OG IKKE I SIDENS EGEN STAK.
          *
          * Der stod "-" i kodefeltet, altsaa i den store skrift hvor de
-         * seks tegn ellers staar. Paa en side man venter paa, ser det
-         * ud som et felt der skulle have haft indhold og ikke fik det.
-         * Feltet skjules i stedet, og bjaelken nedenfor viser at der
-         * sker noget - som paa inverter-soegningen.
+         * seks tegn ellers staar. Paa en side man venter paa, ser det ud
+         * som et felt der skulle have haft indhold og ikke fik det.
+         * Hele stakken skjules nu i stedet, og trinnet vises - det samme
+         * element inverter-soegningen bruger.
          */
-        lv_label_set_text(s_kode, "");
-        lv_label_set_text(s_hjaelp,
-            "Enheden melder sig ind hos Frekvenz. Det tager "
-            "få sekunder.");
+        zs_step_saet(&s_trin, "Henter forbindelse",
+                     "Enheden melder sig ind hos Frekvenz. Det tager "
+                     "få sekunder.");
         break;
 
     case ZS_TILMELD_TILMELDT:
@@ -535,8 +544,19 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
      * der et navn i den store linje, og en QR ved siden af et navn
      * ville blive scannet - og den kode er brugt.
      */
-    vis(s_plade, klar);
-    vis(s_guide, klar);
+    /*
+     * NAAR VI VENTER, ER DET TRINNET DER ER SIDEN.
+     *
+     * Alt sidens eget indhold skjules, og trinnet vises. Det er derfor
+     * de to ventesider nu er 1:1: det er ikke to layouts der er lavet
+     * ens, det er det samme layout.
+     */
+    zs_step_vis(&s_trin, venter);
+    vis(s_over, !venter);
+    vis(s_hjaelp, !venter);
+
+    vis(s_plade, klar && !venter);
+    vis(s_guide, klar && !venter);
     (void)tilmeldt;
     vis(s_knap, stand == ZS_TILMELD_UDLOEBET);
 
@@ -556,8 +576,6 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
      * Afvist og fejl faar ingen bjaelke: dér er ventetilstanden slet
      * ikke den rigtige side, se zs_tilmeld_vejen.
      */
-    bool venter = (stand == ZS_TILMELD_VENTER_PAA_SERVER);
-    vis(s_bjaelke, venter);
     if (venter) {
         int pct;
         switch (zs_fleet_state()) {
@@ -566,7 +584,13 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
         case ZS_FLEET_READY:      pct = 100; break;
         default:                  pct = 10;  break;
         }
-        lv_bar_set_value(s_bjaelke, pct, LV_ANIM_ON);
+        /* UDEN ANIMATION, som paa inverter-soegningen.
+         *
+         * Her stod LV_ANIM_ON. Det er en forskel man ser: den ene bjaelke
+         * gled, den anden sprang. Og 1:1 betyder ogsaa det. Trinnene er i
+         * forvejen rigtige tal og ikke pynt, saa de behoever ikke en
+         * glidning for at vise at der sker noget. */
+        zs_step_fremdrift(&s_trin, pct);
     }
 
     /* Kodefeltet skjules naar der ikke staar noget i det. En tom linje i
