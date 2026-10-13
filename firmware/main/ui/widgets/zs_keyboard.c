@@ -19,14 +19,38 @@ LV_FONT_DECLARE(zs_font_kb_24)
 #define K_OK      ZS_ICON_CHECK
 #define K_NUM     "123"
 #define K_ABC     "abc"
+#define K_SYM     "#+="
 #define K_SPACE   " "
+
+/*
+ * ÉT LAG, OG IKKE TO BOOLS.
+ *
+ * Her stod "upper" og "numeric" ved siden af hinanden. To bools giver
+ * fire tilstande, men der er TRE lag - og "store tal" findes ikke. Det
+ * var derfor tegn-laget aldrig blev bygget: tasten #+= havde ingen
+ * tilstand at skifte TIL, saa den stod som en tom tast med en
+ * kommentar om at den var reserveret.
+ *
+ * Resultatet var at * + = # < > [ ] { } \\ | ^ ~ ` slet ikke kunne
+ * tastes. Et wifi-kodeord med en stjerne i kunne altsaa ikke skrives,
+ * og montoeren havde ingen vej videre. Det er en spaerre, ikke en
+ * mangel.
+ *
+ * Med ét felt kan der komme et lag mere ved at tilfoeje en vaerdi og et
+ * kort. Med to bools skulle man finde ud af hvad kombinationen betyder.
+ */
+typedef enum {
+    LAG_SMAA = 0,    /* standard: a-z, og den man vender tilbage til */
+    LAG_STORE,
+    LAG_TAL,
+    LAG_TEGN,
+} lag_t;
 
 struct zs_keyboard {
     lv_obj_t *matrix;
     lv_obj_t *target;      /* etiketten der viser det skrevne */
     char      text[ZS_PASS_MAX];
-    bool      upper;
-    bool      numeric;
+    lag_t     lag;
     bool      hidden;      /* skjuler tegnene med prikker     */
     lv_event_cb_t done_cb;
     void     *user_data;
@@ -50,10 +74,33 @@ static const char *map_upper[] = {
     K_NUM, K_SPACE, K_OK, ""
 };
 
+/*
+ * TEGN-LAGET. Alt det der mangler for at kunne skrive et hvilket som
+ * helst WPA2-kodeord.
+ *
+ * WPA2 tillader hele det synlige ASCII, altsaa 33 til 126. De tre andre
+ * lag daekker bogstaverne, cifrene og
+ *
+ *     - / : ; ( ) $ & @ " . , ? ! ' _ %
+ *
+ * Tilbage var praecis disse femten, og de staar her. Listen er ikke et
+ * valg om hvad der er "almindeligt": den er resten, saa der ikke findes
+ * et lovligt kodeord vi ikke kan skrive.
+ *
+ * Og der er en vej BAADE til bogstaver og til tal herfra. Et lag man kun
+ * kan komme ud af ét sted, er et lag man sidder fast i halvdelen af
+ * tiden.
+ */
+static const char *map_sym[] = {
+    "#","*","+","=","<",">","^","~","\n",
+    "[","]","{","}","\\","|","`",K_DEL,"\n",
+    K_ABC, K_NUM, K_SPACE, K_OK, ""
+};
+
 static const char *map_num[] = {
     "1","2","3","4","5","6","7","8","9","0","\n",
     "-","/",":",";","(",")","$","&","@","\"","\n",
-    "#+=",".",",","?","!","'","_","%",K_DEL,"\n",
+    K_SYM,".",",","?","!","'","_","%",K_DEL,"\n",
     K_ABC, K_SPACE, K_OK, ""
 };
 
@@ -100,6 +147,17 @@ static const lv_btnmatrix_ctrl_t ctrl_letters[] = {
     KB_KEY(2),KB_KEY(7),KB_KEY(2)
 };
 
+/* Tegn-laget: otte, otte, og fire nederst. Taellingen holdes af
+ * maps_are_consistent, saa en tast uden en bredde standser opstarten i
+ * stedet for at give et skaevt gitter. */
+static const lv_btnmatrix_ctrl_t ctrl_sym[] = {
+    KB_KEY(1),KB_KEY(1),KB_KEY(1),KB_KEY(1),
+    KB_KEY(1),KB_KEY(1),KB_KEY(1),KB_KEY(1),
+    KB_KEY(1),KB_KEY(1),KB_KEY(1),KB_KEY(1),
+    KB_KEY(1),KB_KEY(1),KB_KEY(1),KB_KEY(1),
+    KB_KEY(2),KB_KEY(2),KB_KEY(3),KB_KEY(2)
+};
+
 static const lv_btnmatrix_ctrl_t ctrl_num[] = {
     KB_KEY(1),KB_KEY(1),KB_KEY(1),KB_KEY(1),KB_KEY(1),
     KB_KEY(1),KB_KEY(1),KB_KEY(1),KB_KEY(1),KB_KEY(1),
@@ -138,12 +196,24 @@ static void refresh_target(zs_keyboard_t *kb)
 
 static void set_map(zs_keyboard_t *kb)
 {
-    if (kb->numeric) {
+    switch (kb->lag) {
+    case LAG_TEGN:
+        lv_btnmatrix_set_map(kb->matrix, map_sym);
+        lv_btnmatrix_set_ctrl_map(kb->matrix, ctrl_sym);
+        break;
+    case LAG_TAL:
         lv_btnmatrix_set_map(kb->matrix, map_num);
         lv_btnmatrix_set_ctrl_map(kb->matrix, ctrl_num);
-    } else {
-        lv_btnmatrix_set_map(kb->matrix, kb->upper ? map_upper : map_lower);
+        break;
+    case LAG_STORE:
+        lv_btnmatrix_set_map(kb->matrix, map_upper);
         lv_btnmatrix_set_ctrl_map(kb->matrix, ctrl_letters);
+        break;
+    case LAG_SMAA:
+    default:
+        lv_btnmatrix_set_map(kb->matrix, map_lower);
+        lv_btnmatrix_set_ctrl_map(kb->matrix, ctrl_letters);
+        break;
     }
 }
 
@@ -214,18 +284,27 @@ static void on_key(lv_event_t *e)
         return;
     }
 
+    /* LAGSKIFTENE STAAR SAMLET, og hver tast peger paa ÉT lag.
+     *
+     * Foer satte de to bools hver for sig, og "hvilket lag er vi i" var
+     * noget man regnede ud. Nu siger hver tast hvor man havner. */
     if (strcmp(txt, K_SHIFT) == 0) {
-        kb->upper = !kb->upper;
+        kb->lag = (kb->lag == LAG_STORE) ? LAG_SMAA : LAG_STORE;
         set_map_later(kb);
         return;
     }
     if (strcmp(txt, K_NUM) == 0) {
-        kb->numeric = true;
+        kb->lag = LAG_TAL;
+        set_map_later(kb);
+        return;
+    }
+    if (strcmp(txt, K_SYM) == 0) {
+        kb->lag = LAG_TEGN;
         set_map_later(kb);
         return;
     }
     if (strcmp(txt, K_ABC) == 0) {
-        kb->numeric = false;
+        kb->lag = LAG_SMAA;
         set_map_later(kb);
         return;
     }
@@ -240,18 +319,12 @@ static void on_key(lv_event_t *e)
         }
         return;
     }
-    if (strcmp(txt, "#+=") == 0) {
-        /* Reserveret til flere tegn. Indtil da sker der ingenting,
-         * hellere end at tasten goer noget uventet. */
-        return;
-    }
-
     append(kb, txt);
     refresh_target(kb);
     /* Efter det foerste store bogstav gaar vi tilbage til smaa, som
      * ethvert andet tastatur. Ellers skriver folk MITWIFI. */
-    if (kb->upper && !kb->numeric) {
-        kb->upper = false;
+    if (kb->lag == LAG_STORE) {
+        kb->lag = LAG_SMAA;
         set_map_later(kb);
     }
 }
@@ -285,6 +358,7 @@ static bool maps_are_consistent(void)
         { "smaa bogstaver", map_lower, sizeof(ctrl_letters) / sizeof(ctrl_letters[0]) },
         { "store bogstaver", map_upper, sizeof(ctrl_letters) / sizeof(ctrl_letters[0]) },
         { "tal og tegn",     map_num,   sizeof(ctrl_num) / sizeof(ctrl_num[0]) },
+        { "specialtegn",     map_sym,   sizeof(ctrl_sym) / sizeof(ctrl_sym[0]) },
     };
     bool ok = true;
     for (size_t i = 0; i < sizeof(t) / sizeof(t[0]); i++) {
@@ -388,10 +462,11 @@ const char *zs_keyboard_get_text(zs_keyboard_t *kb)
 
 void zs_keyboard_set_numeric(zs_keyboard_t *kb, bool paa)
 {
-    if (kb == NULL || kb->numeric == paa) {
+    lag_t vil = paa ? LAG_TAL : LAG_SMAA;
+    if (kb == NULL || kb->lag == vil) {
         return;
     }
-    kb->numeric = paa;
+    kb->lag = vil;
     /* Samme vej som naar brugeren selv trykker "123": gitteret bygges om
      * i naeste runde og ikke midt i den haendelse vi staar i. Se noten
      * ved set_map_later. */
@@ -406,8 +481,7 @@ void zs_keyboard_clear(zs_keyboard_t *kb)
     /* Nulstil hele bufferen, ikke bare det foerste tegn. Et gammelt
      * kodeord skal ikke ligge og vente i hukommelsen. */
     memset(kb->text, 0, sizeof(kb->text));
-    kb->upper = false;
-    kb->numeric = false;
+    kb->lag = LAG_SMAA;
     /* Her er vi IKKE inde i et tastetryk, saa layoutet maa gerne
      * skiftes med det samme. */
     set_map(kb);

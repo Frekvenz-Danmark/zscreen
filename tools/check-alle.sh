@@ -26,6 +26,7 @@ VAGTER=(
     "Headere|./tools/check-headers.sh"
     "Bygningerne|${PY} tools/check-byg.py"
     "Tegnsæt|${PY} tools/check-text.py"
+    "Tastaturet|${PY} tools/check-tastatur.py"
     "Farver|${PY} tools/check-colors.py"
     "Målene i fladen|${PY} tools/check-maal.py"
     "LVGL-låsen|${PY} tools/check-lvgl-laas.py"

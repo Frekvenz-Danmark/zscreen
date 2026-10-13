@@ -963,9 +963,36 @@ void zs_setup_set_inverter_list(const zs_found_t *list, int n)
 
     if (n <= 0) {
         lv_label_set_text(s_inv_hint,
+            /*
+             * DEN HER TEKST ER DEN VIGTIGSTE PAA SIDEN, for den laeses
+             * af en der staar og er gaaet i staa.
+             *
+             * Den skal svare paa tre ting i den raekkefoelge et menneske
+             * spoerger dem:
+             *
+             *   1. hvad skete der        "der blev ikke fundet nogen"
+             *   2. hvad GOER jeg         slaa Modbus TCP til, og hvor
+             *                            man kan se hvordan
+             *   3. hvad saa              de to knapper nedenfor, nævnt
+             *                            saa man ved hvad de er til
+             *
+             * Og den peger paa guiden i appen i stedet for at forklare
+             * inverterens webside her. Den ser forskellig ud fra model
+             * til model, og en forklaring der passer paa én Fronius og
+             * ikke paa den naeste, sender montoeren det forkerte sted
+             * hen. Guiden kan rettes uden en firmwareudgivelse.
+             *
+             * Der staar IKKE "fejl" eller "kunne ikke". Det er normalt
+             * at Modbus TCP er slaaet fra fra fabrikken, saa det her er
+             * et trin der mangler - ikke noget der gik i stykker.
+             */
             "Der blev ikke fundet nogen inverter.\n\n"
-            "Tjek at Modbus TCP er slået til i inverterens webside, "
-            "under Kommunikation, og at skærmen er på samme netværk.");
+            "Modbus TCP skal slås til i inverterens webside, under "
+            "Kommunikation. Følg guiden i Frekvenz-appen. Den viser "
+            "hvordan på netop din inverter.\n\n"
+            "Tjek også at skærmen er på samme netværk som inverteren.\n\n"
+            "Søg igen når det er gjort. Kender du inverterens "
+            "IP-adresse, kan du skrive den selv.");
         return;
     }
     if (n > ZS_DISCOVERY_MAX) {
