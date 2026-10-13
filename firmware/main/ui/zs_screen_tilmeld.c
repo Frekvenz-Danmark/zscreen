@@ -8,6 +8,7 @@
 #include "zs_app.h"
 #include "zs_icons.h"
 #include "zs_qr.h"
+#include "zs_fleet.h"   /* zs_fleet_state, til bjaelkens fremdrift */
 #include "zs_theme.h"
 #include "zs_ui.h"
 
@@ -21,6 +22,7 @@ static lv_obj_t  *s_kode;        /* de seks tegn, eller en besked      */
 static lv_obj_t  *s_hjaelp;      /* hvad man goer hvis man ikke kan scanne */
 static lv_obj_t  *s_guide;       /* hvor vejledningen staar            */
 static lv_obj_t  *s_knap;        /* "Lav en kode", noedudgang          */
+static lv_obj_t  *s_bjaelke;     /* fremdrift mens vi venter paa flaaden */
 
 /*
  * QR'EN TEGNES SMAA OG SKALERES OP MED HELE TAL.
@@ -195,6 +197,11 @@ static int stak(void)
         { s_plade,   LUFT_FOER_QR   },
         { s_kode,    LUFT_FOER_KODE },
         { s_hjaelp,  LUFT_FOER_HJ   },
+        /* Bjaelken staar HER, altsaa efter forklaringen, praecis som paa
+         * inverter-soegningen: stor linje, forklaring, bjaelke. To
+         * ventesider der ser ens ud, er to sider montoeren ikke skal
+         * laere hver for sig. */
+        { s_bjaelke, LUFT_FOER_HJ   },
         { s_guide,   LUFT_FOER_GU   },
         { s_knap,    LUFT_FOER_HJ   },
     };
@@ -299,6 +306,24 @@ void zs_tilmeld_page_create(void)
      */
     s_kode   = linje(&zs_font_28, ZS_C_VALUE);
     s_hjaelp = linje(&zs_font_16, ZS_C_TEXT_DIM);
+
+    /*
+     * Fremdriftsbjaelken, med de samme maal og farver som
+     * inverter-soegningens. Den staar ÉT sted i hver fil og ikke i en
+     * faelles hjaelper, fordi de to sider ellers ville skulle enes om et
+     * tredje modul for otte linjer - men tallene er de samme med vilje.
+     */
+    s_bjaelke = lv_bar_create(s_side.content);
+    lv_obj_set_size(s_bjaelke, ZS_CONTENT_WIDTH, 8);
+    lv_bar_set_range(s_bjaelke, 0, 100);
+    lv_bar_set_value(s_bjaelke, 0, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(s_bjaelke, lv_color_hex(ZS_C_CARD),
+                              LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_bjaelke, lv_color_hex(ZS_C_ACCENT),
+                              LV_PART_INDICATOR);
+    lv_obj_set_style_radius(s_bjaelke, 4, LV_PART_MAIN);
+    lv_obj_set_style_radius(s_bjaelke, 4, LV_PART_INDICATOR);
+
     s_guide  = linje(&zs_font_16, ZS_C_TEXT_DIM);
 
     s_knap = zs_btn_primary_create(s_side.content, "Lav en kode");
@@ -434,8 +459,19 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
          * inverter". Den her siger nu det samme slags.
          */
         lv_label_set_text(s_over, "Henter forbindelse");
-        lv_label_set_text(s_kode, "-");
-        lv_label_set_text(s_hjaelp, "Vent venligst");
+        /*
+         * INGEN TANKESTREG HER.
+         *
+         * Der stod "-" i kodefeltet, altsaa i den store skrift hvor de
+         * seks tegn ellers staar. Paa en side man venter paa, ser det
+         * ud som et felt der skulle have haft indhold og ikke fik det.
+         * Feltet skjules i stedet, og bjaelken nedenfor viser at der
+         * sker noget - som paa inverter-soegningen.
+         */
+        lv_label_set_text(s_kode, "");
+        lv_label_set_text(s_hjaelp,
+            "Enheden melder sig ind hos Frekvenz. Det tager "
+            "få sekunder.");
         break;
 
     case ZS_TILMELD_TILMELDT:
@@ -503,6 +539,39 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
     vis(s_guide, klar);
     (void)tilmeldt;
     vis(s_knap, stand == ZS_TILMELD_UDLOEBET);
+
+    /*
+     * BJAELKEN VISER RIGTIG FREMDRIFT, IKKE EN ANIMATION.
+     *
+     * Trinnene findes allerede som en enum i flaaden, og de er dem
+     * montoeren venter paa. En bjaelke der bare loeber, ville sige
+     * "der sker noget" ogsaa naar der ikke gjorde - og saa staar han og
+     * ser paa den i et minut uden at vide at certifikatet blev afvist.
+     *
+     *   paa vej op        en tredjedel
+     *   sendt certifikat  to tredjedele
+     *   indmeldt          fuld, og saa er vi alligevel ude af den her
+     *                     tilstand ved naeste tik
+     *
+     * Afvist og fejl faar ingen bjaelke: dér er ventetilstanden slet
+     * ikke den rigtige side, se zs_tilmeld_vejen.
+     */
+    bool venter = (stand == ZS_TILMELD_VENTER_PAA_SERVER);
+    vis(s_bjaelke, venter);
+    if (venter) {
+        int pct;
+        switch (zs_fleet_state()) {
+        case ZS_FLEET_CONNECTING: pct = 33;  break;
+        case ZS_FLEET_ENROLLING:  pct = 66;  break;
+        case ZS_FLEET_READY:      pct = 100; break;
+        default:                  pct = 10;  break;
+        }
+        lv_bar_set_value(s_bjaelke, pct, LV_ANIM_ON);
+    }
+
+    /* Kodefeltet skjules naar der ikke staar noget i det. En tom linje i
+     * 28 px skubber alt nedenfor ned uden at vise noget. */
+    vis(s_kode, !venter);
     if (!klar) {
         /* Tankestregen staar i daempet farve naar der ikke er en kode,
          * saa den ikke ser ud som noget man kan bruge. */

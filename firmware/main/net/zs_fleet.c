@@ -1230,7 +1230,32 @@ bool zs_fleet_start(void)
             .client_id = zs_fleet_unique_id(),
         },
         .session = {
-            .keepalive = 60,
+            /*
+             * TYVE SEKUNDER, OG DET ER DET TAL DER AFGOER HVOR LAENGE EN
+             * MONTOER STAAR OG VENTER.
+             *
+             * Her stod 60 uden en note. MQTT 3.1.1 siger at serveren
+             * holder en session i 1,5 x keepalive efter at enheden er
+             * vaek, og saa afviser den en NY forbindelse med samme
+             * klient-id - uden en fejl man kan se. Maalt paa jern
+             * 11. oktober 2026 kl. 23:12: serveren lukkede fire gange i
+             * traek, og indmeldelsen var foerst i hus efter 64 sekunder.
+             *
+             * 60 gav altsaa et doedt vindue paa 90 sekunder. 20 giver
+             * 30. Det er den ventetid montoeren staar i efter en
+             * genstart, og den eneste maade at goere den kortere.
+             *
+             * PRISEN ER MAALT OP: et PINGREQ og et PINGRESP er fire
+             * bytes. Tre gange saa ofte er for tusind skaerme omkring
+             * 200 bytes i sekundet i alt. Serveren taalte sytten
+             * INDMELDELSER i sekundet, og en indmeldelse er et
+             * certifikat paa halvandet kilobyte plus en TLS-opsaetning.
+             *
+             * Og det er en gevinst et sted mere: boxOnline falder nu
+             * efter 30 sekunder i stedet for 90, saa flaadeoversigten
+             * ser en doed skaerm tre gange hurtigere.
+             */
+            .keepalive = 20,
             /* Ren forbindelse hver gang. Vi skal melde ind forfra
              * alligevel, saa en gemt session giver intet. */
             .disable_clean_session = false,
