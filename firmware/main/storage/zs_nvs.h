@@ -107,6 +107,26 @@ bool zs_nvs_save(const zs_settings_t *s);
  * Sletter alt og gaar tilbage til fabriksindstillinger.
  * Kraever en bekraeftelse i brugerfladen foerst: efter dette skal
  * skaermen saettes op forfra, inklusive wifi.
+ *
+ * HVAD "ALT" ER, OG DEN ENE TING DER BLIVER.
+ *
+ *   zscreen        wifi, vekselretter, lysstyrke, tema, configured
+ *   zsenergi       livstaellernes udgangspunkt
+ *   nvs.net80211   wifi-driverens EGEN gemte forbindelse, ryddet med
+ *                  esp_wifi_restore(). Den er det vigtigste: uden den
+ *                  gik en "nulstillet" skaerm paa det gamle net af sig
+ *                  selv, og det var ikke til at se nogen steder
+ *
+ *   zsfleet        BLIVER. Certifikatet og noeglen er skaermens
+ *                  identitet, og de kan IKKE laves igen ude i marken -
+ *                  noeglen ligger kun i ca/ paa en Mac. Slettede vi
+ *                  dem, ville en kunde der trykker nulstil, saette
+ *                  skaermen ud af drift indtil den kom tilbage paa et
+ *                  bord. Besluttet 13. oktober 2026.
+ *   phy            BLIVER. Radioens kalibrering, ikke en indstilling.
+ *
+ * Skaermen kender altsaa bagefter ingenting om kunden eller anlaegget,
+ * men den kan stadig melde sig ind hos Frekvenz selv.
  */
 bool zs_nvs_factory_reset(void);
 

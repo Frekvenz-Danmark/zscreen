@@ -6,6 +6,7 @@
 
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "esp_wifi.h"   /* esp_wifi_restore */
 #include "esp_log.h"
 
 #include <string.h>
@@ -15,6 +16,10 @@ static const char *TAG = "nvs";
 /* Alt ligger i ét navnerum. Noeglerne er korte fordi NVS hoejst tager
  * 15 tegn, hvilket er nemt at glemme indtil det pludselig fejler. */
 #define NS          "zscreen"
+/* Energirummet staar her og ikke kun nede ved sine egne
+ * funktioner: zs_nvs_factory_reset skal ogsaa rydde det, og den
+ * ligger foer dem. */
+#define NS_ENERGI   "zsenergi"
 #define K_SSID      "ssid"
 #define K_PASS      "pass"
 #define K_IP        "inv_ip"
@@ -223,18 +228,82 @@ bool zs_nvs_save(const zs_settings_t *s)
     return ok;
 }
 
-bool zs_nvs_factory_reset(void)
+/* Sletter ét rum i NVS. Findes rummet ikke, er der intet at gOEre, og
+ * det er ikke en fejl. */
+static bool ryd_rum(const char *rum)
 {
     nvs_handle_t h;
-    if (nvs_open(NS, NVS_READWRITE, &h) != ESP_OK) {
+    esp_err_t e = nvs_open(rum, NVS_READWRITE, &h);
+    if (e == ESP_ERR_NVS_NOT_FOUND) {
+        return true;              /* har aldrig vaeret skrevet */
+    }
+    if (e != ESP_OK) {
+        ESP_LOGE(TAG, "kunne ikke aabne rummet %s: %s", rum,
+                 esp_err_to_name(e));
         return false;
     }
     bool ok = (nvs_erase_all(h) == ESP_OK);
     ok &= (nvs_commit(h) == ESP_OK);
     nvs_close(h);
+    return ok;
+}
+
+bool zs_nvs_factory_reset(void)
+{
+    /*
+     * EN FABRIKSNULSTILLING SKAL EFTERLADE EN SKAERM DER IKKE VED NOGET.
+     *
+     * Her stod kun nvs_erase_all paa rummet "zscreen". Det var ikke nok,
+     * og det var ikke til at se:
+     *
+     *   nvs.net80211   ESP'ens EGEN wifi-driver gemmer den sidste
+     *                  forbindelse her, uden at spoerge os. En
+     *                  "nulstillet" skaerm gik derfor paa det gamle net
+     *                  af sig selv. Maalt 13. oktober 2026 paa den
+     *                  rigtige skaerm: efter en nulstilling stod der
+     *                  stadig ssid "H155-381_191B" og et kodeord, og
+     *                  skaermen forbandt uden at nogen tastede noget.
+     *                  esp_wifi_restore() er ESP-IDF's egen maade at
+     *                  rydde det.
+     *   zsenergi       livstaellernes udgangspunkt. Stod det tilbage,
+     *                  ville den foerste time efter en nulstilling blive
+     *                  regnet mod en taeller fra et andet anlaeg.
+     *
+     * zsfleet BLIVER, med vilje. Det er enhedens certifikat og noegle,
+     * altsaa dens identitet, og den kan IKKE laves igen ude i marken:
+     * noeglen ligger kun i ca/ paa en Mac. Slettede vi den, ville en
+     * kunde der trykker nulstil, saette skaermen ud af drift indtil den
+     * kom tilbage paa et bord. Besluttet 13. oktober 2026.
+     *
+     * phy BLIVER ogsaa. Det er radioens kalibrering, ikke en
+     * indstilling, og uden den bruger skaermen laengere tid paa at
+     * starte foerste gang bagefter.
+     */
+    bool ok = ryd_rum(NS);
+    ok &= ryd_rum(NS_ENERGI);
+
+    /*
+     * Og wifi-driverens eget. esp_wifi_restore() rydder rummet
+     * nvs.net80211 og saetter driveren tilbage til standard.
+     *
+     * Den kan kun kaldes mens wifi'en er startet. Er den ikke det,
+     * svarer den ESP_ERR_WIFI_NOT_INIT, og saa er der heller ikke noget
+     * gemt der kan genbruges foer naeste start - saa det er ikke en
+     * fejl, men det skal staa i loggen.
+     */
+    esp_err_t w = esp_wifi_restore();
+    if (w != ESP_OK && w != ESP_ERR_WIFI_NOT_INIT) {
+        ESP_LOGE(TAG, "wifi-driverens eget kunne ikke ryddes: %s",
+                 esp_err_to_name(w));
+        ok = false;
+    } else if (w == ESP_ERR_WIFI_NOT_INIT) {
+        ESP_LOGW(TAG, "wifi'en var ikke startet, saa driverens eget rum "
+                      "blev ikke roert");
+    }
 
     if (ok) {
-        ESP_LOGW(TAG, "alle indstillinger er slettet");
+        ESP_LOGW(TAG, "alt er slettet: indstillinger, energigrundlag og "
+                      "wifi-driverens eget. Certifikatet er beholdt.");
     }
     return ok;
 }
@@ -243,7 +312,6 @@ bool zs_nvs_factory_reset(void)
 /* Timeenergiens udgangspunkt. Se zs_nvs.h for hvorfor.                */
 /* ------------------------------------------------------------------ */
 
-#define NS_ENERGI   "zsenergi"
 #define K_BASIS     "basis"
 
 bool zs_nvs_save_energi(const zs_energi_basis_t *b)
