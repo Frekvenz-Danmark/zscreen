@@ -546,8 +546,7 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
          * element inverter-soegningen bruger.
          */
         zs_step_saet(&s_trin, "Henter forbindelse",
-                     "Enheden melder sig ind hos Frekvenz. Det tager "
-                     "få sekunder.");
+                     "Enheden melder sig ind hos Frekvenz. Vent venligst.");
         break;
 
     case ZS_TILMELD_TILMELDT:

@@ -71,6 +71,7 @@ static lv_obj_t *root_of(zs_screen_id_t id)
 {
     switch (id) {
     case ZS_SCREEN_WELCOME:       return zs_setup_root_welcome();
+    case ZS_SCREEN_GUIDE:         return zs_setup_root_guide();
     case ZS_SCREEN_WIFI_LIST:     return zs_setup_root_wifi();
     case ZS_SCREEN_PASSWORD:      return zs_setup_root_password();
     case ZS_SCREEN_CONNECTING:    return zs_setup_root_connecting();

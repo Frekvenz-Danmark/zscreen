@@ -28,6 +28,7 @@ void zs_setup_create(void);
 
 /* Siderne, saa zs_ui kan vise og skjule dem. */
 lv_obj_t *zs_setup_root_welcome(void);
+lv_obj_t *zs_setup_root_guide(void);
 lv_obj_t *zs_setup_root_wifi(void);
 lv_obj_t *zs_setup_root_password(void);
 lv_obj_t *zs_setup_root_connecting(void);

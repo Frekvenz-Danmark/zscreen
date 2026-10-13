@@ -50,6 +50,8 @@ static lv_obj_t      *s_inv_manual;
  * nul, kan ikke glemmes ved den foerste opstart.
  */
 static bool           s_inv_fra_indstillinger;
+/* "Opret anlaegget": trinnet FOER netvaerket. */
+static zs_page_t      s_guide_side;
 
 void zs_setup_inverter_fra_indstillinger(bool ja)
 {
@@ -101,20 +103,14 @@ static void clear_list(lv_obj_t *list)
 static void on_welcome_start(lv_event_t *e)
 {
     (void)e;
-    /* Opsaetningen begynder, saa inverter-flowet hoerer til DEN og ikke
-     * til Indstillinger. Saettes her og ikke naar soegningen starter:
-     * appen starter den selv i tre forskellige tilfaelde, og ét af dem
-     * ville blive glemt. */
-    s_inv_fra_indstillinger = false;
     /*
-     * Vi beder appen fortsaette, i stedet for at gaa direkte til
-     * listen over netvaerk.
+     * "Kom i gang" foerer nu til GUIDEN og ikke direkte videre.
      *
-     * Er der gemt et netvaerk fra sidst, skal brugeren ikke taste
-     * kodeordet igen. Det sker naar man er kommet gennem wifi-trinnet
-     * men ikke fandt en inverter, og saa slukker for stroemmen.
+     * Her stod send_cmd(ZS_CMD_SETUP_CONTINUE), altsaa lige ind i
+     * netvaerket. Kunden skal oprettes i appen foerst, og det skal staa
+     * foer der er noget der tikker - se noten ved build_guide.
      */
-    send_cmd(ZS_CMD_SETUP_CONTINUE);
+    zs_ui_show(ZS_SCREEN_GUIDE);
 }
 
 #if ZS_DEMO_ENABLED
@@ -124,6 +120,113 @@ static void on_welcome_demo(lv_event_t *e)
     send_cmd(ZS_CMD_DEMO_START);
 }
 #endif
+
+/* ------------------------------------------------------------------ */
+/* 1b. Hent guiden i appen                                             */
+/* ------------------------------------------------------------------ */
+/*
+ * HVORFOR TRINNET FINDES.
+ *
+ * Skaermen kan ikke selv fortaelle hele historien. Kunden skal oprettes
+ * i Frekvenz-appen, og tilmeldingen senere i flowet kraever at nogen
+ * staar klar DÉR med appen aaben. Stod det foerst naar QR'en kom frem,
+ * ville montoeren vaere naaet gennem wifi og inverter foer han fik at
+ * vide at han manglede noget - og saa skal han forlade skaermen midt i
+ * en kode der kun lever 10 minutter.
+ *
+ * Derfor her, FOER netvaerket: appen hentes og aabnes mens der ikke er
+ * noget der tikker.
+ *
+ * FIRE TRIN, NUMMEREREDE, OG IKKE EN PROSATEKST.
+ *
+ * Det er en opskrift man foelger med en telefon i den anden haand.
+ * Numrene gOEr at man kan se hvor man er naar man ser op igen - og det
+ * er netop det man goer, fire gange.
+ */
+
+/* Ét nummereret trin: tallet i orange, teksten ved siden af. */
+static void guide_trin(lv_obj_t *forael, const char *nr, const char *tekst)
+{
+    lv_obj_t *raekke = lv_obj_create(forael);
+    lv_obj_remove_style_all(raekke);
+    lv_obj_set_width(raekke, LV_PCT(100));
+    lv_obj_set_height(raekke, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(raekke, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(raekke, 12, 0);
+    lv_obj_clear_flag(raekke, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *t = lv_label_create(raekke);
+    lv_label_set_text(t, nr);
+    zs_style_text(t, &zs_font_20, ZS_C_ACCENT);
+    /* Fast bredde, saa teksten starter paa samme sted i alle fire
+     * raekker. Uden den ville et tocifret trin skubbe sin egen linje. */
+    lv_obj_set_width(t, 22);
+    lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_RIGHT, 0);
+
+    lv_obj_t *l = lv_label_create(raekke);
+    lv_label_set_text(l, tekst);
+    zs_style_text(l, &zs_font_16, ZS_C_TEXT);
+    lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
+    lv_obj_set_flex_grow(l, 1);
+}
+
+static void on_guide_back(lv_event_t *e)
+{
+    (void)e;
+    zs_ui_show(ZS_SCREEN_WELCOME);
+}
+
+static void on_guide_fortsaet(lv_event_t *e)
+{
+    (void)e;
+    /*
+     * HER begynder opsaetningen for alvor, saa inverter-flowet hoerer til
+     * DEN og ikke til Indstillinger. Saettes her og ikke naar soegningen
+     * starter: appen starter den selv i tre forskellige tilfaelde, og ét
+     * af dem ville blive glemt.
+     */
+    s_inv_fra_indstillinger = false;
+    /*
+     * Vi beder appen fortsaette i stedet for at gaa direkte til listen
+     * over netvaerk: har vi et netvaerk og et kodeord fra sidst, proever
+     * den det foerst. Se ZS_CMD_SETUP_CONTINUE.
+     */
+    send_cmd(ZS_CMD_SETUP_CONTINUE);
+}
+
+static void build_guide(void)
+{
+    zs_page_create(&s_guide_side, "Opret anlægget", on_guide_back, NULL, true);
+
+    lv_obj_t *over = lv_label_create(s_guide_side.content);
+    lv_label_set_text(over, "Gør dette i Frekvenz-appen først");
+    zs_style_text(over, &zs_font_20, ZS_C_TEXT);
+    lv_label_set_long_mode(over, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(over, ZS_CONTENT_WIDTH);
+    lv_obj_align(over, LV_ALIGN_TOP_LEFT, ZS_EDGE, 16);
+
+    lv_obj_t *col = zs_column_create(s_guide_side.content, 14);
+    lv_obj_align(col, LV_ALIGN_TOP_LEFT, ZS_EDGE, 62);
+
+    guide_trin(col, "1", "Åbn Frekvenz-appen og log ind.");
+    guide_trin(col, "2", "Tryk på plus-ikonet øverst.");
+    guide_trin(col, "3", "Vælg zScreen på listen.");
+    guide_trin(col, "4", "Følg guiden i appen, og kom tilbage hertil.");
+
+    lv_obj_t *note = lv_label_create(s_guide_side.content);
+    lv_label_set_text(note,
+        "Du får en kode på skærmen til sidst, som du scanner i appen. "
+        "Den skal du stå klar til.");
+    zs_style_text(note, &zs_font_16, ZS_C_LABEL);
+    lv_label_set_long_mode(note, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(note, ZS_CONTENT_WIDTH);
+    lv_obj_align(note, LV_ALIGN_BOTTOM_LEFT, ZS_EDGE, -ZS_EDGE);
+
+    lv_obj_t *btn = zs_btn_primary_create(s_guide_side.footer, "Fortsæt");
+    lv_obj_set_width(btn, ZS_CONTENT_WIDTH);
+    lv_obj_center(btn);
+    lv_obj_add_event_cb(btn, on_guide_fortsaet, LV_EVENT_CLICKED, NULL);
+}
 
 static void build_welcome(void)
 {
@@ -453,7 +556,7 @@ static void build_scan(void)
      */
     zs_step_create(&s_scan_step, s_scan.content);
     zs_step_saet(&s_scan_step, "Leder efter din inverter",
-                 "Enheden gennemgår netværket. Det tager få sekunder.");
+                 "Enheden gennemgår netværket. Vent venligst.");
 }
 
 /* ------------------------------------------------------------------ */
@@ -740,6 +843,7 @@ static void build_inverter(void)
 void zs_setup_create(void)
 {
     build_welcome();
+    build_guide();
     build_wifi();
     build_password();
     build_connecting();
@@ -749,6 +853,7 @@ void zs_setup_create(void)
 }
 
 lv_obj_t *zs_setup_root_welcome(void)    { return s_welcome.root; }
+lv_obj_t *zs_setup_root_guide(void)      { return s_guide_side.root; }
 lv_obj_t *zs_setup_root_inverter_manual(void) { return s_man.root; }
 lv_obj_t *zs_setup_root_wifi(void)       { return s_wifi.root; }
 lv_obj_t *zs_setup_root_password(void)   { return s_pass.root; }

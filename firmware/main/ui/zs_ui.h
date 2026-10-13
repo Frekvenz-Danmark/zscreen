@@ -28,6 +28,7 @@ extern "C" {
 
 typedef enum {
     ZS_SCREEN_WELCOME = 0,   /* logo og "Kom i gang"                */
+    ZS_SCREEN_GUIDE,         /* hent guiden i Frekvenz-appen        */
     ZS_SCREEN_WIFI_LIST,     /* vælg netværk                        */
     ZS_SCREEN_PASSWORD,      /* tastatur til kodeordet              */
     ZS_SCREEN_CONNECTING,    /* forbinder til netværket             */
