@@ -453,14 +453,20 @@ static void laes_ladeplan(const char *felt, const char *data, int len)
 static char s_zone[4];          /* under LAAS */
 static bool s_zone_ny;          /* under LAAS */
 
-static void laes_zone(const char *data, int len)
+/*
+ * Samme afkodning bruges BEGGE steder: beskeden naar feltet aendres, og
+ * svaret ved indmeldingen. Se noten ved brug_lade_vaerdi - stod den to
+ * steder, kunne de komme ud af trit, og saa ville en vaerdi sat mens
+ * skaermen var slukket blive laest anderledes end en sat mens den koerte.
+ */
+static void brug_zone_vaerdi(const cJSON *rod)
 {
-    if (data == NULL || len <= 0) {
-        return;
-    }
-    cJSON *rod = cJSON_ParseWithLength(data, (size_t)len);
     if (rod == NULL) {
-        ZS_LOGW(TAG, "prisområdet kunne ikke læses");
+        /* Feltet stod slet ikke i svaret. Serveren er bagud - felter.py
+         * har ikke lagt det paa - og vi har ingenting at gaa efter. Vi
+         * beholder det vi har, og siger det. */
+        ZS_LOGW(TAG, "prisområdet findes ikke på vores asset, "
+                     "så serveren har ikke fået feltet endnu");
         return;
     }
     if (cJSON_IsString(rod) && rod->valuestring != NULL
@@ -482,6 +488,19 @@ static void laes_zone(const char *data, int len)
     } else {
         ZS_LOGW(TAG, "prisområdet var ikke DK1 eller DK2, det bruges ikke");
     }
+}
+
+static void laes_zone(const char *data, int len)
+{
+    if (data == NULL || len <= 0) {
+        return;
+    }
+    cJSON *rod = cJSON_ParseWithLength(data, (size_t)len);
+    if (rod == NULL) {
+        ZS_LOGW(TAG, "prisområdet kunne ikke læses");
+        return;
+    }
+    brug_zone_vaerdi(rod);
     cJSON_Delete(rod);
 }
 
@@ -492,19 +511,36 @@ static void laes_zone(const char *data, int len)
  * Kommer der et navn, ER vi tilmeldt. Se ZS_FLEET_KUNDE_FELT.
  *
  * Navnet gemmes ikke i flashen. Det er serverens oplysning, ikke vores,
- * og den kommer igen ved hver indmeldelse.
+ * og den kommer igen ved hver indmeldelse - se brug_kunde_vaerdi, der
+ * ogsaa kaldes med vaerdien ud af indmeldingssvaret. Den saetning stod
+ * her foer, men INGEN laeste feltet af svaret, saa den var ikke sand.
  */
 static char s_kunde[ZS_FLEET_KUNDE_MAKS];   /* under LAAS */
 static bool s_kunde_ny;                     /* under LAAS */
 
-static void laes_kunde(const char *data, int len)
+/*
+ * Vaerdien af ét felt i indmeldingssvarets attributter, eller NULL.
+ *
+ * Tre opslag skrevet forfra tre gange er tre chancer for at stave
+ * "value" forkert ét af stederne, og saa ville netop det felt tavst
+ * blive NULL.
+ */
+static const cJSON *vaerdi_af(const cJSON *attrs, const char *felt)
 {
-    if (data == NULL || len <= 0) {
-        return;
-    }
-    cJSON *rod = cJSON_ParseWithLength(data, (size_t)len);
+    const cJSON *at = attrs
+        ? cJSON_GetObjectItemCaseSensitive(attrs, felt) : NULL;
+    return at ? cJSON_GetObjectItemCaseSensitive(at, "value") : NULL;
+}
+
+/* Samme afkodning begge steder. Se noten ved brug_zone_vaerdi. */
+static void brug_kunde_vaerdi(const cJSON *rod)
+{
     if (rod == NULL) {
-        ZS_LOGW(TAG, "kundenavnet kunne ikke læses");
+        /* Feltet stod slet ikke i svaret. Det er ikke "ikke tilmeldt" -
+         * det er en server der mangler feltet, se felter.py. Vi roerer
+         * ikke det vi har, og vi siger det. */
+        ZS_LOGW(TAG, "kundeNavn findes ikke på vores asset, så serveren "
+                     "har ikke fået feltet endnu");
         return;
     }
     if (cJSON_IsString(rod) && rod->valuestring != NULL
@@ -553,6 +589,19 @@ static void laes_kunde(const char *data, int len)
          * samme som et felt der ikke findes. */
         ZS_LOGW(TAG, "kundenavnet var hverken tekst eller tomt");
     }
+}
+
+static void laes_kunde(const char *data, int len)
+{
+    if (data == NULL || len <= 0) {
+        return;
+    }
+    cJSON *rod = cJSON_ParseWithLength(data, (size_t)len);
+    if (rod == NULL) {
+        ZS_LOGW(TAG, "kundenavnet kunne ikke læses");
+        return;
+    }
+    brug_kunde_vaerdi(rod);
     cJSON_Delete(rod);
 }
 
@@ -750,6 +799,34 @@ static void laes_svar(const char *data, int len)
                     ? cJSON_GetObjectItemCaseSensitive(at, "value") : NULL;
                 brug_lade_vaerdi(lade_raekke[lf], v);
             }
+
+            /*
+             * OG PRISOMRAADET OG KUNDENS NAVN, af NOEJAGTIG samme grund.
+             *
+             * De to kom til 12. oktober 2026 og blev kun hentet gennem
+             * abonnementet. Og et abonnement leverer kun mens man
+             * lytter: forbindelsen er "clean session", saa en vaerdi sat
+             * mens skaermen var slukket naar ALDRIG frem - heller ikke
+             * naar den kommer tilbage.
+             *
+             * Maalt 13. oktober 2026 paa den rigtige skaerm: navnet
+             * "Hansen" blev skrevet kl. 21:35 i aftes, skaermen meldte
+             * sig ind kl. 09:44, og den viste stadig en kode. Serveren
+             * havde navnet hele tiden. Noten ved s_kunde lovede at
+             * "den kommer igen ved hver indmeldelse", og det gjorde den
+             * ikke, for ingen laeste den af svaret.
+             *
+             * Det er den SAMME fejl der blev maalt 8. oktober paa
+             * maalversionen, og den stod allerede rettet ti linjer
+             * herover. Derfor staar de to nu samme sted: naeste felt
+             * nedad skal ikke kunne glemme det igen.
+             *
+             * STAAR FELTET SLET IKKE i svaret, roerer vi ikke det vi
+             * har - saa siger brug_*_vaerdi det i loggen. Det betyder
+             * at serveren mangler feltet, ikke at vaerdien er tom.
+             */
+            brug_zone_vaerdi(vaerdi_af(attrs, ZS_FLEET_ZONE_FELT));
+            brug_kunde_vaerdi(vaerdi_af(attrs, ZS_FLEET_KUNDE_FELT));
         } else {
             ZS_LOGW(TAG, "svaret havde intet enheds-id");
             LAAS();
