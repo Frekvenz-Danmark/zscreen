@@ -52,6 +52,18 @@ extern const char *zs_current_suite;
         else { ZS_FAIL("%s: fik \"%s\", forventede \"%s\"", what, _g ? _g : "(null)", _w); } \
     } while (0)
 
+/*
+ * EN PROEVE DER IKKE KAN KOERES, SKAL SIGE DET HOEJT.
+ *
+ * Den taeller IKKE som bestaaet - saa ville den pynte paa tallet
+ * nederst - og den taeller ikke som en fejl, for der er ikke noget
+ * galt. Den skriver sig selv i gult, saa man kan se at der er noget
+ * der ikke blev proevet. En proeve der bare forsvinder, bliver en
+ * proeve ingen opdager manglen af.
+ */
+#define ZS_SPRING(hvorfor) \
+    do { printf("  \033[1;33m  ? \033[0m %s\n", (hvorfor)); } while (0)
+
 /* Flydende tal sammenlignes med tolerance. Direkte == paa float er
  * en fejlkilde, ikke en test. */
 #define CHECK_F(what, got, want, tol) \

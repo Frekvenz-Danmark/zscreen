@@ -17,6 +17,27 @@
 
 #include "zs_test.h"
 #include "../../firmware/main/app/zs_demo.h"
+#include "../../firmware/main/zs_config.h"
+
+/*
+ * PROEVEN FOELGER AFBRYDEREN.
+ *
+ * zs_demo.c ligger helt inde i #if ZS_DEMO_ENABLED, saa med demoen slaaet
+ * fra findes der ingen zs_demo_tick at kalde - og proeven kunne ikke
+ * linke:
+ *
+ *     ld: symbol(s) not found, _test_demo
+ *
+ * Det blev opdaget 13. oktober 2026, foerste gang nogen satte
+ * ZS_DEMO_ENABLED til nul. Afbryderen var beskrevet som
+ * hovedafbryderen til produktionsenheder, og hverken firmwaren eller
+ * proeverne kunne bygge i den stilling.
+ *
+ * Proeven bliver derfor IKKE slettet. Den skal blive, saa den virker den
+ * dag demoen taendes igen - men den skal kunne vaere fraværende uden at
+ * vaelte hele koerslen.
+ */
+#if ZS_DEMO_ENABLED
 
 #include <math.h>
 #include <stdbool.h>
@@ -163,3 +184,14 @@ void test_demo(void)
               info.battery_capacity_kwh > 5.0f && info.battery_capacity_kwh < 20.0f);
     }
 }
+
+#else  /* ZS_DEMO_ENABLED */
+
+void test_demo(void)
+{
+    ZS_SUITE("Demoens tal");
+    ZS_SPRING("demoen er slaaet fra med ZS_DEMO_ENABLED, saa dens tal "
+              "kan ikke proeves");
+}
+
+#endif /* ZS_DEMO_ENABLED */

@@ -693,7 +693,22 @@
  *
  * Uanset hvad gemmes demo ALDRIG. En genstart slaar den altid fra, saa
  * en enhed hos en kunde kan ikke starte op i demo.
+ *
+ * SLAAET FRA 13. oktober 2026, besluttet med Yassin.
+ *
+ * Knappen "Se demo" og linjen "Se hvordan skaermen ser ud, uden et
+ * anlaeg" stod paa FOERSTE side, altsaa det foerste en kunde ser naar
+ * skaermen taendes. To knapper dér, hvor den ene fOErer til opdigtede
+ * tal, er et valg kunden ikke skal traeffe: han har et anlaeg, og han
+ * skal se sit eget.
+ *
+ * Afbryderen bliver brugt i stedet for at koden slettes. Den er traakket
+ * igennem hele firmwaren - zs_demo.c ligger helt inde i den, og det
+ * samme gOEr raekken i Indstillinger, maerket i statuslinjen og
+ * kommandoen i appen - saa nul fjerner baade knappen OG koden bag den
+ * fra den byggede fil. Og skal demoen med paa en messe en dag, er det
+ * ét ciffer og ikke en genskrivning.
  */
-#define ZS_DEMO_ENABLED   1
+#define ZS_DEMO_ENABLED   0
 
 #endif /* ZS_CONFIG_H */

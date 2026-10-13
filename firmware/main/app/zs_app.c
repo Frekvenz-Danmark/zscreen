@@ -140,7 +140,6 @@ static int64_t s_price_next_try;
 /* s_demo bliver staaende ogsaa uden demo: brugerfladen faar den med i
  * hver opdatering, og den er altid falsk. */
 static bool s_demo;
-#if ZS_DEMO_ENABLED
 /*
  * TILMELDINGEN ER ET TRIN I OPSAETNINGEN, ikke kun et punkt i
  * Indstillinger.
@@ -160,6 +159,23 @@ static bool s_tilmeld_naar_opsat;
 /* Erklaeres her, defineres naar zs_app_tilmeld_* er kendt. */
 static void slut_opsaetningen(void);
 
+/*
+ * HERFRA er det demoens egne, og AFBRYDEREN BEGYNDER HER OG IKKE FOER.
+ *
+ * Den stod oppe ved s_demo, saa den slugte ogsaa s_tilmeld_naar_opsat og
+ * slut_opsaetningen - to ting der intet har med demo at goere. Resultatet
+ * var at ZS_DEMO_ENABLED=0 ikke kunne bygge:
+ *
+ *     zs_app.c:1176: error: 's_tilmeld_naar_opsat' undeclared
+ *
+ * Og det er den dyreste slags fejl i netop en afbryder: den bliver
+ * beskrevet som hovedafbryderen til produktionsenheder, saa den dag man
+ * vil slaa demoen fra foer en leverance, virker den ikke - og man staar
+ * med en oversaetterfejl i noget man ikke har roert.
+ *
+ * Maalt 13. oktober 2026, foerste gang nogen satte den til nul.
+ */
+#if ZS_DEMO_ENABLED
 static bool s_demo_restart;
 static zs_fr_info_t s_demo_info;
 #endif
