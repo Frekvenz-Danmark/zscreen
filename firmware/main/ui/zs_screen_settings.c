@@ -205,6 +205,17 @@ void zs_settings_set_theme(zs_theme_mode_t m)
 static void on_change_inverter(lv_event_t *e)
 {
     (void)e;
+    /*
+     * SIG HVOR VI KOMMER FRA, FOER SIDEN VISES.
+     *
+     * De tre inverter-sider er de samme som opsaetningens. Uden det her
+     * endte et skift herfra med "Anlægget er tilmeldt" og en tur til
+     * forsiden, fordi appen altid koerte opsaetningens afslutning - og
+     * tilbage-knappen foerte ned i opsaetningens liste over netvaerk.
+     *
+     * Her skal den bare skiftes, og saa tilbage hertil.
+     */
+    zs_setup_inverter_fra_indstillinger(true);
     zs_ui_show(ZS_SCREEN_INVERTER_SCAN);
     send_simple(ZS_CMD_INVERTER_SCAN);
 }
@@ -250,44 +261,126 @@ static void on_meter_sign(lv_event_t *e)
     zs_app_send(&c);
 }
 
-static void on_reset_confirmed(lv_event_t *e)
+/*
+ * FABRIKSNULSTILLINGENS SPOERGSMAAL.
+ *
+ * HVORFOR DEN IKKE ER EN lv_msgbox LAENGERE.
+ *
+ * Den var det, og de to knapper saa forkerte ud. Grunden er ikke
+ * stilarbejde der mangler: en lv_msgbox laver sine knapper som ÉT
+ * knapgitter, og et knapgitter kan ikke farve én knap anderledes end de
+ * andre. Saa stod "Nulstil" og "Fortryd" ens - samme baggrund, samme
+ * tekstfarve - og den handling der sletter kundens wifi og inverter var
+ * ikke til at skelne fra den der ikke goer noget.
+ *
+ * Oven i: gitteret satte dem side om side i en raekke paa 52 px med
+ * LVGL's egen luft indeni, saa hver knap blev smallere og lavere end
+ * ZS_TOUCH_MIN. To smaa knapper taet sammen, hvor den ene er farlig.
+ *
+ * Nu er den bygget af husets egne dele: et kort som paa alle andre
+ * sider, og to knapper i fuld bredde oven paa hinanden - samme form som
+ * "Søg igen" og "Find manuelt". Saa er der rød traad, og den farlige kan
+ * faa sin egen farve.
+ *
+ * RAEKKEFOELGEN. Den farlige staar OEVERST, for den er svaret paa det
+ * spoergsmaal man selv aabnede. Fortryd staar nederst, hvor en tommel
+ * hviler, og den er den rolige af de to. Og de kan ikke forveksles:
+ * den ene er roed.
+ *
+ * SLOERET er ikke pynt. Uden det kan man trykke paa raekkerne bagved
+ * mens spoergsmaalet staar aabent, og saa kan man havne et andet sted
+ * med en halv nulstilling i gang.
+ */
+static lv_obj_t *s_reset_dlg;        /* NULL naar der ikke spoerges */
+
+static void luk_reset_dlg(void)
 {
-    lv_obj_t *box = lv_event_get_current_target(e);
-    uint16_t btn = lv_msgbox_get_active_btn(box);
-    /* 0 er "Nulstil", 1 er "Fortryd". Se raekkefoelgen nedenfor. */
-    if (btn == 0) {
-        send_simple(ZS_CMD_FACTORY_RESET);
+    if (s_reset_dlg != NULL) {
+        lv_obj_del(s_reset_dlg);
+        s_reset_dlg = NULL;
     }
-    lv_msgbox_close(box);
+}
+
+static void on_reset_fortryd(lv_event_t *e)
+{
+    (void)e;
+    luk_reset_dlg();
+}
+
+static void on_reset_udfoer(lv_event_t *e)
+{
+    (void)e;
+    /* Lukkes FOERST. Nulstillingen genstarter skaermen efter 300 ms, og
+     * et spoergsmaal der staar aabent mens den gaar ned, er det sidste
+     * man ser - saa ser det ud som om den haengte. */
+    luk_reset_dlg();
+    send_simple(ZS_CMD_FACTORY_RESET);
 }
 
 static void on_reset(lv_event_t *e)
 {
     (void)e;
-    /* En fabriksnulstilling sletter kundens wifi-kode og valgte
-     * inverter. Den maa aldrig kunne ske ved et enkelt fejltryk. */
-    static const char *btns[] = { "Nulstil", "Fortryd", "" };
-    lv_obj_t *box = lv_msgbox_create(NULL, "Nulstil skærmen",
-        "Alt bliver slettet, også wifi og den valgte inverter.\n\n"
-        "Skærmen skal sættes op forfra bagefter.", btns, false);
+    if (s_reset_dlg != NULL) {
+        return;                      /* staar der allerede */
+    }
 
-    lv_obj_set_style_bg_color(box, lv_color_hex(ZS_C_CARD), 0);
-    lv_obj_set_style_border_color(box, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_set_style_border_width(box, 1, 0);
-    lv_obj_set_style_radius(box, 16, 0);
-    lv_obj_set_style_text_color(box, lv_color_hex(ZS_C_TEXT), 0);
-    lv_obj_set_style_text_font(box, &zs_font_16, 0);
-    lv_obj_set_width(box, ZS_SCR_WIDTH - 4 * ZS_EDGE);
-    lv_obj_center(box);
+    /* Paa det oeverste lag, saa den ligger over hele skaermen - ogsaa
+     * over statuslinjen. */
+    s_reset_dlg = lv_obj_create(lv_layer_top());
+    lv_obj_remove_style_all(s_reset_dlg);
+    lv_obj_set_size(s_reset_dlg, ZS_SCR_WIDTH, ZS_SCR_HEIGHT);
+    lv_obj_set_pos(s_reset_dlg, 0, 0);
+    lv_obj_set_style_bg_color(s_reset_dlg, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(s_reset_dlg, LV_OPA_60, 0);
+    lv_obj_clear_flag(s_reset_dlg, LV_OBJ_FLAG_SCROLLABLE);
+    /* Sluger tryk, saa der ikke kan rammes noget bagved. */
+    lv_obj_add_flag(s_reset_dlg, LV_OBJ_FLAG_CLICKABLE);
 
-    lv_obj_t *bl = lv_msgbox_get_btns(box);
-    lv_obj_set_style_bg_color(bl, lv_color_hex(ZS_C_BG), LV_PART_ITEMS);
-    lv_obj_set_style_text_color(bl, lv_color_hex(ZS_C_TEXT), LV_PART_ITEMS);
-    lv_obj_set_style_text_font(bl, &zs_font_20, LV_PART_ITEMS);
-    lv_obj_set_style_radius(bl, 12, LV_PART_ITEMS);
-    lv_obj_set_height(bl, 52);
+    lv_obj_t *kort = lv_obj_create(s_reset_dlg);
+    lv_obj_remove_style_all(kort);
+    lv_obj_set_width(kort, ZS_CONTENT_WIDTH);
+    lv_obj_set_height(kort, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_color(kort, lv_color_hex(ZS_C_CARD), 0);
+    lv_obj_set_style_bg_opa(kort, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(kort, 16, 0);
+    lv_obj_set_style_border_color(kort, lv_color_hex(ZS_C_BORDER), 0);
+    lv_obj_set_style_border_width(kort, 1, 0);
+    lv_obj_set_style_pad_all(kort, ZS_EDGE + 4, 0);
+    lv_obj_set_flex_flow(kort, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(kort, 12, 0);
+    lv_obj_clear_flag(kort, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_center(kort);
 
-    lv_obj_add_event_cb(box, on_reset_confirmed, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_t *titel = lv_label_create(kort);
+    lv_label_set_text(titel, "Nulstil skærmen");
+    zs_style_text(titel, &zs_font_20, ZS_C_TEXT);
+    lv_obj_set_width(titel, LV_PCT(100));
+
+    lv_obj_t *tekst = lv_label_create(kort);
+    lv_label_set_text(tekst,
+        "Alt bliver slettet, også wifi og den valgte inverter. "
+        "Skærmen skal sættes op forfra bagefter.");
+    zs_style_text(tekst, &zs_font_16, ZS_C_LABEL);
+    lv_label_set_long_mode(tekst, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(tekst, LV_PCT(100));
+
+    /*
+     * DEN FARLIGE FAAR SIN EGEN FARVE.
+     *
+     * Formen er husets sekundaere knap, saa den sidder som alle andre
+     * knapper. Det er KUN farven der er anderledes, og det er med vilje:
+     * en knap der ogsaa har en anden form, ser ud som noget andet end en
+     * knap.
+     */
+    lv_obj_t *nul = zs_btn_secondary_create(kort, "Nulstil skærmen");
+    lv_obj_set_width(nul, LV_PCT(100));
+    lv_obj_set_style_text_color(nul, lv_color_hex(ZS_C_BAD), 0);
+    lv_obj_set_style_border_color(nul, lv_color_hex(ZS_C_BAD), 0);
+    lv_obj_add_event_cb(nul, on_reset_udfoer, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *fortryd = zs_btn_secondary_create(kort, "Fortryd");
+    lv_obj_set_width(fortryd, LV_PCT(100));
+    lv_obj_add_event_cb(fortryd, on_reset_fortryd, LV_EVENT_CLICKED, NULL);
 }
 
 #if ZS_DEMO_ENABLED

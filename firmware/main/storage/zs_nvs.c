@@ -6,7 +6,8 @@
 
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "esp_wifi.h"   /* esp_wifi_restore */
+#include "esp_wifi.h"       /* esp_wifi_restore */
+#include "esp_phy_init.h"  /* esp_phy_erase_cal_data_in_nvs */
 #include "esp_log.h"
 
 #include <string.h>
@@ -275,9 +276,9 @@ bool zs_nvs_factory_reset(void)
      * kunde der trykker nulstil, saette skaermen ud af drift indtil den
      * kom tilbage paa et bord. Besluttet 13. oktober 2026.
      *
-     * phy BLIVER ogsaa. Det er radioens kalibrering, ikke en
-     * indstilling, og uden den bruger skaermen laengere tid paa at
-     * starte foerste gang bagefter.
+     * phy BLEV OGSAA BEHOLDT ÉN GANG. Det var en fejl, og den kostede
+     * en halv dag at finde - se noten ved esp_phy_erase_cal_data_in_nvs
+     * nedenfor.
      */
     bool ok = ryd_rum(NS);
     ok &= ryd_rum(NS_ENERGI);
@@ -301,9 +302,61 @@ bool zs_nvs_factory_reset(void)
                       "blev ikke roert");
     }
 
+    /*
+     * OG RADIOENS KALIBRERING. DEN ER GRUNDEN TIL AT SOEGNINGEN SVIGTEDE.
+     *
+     * HVAD DER BLEV MAALT. Efter en fabriksnulstilling kunne skaermen
+     * ikke finde inverteren ved at soege - men den kunne forbinde til
+     * den med det samme hvis adressen blev skrevet i haanden. Samme net,
+     * samme inverter, samme sekund. Og nulstillede man i stedet med
+     * lokalt/nulstil.sh og flashede igen, virkede soegningen.
+     *
+     * DEN ENESTE FORSKEL mellem de to var det her rum. nulstil.sh
+     * sletter HELE NVS-partitionen med erase_region og tager
+     * kalibreringen med; fabriksnulstillingen beholdt den med vilje,
+     * fordi en fuld kalibrering koster et oejeblik ved naeste opstart.
+     *
+     * HVORFOR DET RAMMER NETOP SOEGNINGEN. Byggeriet bruger DELVIS
+     * kalibrering oven paa de gemte tal:
+     *
+     *     CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE 1
+     *     CONFIG_ESP_PHY_CALIBRATION_MODE             0  (partial)
+     *
+     * Er de tal daarlige, bliver radioen svag uden at noget melder fejl.
+     * ÉN forbindelse til ÉN adresse maerker det ikke - TCP sender bare
+     * igen. Men soegningen banker paa 254 adresser med 12 samtidige
+     * sockets og ZS_SCAN_PORT_TIMEOUT_MS per stykke, og dér falder en
+     * marginal radio igennem. Derfor virkede den manuelle vej og ikke
+     * soegningen, og derfor saa det ud som en fejl i soegningen.
+     *
+     * esp_phy_erase_cal_data_in_nvs() er ESP-IDF's EGEN loesning. Deres
+     * dokumentation kalder den "a last-resort remedy if partial
+     * calibration is used". Samme grund som esp_wifi_restore() ovenfor:
+     * vi rydder rummet med bibliotekets egen funktion og ikke ved at
+     * skrive dets navn af - navnet er en detalje der kan skifte.
+     *
+     * Prisen er den oprindelige begrundelse: naeste opstart kalibrerer
+     * fuldt og tager et oejeblik laengere. Det er en engangsudgift paa
+     * en skaerm der netop er nulstillet, og den er intet mod en soegning
+     * der ikke finder noget.
+     *
+     * Nu er en fabriksnulstilling det samme som nulstil.sh plus en
+     * flashning, PAA ÉN undtagelse: zsfleet. Og den staar skrevet
+     * ovenfor.
+     */
+    esp_err_t pe = esp_phy_erase_cal_data_in_nvs();
+    if (pe != ESP_OK) {
+        /* Ikke faldt over: er der ingen kalibrering gemt, er der heller
+         * ingenting der kan vaere daarligt. Men det skal staa i loggen,
+         * for det er den slags man leder efter bagefter. */
+        ESP_LOGW(TAG, "radioens kalibrering kunne ikke ryddes: %s",
+                 esp_err_to_name(pe));
+    }
+
     if (ok) {
-        ESP_LOGW(TAG, "alt er slettet: indstillinger, energigrundlag og "
-                      "wifi-driverens eget. Certifikatet er beholdt.");
+        ESP_LOGW(TAG, "alt er slettet: indstillinger, energigrundlag, "
+                      "wifi-driverens eget og radioens kalibrering. "
+                      "Certifikatet er beholdt.");
     }
     return ok;
 }

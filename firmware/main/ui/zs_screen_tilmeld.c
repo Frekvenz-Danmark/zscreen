@@ -92,6 +92,18 @@ static uint8_t    s_qr_data[ZS_QR_BUF];
 #define LUFT_FOER_GU   4
 #define Y_BUND         8   /* luft der skal vaere tilbage nederst */
 
+/*
+ * OG DE SAMME, NAAR DER ER PLADS. Se noten i stak().
+ *
+ * Tallene er valgt saa de FOELGER skriftstoerrelserne: der er mest luft
+ * omkring den store linje, mindre omkring forklaringen, og mest igen ned
+ * til knappen, saa den ikke ser ud som en del af teksten.
+ */
+#define LUFT_LUFTIG_KODE 20
+#define LUFT_LUFTIG_HJ   16
+#define LUFT_LUFTIG_GU   20
+#define LUFT_LUFTIG_KNAP 28
+
 /* Hvor tilbage foerer hen. Se headeren: siden naas fra to steder. */
 static zs_screen_id_t s_tilbage_til = ZS_SCREEN_SETTINGS;
 
@@ -206,18 +218,73 @@ static int stak(void)
      * stabler vi efter de hoejder teksten havde FOER den blev sat. */
     lv_obj_update_layout(s_side.content);
 
+    /*
+     * LUFTEN AFHAENGER AF HVOR MEGET DER SKAL VAERE PLADS TIL.
+     *
+     * Med QR'en fremme er siden fuld: koden, QR'en og fire tekstlinjer
+     * skal alle vaere der, og saa maa luften vaere knap. Det er de tal
+     * der stod her.
+     *
+     * Men uden QR'en - tilmeldt, afvist, venter - er der over to hundrede
+     * pixels tilbage, og saa stod tre linjer klemt sammen foeroven med
+     * fire pixels imellem og tomt nedenunder. Det ser ud som en side der
+     * ikke blev faerdig, og det er netop de sider montoeren ser mest:
+     * koden er fremme i faa sekunder, svaret staar i tolv.
+     *
+     * Derfor to saet. Og de tal der staar her, er de SAMME som den
+     * tOEtte side altid har haft - det er kun den luftige der er ny.
+     */
+    const bool taet = synlig(s_plade);
+    const int l_kode  = taet ? LUFT_FOER_KODE : LUFT_LUFTIG_KODE;
+    const int l_hj    = taet ? LUFT_FOER_HJ   : LUFT_LUFTIG_HJ;
+    const int l_gu    = taet ? LUFT_FOER_GU   : LUFT_LUFTIG_GU;
+    const int l_knap  = taet ? LUFT_FOER_HJ   : LUFT_LUFTIG_KNAP;
+
     struct { lv_obj_t *o; int luft; } raekke[] = {
-        { s_over,    0              },
-        { s_plade,   LUFT_FOER_QR   },
-        { s_kode,    LUFT_FOER_KODE },
-        { s_hjaelp,  LUFT_FOER_HJ   },
+        { s_over,    0            },
+        { s_plade,   LUFT_FOER_QR },
+        { s_kode,    l_kode       },
+        { s_hjaelp,  l_hj         },
         /* Bjaelken er IKKE i stakken mere. Den hoerer til ventetrinnet,
          * som har faste positioner - se noten ved s_trin. */
-        { s_guide,   LUFT_FOER_GU   },
-        { s_knap,    LUFT_FOER_HJ   },
+        { s_guide,   l_gu         },
+        { s_knap,    l_knap       },
     };
 
+    /*
+     * TO OMGANGE: MAAL FOERST, PLACER SAA.
+     *
+     * Hoejden skal vaere kendt foer blokken kan saettes paa plads, for
+     * uden den kan den ikke midtstilles. Her blev der placeret i samme
+     * omgang som der blev maalt, og saa var der kun ét valg: start
+     * foeroven.
+     */
+    int brugt = 0;
+    for (size_t i = 0; i < sizeof(raekke) / sizeof(raekke[0]); i++) {
+        if (!synlig(raekke[i].o)) {
+            continue;
+        }
+        brugt += raekke[i].luft + lv_obj_get_height(raekke[i].o);
+    }
+
+    /*
+     * DEN LUFTIGE SIDE MIDTSTILLES LODRET.
+     *
+     * Ikke helt: blokken laegges lidt over midten, for et oeje laeser en
+     * side ovenfra, og noget der staar PRAECIS i midten ser ud som om det
+     * er faldet ned. En tredjedel af den plads der er tilbage, over -
+     * to tredjedele under.
+     *
+     * Den taette side bliver hvor den var. Der er ikke plads at fordele,
+     * og QR'en skal staa hvor montoeren er vant til at se den.
+     */
+    int plads = lv_obj_get_height(s_side.content);
     int y = Y_TOP;
+    if (!taet && plads > 0 && brugt + Y_BUND < plads) {
+        int tilbage = plads - brugt - Y_BUND;
+        y = Y_TOP + tilbage / 3;
+    }
+
     for (size_t i = 0; i < sizeof(raekke) / sizeof(raekke[0]); i++) {
         if (!synlig(raekke[i].o)) {
             continue;
@@ -497,12 +564,40 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
          * et navn han ikke kender, er anlægget tilmeldt den forkerte,
          * og det skal opdages nu og ikke om en måned.
          */
+        /*
+         * FIRE TRIN, STOERST OEVERST. Samme rygrad som de andre sider.
+         *
+         *   1. at det lykkedes             "Anlægget er tilmeldt"
+         *   2. HVEM                        navnet, i den store skrift
+         *   3. hvad der sker nu            "Du bliver nu taget til
+         *                                   forsiden", i 20 px
+         *   4. hvad man goer hvis det er
+         *      forkert                     support, nederst og mindst
+         *
+         * Trin 3 er stoerre end trin 4 med vilje. Det er en besked om
+         * noget der sker af sig selv om et oejeblik, og den skal kunne
+         * laeses paa afstand mens man lukker skabet. Supporten er noget
+         * man kun laeser hvis navnet er forkert, og saa staar man taet
+         * paa skaermen.
+         *
+         * HVORFOR TEKSTEN BLEV AENDRET.
+         *
+         * Der stod "Står der et navn du ikke kender, er anlægget
+         * tilmeldt den forkerte kunde. Ring til Frekvenz." Den sagde to
+         * ting paa én gang - en diagnose og en handling - og den
+         * vigtigste oplysning, at skaermen gaar videre af sig selv om
+         * ZS_TILMELDT_VIS_MS, stod ikke nogen steder. Saa stod montoeren
+         * og ventede paa en side der var faerdig.
+         *
+         * Og "Ring til Frekvenz" uden et nummer er et raad man ikke kan
+         * foelge. Nu staar der en adresse der kan skrives af.
+         */
         lv_label_set_text(s_over, "Anlægget er tilmeldt");
         lv_label_set_text(s_kode, (kode != NULL && kode[0] != '\0')
                                   ? kode : "-");
-        lv_label_set_text(s_hjaelp,
-            "Står der et navn du ikke kender, er anlægget tilmeldt den "
-            "forkerte kunde. Ring til Frekvenz.");
+        lv_label_set_text(s_hjaelp, "Du bliver nu taget til forsiden.");
+        lv_label_set_text(s_guide,
+            "Er dette en fejl? Kontakt support på kontakt@frekvenz.nu");
         break;
 
     case ZS_TILMELD_SERVER_NEJ:
@@ -556,8 +651,13 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
     vis(s_hjaelp, !venter);
 
     vis(s_plade, klar && !venter);
-    vis(s_guide, klar && !venter);
-    (void)tilmeldt;
+    /*
+     * Vejledningslinjen er sidens NEDERSTE og mindste, og den bruges nu
+     * til to ting: hvor man laeser mere om QR'en, og hvor man henvender
+     * sig hvis navnet er forkert. Begge er "det du goer hvis noget ikke
+     * gik som ventet", og det hoerer samme sted paa siden hver gang.
+     */
+    vis(s_guide, (klar || tilmeldt) && !venter);
     vis(s_knap, stand == ZS_TILMELD_UDLOEBET);
 
     /*
@@ -591,6 +691,21 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
          * forvejen rigtige tal og ikke pynt, saa de behoever ikke en
          * glidning for at vise at der sker noget. */
         zs_step_fremdrift(&s_trin, pct);
+    }
+
+    /*
+     * TRIN 3 ER STOERRE NAAR DET ER EN BESKED OM HVAD DER SKER NU.
+     *
+     * s_hjaelp er sidens forklaringslinje og staar normalt i 16 px
+     * daempet. I tilmeldt-tilstanden er den ikke en forklaring, den er
+     * beskeden om at skaermen gaar videre af sig selv - og den skal
+     * kunne laeses paa afstand. Skriften saettes HER og ikke i switchen,
+     * saa de to tilstande ikke kan komme til at efterlade hinandens.
+     */
+    if (tilmeldt) {
+        zs_style_text(s_hjaelp, &zs_font_20, ZS_C_TEXT);
+    } else {
+        zs_style_text(s_hjaelp, &zs_font_16, ZS_C_TEXT_DIM);
     }
 
     /* Kodefeltet skjules naar der ikke staar noget i det. En tom linje i

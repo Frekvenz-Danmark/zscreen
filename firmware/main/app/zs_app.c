@@ -1338,6 +1338,30 @@ static void handle_cmd(const zs_cmd_t *c)
          * NU, saa tilmeldingen skal vises foer han gaar - se
          * s_tilmeld_naar_opsat.
          */
+
+        /*
+         * ET SKIFT FRA INDSTILLINGER ER IKKE EN OPSAETNING.
+         *
+         * Her gik ALLE gennem slut_opsaetningen(), uanset hvor valget kom
+         * fra. Skiftede man inverter i Indstillinger paa et anlaeg der
+         * havde koert i et halvt aar, fik man derfor "Anlægget er
+         * tilmeldt" og en tur til forsiden - en ceremoni for noget der
+         * skete for laenge siden. Og tilbage-knappen paa vejen derhen
+         * foerte ned i opsaetningens liste over netvaerk.
+         *
+         * De tre sider er med vilje de samme. Det er AFSLUTNINGEN der er
+         * forskellig, og den afgoeres af kommandoens egen oprindelse og
+         * ikke af en tilstand nogen skal huske at nulstille.
+         *
+         * Fra Indstillinger: tilbage dertil. Raekken viser adressen, saa
+         * svaret paa "blev den skiftet" staar der man kom fra.
+         */
+        if (c->fra_indstillinger) {
+            ESP_LOGI(TAG, "inverteren skiftet fra Indstillinger");
+            zs_ui_show(ZS_SCREEN_SETTINGS);
+            break;
+        }
+
         s_tilmeld_naar_opsat = true;
         /*
          * Og saa er opsaetningen faerdig.

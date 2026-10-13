@@ -35,6 +35,19 @@ lv_obj_t *zs_setup_root_scan(void);
 lv_obj_t *zs_setup_root_inverter(void);
 lv_obj_t *zs_setup_root_inverter_manual(void);
 
+/*
+ * HVOR INVERTER-FLOWET BLEV STARTET FRA.
+ *
+ * Samme tre sider bruges to steder: i opsaetningen, hvor en valgt
+ * inverter er det SIDSTE trin, og fra Indstillinger, hvor den bare skal
+ * skiftes. De to skal ende forskelligt - og tilbage-knappen skal foere
+ * forskellige steder - men siderne er de samme, saa nogen skal sige
+ * hvilken af de to det er.
+ *
+ * Saettes FOER ZS_SCREEN_INVERTER_SCAN vises. Roerer ikke LVGL.
+ */
+void zs_setup_inverter_fra_indstillinger(bool ja);
+
 void zs_setup_set_wifi_list(const zs_ap_t *aps, int n);
 void zs_setup_set_wifi_scanning(bool scanning);
 void zs_setup_set_connect_status(const char *text, bool is_error, bool can_retry);

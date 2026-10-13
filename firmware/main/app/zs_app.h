@@ -79,6 +79,17 @@ typedef struct {
     char          ip[ZS_IP_MAX];
     uint8_t       u8;
     bool          flag;
+    /*
+     * HVOR INVERTER-VALGET KOM FRA. Kun ZS_CMD_INVERTER_SELECT bruger
+     * den.
+     *
+     * Et eget felt og ikke "flag": flag bruges af fem andre kommandoer
+     * med fem andre betydninger, og en bool der betyder noget nyt for
+     * hver kommando er en bool man laeser forkert. Se noten ved
+     * ZS_CMD_INVERTER_SELECT i zs_app.c om hvorfor oprindelsen skal
+     * med.
+     */
+    bool          fra_indstillinger;
 } zs_cmd_t;
 
 /*

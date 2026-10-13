@@ -42,6 +42,27 @@ static lv_obj_t      *s_man_fejl;
 static zs_keyboard_t *s_man_kb;
 static lv_obj_t      *s_inv_rescan;
 static lv_obj_t      *s_inv_manual;
+/*
+ * HVOR FLOWET KOM FRA. Se zs_screen_setup.h.
+ *
+ * Standard er FALSE, altsaa opsaetningen. Det er den eneste vej der
+ * findes paa en ny skaerm, og en variabel der staar rigtigt naar den er
+ * nul, kan ikke glemmes ved den foerste opstart.
+ */
+static bool           s_inv_fra_indstillinger;
+
+void zs_setup_inverter_fra_indstillinger(bool ja)
+{
+    s_inv_fra_indstillinger = ja;
+}
+
+/* Hvor tilbage foerer fra de tre inverter-sider. ÉT sted: tre kopier af
+ * det her valg kunne komme til at pege tre forskellige steder. */
+static zs_screen_id_t inv_tilbage(void)
+{
+    return s_inv_fra_indstillinger ? ZS_SCREEN_SETTINGS
+                                   : ZS_SCREEN_WIFI_LIST;
+}
 
 /* Det netvaerk brugeren valgte, mens kodeordet skrives. */
 static char s_chosen_ssid[ZS_SSID_MAX];
@@ -80,6 +101,11 @@ static void clear_list(lv_obj_t *list)
 static void on_welcome_start(lv_event_t *e)
 {
     (void)e;
+    /* Opsaetningen begynder, saa inverter-flowet hoerer til DEN og ikke
+     * til Indstillinger. Saettes her og ikke naar soegningen starter:
+     * appen starter den selv i tre forskellige tilfaelde, og ét af dem
+     * ville blive glemt. */
+    s_inv_fra_indstillinger = false;
     /*
      * Vi beder appen fortsaette, i stedet for at gaa direkte til
      * listen over netvaerk.
@@ -250,14 +276,35 @@ static void on_pass_done(lv_event_t *e)
 {
     (void)e;
     const char *pw = zs_keyboard_get_text(s_kb);
-    if (pw == NULL || strlen(pw) < 8) {
-        /* WPA2 kraever mindst 8 tegn. Vi siger det her i stedet for at
-         * lade routeren afvise os om ti sekunder med en fejl der ikke
-         * fortaeller hvad der var galt. */
-        zs_ui_set_connect_status(
-            "Kodeordet skal være på mindst 8 tegn", true, true);
-        zs_ui_show(ZS_SCREEN_CONNECTING);
-        return;
+    /*
+     * INGEN LAENGDE KRAEVES. OGSAA IKKE ET TOMT FELT.
+     *
+     * Her stod der at kodeordet skulle vaere paa mindst 8 tegn, fordi
+     * det er WPA2's regel, og tanken var at sige det med det samme i
+     * stedet for at lade routeren afvise os om ti sekunder.
+     *
+     * Men den spaerrede for det AABNE net. Listen springer
+     * kodeordssiden over naar scanningen melder "Åbent" - men melder
+     * den forkert, eller vil man videre alligevel, kunne man ikke komme
+     * forbi et tomt felt: fluebenet svarede "mindst 8 tegn" paa et net
+     * der ikke vil have nogen.
+     *
+     * Nu bliver et tomt felt et tomt kodeord, og zs_wifi_connect saetter
+     * selv WIFI_AUTH_OPEN naar der ikke er noget. Se noten dér.
+     *
+     * OG ROUTEREN AFGOER RESTEN. Er kodeordet for kort til det net man
+     * har valgt, siger routeren nej, og siden siger det videre med en
+     * "Prøv igen" - i stedet for at vi afviser paa forhaand ud fra en
+     * antagelse om hvilken slags net det er.
+     *
+     * DET GOER IKKE WEP MULIGT. Er der et kodeord, saetter
+     * zs_wifi_connect WIFI_AUTH_WPA2_PSK som mindstekrav, og WEP bliver
+     * afvist dér - med vilje, se noten i zs_wifi.c. Den beslutning
+     * roerer vi ikke; den her aendring handler kun om at vi ikke selv
+     * spaerrer inden routeren er spurgt.
+     */
+    if (pw == NULL) {
+        pw = "";
     }
     zs_cmd_t c;
     memset(&c, 0, sizeof(c));
@@ -308,9 +355,33 @@ static void build_password(void)
     lv_obj_set_style_text_color(s_pass_eye_icon, lv_color_hex(ZS_C_LABEL), 0);
     lv_obj_center(s_pass_eye_icon);
 
+    /* At et TOMT felt er lovligt, skal staa paa siden.
+     *
+     * Ellers er det en mulighed man kun kender hvis man har laest koden:
+     * et felt med en markoer i ser ud som et felt der SKAL udfyldes, og
+     * saa staar montoeren og leder efter et kodeord til et aabent net. */
+    lv_obj_t *hj = lv_label_create(s_pass.content);
+    /* Tasten SKRIVES IKKE som et tegn her.
+     *
+     * Der stod "tryk bare ✓", og check-text.py faeldede det: U+2713
+     * findes ikke i nogen af tekst-skrifttyperne, saa der ville staa en
+     * firkant paa glasset. Tasten selv tegnes med ZS_ICON_CHECK fra
+     * ikon-skrifttypen, og den kan ikke bruges midt i en saetning. Saa
+     * beskrives den med ord i stedet. */
+    lv_label_set_text(hj, "Er netværket åbent, så tryk bare på tasten "
+                          "med fluebenet uden at skrive noget.");
+    zs_style_text(hj, &zs_font_16, ZS_C_LABEL);
+    lv_label_set_long_mode(hj, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(hj, ZS_CONTENT_WIDTH);
+    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, 110);
+
     /* Tastaturet ligger paa siden selv, ikke i indholdet, saa det
      * bliver staaende naar indholdet rulles. */
     s_kb = zs_keyboard_create(s_pass.root, s_pass_field, on_pass_done, NULL);
+    /* Et kodeord maskeres. Oejet ved siden af slaar det fra, se
+     * on_pass_eye. Det staar HER og ikke som tastaturets standard: se
+     * noten i zs_keyboard_create. */
+    zs_keyboard_set_password_hidden(s_kb, true);
 }
 
 /* ------------------------------------------------------------------ */
@@ -365,7 +436,7 @@ static void on_scan_back(lv_event_t *e)
 {
     (void)e;
     zs_discovery_abort();
-    zs_ui_show(ZS_SCREEN_WIFI_LIST);
+    zs_ui_show(inv_tilbage());
 }
 
 static void build_scan(void)
@@ -392,7 +463,7 @@ static void build_scan(void)
 static void on_inv_back(lv_event_t *e)
 {
     (void)e;
-    zs_ui_show(ZS_SCREEN_WIFI_LIST);
+    zs_ui_show(inv_tilbage());
 }
 
 static void on_inv_rescan(lv_event_t *e)
@@ -414,6 +485,7 @@ static void on_inv_pick(lv_event_t *e)
     zs_cmd_t c;
     memset(&c, 0, sizeof(c));
     c.type = ZS_CMD_INVERTER_SELECT;
+    c.fra_indstillinger = s_inv_fra_indstillinger;
     snprintf(c.ip, sizeof(c.ip), "%s", s_found[idx].ip);
     zs_app_send(&c);
     /*
@@ -534,6 +606,7 @@ static void on_man_brug(lv_event_t *e)
     zs_cmd_t c;
     memset(&c, 0, sizeof(c));
     c.type = ZS_CMD_INVERTER_SELECT;
+    c.fra_indstillinger = s_inv_fra_indstillinger;
     snprintf(c.ip, sizeof(c.ip), "%s", ip);
     zs_app_send(&c);
     /* Appen bestemmer hvor brugeren skal hen, som ved et valg fra
@@ -597,6 +670,10 @@ static void build_manual(void)
     s_man_kb = zs_keyboard_create(s_man.root, s_man_field, on_man_brug, NULL);
     /* Cifre fra foerste tastetryk: der skal staa en adresse. */
     zs_keyboard_set_numeric(s_man_kb, true);
+    /* Og tegnene SKAL kunne ses. Det er standarden nu, men det staar her
+     * udtrykkeligt: en adresse hvor man ikke kan se hvad man har tastet,
+     * er en adresse man taster forkert. */
+    zs_keyboard_set_password_hidden(s_man_kb, false);
 }
 
 static void build_inverter(void)

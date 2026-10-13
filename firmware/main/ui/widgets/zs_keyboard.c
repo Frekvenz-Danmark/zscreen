@@ -329,7 +329,21 @@ zs_keyboard_t *zs_keyboard_create(lv_obj_t *parent, lv_obj_t *target,
     kb->target = target;
     kb->done_cb = done_cb;
     kb->user_data = user_data;
-    kb->hidden = true;
+    /*
+     * ET TASTATUR VISER HVAD MAN SKRIVER. Kodeordet er undtagelsen.
+     *
+     * Her stod true, fordi det foerste tastatur i huset var
+     * kodeordssidens. Det gjorde maskering til STANDARDEN, og den naeste
+     * side der fik et tastatur - "Find manuelt", hvor man skriver en
+     * IP-adresse - viste prikker i stedet for cifre. Man kunne ikke se
+     * hvad man havde tastet paa et felt hvor hvert tegn betyder noget,
+     * og der var intet oeje til at slaa det fra.
+     *
+     * En standard man skal huske at slaa FRA, bliver glemt. Nu skal den
+     * slaas TIL af den der har brug for den, og det er ét sted:
+     * kodeordssiden.
+     */
+    kb->hidden = false;
 
     kb->matrix = lv_btnmatrix_create(parent);
     lv_obj_add_event_cb(kb->matrix, kb_on_delete, LV_EVENT_DELETE, kb);
