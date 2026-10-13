@@ -126,6 +126,44 @@ def main():
             print(f"  FEJL: {name} mangler {''.join(mangler)}")
             fail = 1
 
+    # 1b. OG NAVNE DER KOMMER UDEFRA.
+    #
+    # Punkt 2 nedenfor holder VORES EGNE strenge op mod skrifttyperne.
+    # Men kundens navn kommer fra tilmeldingen - fra det en montoer har
+    # tastet i en app - og det bliver tegnet paa tilmeldingssiden. Maalt
+    # 13. oktober 2026, foer omraadet blev udvidet:
+    #
+    #   Müller      ->  M[]ller
+    #   Özdemir     ->  []zdemir
+    #   Wiśniewska  ->  Wi[]niewska
+    #
+    # Firkanten er LVGL's pladsholder. tilmeld.tjek_kunde godtager dem
+    # alle, saa de naar hele vejen, og netop det navn er det eneste der
+    # kan vise montoeren at koden endte hos den rigtige kunde.
+    #
+    # Navnene her er valgt som de slags der FINDES i Danmark, ikke som
+    # en liste over alfabeter. Falder ét af dem, er NAVNE-omraadet i
+    # tools/build-assets.sh blevet smallere.
+    #
+    # Nguyễn staar IKKE paa listen: Funnel Sans har ikke ễ, og det er
+    # maalt - af 368 kodepunkter i 0x180-0x24F og 0x1E00-0x1EFF har den
+    # 16. Vietnamesisk kraever en anden skrifttypefil, og det er en
+    # beslutning der venter. En proeve der kraever noget vi har valgt
+    # ikke at kunne, er en proeve der altid er roed.
+    NAVNE_UDEFRA = ["Müller", "Özdemir", "Wiśniewska", "Søndergaard",
+                    "Çelik", "Kowalczyk", "Þórsdóttir", "Nielsen"]
+    # Tastaturet er IKKE med. Det har faste taster, saa et tegn man ikke
+    # kan taste er kun plads, og derfor har det med vilje det smalle
+    # omraade - se NAVNE mod DANSK i build-assets.sh. Det tegner aldrig
+    # et kundenavn.
+    for name in [f for f in TEXT_FONTS if f != "zs_font_kb_24"]:
+        for navn in NAVNE_UDEFRA:
+            huller = [c for c in navn if ord(c) not in fonts[name]]
+            if huller:
+                print(f"  FEJL: {name} kan ikke tegne {navn!r}, "
+                      f"mangler {''.join(huller)}")
+                fail = 1
+
     # 2. Hvert tegn vi faktisk skriver, skal findes.
     seen = {}
     for path, line, s in collect_strings():

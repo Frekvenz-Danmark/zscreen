@@ -90,6 +90,51 @@ ok "Lucide ($(wc -c < "${CACHE}/lucide.ttf" | tr -d ' ') bytes)"
 # kasse". To glyffer koster under 200 bytes i alt.
 DANSK="0x20-0x7E,0xB7,0xC5,0xC6,0xC9,0xD8,0xE5,0xE6,0xE9,0xF8,0x2022"
 
+# OG NAVNE, der kommer UDEFRA.
+#
+# DANSK daekker vores egne tekster, og tools/check-text.py holder dem op
+# mod skrifttyperne. Men KUNDENS NAVN kommer fra tilmeldingen, altsaa
+# fra det en montoer har tastet i en app, og det bliver tegnet paa
+# skaermen. Det blev maalt 13. oktober 2026:
+#
+#   Müller      ->  M□ller
+#   Özdemir     ->  □zdemir
+#   Wiśniewska  ->  Wi□niewska
+#
+# Firkanten er LVGL's pladsholder, CONFIG_LV_USE_FONT_PLACEHOLDER=1. Og
+# tilmeldingens tjek_kunde godtager dem alle, saa de naar hele vejen.
+# Netop det navn er det eneste der kan vise montoeren at koden endte
+# hos den rigtige kunde.
+#
+#   0xC0-0xFF    Latin-1's bogstaver: ä ö ü ñ ç á é í ó ú ø å æ
+#                Tysk, svensk, spansk, fransk, portugisisk, tyrkisk
+#   0x100-0x17F  Latin Extended-A: ł ś ż ć ę ą ğ ş č š ž
+#                Polsk, tjekkisk, tyrkisk, baltisk
+#
+# VIETNAMESISK ER IKKE MED, OG DET KAN DET IKKE BLIVE MED DEN HER
+# SKRIFTTYPE.
+#
+# Nguyễn er ikke et saeldent efternavn i Danmark, saa jeg proevede
+# 0x180-0x24F og 0x1E00-0x1EFF oveni. Maalt 13. oktober 2026: af de 368
+# kodepunkter har Funnel Sans **16**. lv_font_conv springer i stilhed
+# over det en TTF ikke har, saa binaeren voksede ikke én byte, og
+# skrifttyperne fik hverken ễ, ư eller ơ.
+#
+# Vietnamesisk kraever altsaa en ANDEN eller en EKSTRA skrifttypefil, og
+# det er en beslutning om udseende og licens, ikke om plads. Det staar i
+# zScreen-server/docs/til-afgoerelse.md.
+#
+# PRISEN FOR DET DER VIRKER ER MAALT, ikke skoennet: zscreen.bin voksede
+# 65536 bytes, altsaa 4,2 %, fra 50,1 % til 52,2 % af app-partitionen.
+# Der er 1,4 MB ledigt. De fire tekst-skrifttyper gik fra 105 til 297
+# tegn, maalt paa cmap-tabellerne og deres unicode_list - IKKE paa
+# range_length, som kun er spaendet og taeller alt for hoejt.
+#
+# TASTATURET FAAR DEM IKKE. Det har faste taster, saa et tegn man ikke
+# kan taste, er kun plads. Derfor er der to omraader og ikke ét. Maalt:
+# tastaturet har 108 tegn, de fire andre 297.
+NAVNE="${DANSK},0xC0-0xFF,0x100-0x17F"
+
 # Til de store tal bruger vi kun cifre og skilletegn. Et fuldt tegnsaet
 # i 64 pixels ville fylde over 200 KB uden at én af bogstaverne blev
 # tegnet.
@@ -118,10 +163,10 @@ build_font() {
 
 info "Bygger skrifttyper"
 build_font zs_font_num_64 "${CACHE}/funnel-600.ttf" 64 "${TAL}"
-build_font zs_font_28     "${CACHE}/funnel-600.ttf" 28 "${DANSK}"
-build_font zs_font_20     "${CACHE}/funnel-500.ttf" 20 "${DANSK}"
-build_font zs_font_16     "${CACHE}/funnel-500.ttf" 16 "${DANSK}"
-build_font zs_font_13     "${CACHE}/funnel-600.ttf" 13 "${DANSK}"
+build_font zs_font_28     "${CACHE}/funnel-600.ttf" 28 "${NAVNE}"
+build_font zs_font_20     "${CACHE}/funnel-500.ttf" 20 "${NAVNE}"
+build_font zs_font_16     "${CACHE}/funnel-500.ttf" 16 "${NAVNE}"
+build_font zs_font_13     "${CACHE}/funnel-600.ttf" 13 "${NAVNE}"
 
 # Tastaturets skrifttype er en blanding.
 #
