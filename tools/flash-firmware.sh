@@ -62,21 +62,26 @@ if [ ! -f "${IDF}" ]; then
 fi
 
 # ── porten ──
+#
+# HER STOD "er der kun ÉN usbmodem, saa tag den".
+#
+# Det holdt saa laenge der kun sad én skaerm i. Med begge i samme Mac
+# heder de usbmodem11201 og usbmodem31201, og der er ingenting i de
+# navne der siger hvad der sidder for enden - saa scriptet sagde fra og
+# lod mennesket vaelge. Et menneske der vaelger mellem to numre, vaelger
+# nogle gange det forkerte, og en zScreen med ZDisplays firmware skal
+# have besoeg.
+#
+# De to melder sig forskelligt over USB, og det kan laeses uden at
+# nulstille noget. find-port.py gOEr det.
 if [ -z "${PORT}" ]; then
-    # shellcheck disable=SC2012
-    MULIGE=$(ls /dev/cu.usbmodem* 2>/dev/null || true)
-    ANTAL=$(printf '%s\n' "${MULIGE}" | grep -c . || true)
-    if [ "${ANTAL}" = "0" ]; then
-        echo "FEJL: der sidder ingen enhed i USB."
+    if ! PORT="$(./tools/find-port.py "${BOARD}")"; then
+        echo
+        echo "      Se hvad der sidder i:  ./tools/find-port.py --vis"
+        echo "      Eller sig porten selv: $0 ${BOARD} <port>"
         exit 1
     fi
-    if [ "${ANTAL}" != "1" ]; then
-        echo "FEJL: der sidder mere end én enhed:"
-        printf '%s\n' "${MULIGE}" | sed 's/^/        /'
-        echo "      Sig hvilken:  $0 ${BOARD} <port>"
-        exit 1
-    fi
-    PORT="${MULIGE}"
+    echo "  fandt ${BOARD} paa ${PORT}"
 fi
 if [ ! -e "${PORT}" ]; then
     echo "FEJL: ${PORT} findes ikke."

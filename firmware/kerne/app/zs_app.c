@@ -595,7 +595,32 @@ zs_tilmeld_stand_t zs_app_tilmeld_stand(void)
     zs_tilmeld_vej_t vej;
     int64_t nu_ms;
     tilmeld_nu(&inverter, &vej, &nu_ms);
-    return zs_tilmeld_stand(&s_tilmeld, inverter, vej, nu_ms);
+    zs_tilmeld_stand_t st = zs_tilmeld_stand(&s_tilmeld, inverter, vej, nu_ms);
+
+    /*
+     * HVER GANG TILMELDINGEN SKIFTER TILSTAND, I LOGGEN.
+     *
+     * Siden er den ene i fladen hvor en montoer kan staa og se noget
+     * skifte uden at kunne sige HVAD der skifter: QR'en kommer og
+     * gaar, og teksten skifter mellem "vent", "tjek netvaerket" og
+     * "ring til Frekvenz". De tre afhaenger af wifi OG af flaaden, og
+     * ingen af dem stod i loggen.
+     *
+     * Kun naar den SKIFTER. Funktionen kaldes fem gange i sekundet
+     * mens siden staar aaben, og en linje hver gang ville vaere stoej.
+     */
+    static int sidste_st = -1, sidste_vej = -1, sidste_inv = -1;
+    if ((int)st != sidste_st || (int)vej != sidste_vej
+        || (int)inverter != sidste_inv) {
+        ESP_LOGI(TAG, "tilmelding: stand %d, vej %d, inverter %d, "
+                      "wifi %d, flaade %d",
+                 (int)st, (int)vej, (int)inverter,
+                 (int)zs_wifi_state(), (int)zs_fleet_state());
+        sidste_st = (int)st;
+        sidste_vej = (int)vej;
+        sidste_inv = (int)inverter;
+    }
+    return st;
 }
 
 /* Koden til at vise, eller en tom streng. Aldrig NULL. */

@@ -53,6 +53,9 @@ void zs_ui_init(void);
 void zs_ui_show(zs_screen_id_t id);
 zs_screen_id_t zs_ui_current(void);
 
+/* Navnet paa en side, til loggen. ÉN tabel - se zs_ui.c. */
+const char *zs_ui_sidenavn(zs_screen_id_t id);
+
 /*
  * Skifter mellem moerkt og lyst.
  *

@@ -15,6 +15,7 @@
  */
 
 #include "zs_ui.h"
+#include "../zs_log.h"
 #include "zs_screen_tilmeld.h"
 #include "zs_ui_maal.h"
 #include "zs_screen_fejl.h"
@@ -35,6 +36,32 @@ static zs_screen_id_t s_current = ZS_SCREEN_WELCOME;
 static bool           s_ready = false;
 
 static void show_locked(zs_screen_id_t id);
+
+/*
+ * Navnet paa en side. ÉN tabel, brugt af baade loggen over sideskift
+ * og maalebaandet i zs_ui_maal.c - se noten der.
+ */
+const char *zs_ui_sidenavn(zs_screen_id_t id)
+{
+    switch (id) {
+    case ZS_SCREEN_WELCOME:         return "velkomst";
+    case ZS_SCREEN_GUIDE:           return "kom i gang";
+    case ZS_SCREEN_WIFI_LIST:       return "vaelg wifi";
+    case ZS_SCREEN_PASSWORD:        return "kodeord";
+    case ZS_SCREEN_CONNECTING:      return "forbinder";
+    case ZS_SCREEN_INVERTER_SCAN:   return "soeger inverter";
+    case ZS_SCREEN_INVERTER_LIST:   return "vaelg inverter";
+    case ZS_SCREEN_INVERTER_MANUAL: return "inverter i haanden";
+    case ZS_SCREEN_HOME:            return "forsiden";
+    case ZS_SCREEN_SETTINGS:        return "indstillinger";
+    case ZS_SCREEN_DETAILS:         return "detaljer";
+    case ZS_SCREEN_AVANCERET:       return "avanceret";
+    case ZS_SCREEN_THEME:           return "tema";
+    case ZS_SCREEN_TILMELD:         return "tilmelding";
+    case ZS_SCREEN_FEJL:            return "fejlsiden";
+    }
+    return "ukendt";
+}
 
 static void on_gear(lv_event_t *e)
 {
@@ -113,6 +140,21 @@ lv_obj_t *zs_ui_root_of(zs_screen_id_t id)
  */
 static void show_locked(zs_screen_id_t id)
 {
+    /*
+     * HVER SIDESKIFT I LOGGEN.
+     *
+     * Der var ingen optegnelse over hvilken side skaermen stod paa, og
+     * det er det foerste spoergsmaal i enhver fejlsoegning paa en
+     * skaerm der haenger paa en vaeg. En bruger der melder "den
+     * looper", kan ikke vide hvilke to sider det er - men loggen kan.
+     *
+     * Kun naar den SKIFTER. Appen kalder herind uden at skifte side,
+     * og en linje hver gang ville vaere stoej.
+     */
+    if (id != s_current) {
+        ZS_LOGI("ui", "side: %s -> %s",
+                zs_ui_sidenavn(s_current), zs_ui_sidenavn(id));
+    }
     for (int i = 0; i < SCREEN_COUNT; i++) {
         lv_obj_t *r = zs_ui_root_of((zs_screen_id_t)i);
         if (r == NULL) {

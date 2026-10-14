@@ -20,28 +20,16 @@ static const char *TAG = "maal";
 static int s_fund;
 static int s_undtaget;
 
-/* Navnet paa en side, saa fundet kan findes igen. */
-static const char *side_navn(zs_screen_id_t id)
-{
-    switch (id) {
-    case ZS_SCREEN_WELCOME:         return "velkomst";
-    case ZS_SCREEN_GUIDE:           return "kom i gang";
-    case ZS_SCREEN_WIFI_LIST:       return "vaelg wifi";
-    case ZS_SCREEN_PASSWORD:        return "kodeord";
-    case ZS_SCREEN_CONNECTING:      return "forbinder";
-    case ZS_SCREEN_INVERTER_SCAN:   return "soeger inverter";
-    case ZS_SCREEN_INVERTER_LIST:   return "vaelg inverter";
-    case ZS_SCREEN_INVERTER_MANUAL: return "inverter i haanden";
-    case ZS_SCREEN_HOME:            return "forsiden";
-    case ZS_SCREEN_SETTINGS:        return "indstillinger";
-    case ZS_SCREEN_DETAILS:         return "detaljer";
-    case ZS_SCREEN_AVANCERET:       return "avanceret";
-    case ZS_SCREEN_THEME:           return "tema";
-    case ZS_SCREEN_TILMELD:         return "tilmelding";
-    case ZS_SCREEN_FEJL:            return "fejlsiden";
-    }
-    return "ukendt";
-}
+/*
+ * HER LAA TABELLEN OVER SIDENAVNE, og den ligger nu i zs_ui.c som
+ * zs_ui_sidenavn.
+ *
+ * Grunden: loggen over sideskift skal bruge de SAMME navne som
+ * maalebaandet. To tabeller ville sige "tilmelding" det ene sted og
+ * noget andet det andet, og saa kan to linjer i den samme log ikke
+ * sammenlignes.
+ */
+#define side_navn zs_ui_sidenavn
 
 /*
  * HVAD er det vi har fundet.
