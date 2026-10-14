@@ -1,3 +1,40 @@
+## 2026-10-14 14:45
+
+### CI faldt på én advarsel, og vagten jeg lavede for det holdt ikke
+Det nye ZDisplay-job byggede fint og faldt så på advarselsvagten:
+`esp_lcd_touch_get_coordinates` er udfaset i `esp_lcd_touch` 1.2 og
+forsvinder i 2.0. Rettet til `esp_lcd_touch_get_data()`, og forskellen
+er ikke kun navnet: den gamle gav `true` når der var et tryk, den nye
+giver `ESP_OK` og sætter antallet til nul. Et tryk er altså `ESP_OK` **og**
+mindst ét punkt.
+
+Advarslen stod i min egen byggeudskrift lokalt, og jeg så den ikke: jeg
+greppede efter `" error:"` og "build complete". Den eneste der kiggede
+efter advarsler, var CI — altså en maskine man først hører fra **efter**
+et push.
+
+Så `tools/byg-firmware.sh` gør nu det samme som CI: bygger **begge**
+skærme, hver med sin ESP-IDF, og fælder på advarsler i vores egen kode.
+
+**Og så prøvede jeg den vagt af, og den holdt ikke.** Den fangede
+advarslen første gang og gik **grøn** næste gang med fejlen stadig i
+koden. Grunden er inkrementelle byg: en uændret fil bliver ikke oversat
+igen, så advarslen kommer ikke ud i udskriften, og en grep i udskriften
+har ingenting at finde. CI slipper for det ved at rydde byggemappen
+først. Lokalt gør ingen det to gange i træk.
+
+En advarsel er forbigående. En **fejl** bliver siddende, fordi
+objektfilen aldrig bliver lavet. Derfor er de fire advarsler ESP-IDF
+tager tilbage igen for alt — udfasede funktioner, ubrugte funktioner,
+ubrugte variabler, og variabler der sættes uden at bruges — nu fejl for
+vores egen kode. De står som `ZS_STRENGE_FLAG` i `firmware/kerne.cmake`,
+så begge produkter får de samme, og de rammer kun vores eget component.
+Seeeds BSP og LVGL er urørt: de advarer en del, og det er ikke vores kode.
+
+Efterprøvet ved at lægge en ubrugt variabel ind: udgangskode 1 både
+første og anden gang, og `error: unused variable [-Werror=unused-variable]`
+i stedet for en advarsel der forsvandt.
+
 ## 2026-10-14 14:05
 
 ### Anden runde af gennemgangen: fem mere, og den værste var tavs
