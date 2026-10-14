@@ -141,6 +141,39 @@ set(ZS_KERNE_INCLUDE_DIRS
     "${ZS_VENDOR_DIR}/qrcodegen")
 
 # ---------------------------------------------------------------------
+# ZS_STRENGE_FLAG - advarsler i VORES kode er fejl
+# ---------------------------------------------------------------------
+#
+# ESP-IDF slaar "-Werror=all" til, men tager fire undtagelser tilbage
+# igen for alt der bygges:
+#
+#   -Wno-error=deprecated-declarations
+#   -Wno-error=unused-function
+#   -Wno-error=unused-variable
+#   -Wno-error=unused-but-set-variable
+#
+# Det er rimeligt for kode vi ikke har skrevet. For VORES egen er de
+# fire praecis de advarsler der betyder noget senere: en udfaset
+# funktion forsvinder i naeste udgave af en komponent, og en variabel
+# der saettes uden at bruges er som regel en halv rettelse.
+#
+# HVORFOR DET SKAL VAERE EN FEJL OG IKKE EN ADVARSEL.
+#
+# Vi havde en vagt der greppede byggeudskriften for advarsler. Den
+# virkede én gang: 14. oktober 2026 fangede den en udfaset
+# touch-funktion. Men ved NAESTE byg blev filen ikke oversat igen -
+# den var uaendret - saa advarslen kom ikke, og vagten gik groen med
+# fejlen stadig i koden. Det blev fundet ved at proeve vagten af.
+#
+# En advarsel er forbigaaende. En FEJL bliver siddende, fordi
+# objektfilen aldrig bliver lavet. Derfor staar de her.
+set(ZS_STRENGE_FLAG
+    -Werror=deprecated-declarations
+    -Werror=unused-function
+    -Werror=unused-variable
+    -Werror=unused-but-set-variable)
+
+# ---------------------------------------------------------------------
 # ZS_KERNE_REQUIRES - det motoren og fladen skal have fra ESP-IDF
 # ---------------------------------------------------------------------
 #

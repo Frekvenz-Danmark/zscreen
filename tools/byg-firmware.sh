@@ -29,6 +29,16 @@
 # byggeudskrift hvor den var nem at se forbi, og den eneste der kiggede
 # efter den, var en maskine man foerst hoerer fra efter et push.
 #
+# MEN DET HER TJEK ER ET NET, IKKE HELE LOEFTET. Det blev proevet af, og
+# det holdt ikke alene: ved et INKREMENTELT byg bliver en uaendret fil
+# ikke oversat igen, saa advarslen kommer ikke, og tjekket gaar groent
+# med fejlen stadig i koden. Foerste byg sagde fra, det naeste ikke.
+#
+# Derfor er de fire advarsler der betyder noget, lavet til FEJL for
+# vores egen kode - se ZS_STRENGE_FLAG i firmware/kerne.cmake. En fejl
+# bliver siddende, fordi objektfilen aldrig bliver lavet. Tjekket her
+# staar tilbage for de advarsler der ikke er promoveret.
+#
 # Udfald:
 #   0  bygget, eller sprunget over fordi vaerktoejskaeden mangler
 #   1  vaerktoejskaeden er her, og bygningen FEJLEDE - eller der er en

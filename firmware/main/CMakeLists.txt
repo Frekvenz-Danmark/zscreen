@@ -40,3 +40,7 @@ idf_component_register(
         lvgl
         ${ZS_KERNE_REQUIRES}
 )
+
+# Advarsler i vores egen kode er fejl. Se ZS_STRENGE_FLAG i kerne.cmake
+# for hvilke fire, og for hvorfor en grep i byggeudskriften ikke er nok.
+target_compile_options(${COMPONENT_LIB} PRIVATE ${ZS_STRENGE_FLAG})
