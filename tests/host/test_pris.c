@@ -13,7 +13,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_price.h"
+#include "../../firmware/kerne/net/zs_price.h"
 
 #include <string.h>
 

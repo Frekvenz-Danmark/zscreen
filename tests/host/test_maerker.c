@@ -8,7 +8,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_maerker.h"
+#include "../../firmware/kerne/net/zs_maerker.h"
 
 #include <string.h>
 

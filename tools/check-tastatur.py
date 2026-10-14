@@ -33,7 +33,7 @@ import sys
 
 HER = os.path.dirname(os.path.abspath(__file__))
 ROD = os.path.dirname(HER)
-KB = os.path.join(ROD, "firmware/main/ui/widgets/zs_keyboard.c")
+KB = os.path.join(ROD, "firmware/kerne/ui/widgets/zs_keyboard.c")
 
 GROEN, ROED, SLUT = "\033[1;32m", "\033[1;31m", "\033[0m"
 

@@ -91,7 +91,7 @@ to. Filen ligger i `secure/`, som er udelukket fra git, med rettigheder
 ./tools/setup-toolchain.sh      # ESP-IDF v5.1.7, én gang
 source tools/env.sh             # i hver ny terminal
 
-cd firmware
+cd firmware/boards/zscreen
 idf.py build
 idf.py -p /dev/cu.usbmodemXXXX flash monitor
 ```
@@ -140,11 +140,21 @@ søgningen kun kiggede der.
 brand/          logoer og farver, ikke i git
 secure/         signeringsnøglen, ikke i git. Se afsnittet ovenfor
 docs/           registerkort, designsystem, hardware, testplan
-firmware/       koden der kører på skærmen
-firmware/kerne.cmake      motoren og fladen, delt af begge produkter
-firmware/main/            zScreen: opstart, LVGL-port, baglys, lyd
-firmware/boards/zdisplay/ ZDisplay: det samme for den store skærm
 tools/          værktøjskæde, simulator, zs-probe, vagtscripts
+
+firmware/
+  version.txt       ét versionsnummer, begge produkter
+  kerne/            ALT det der er fælles
+    kilder.cmake    listen begge produkter bygger af
+    net/            Modbus, Fronius, flåde, pris, OTA, tilmelding
+    app/            status, fejlvagt, formatering
+    util/ storage/  tid, tekst, NVS
+    ui/             brugerfladen, LVGL 8.3
+    hal/            de tre kontrakter et board skal opfylde
+  boards/
+    zscreen/        SenseCAP Indicator D1, ESP32-S3, 480 x 480
+    zdisplay/       reTerminal D1001, ESP32-P4, 800 x 1280
+  vendor/           Seeeds SDK'er, pinnede submoduler
 tests/host/     enhedstest der kører på en Mac
 tests/e2e/      hele datavejen mod en simuleret Fronius
 tests/fuzz/     ødelagte rammer kastet ind i parserne

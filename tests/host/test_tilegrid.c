@@ -9,8 +9,8 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/ui/zs_tilegrid.h"
-#include "../../firmware/main/ui/zs_layout.h"
+#include "../../firmware/kerne/ui/zs_tilegrid.h"
+#include "../../firmware/kerne/ui/zs_layout.h"
 
 #include <stdbool.h>
 

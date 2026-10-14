@@ -15,7 +15,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/util/zs_tekst.h"
+#include "../../firmware/kerne/util/zs_tekst.h"
 
 #include <stdlib.h>
 #include <string.h>

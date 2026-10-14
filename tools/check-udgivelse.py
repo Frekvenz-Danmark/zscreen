@@ -76,7 +76,7 @@ IKKE_UDGIVET_ENDNU = {
 
 def tjek_praefikser(release_tekst):
     """Leder hver skaerm efter et navn udgivelsen faktisk laegger op?"""
-    sti = ROD / "firmware/main/zs_config.h"
+    sti = ROD / "firmware/kerne/zs_config.h"
     praefikser = PRAEFIKS.findall(sti.read_text(encoding="utf-8"))
     ud = []
     if not praefikser:

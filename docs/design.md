@@ -1,7 +1,7 @@
 # Designsystem
 
 Den røde tråd fra Frekvenz' brand ind på en 4 tommer skærm.
-Alt herunder står i kode i `firmware/main/ui/zs_theme.h`. Står der et
+Alt herunder står i kode i `firmware/kerne/ui/zs_theme.h`. Står der et
 tal her, står det ét sted i koden, ikke fem.
 
 ---

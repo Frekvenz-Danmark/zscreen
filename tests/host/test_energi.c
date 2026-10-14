@@ -7,8 +7,8 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_energi.h"
-#include "../../firmware/main/zs_config.h"
+#include "../../firmware/kerne/net/zs_energi.h"
+#include "../../firmware/kerne/zs_config.h"
 
 #include <string.h>
 

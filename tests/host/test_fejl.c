@@ -9,8 +9,8 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/app/zs_fejl.h"
-#include "../../firmware/main/zs_config.h"
+#include "../../firmware/kerne/app/zs_fejl.h"
+#include "../../firmware/kerne/zs_config.h"
 
 #define MIN_MS   (60 * 1000)
 

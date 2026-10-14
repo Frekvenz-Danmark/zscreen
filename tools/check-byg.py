@@ -7,13 +7,13 @@ HVORFOR DEN FINDES.
 Koden bliver bygget fire steder, og hver af dem har sin egen liste over
 kilder og sine egne include-stier:
 
-    firmware/main/CMakeLists.txt    zScreen, altsaa ESP32-S3
+    firmware/boards/zscreen/main/CMakeLists.txt    zScreen, altsaa ESP32-S3
     firmware/boards/zdisplay/...     ZDisplay, altsaa ESP32-P4
     tests/host/run.sh               enhedstestene paa en almindelig maskine
     tools/zs-probe/build.sh         fejlsoegningsvaerktoejet
     tests/fuzz/koer.sh              fuzzerne
 
-De to firmwarer deler kildelisten i firmware/kerne.cmake og laegger hver
+De to firmwarer deler kildelisten i firmware/kerne/kilder.cmake og laegger hver
 sine tre-fire board-filer oveni. Begge bliver tjekket, og det er ikke
 for symmetriens skyld: en header kan findes paa det ene board og mangle
 paa det andet. Det ER sket - storage/zs_nvs.c bad om esp_phy_init.h, som
@@ -34,7 +34,7 @@ ingen skaermkode og skal ikke kende ui-mappen. Vi kraever det der faktisk
 betyder noget: at hver bygning kan finde HVER header som dens egne filer
 beder om, ogsaa de headere en header selv tager med.
 
-Og dertil én regel mere: hver .c under firmware/main skal staa i
+Og dertil én regel mere: hver .c under firmware/kerne skal staa i
 CMakeLists.txt. Ellers bliver den slet ikke oversat til skaermen, uden en
 advarsel nogen steder.
 
@@ -45,29 +45,23 @@ import re
 import sys
 
 ROD = pathlib.Path(__file__).resolve().parent.parent
-SRC = ROD / "firmware/main"
+SRC = ROD / "firmware/kerne"
 
-# Genererede filer. De bliver lavet af tools/build-assets.sh.
-SPRING_OVER = ("ui/assets/",)
-
-# De filer under firmware/main der med VILJE kun bygges af zScreen.
+# Produkterne. Hver mappe under firmware/boards/ er ét board.
 #
-# HVORFOR LISTEN ER EKSPLICIT.
+# HER STOD DER FOER EN LISTE VED NAVN KUN_ZSCREEN.
 #
-# Reglen herunder var foer "hver .c skal staa i CMakeLists.txt", og det
-# var nok dengang der var ét produkt. Da kildelisten flyttede til
-# kerne.cmake, blev reglen loesnet til "skal bygges af mindst ÉT
-# produkt" - og saa kunne en ny fil i net/ staa i zScreens egen liste
-# alene, bestaa vagten, og aldrig blive oversat til ZDisplay. Det er
-# PRAECIS det hul kerne.cmake findes for at lukke, og det var afproevet:
-# en opdigtet net/zs_foo.c kun i firmware/main/CMakeLists.txt gav "alle
-# kilder er med" og udgangskode 0.
+# Dengang laa den faelles kode inde i zScreens egen main-mappe, saa
+# vagten kunne ikke se forskel paa "faelles" og "kun zScreen" ud fra
+# hvor filen laa. Den maatte have en liste over de fire undtagelser, og
+# en femte board-fil skulle skrives ind i den for at blive bygget.
 #
-# Nu gaelder: alt under firmware/main skal staa i kerne.cmake, UNDTAGEN
-# de her fire. Kommer der en femte board-fil, skal den skrives ind her -
-# og det er en beslutning man tager med aabne oejne, ikke noget der sker
-# ved et uheld.
-KUN_ZSCREEN = ("main.c", "lv_port.c", "ui/zs_baglys_d1.c", "ui/zs_lyd.c")
+# Efter at kerne/ og boards/ blev skilt, siger STRUKTUREN det:
+# ligger filen i firmware/kerne/, skal den bygges af ALLE; ligger den i
+# firmware/boards/<navn>/main/, skal den bygges af DET board. Der er
+# ingen undtagelser at huske laengere, og et tredje produkt tilfoejes
+# ved at laegge en mappe her.
+BOARDS = ("zscreen", "zdisplay")
 
 # Motoren: de mapper hvor koden skal kunne koere paa BEGGE chips, og i
 # tests/host paa en Mac uden ESP-IDF.
@@ -113,7 +107,7 @@ def tjek_motoren():
                 continue
             for moenster, hvad in FORBUDT_I_MOTOREN:
                 if moenster.search(navn):
-                    fejl.append(f"firmware/main/{rel} henter {navn}, altsaa "
+                    fejl.append(f"firmware/kerne/{rel} henter {navn}, altsaa "
                                 f"{hvad}. Motoren skal kunne oversaettes til "
                                 f"to forskellige chips OG paa en Mac uden "
                                 f"ESP-IDF. Hoerer det til hardwaren, saa laeg "
@@ -123,7 +117,7 @@ def tjek_motoren():
                     break
         m = FORBUDT_KALD.search(tekst)
         if m:
-            fejl.append(f"firmware/main/{rel} kalder {m.group(0)[:-1].strip()}"
+            fejl.append(f"firmware/kerne/{rel} kalder {m.group(0)[:-1].strip()}"
                         f"(), altsaa direkte ind i en board-support-pakke. "
                         f"Se forklaringen ovenfor.")
 
@@ -195,7 +189,7 @@ def kilder_og_stier_fra_shell(sti_til_script):
     base = sti_til_script.parent
     stier = [(base / m).resolve() for m in re.findall(r"-I(\S+)", tekst)]
     kilder = []
-    for m in re.findall(r"(\S*\.\./\.\./firmware/main/\S+\.c)", tekst):
+    for m in re.findall(r"(\S*\.\./\.\./firmware/kerne/\S+\.c)", tekst):
         p = (base / m).resolve()
         if p.exists():
             kilder.append(p)
@@ -223,8 +217,8 @@ def kilder_og_stier_fra_fuzz():
 
 
 def udfold(tekst):
-    """Erstatter de to cmake-variabler kerne.cmake bruger i stierne."""
-    return (tekst.replace("${ZS_MAIN_DIR}", (ROD / "firmware/main").as_posix())
+    """Erstatter de to cmake-variabler kilder.cmake bruger i stierne."""
+    return (tekst.replace("${ZS_KERNE_DIR}", (ROD / "firmware/kerne").as_posix())
                  .replace("${ZS_VENDOR_DIR}", (ROD / "firmware/vendor").as_posix()))
 
 
@@ -235,14 +229,14 @@ def blok_efter(tekst, navn):
 
 
 def kerne():
-    """Kilder og include-stier fra firmware/kerne.cmake.
+    """Kilder og include-stier fra firmware/kerne/kilder.cmake.
 
     Den fil findes fordi to produkter skal bygge af SAMME liste. Stod
     listen to steder, ville en ny fil i net/ komme med i den ene skaerm
     og ikke i den anden - og det ville ikke vaere en byggefejl, men en
     manglende funktion hos en kunde.
     """
-    tekst = udfold((ROD / "firmware/kerne.cmake").read_text(encoding="utf-8"))
+    tekst = udfold((ROD / "firmware/kerne/kilder.cmake").read_text(encoding="utf-8"))
     kilder = []
     for navn in ("ZS_MOTOR_SRCS", "ZS_FLADE_SRCS", "ZS_ASSET_SRCS"):
         for m in re.findall(r'"([^"]+\.c)"', blok_efter(tekst, navn)):
@@ -281,56 +275,48 @@ def tjek_board(navn, cmake, kerne_kilder, kerne_stier):
 def tjek_cmake():
     kerne_kilder, kerne_stier = kerne()
     if not kerne_kilder:
-        fejl.append("firmware/kerne.cmake: fandt ingen kilder. Er listen skrevet om?")
+        fejl.append("firmware/kerne/kilder.cmake: fandt ingen kilder. "
+                    "Er listen skrevet om?")
         return
-
-    s3 = tjek_board("zScreen", SRC / "CMakeLists.txt", kerne_kilder, kerne_stier)
-
-    # ZDisplays liste SKAL findes. Stod der "if exists" her, ville en
-    # flyttet eller omdoebt fil betyde at hele ZDisplay-halvdelen af
-    # vagten holdt op med at tjekke noget som helst - og udskriften
-    # ville stadig sige "alle seks bygninger". En vagt der ikke kan
-    # koere, skal sige fra.
-    p4_cmake = ROD / "firmware/boards/zdisplay/main/CMakeLists.txt"
-    if not p4_cmake.exists():
-        fejl.append(f"{p4_cmake.relative_to(ROD)} findes ikke. Er ZDisplay "
-                    f"flyttet? Vagten kan ikke tjekke det ene af de to "
-                    f"produkter, og saa tjekker den ikke det den lover.")
-        return
-    p4 = tjek_board("ZDisplay", p4_cmake, kerne_kilder, kerne_stier)
-
-    # Regel 1: motoren og fladen skal staa i kerne.cmake, saa BEGGE
-    # produkter bygger dem. Kun de fire board-filer maa staa alene i
-    # zScreens egen liste. Se KUN_ZSCREEN.
     i_kerne = set(kerne_kilder)
-    i_s3 = set(s3)
-    for c in sorted(SRC.rglob("*.c")):
-        rel = c.relative_to(SRC).as_posix()
-        if any(rel.startswith(x) for x in SPRING_OVER):
-            continue
-        p = c.resolve()
-        if rel in KUN_ZSCREEN:
-            if p not in i_s3:
-                fejl.append(f"firmware/main/{rel} staar i KUN_ZSCREEN i "
-                            f"check-byg.py, men ikke i firmware/main/"
-                            f"CMakeLists.txt. Saa bygger INGEN den.")
-        elif p not in i_kerne:
-            hvor = "zScreens egen liste" if p in i_s3 else "ingen liste"
-            fejl.append(f"firmware/main/{rel} staar i {hvor} og ikke i "
-                        f"firmware/kerne.cmake. Saa bliver den ikke oversat "
-                        f"til ZDisplay, og det er ikke en byggefejl - det er "
-                        f"en funktion der mangler paa det ene produkt. Hoerer "
-                        f"den kun til paa zScreen, saa skriv den i "
-                        f"KUN_ZSCREEN i check-byg.py.")
 
-    # Og at ZDisplays egne filer er med i dens egen liste. De ligger
-    # ikke under firmware/main, saa reglen ovenfor naar dem ikke.
-    i_p4 = set(p4) | i_kerne
-    for c in sorted(p4_cmake.parent.rglob("*.c")):
-        if c.resolve() not in i_p4:
-            rel = c.relative_to(ROD).as_posix()
-            fejl.append(f"{rel} findes, men staar ikke i SRCS. Den bliver "
-                        f"aldrig oversat til ZDisplay.")
+    # Regel 1: ALT i firmware/kerne skal staa i kilder.cmake.
+    #
+    # Ellers bliver filen slet ikke oversat - eller, vaerre, kun af det
+    # ene produkt. Det ville ikke vaere en byggefejl, men en funktion
+    # der mangler hos en kunde paa det ene produkt.
+    for c in sorted(SRC.rglob("*.c")):
+        if c.resolve() not in i_kerne:
+            rel = c.relative_to(SRC).as_posix()
+            fejl.append(f"firmware/kerne/{rel} findes, men staar ikke i "
+                        f"firmware/kerne/kilder.cmake. Saa bliver den ikke "
+                        f"oversat til nogen af skaermene. Hoerer den kun til "
+                        f"paa ét board, saa laeg den i "
+                        f"firmware/boards/<navn>/main/ i stedet.")
+
+    # Regel 2: hvert board bygger sine EGNE filer, og kan finde de
+    # headere baade dens egne og motorens beder om.
+    for board in BOARDS:
+        cmake = ROD / f"firmware/boards/{board}/main/CMakeLists.txt"
+        if not cmake.exists():
+            # En vagt der ikke kan koere, skal sige fra. Stod der
+            # "if exists" her, ville en flyttet fil betyde at det ene
+            # produkt holdt op med at blive tjekket, mens udskriften
+            # stadig sagde at alt var i orden.
+            fejl.append(f"{cmake.relative_to(ROD)} findes ikke. Er {board} "
+                        f"flyttet eller doebt om? Saa tjekker vagten ikke det "
+                        f"den lover. Er produktet vaek, skal det ud af "
+                        f"BOARDS i check-byg.py.")
+            continue
+
+        egne = tjek_board(board, cmake, kerne_kilder, kerne_stier)
+
+        i_board = set(egne) | i_kerne
+        for c in sorted(cmake.parent.rglob("*.c")):
+            if c.resolve() not in i_board:
+                rel = c.relative_to(ROD).as_posix()
+                fejl.append(f"{rel} findes, men staar ikke i SRCS. Den bliver "
+                            f"aldrig oversat til {board}.")
 
 
 def main():
@@ -359,8 +345,8 @@ def main():
         print(f"\n  {len(fejl)} ting at rette.")
         return 1
 
-    print("  alle kilder er med, motoren er fri af hardware, og alle seks "
-          "bygninger kan finde det de beder om")
+    print(f"  alle kilder er med, motoren er fri af hardware, og "
+          f"{len(BOARDS) + 3} bygninger kan finde det de beder om")
     return 0
 
 

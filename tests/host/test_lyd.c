@@ -18,7 +18,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/ui/zs_lyd.c"
+#include "../../firmware/boards/zscreen/main/zs_lyd.c"
 
 /*
  * Afkoderen. Skrevet efter beskrivelsen af COBS og ikke efter

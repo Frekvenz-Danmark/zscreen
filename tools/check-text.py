@@ -22,8 +22,8 @@ import sys
 import unicodedata
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-ASSETS = ROOT / "firmware/main/ui/assets"
-SRC = ROOT / "firmware/main"
+ASSETS = ROOT / "firmware/kerne/ui/assets"
+SRC = ROOT / "firmware/kerne"
 
 # Skrifttyper der bruges til tekst brugeren laeser. Ikon-skrifttyperne
 # staar ikke her: de daekker med vilje kun et par private kodepunkter,

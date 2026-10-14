@@ -103,7 +103,7 @@ brew reinstall expat python@3.12
 
 ```bash
 source tools/env.sh
-cd firmware
+cd firmware/boards/zscreen
 idf.py build
 ls /dev/cu.usbmodem*                      # find porten
 idf.py -p /dev/cu.usbmodemXXXX flash monitor
@@ -128,7 +128,7 @@ D1 findes med to panelvarianter, GX og DX. Vi bygger til **GX**, som er
 standard.
 
 Er billedet forskudt, spejlvendt eller har forkerte farver, så skift i
-`firmware/sdkconfig.defaults`:
+`firmware/boards/zscreen/sdkconfig.defaults`:
 
 ```
 CONFIG_SENSECAP_INDICATOR_SCREEN_GX=y      # ← denne ud

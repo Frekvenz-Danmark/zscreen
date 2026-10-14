@@ -3,7 +3,7 @@
 Skærmen kan bippe når noget er galt. Det kræver to ting, og rækkefølgen
 er ligegyldig:
 
-1. `ZS_LYD_ENABLED` sat til `1` i `firmware/main/zs_config.h`
+1. `ZS_LYD_ENABLED` sat til `1` i `firmware/kerne/zs_config.h`
 2. Firmwaren her i mappen flashet i skærmens **anden** chip
 
 Mangler den ene, er der ingen lyd. Blinket og baglys-pulsen virker

@@ -37,7 +37,7 @@ import re
 import sys
 
 ROD = pathlib.Path(__file__).resolve().parent.parent
-UI = ROD / "firmware/main/ui"
+UI = ROD / "firmware/kerne/ui"
 LAYOUT = UI / "zs_layout.h"
 
 fejl = []

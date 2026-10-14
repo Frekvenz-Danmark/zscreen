@@ -9,7 +9,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_sunspec.h"
+#include "../../firmware/kerne/net/zs_sunspec.h"
 
 #include <stdlib.h>
 #include <string.h>

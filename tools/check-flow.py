@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 ROD = Path(__file__).resolve().parent.parent
-UI = ROD / "firmware/main/ui"
+UI = ROD / "firmware/kerne/ui"
 
 GROEN = "\033[1;32m"
 ROED = "\033[1;31m"

@@ -68,7 +68,7 @@ Det skal maales paa stedet hvad der faktisk sker naar batteriet rammer
 
 ## Hvad der ER bevist, uden en inverter
 
-Oversaettelsen. `firmware/main/net/zs_ladeplan.c` laver fire
+Oversaettelsen. `firmware/kerne/net/zs_ladeplan.c` laver fire
 registervaerdier af en tilstand og en rate, og tabellen ovenfor er
 proevet raekke for raekke i `tests/host/test_ladeplan.c` - med tallene
 skrevet ud, ikke laant fra koden, saa en aendret skala ikke kan bestaa

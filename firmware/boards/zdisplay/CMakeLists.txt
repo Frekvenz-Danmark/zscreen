@@ -1,6 +1,7 @@
 # ZDisplay - firmware til Seeed reTerminal D1001, ESP32-P4.
 #
-# Samme motor som zScreen. Se ../../kerne.cmake og docs/zdisplay.md.
+# Samme motor som zScreen. Se ../../kerne/kilder.cmake og
+# docs/zdisplay.md.
 #
 # ESP-IDF skal vaere v5.4.2. ESP32-P4 kraever mindst v5.3, og 5.4.2 er
 # den Seeed selv bygger og proever deres SDK med.
@@ -85,4 +86,13 @@ idf_build_set_property(COMPILE_DEFINITIONS "ZS_BOARD_D1001=1" APPEND)
 # benudvider - og vores egen LVGL 8.3-port ovenpaa. Se main/lv_port.c.
 idf_build_set_property(COMPILE_DEFINITIONS "BSP_CONFIG_NO_GRAPHIC_LIB=1" APPEND)
 
-project(zdisplay)
+# Versionsnummeret kommer fra firmware/version.txt, som BEGGE produkter
+# deler.
+#
+# HER STOD DER FOER BARE "project(zdisplay)". Saa faldt ESP-IDF tilbage
+# paa "git describe", fordi der ikke laa en version.txt i projektmappen,
+# og appen hed "v0.27.0-dirty". Det er IKKE et versionsnummer
+# zs_version_parse kan laese, og en skaerm der ikke forstaar sin egen
+# version opdaterer aldrig. Se ZS_VERSION i kerne/kilder.cmake.
+include("${ZS_FW_DIR}/kerne/kilder.cmake")
+project(zdisplay VERSION ${ZS_VERSION})

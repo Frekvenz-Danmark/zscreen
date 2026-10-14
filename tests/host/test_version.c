@@ -11,7 +11,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_version.h"
+#include "../../firmware/kerne/net/zs_version.h"
 
 void test_version(void)
 {

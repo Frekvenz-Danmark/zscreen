@@ -80,7 +80,7 @@ UDENFOR = ("DESIGN.txt", "modbus_controller.py",
 def konstanter():
     """Alle ZS_-konstanter med et tal, fra hele firmwaren."""
     ud = {}
-    for f in (ROD / "firmware/main").rglob("*.h"):
+    for f in (ROD / "firmware/kerne").rglob("*.h"):
         if "assets" in str(f):
             continue
         for m in re.finditer(r"#define\s+(ZS_\w+)\s+\(?\s*(-?\d+)\s*\)?",
@@ -111,8 +111,8 @@ def batteritabellen():
     kraeves kun at findes i koden, ikke i tabellen.
     """
     dok = ROD / "docs/batteristyring.md"
-    kode = ROD / "firmware/main/net/zs_ladeplan.c"
-    hdr = ROD / "firmware/main/net/zs_ladeplan.h"
+    kode = ROD / "firmware/kerne/net/zs_ladeplan.c"
+    hdr = ROD / "firmware/kerne/net/zs_ladeplan.h"
     fejl = []
     if not (dok.exists() and kode.exists() and hdr.exists()):
         return fejl, 0
@@ -238,9 +238,9 @@ def main():
                 nk += 1
                 navn = m.group(1)
                 if navn not in kon and not any(
-                        (ROD / "firmware/main").rglob("*.h")
+                        (ROD / "firmware/kerne").rglob("*.h")
                         and navn in f.read_text(encoding="utf-8")
-                        for f in (ROD / "firmware/main").rglob("*.h")):
+                        for f in (ROD / "firmware/kerne").rglob("*.h")):
                     fejl.append(f"{d.name}:{nr}: {navn} findes ikke i koden")
             for m in re.finditer(
                     r"`([a-zA-Z0-9_./-]+\.(?:c|h|py|sh|yml|csv|txt|json|pem))`", l):
@@ -249,7 +249,7 @@ def main():
                 if Path(p).name in UDENFOR:
                     continue
                 if any((ROD / k).exists() for k in
-                       (p, f"firmware/main/{p}", f"firmware/{p}",
+                       (p, f"firmware/kerne/{p}", f"firmware/{p}",
                         f"tools/{p}", f"tests/{p}", f"docs/{p}")):
                     continue
                 if list(ROD.rglob(Path(p).name)):

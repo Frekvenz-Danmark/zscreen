@@ -35,7 +35,7 @@
 # med fejlen stadig i koden. Foerste byg sagde fra, det naeste ikke.
 #
 # Derfor er de fire advarsler der betyder noget, lavet til FEJL for
-# vores egen kode - se ZS_STRENGE_FLAG i firmware/kerne.cmake. En fejl
+# vores egen kode - se ZS_STRENGE_FLAG i firmware/kerne/kilder.cmake. En fejl
 # bliver siddende, fordi objektfilen aldrig bliver lavet. Tjekket her
 # staar tilbage for de advarsler der ikke er promoveret.
 #
@@ -49,7 +49,29 @@ cd "$(dirname "$0")/.."
 
 # Advarsler i VORES egen kode, altsaa ikke i Seeeds BSP eller i LVGL.
 # Samme moenster som .github/workflows/test.yml bruger.
-VORES_KODE="(firmware/main|boards/zdisplay/main)/.*(warning|error):"
+VORES_KODE="(firmware/kerne|boards/zscreen/main|boards/zdisplay/main)/.*(warning|error):"
+
+# sdkconfig.defaults RAMMER IKKE EN sdkconfig DER FINDES I FORVEJEN.
+#
+# ESP-IDF laeser kun defaults naar den genererer sdkconfig. Retter man
+# en linje i defaults bagefter, sker der INGENTING - byggeriet bruger
+# den gamle vaerdi, og man leder efter fejlen i koden.
+#
+# Det kostede en byggefejl 14. oktober 2026: flashen blev rettet fra 16
+# til 32 MB i defaults, og partitionstabellen blev stadig genereret med
+# 16, saa den nye tabel "did not fit in configured flash size 16MB".
+# Dér var det heldigvis en fejl. Havde aendringen vaeret en timeout
+# eller en loggraense, var den bare blevet ignoreret i stilhed.
+#
+# Derfor: er defaults nyere end den genererede fil, saa sig det.
+tjek_sdkconfig() {
+    # $1 = projektmappe, $2 = navn
+    if [ -f "$1/sdkconfig" ] && [ "$1/sdkconfig.defaults" -nt "$1/sdkconfig" ]; then
+        echo "  OBS ($2): sdkconfig.defaults er rettet EFTER at sdkconfig blev"
+        echo "  lavet, og saa gaelder aendringen ikke. Slet den genererede:"
+        echo "      rm $1/sdkconfig"
+    fi
+}
 
 tjek_advarsler() {
     # $1 = byggeudskriften, $2 = navnet paa skaermen
@@ -71,6 +93,7 @@ if [ ! -f "${HOME}/esp/esp-idf-5.4.2/export.sh" ]; then
     echo "  SPRINGET OVER: ESP-IDF 5.4.2 er ikke sat op, saa ZDisplay er"
     echo "  IKKE oversat. Se docs/zdisplay.md. (ikke en fejl)"
 else
+    tjek_sdkconfig firmware/boards/zdisplay ZDisplay
     echo "  bygger ZDisplay. Det tager et par minutter."
     ZUD="$(mktemp)"
     # PATH=/usr/bin foerst: homebrews python vaelter IDF's export.sh.
@@ -105,9 +128,12 @@ if [ ! -f "${HOME}/esp/esp-idf/export.sh" ] || \
     exit "${FEJL}"
 fi
 
+tjek_sdkconfig firmware/boards/zscreen zScreen
 echo "  bygger zScreen. Det tager et par minutter."
 UD="$(mktemp)"
-if ( cd firmware && . ../tools/env.sh >/dev/null 2>&1 && idf.py build ) \
+if ( cd firmware/boards/zscreen \
+     && . ../../../tools/env.sh >/dev/null 2>&1 \
+     && idf.py build ) \
         > "${UD}" 2>&1; then
     # APPENS stoerrelse, ikke bootloaderens.
     #
@@ -120,8 +146,8 @@ if ( cd firmware && . ../tools/env.sh >/dev/null 2>&1 && idf.py build ) \
     # Signaturen staar kun i udskriften naar binaeren blev lavet om. Ved et
     # inkrementelt byg sker der ingenting, og det er ikke en fejl. Vi
     # spoerger filen i stedet for udskriften.
-    if [ -f firmware/build/zscreen.bin ]; then
-        echo "  signeret binaer: $(wc -c < firmware/build/zscreen.bin | tr -d ' ') bytes"
+    if [ -f firmware/boards/zscreen/build/zscreen.bin ]; then
+        echo "  signeret binaer: $(wc -c < firmware/boards/zscreen/build/zscreen.bin | tr -d ' ') bytes"
     fi
     if tjek_advarsler "${UD}" "zScreen"; then
         echo "  zScreen bygger"

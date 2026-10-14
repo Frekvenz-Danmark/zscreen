@@ -19,7 +19,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 CACHE=".assets-cache"
-OUT="../firmware/main/ui/assets"
+OUT="../firmware/kerne/ui/assets"
 FORCE="${1:-}"
 
 mkdir -p "${CACHE}" "${OUT}"
@@ -218,7 +218,7 @@ build_icons() {
 info "Bygger ikoner"
 build_icons zs_icons_20 20
 build_icons zs_icons_28 28
-python3 icons.py --header "../firmware/main/ui/zs_icons.h" \
+python3 icons.py --header "../firmware/kerne/ui/zs_icons.h" \
     || fail "kunne ikke skrive zs_icons.h"
 
 # ---------------------------------------------------------------------

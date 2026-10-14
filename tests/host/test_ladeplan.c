@@ -17,7 +17,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_ladeplan.h"
+#include "../../firmware/kerne/net/zs_ladeplan.h"
 
 #include <stdlib.h>
 #include <string.h>

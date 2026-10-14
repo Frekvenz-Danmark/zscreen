@@ -18,7 +18,7 @@
  * Imens: ingen lyd. Det er den samme tilstand zScreen staar i
  * (ZS_LYD_ENABLED er 0 der), og fladen er bygget til det - en skaerm
  * uden lyd pulserer stadig, baade i fladen og i baglyset. Se
- * firmware/main/ui/zs_lyd.h.
+ * firmware/kerne/hal/zs_lyd.h.
  *
  * zs_lyd_pakke() findes IKKE i den her fil. Den indpakker en COBS-pakke
  * til RP2040'eren paa zScreen, og der er ingen RP2040 her. Ingen i

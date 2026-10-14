@@ -1,5 +1,5 @@
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_tilmeld.h"
+#include "../../firmware/kerne/net/zs_tilmeld.h"
 
 /* Levetiden i millisekunder. Ét sted, saa proeverne ikke gentager
  * regnestykket og kan komme ud af trit med headeren. */

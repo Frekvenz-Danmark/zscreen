@@ -1,3 +1,77 @@
+## 2026-10-14 16:40
+
+### De to produkter står nu symmetrisk, og flashen er målt til 32 MB
+Den fælles kode lå inde i zScreens egen `main/`, så `boards/zdisplay/`
+rakte op i det andet produkts mappe, og zScreens fire board-filer lå
+blandet mellem de fælles. Adskillelsen var rigtig og håndhævet, men
+placeringen var skæv, og et tredje produkt ville arve skævheden.
+
+Nu:
+
+```
+firmware/
+  version.txt       ét versionsnummer, begge produkter
+  kerne/            kilder.cmake, net/ app/ util/ storage/ ui/ hal/
+  boards/zscreen/   ESP32-S3, 480 x 480
+  boards/zdisplay/  ESP32-P4, 800 x 1280
+```
+
+**Et nyt produkt er fire filer:** `main.c` plus én for hver kontrakt i
+`kerne/hal/` — `lv_port.h`, `zs_baglys.h` og `zs_lyd.h`. Ingen af de to
+boards rækker ind i den anden.
+
+191 stier i 61 filer blev rettet. `ÆNDRINGER.md` er med vilje **ikke**
+rettet: den beskriver hvordan det så ud dengang. Git har registreret
+flytningerne som omdøbninger, så historikken følger filerne.
+
+**Vagten blev simplere, og det er beviset på at strukturen er bedre.**
+`check-byg.py` måtte have en liste ved navn `KUN_ZSCREEN` over de fire
+undtagelser, fordi den ikke kunne se forskel på "fælles" og "kun
+zScreen" ud fra hvor filen lå. Listen er væk. Reglen er nu: ligger filen
+i `kerne/`, skal den bygges af alle; ligger den i
+`boards/<navn>/main/`, af dét board. Vagten løber over `BOARDS` i
+stedet for at kende zScreen ved navn.
+
+**Og én vagt havde mistet dækning uden at sige det.**
+`check-lvgl-laas.py` tjekkede kun zScreens `main.c`. ZDisplays opstart
+og dens `lv_port.c` var ikke tjekket af nogen — og de gør præcis det
+reglen handler om: tager låsen om `zs_ui_init()` og kvitterer til LVGL
+fra en afbrydelse. Nu er alle fire board-filer med, og mangler en af
+dem, siger vagten fra i stedet for at tjekke mindre.
+
+### Flashen er 32 MB. Målt, ikke læst
+```
+esptool.py --port /dev/cu.usbmodem1101 flash_id
+Chip is ESP32-P4 (revision v1.3)
+Detected flash size: 32MB
+```
+
+Her stod 16 MB, fordi Seeeds wiki sagde 32 og deres egen sdkconfig sagde
+16, og vi skrev det lave tal indtil nogen havde målt. `storage` vokser
+fra 7,9 til 23,9 MB. De to app-pladser bliver på 4 MB hver, og de kan
+ikke flyttes på en enhed der er sendt ud.
+
+**Fabrikken brugte kun 13 af de 32 MB — og havde ingen OTA-plads.** En
+enhed med Seeeds egen firmware kan ikke opdateres over netværket. Hele
+fabriksflashen er sikret som `~/esp/d1001-fabrik/` med en SHA256, så
+enheden kan sættes tilbage.
+
+### To fælder der blev fanget undervejs
+**ZDisplay havde intet versionsnummer.** Der lå ingen `version.txt` i
+dens projektmappe, så ESP-IDF faldt tilbage på `git describe` og kaldte
+appen `v0.27.0-dirty`. Det er ikke noget `zs_version_parse` kan læse, og
+en skærm der ikke forstår sin egen version opdaterer **aldrig**. Nu
+læser begge produkter det samme `firmware/version.txt`, og bygningen
+falder hvis det ikke er tre tal med punktummer.
+
+**Og `sdkconfig.defaults` ramte ikke den eksisterende `sdkconfig`.**
+Flashen blev rettet til 32 MB i defaults, og tabellen blev stadig
+genereret med 16, så bygningen faldt på "does not fit in configured
+flash size 16MB". Her var det heldigvis en fejl — havde ændringen været
+en timeout, var den blevet ignoreret i stilhed.
+`tools/byg-firmware.sh` siger nu fra hvis defaults er nyere end den
+genererede fil, og skriver kommandoen der skal køres.
+
 ## 2026-10-14 14:45
 
 ### CI faldt på én advarsel, og vagten jeg lavede for det holdt ikke

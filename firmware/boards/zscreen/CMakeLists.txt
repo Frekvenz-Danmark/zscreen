@@ -7,10 +7,17 @@
 # vores kode og hvad der er deres.
 #
 # ESP-IDF skal vaere v5.1.x. Se tools/setup-toolchain.sh for hvorfor.
+#
+#     source tools/env.sh
+#     cd firmware/boards/zscreen
+#     idf.py build
+#
+# Motoren og fladen staar i ../../kerne/. Se kerne/kilder.cmake.
 
 cmake_minimum_required(VERSION 3.16)
 
-set(SEEED_SDK "${CMAKE_CURRENT_LIST_DIR}/vendor/SenseCAP_Indicator_ESP32")
+get_filename_component(ZS_FW_DIR "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(SEEED_SDK "${ZS_FW_DIR}/vendor/SenseCAP_Indicator_ESP32")
 
 if(NOT EXISTS "${SEEED_SDK}/components/bsp/CMakeLists.txt")
     message(FATAL_ERROR
@@ -21,7 +28,19 @@ endif()
 set(EXTRA_COMPONENT_DIRS "${SEEED_SDK}/components")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(zscreen)
+
+# Skaermens maal, sat fra byggeriet og ikke fra en header. Se
+# forklaringen i kerne/ui/zs_layout.h. 480 x 480 er ogsaa standarden
+# derinde, men begge boards siger det HER, saa moensteret er det samme
+# og man kan se maalene uden at lede.
+idf_build_set_property(COMPILE_DEFINITIONS "ZS_G_SCR_WIDTH=480" APPEND)
+idf_build_set_property(COMPILE_DEFINITIONS "ZS_G_SCR_HEIGHT=480" APPEND)
+
+# Versionsnummeret kommer fra firmware/version.txt, som BEGGE produkter
+# deler. Se ZS_VERSION i kerne/kilder.cmake for hvorfor det ikke bare
+# ligger i projektmappen som ESP-IDF ellers forventer.
+include("${ZS_FW_DIR}/kerne/kilder.cmake")
+project(zscreen VERSION ${ZS_VERSION})
 
 # ---------------------------------------------------------------------
 # Seeeds komponenter og ESP-IDF v5.1.7

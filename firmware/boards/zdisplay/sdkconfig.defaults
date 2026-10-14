@@ -34,9 +34,18 @@ CONFIG_CACHE_L2_CACHE_256KB=y
 CONFIG_CACHE_L2_CACHE_LINE_128B=y
 
 # ── Flash ─────────────────────────────────────────────────────────────
-# 16 MB indtil det er maalt paa enheden. Se partitions.csv.
+#
+# 32 MB, MAALT paa enheden 14. oktober 2026:
+#
+#   esptool.py --port /dev/cu.usbmodem1101 flash_id
+#   Chip is ESP32-P4 (revision v1.3)
+#   Detected flash size: 32MB
+#
+# Her stod 16 MB, fordi Seeeds egen sdkconfig til fabriksfirmwaren
+# saetter det, og deres wiki siger 32. De to passede ikke sammen, og vi
+# skrev det lave tal indtil nogen havde maalt. Nu er det maalt.
 CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
-CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y
 
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"

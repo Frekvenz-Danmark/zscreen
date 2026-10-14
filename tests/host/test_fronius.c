@@ -12,7 +12,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_fronius.c"
+#include "../../firmware/kerne/net/zs_fronius.c"
 
 static void ch_set(zs_fr_channel_t *c, const char *label, float w, int32_t dcst)
 {

@@ -38,13 +38,17 @@ CFLAGS=(
     # Modulerne finder hinanden med korte navne, praecis som naar
     # firmwaren bygges. Uden det skulle hver include skrives med sti,
     # og saa ville de to bygninger ikke se ens ud.
-    -I../../firmware/main
-    -I../../firmware/main/app
-    -I../../firmware/main/net
-    -I../../firmware/main/ui
+    -I../../firmware/kerne
+    # hal/ er kontrakterne mellem motoren og boardet: zs_baglys.h,
+    # zs_lyd.h og lv_port.h. test_lyd.c inkluderer zScreens egen
+    # zs_lyd.c, og den beder om zs_lyd.h herfra.
+    -I../../firmware/kerne/hal
+    -I../../firmware/kerne/app
+    -I../../firmware/kerne/net
+    -I../../firmware/kerne/ui
     -I../../firmware/vendor/qrcodegen
-    -I../../firmware/main/storage
-    -I../../firmware/main/util
+    -I../../firmware/kerne/storage
+    -I../../firmware/kerne/util
     # Hvor proevekludene ligger. Eksplicit, saa en test ikke skal gaette
     # paa hvilken mappe den bliver koert fra.
     -DZS_FIXTURES=\"../fixtures\"
@@ -86,28 +90,28 @@ SRC=(
     test_maerker.c
     test_tekst.c
     test_energi.c
-    ../../firmware/main/util/zs_tekst.c
-    ../../firmware/main/util/zs_tid.c
-    ../../firmware/main/net/zs_tilmeld.c
-    ../../firmware/main/net/zs_ladeplan.c
-    ../../firmware/main/net/zs_ladeordre.c
-    ../../firmware/main/app/zs_status.c
-    ../../firmware/main/app/zs_fejl.c
-    ../../firmware/main/ui/zs_qr.c
+    ../../firmware/kerne/util/zs_tekst.c
+    ../../firmware/kerne/util/zs_tid.c
+    ../../firmware/kerne/net/zs_tilmeld.c
+    ../../firmware/kerne/net/zs_ladeplan.c
+    ../../firmware/kerne/net/zs_ladeordre.c
+    ../../firmware/kerne/app/zs_status.c
+    ../../firmware/kerne/app/zs_fejl.c
+    ../../firmware/kerne/ui/zs_qr.c
     ../../firmware/vendor/qrcodegen/qrcodegen.c
-    ../../firmware/main/net/zs_modbus_tcp.c
-    ../../firmware/main/net/zs_sunspec.c
-    ../../firmware/main/net/zs_maerker.c
-    ../../firmware/main/net/zs_energi.c
-    ../../firmware/main/net/zs_kvarter.c
-    ../../firmware/main/app/zs_format.c
-    ../../firmware/main/net/zs_version.c
-    ../../firmware/main/ui/zs_tilegrid.c
-    ../../firmware/main/app/zs_demo.c
-    ../../firmware/main/net/zs_price_now.c
-    ../../firmware/main/net/zs_fleet_msg.c
-    ../../firmware/main/net/zs_locate.c
-    ../../firmware/main/net/zs_discovery.c
+    ../../firmware/kerne/net/zs_modbus_tcp.c
+    ../../firmware/kerne/net/zs_sunspec.c
+    ../../firmware/kerne/net/zs_maerker.c
+    ../../firmware/kerne/net/zs_energi.c
+    ../../firmware/kerne/net/zs_kvarter.c
+    ../../firmware/kerne/app/zs_format.c
+    ../../firmware/kerne/net/zs_version.c
+    ../../firmware/kerne/ui/zs_tilegrid.c
+    ../../firmware/kerne/app/zs_demo.c
+    ../../firmware/kerne/net/zs_price_now.c
+    ../../firmware/kerne/net/zs_fleet_msg.c
+    ../../firmware/kerne/net/zs_locate.c
+    ../../firmware/kerne/net/zs_discovery.c
 )
 
 # Headerne tjekkes foerst. Et navnesammenstoed mellem en konstant og en

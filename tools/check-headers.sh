@@ -18,7 +18,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SRC="firmware/main"
+SRC="firmware/kerne"
 FAIL=0
 
 # Alle include-guards, altsaa det navn der staar lige efter #ifndef paa

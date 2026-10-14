@@ -1,5 +1,5 @@
 #include "zs_test.h"
-#include "../../firmware/main/ui/zs_qr.h"
+#include "../../firmware/kerne/ui/zs_qr.h"
 
 /*
  * Søgemønstret: hvert af de tre hjørner i en QR har et 7x7 mærke der

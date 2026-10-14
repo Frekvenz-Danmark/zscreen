@@ -1,7 +1,7 @@
 /*
  * ZDisplay - LVGL 8.3 oven paa et MIPI-DSI-panel.
  *
- * Samme kontrakt som zScreens lv_port.c (se firmware/main/lv_port.h):
+ * Samme kontrakt som zScreens lv_port.c (se firmware/kerne/hal/lv_port.h):
  * lv_port_init(), og en rekursiv laas om alt der roerer LVGL. Men
  * hardwaren under den er en anden, og derfor er filen sin egen.
  *
@@ -170,7 +170,7 @@ static void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *co
  * og 65531 lige efter opstart, blev regnet om til et negativt tal, foldt
  * rundt i LVGL's int16, og landede som et tryk paa et vilkaarligt sted
  * paa skaermen. Skaermen startede demoen af sig selv halvandet sekund
- * efter opstart. Se den lange note i firmware/main/lv_port.c.
+ * efter opstart. Se den lange note i firmware/boards/zscreen/main/lv_port.c.
  *
  * Kredsen er en anden her (GSL3670 i stedet for FT5x06), og den har ikke
  * vist den opfoersel. Men prisen for tjekket er to sammenligninger, og

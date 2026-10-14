@@ -11,7 +11,7 @@ viser sig som en skaerm der fryser eller et billede der gaar i stykker,
 og det sker en gang om ugen uden moenster. Den slags fejl kan ikke
 fejlsoeges bagefter, den skal forhindres.
 
-Reglen i huset er at ALT i firmware/main/ui selv tager laasen, saa ingen
+Reglen i huset er at ALT i firmware/kerne/ui selv tager laasen, saa ingen
 kalder skal huske det. Den regel stod kun som en kommentar, og en
 kommentar holder ingen i haanden.
 
@@ -33,9 +33,18 @@ import sys
 from pathlib import Path
 
 ROD = Path(__file__).resolve().parent.parent
-UI = ROD / "firmware/main/ui"
-UDEFRA = [ROD / "firmware/main/app", ROD / "firmware/main/net"]
-MAIN = ROD / "firmware/main/main.c"
+UI = ROD / "firmware/kerne/ui"
+UDEFRA = [ROD / "firmware/kerne/app", ROD / "firmware/kerne/net"]
+# BEGGE produkters opstart OG deres LVGL-porte.
+#
+# Her stod kun zScreens main.c. Da ZDisplay kom til, var dens opstart og
+# dens lv_port.c ikke tjekket af nogen - og de gOEr praecis det her
+# handler om: tager laasen om zs_ui_init(), og kalder lv_disp_flush_ready
+# fra en afbrydelse. En vagt der kun daekker det ene produkt, er ikke en
+# vagt paa reglen; den er en vagt paa ét board.
+MAIN = [ROD / f"firmware/boards/{b}/main/{f}"
+        for b in ("zscreen", "zdisplay")
+        for f in ("main.c", "lv_port.c")]
 
 GROEN = "\033[1;32m"
 ROED = "\033[1;31m"
@@ -91,7 +100,16 @@ def main():
             }
 
     # Hvem bliver kaldt fra udenfor brugerfladen.
-    kilder = [MAIN] if MAIN.exists() else []
+    # Hver af de fire board-filer SKAL findes. Mangler en, er et
+    # produkt flyttet, og saa tjekker vagten ikke det den lover.
+    kilder = []
+    for m in MAIN:
+        if m.exists():
+            kilder.append(m)
+        else:
+            print(f"  \033[1;31mFEJL\033[0m {m.relative_to(ROD)} findes ikke. "
+                  f"Er et board flyttet? Se MAIN i check-lvgl-laas.py")
+            return 1
     for d in UDEFRA:
         kilder += sorted(d.glob("*.c"))
 

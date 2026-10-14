@@ -13,7 +13,7 @@
 # Der skulle én ting til, og den var ikke i LCD-driveren: GCC 13, som
 # foelger med 5.3, goer et enum-mismatch i Seeeds lydkodek es8388.c til
 # en fejl. Det er kode vi ikke bruger paa en energiskaerm, og det loeses
-# med ét betinget flag, se firmware/CMakeLists.txt. Resultatet er nul
+# med ét betinget flag, se firmware/boards/zscreen/CMakeLists.txt. Resultatet er nul
 # advarsler i vores egen kode og en binaer der er 1,7 procent mindre.
 #
 # Arbejdet ligger paa grenen idf-5.3, som bygger groent i CI med 5.3.6.
@@ -236,7 +236,7 @@ cat <<TXT
      source tools/env.sh
 
  Byg og flash:
-     cd firmware
+     cd firmware/boards/zscreen
      idf.py build
      idf.py -p /dev/cu.usbmodemXXXX flash monitor
 

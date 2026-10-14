@@ -77,7 +77,7 @@ jobs:
         shell: bash
         run: |
           . $IDF_PATH/export.sh
-          cd firmware
+          cd firmware/boards/zscreen
           sed -i 's|^CONFIG_SECURE_.*||' sdkconfig.defaults
           idf.py build
 
@@ -85,10 +85,10 @@ jobs:
         shell: bash
         run: |
           . $IDF_PATH/export.sh
-          cd firmware
+          cd firmware/boards/zscreen
           rm -rf build
           idf.py build 2>&1 | tee /tmp/byg.log
-          if grep -E "firmware/main/.*(warning|error):" /tmp/byg.log; then
+          if grep -E "(firmware/kerne|boards/zscreen/main)/.*(warning|error):" /tmp/byg.log; then
             echo "Der er advarsler i vores egen kode."
             exit 1
           fi
@@ -98,7 +98,7 @@ jobs:
     name: Byg ZDisplay
     # HVORFOR DET HER JOB FINDES.
     #
-    # De to produkter deler motoren i firmware/kerne.cmake. Uden det her
+    # De to produkter deler motoren i firmware/kerne/kilder.cmake. Uden det her
     # job kan en aendring i net/ eller app/ vaere groen hele vejen og
     # samtidig have braekket ZDisplay, og ingen ville se det foer nogen
     # byggede i haanden.
@@ -135,9 +135,9 @@ jobs:
           cd firmware/boards/zdisplay
           rm -rf build
           idf.py build 2>&1 | tee /tmp/byg-zdisplay.log
-          # Baade den delte kode i firmware/main og boardets egne filer.
+          # Baade den delte kode i firmware/kerne og boardets egne filer.
           # Seeeds BSP og LVGL er ikke vores, og de advarer.
-          if grep -E "(firmware/main|boards/zdisplay/main)/.*(warning|error):" /tmp/byg-zdisplay.log; then
+          if grep -E "(firmware/kerne|boards/zdisplay/main)/.*(warning|error):" /tmp/byg-zdisplay.log; then
             echo "Der er advarsler i vores egen kode."
             exit 1
           fi

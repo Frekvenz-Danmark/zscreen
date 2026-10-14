@@ -32,17 +32,17 @@ fi
 "${CC}" -std=c11 -DZS_HOST_BUILD=1 -g "${EKSTRA[@]}" \
     -Wall -Wextra -Werror -Wshadow -Wpointer-arith -Wstrict-prototypes \
     -Wno-unused-parameter \
-    -I../../firmware/main -I../../firmware/main/net -I../../firmware/main/app \
-    -I../../firmware/main/util \
+    -I../../firmware/kerne -I../../firmware/kerne/net -I../../firmware/kerne/app \
+    -I../../firmware/kerne/util \
     zs_probe.c \
-    ../../firmware/main/util/zs_tekst.c \
-    ../../firmware/main/net/zs_modbus_tcp.c \
-    ../../firmware/main/net/zs_sunspec.c \
-    ../../firmware/main/net/zs_fronius.c \
-    ../../firmware/main/net/zs_discovery.c \
-    ../../firmware/main/net/zs_locate.c \
-    ../../firmware/main/app/zs_format.c \
-    ../../firmware/main/net/zs_maerker.c \
-    ../../firmware/main/app/zs_status.c \
+    ../../firmware/kerne/util/zs_tekst.c \
+    ../../firmware/kerne/net/zs_modbus_tcp.c \
+    ../../firmware/kerne/net/zs_sunspec.c \
+    ../../firmware/kerne/net/zs_fronius.c \
+    ../../firmware/kerne/net/zs_discovery.c \
+    ../../firmware/kerne/net/zs_locate.c \
+    ../../firmware/kerne/app/zs_format.c \
+    ../../firmware/kerne/net/zs_maerker.c \
+    ../../firmware/kerne/app/zs_status.c \
     -lm -o "${UD}"
 echo "${UD} bygget"

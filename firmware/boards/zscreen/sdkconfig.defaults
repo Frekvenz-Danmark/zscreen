@@ -133,7 +133,9 @@ CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
 CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
 CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
 CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y
-CONFIG_SECURE_BOOT_SIGNING_KEY="../secure/zscreen-signing.pem"
+# Stien er relativ til PROJEKTMAPPEN, altsaa firmware/boards/zscreen/.
+# Den var "../secure/..." dengang projektet laa i firmware/.
+CONFIG_SECURE_BOOT_SIGNING_KEY="../../../secure/zscreen-signing.pem"
 
 # ── Opdatering over netvaerket ────────────────────────────────────────
 # Mozillas rodcertifikater, saa HTTPS mod GitHub kan kontrolleres uden

@@ -17,8 +17,8 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/app/zs_status.h"
-#include "../../firmware/main/zs_config.h"
+#include "../../firmware/kerne/app/zs_status.h"
+#include "../../firmware/kerne/zs_config.h"
 
 #include <string.h>
 

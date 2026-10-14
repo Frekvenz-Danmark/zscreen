@@ -100,7 +100,7 @@ def forbered():
     """Laver en kopi af det der skal til for at koere proeverne."""
     global ROOT
     mappe = pathlib.Path(tempfile.mkdtemp(prefix="zs-mutation-"))
-    for del_ in ("firmware/main", "tests", "tools"):
+    for del_ in ("firmware/kerne", "tests", "tools"):
         kilde = KILDE / del_
         maal = mappe / del_
         maal.parent.mkdir(parents=True, exist_ok=True)
@@ -120,33 +120,33 @@ def forbered():
 # om de moduler den kendte. Derfor staar der nu en vagt nedenfor der
 # laeser run.sh og siger fra. Se tjek_listen.
 MODULER = [
-    "firmware/main/util/zs_tekst.c",
-    "firmware/main/util/zs_tid.c",
-    "firmware/main/net/zs_tilmeld.c",
-    "firmware/main/net/zs_ladeplan.c",
-    "firmware/main/net/zs_ladeordre.c",
-    "firmware/main/net/zs_modbus_tcp.c",
-    "firmware/main/net/zs_sunspec.c",
-    "firmware/main/net/zs_maerker.c",
-    "firmware/main/net/zs_energi.c",
-    "firmware/main/net/zs_kvarter.c",
-    "firmware/main/app/zs_format.c",
-    "firmware/main/app/zs_status.c",
-    "firmware/main/net/zs_version.c",
-    "firmware/main/ui/zs_tilegrid.c",
-    "firmware/main/ui/zs_qr.c",
-    "firmware/main/net/zs_price_now.c",
-    "firmware/main/net/zs_fleet_msg.c",
-    "firmware/main/net/zs_locate.c",
+    "firmware/kerne/util/zs_tekst.c",
+    "firmware/kerne/util/zs_tid.c",
+    "firmware/kerne/net/zs_tilmeld.c",
+    "firmware/kerne/net/zs_ladeplan.c",
+    "firmware/kerne/net/zs_ladeordre.c",
+    "firmware/kerne/net/zs_modbus_tcp.c",
+    "firmware/kerne/net/zs_sunspec.c",
+    "firmware/kerne/net/zs_maerker.c",
+    "firmware/kerne/net/zs_energi.c",
+    "firmware/kerne/net/zs_kvarter.c",
+    "firmware/kerne/app/zs_format.c",
+    "firmware/kerne/app/zs_status.c",
+    "firmware/kerne/net/zs_version.c",
+    "firmware/kerne/ui/zs_tilegrid.c",
+    "firmware/kerne/ui/zs_qr.c",
+    "firmware/kerne/net/zs_price_now.c",
+    "firmware/kerne/net/zs_fleet_msg.c",
+    "firmware/kerne/net/zs_locate.c",
 ]
 
 # De moduler i run.sh der med vilje IKKE muteres, og hvorfor. Staar et
 # modul hverken her eller i MODULER, falder tjek_listen.
 UDEN_MUTATION = {
-    "firmware/main/app/zs_demo.c":
+    "firmware/kerne/app/zs_demo.c":
         "grunden er ikke skrevet ned. Skal ses paa: den har proever i "
         "test_demo.c, saa den kan sandsynligvis muteres",
-    "firmware/main/net/zs_discovery.c":
+    "firmware/kerne/net/zs_discovery.c":
         "aabner sockets og scanner netvaerket, saa en mutant maales paa "
         "hardware og timing og ikke paa en beslutning",
 }
@@ -163,7 +163,7 @@ def tjek_listen():
                        "..", "tests", "host", "run.sh")
     with open(sti, encoding="utf-8") as f:
         tekst = f.read()
-    i_run = re.findall(r"\.\./\.\./(firmware/main/[a-z]+/zs_[a-z_0-9]+\.c)",
+    i_run = re.findall(r"\.\./\.\./(firmware/kerne/[a-z]+/zs_[a-z_0-9]+\.c)",
                        tekst)
     glemt = [m for m in i_run
              if m not in MODULER and m not in UDEN_MUTATION]

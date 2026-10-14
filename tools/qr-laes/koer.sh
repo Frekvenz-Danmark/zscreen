@@ -38,8 +38,8 @@ UD="$(mktemp -d)"
 trap 'rm -rf "$UD"' EXIT
 
 cc -std=c11 -O1 -Wall -Werror -DZS_HOST_BUILD=1 \
-   -I firmware/main -I firmware/main/ui -I firmware/vendor/qrcodegen \
-   tools/qr-laes/qr-bmp.c firmware/main/ui/zs_qr.c \
+   -I firmware/kerne -I firmware/kerne/ui -I firmware/vendor/qrcodegen \
+   tools/qr-laes/qr-bmp.c firmware/kerne/ui/zs_qr.c \
    firmware/vendor/qrcodegen/qrcodegen.c -o "$UD/qr-bmp"
 swiftc -O tools/qr-laes/laes.swift -o "$UD/laes" 2>/dev/null
 
@@ -53,7 +53,7 @@ fi
 # Skaermens egen skala foerst, saa de andre. Tallet kommer fra
 # zs_qr.h, saa listen foelger med naar QR'en bliver gjort stoerre.
 MAAL_PX="$(sed -n 's/^#define ZS_QR_SKAERM_MAAL_PX *\([0-9]*\).*/\1/p' \
-           "$(dirname "$0")/../../firmware/main/ui/zs_qr.h")"
+           "$(dirname "$0")/../../firmware/kerne/ui/zs_qr.h")"
 if [ -z "$MAAL_PX" ]; then
     echo "  kunne ikke laese ZS_QR_SKAERM_MAAL_PX ud af zs_qr.h" >&2
     exit 1

@@ -1,5 +1,5 @@
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_kvarter.h"
+#include "../../firmware/kerne/net/zs_kvarter.h"
 
 void test_kvarter(void)
 {

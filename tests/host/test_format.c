@@ -7,12 +7,12 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/app/zs_format.h"
+#include "../../firmware/kerne/app/zs_format.h"
 
 #include <math.h>
 #include <string.h>
 
-#include "../../firmware/main/zs_config.h"
+#include "../../firmware/kerne/zs_config.h"
 
 static void chk_power(const char *what, float w, const char *val, const char *unit)
 {

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 64 px
  * Bpp: 4
- * Opts: --font .assets-cache/funnel-600.ttf --size 64 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0x30-0x39,0x2C,0x2E,0x2D,0x25 -o ../firmware/main/ui/assets/zs_font_num_64.c
+ * Opts: --font .assets-cache/funnel-600.ttf --size 64 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0x30-0x39,0x2C,0x2E,0x2D,0x25 -o ../firmware/kerne/ui/assets/zs_font_num_64.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE

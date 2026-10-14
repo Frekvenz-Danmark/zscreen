@@ -19,7 +19,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/ui/zs_layout.h"
+#include "../../firmware/kerne/ui/zs_layout.h"
 
 
 void test_layout(void)

@@ -11,7 +11,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_locate.h"
+#include "../../firmware/kerne/net/zs_locate.h"
 
 #include <stdbool.h>
 #include <string.h>

@@ -23,9 +23,9 @@ import sys
 from pathlib import Path
 
 ROD = Path(__file__).resolve().parent.parent
-TEMA_C = ROD / "firmware/main/ui/zs_theme.c"
-TEMA_H = ROD / "firmware/main/ui/zs_theme.h"
-UI = ROD / "firmware/main/ui"
+TEMA_C = ROD / "firmware/kerne/ui/zs_theme.c"
+TEMA_H = ROD / "firmware/kerne/ui/zs_theme.h"
+UI = ROD / "firmware/kerne/ui"
 
 GROEN = "\033[1;32m"
 ROED = "\033[1;31m"

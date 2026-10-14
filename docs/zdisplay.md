@@ -366,18 +366,31 @@ enheden blev valgt, så det står her for ikke at blive glemt:
 Lavet 14. oktober 2026. **Firmwaren bygger.**
 
 ```
-firmware/kerne.cmake                 motoren og fladen, delt af begge
-firmware/boards/zdisplay/            ZDisplays projekt
-  components/zd_bsp/                 Seeeds BSP med vores afhængigheder
-  main/main.c                        opstarten
-  main/lv_port.c                     LVGL 8.3 på MIPI-DSI
-  main/zs_baglys_d1001.c             baglyset
-  main/zs_lyd_d1001.c                højttaleren: ikke bygget endnu
-firmware/main/ui/zs_baglys.h         kontrakten, ny
-firmware/main/ui/zs_baglys_d1.c      zScreens baglys, flyttet hertil
-tools/check-bsp-zdisplay.py          vagt på Seeeds kildeliste
-docs/zdisplay.md                     det her
+firmware/
+  version.txt                  ét versionsnummer, begge produkter
+  kerne/
+    kilder.cmake               listen BEGGE produkter bygger af
+    net/ app/ util/ storage/   motoren, fri af hardware
+    ui/                        fladen, LVGL 8.3
+    hal/                       de TRE kontrakter et board opfylder:
+                               lv_port.h, zs_baglys.h, zs_lyd.h
+  boards/
+    zscreen/                   ESP32-S3, 480 x 480
+      main/ main.c lv_port.c zs_baglys_d1.c zs_lyd.c
+    zdisplay/                  ESP32-P4, 800 x 1280
+      components/zd_bsp/       Seeeds BSP med vores afhængigheder
+      main/ main.c lv_port.c zs_baglys_d1001.c zs_lyd_d1001.c
 ```
+
+**Et nyt produkt er fire filer.** `main.c` plus én for hver kontrakt i
+`kerne/hal/`. Ingen af de to boards rækker ind i den anden, og ingen af
+dem er 'hovedproduktet'.
+
+`tools/check-byg.py` håndhæver det: alt i `kerne/` skal stå i
+`kilder.cmake`, og alt i et boards `main/` skal stå i dét boards SRCS.
+Da den fælles kode lå inde i zScreens egen mappe, måtte vagten have en
+liste over fire undtagelser ved navn `KUN_ZSCREEN`. Den er væk — nu
+siger strukturen det.
 
 Målt, ikke antaget:
 
@@ -446,7 +459,7 @@ ingen LVGL, intet `bsp`-navn og intet board-navn i `net/`, `app/`,
 **Vagten på kildelisten var for slap.** Den krævede kun at en fil blev
 bygget af mindst ét produkt, så en ny fil i `net/` kunne stå i zScreens
 egen liste alene og aldrig blive oversat til ZDisplay. Det er præcis det
-hul `kerne.cmake` findes for at lukke. Nu skal alt under `firmware/main`
+hul `kerne.cmake` findes for at lukke. Nu skal alt under `firmware/kerne`
 stå i `kerne.cmake`, undtagen de fire filer i `KUN_ZSCREEN`.
 
 **Og to ting der kostede hukommelse og en forkert note:** den anden

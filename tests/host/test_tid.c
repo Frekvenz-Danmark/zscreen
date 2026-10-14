@@ -7,10 +7,10 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "zs_test.h"
-#include "../../firmware/main/util/zs_tid.h"
-#include "../../firmware/main/net/zs_energi.h"
-#include "../../firmware/main/net/zs_kvarter.h"
-#include "../../firmware/main/zs_config.h"
+#include "../../firmware/kerne/util/zs_tid.h"
+#include "../../firmware/kerne/net/zs_energi.h"
+#include "../../firmware/kerne/net/zs_kvarter.h"
+#include "../../firmware/kerne/zs_config.h"
 
 #include <stdlib.h>
 #include <time.h>

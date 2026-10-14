@@ -17,14 +17,14 @@
  *     ./zs-probe --scan 192.168.1.0
  */
 
-#include "../../firmware/main/net/zs_fronius.h"
-#include "../../firmware/main/app/zs_format.h"
-#include "../../firmware/main/app/zs_status.h"
-#include "../../firmware/main/net/zs_maerker.h"
-#include "../../firmware/main/net/zs_locate.h"
+#include "../../firmware/kerne/net/zs_fronius.h"
+#include "../../firmware/kerne/app/zs_format.h"
+#include "../../firmware/kerne/app/zs_status.h"
+#include "../../firmware/kerne/net/zs_maerker.h"
+#include "../../firmware/kerne/net/zs_locate.h"
 /* Selv om zs_discovery.h ogsaa traekker den ind, henter vi den her:
  * vi bruger ZS_SCAN_SUNSPEC_TIMEOUT_MS direkte, og saa skal det staa. */
-#include "../../firmware/main/zs_config.h"
+#include "../../firmware/kerne/zs_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -98,7 +98,7 @@ jobs:
         shell: bash
         run: |
           . $IDF_PATH/export.sh
-          cd firmware
+          cd firmware/boards/zscreen
           idf.py build
 
       - name: Kontrollér underskriften
@@ -107,12 +107,12 @@ jobs:
           . $IDF_PATH/export.sh
           espsecure.py verify_signature --version 2 \
             --keyfile secure/zscreen-signing.pem \
-            firmware/build/zscreen.bin
+            firmware/boards/zscreen/build/zscreen.bin
 
       - name: Navngiv filen efter versionen
         shell: bash
         run: |
-          cp firmware/build/zscreen.bin "zscreen-${GITHUB_REF_NAME}.bin"
+          cp firmware/boards/zscreen/build/zscreen.bin "zscreen-${GITHUB_REF_NAME}.bin"
           ls -l "zscreen-${GITHUB_REF_NAME}.bin"
 
       - name: Slet nøglen igen

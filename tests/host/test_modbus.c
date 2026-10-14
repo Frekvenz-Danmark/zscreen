@@ -7,7 +7,7 @@
  */
 
 #include "zs_test.h"
-#include "../../firmware/main/net/zs_modbus_tcp.h"
+#include "../../firmware/kerne/net/zs_modbus_tcp.h"
 
 #include <errno.h>
 #include <string.h>

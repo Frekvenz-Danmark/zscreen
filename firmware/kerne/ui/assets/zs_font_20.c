@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 20 px
  * Bpp: 4
- * Opts: --font .assets-cache/funnel-500.ttf --size 20 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0x20-0x7E,0xB7,0xC5,0xC6,0xC9,0xD8,0xE5,0xE6,0xE9,0xF8,0x2022,0xC0-0xFF,0x100-0x17F -o ../firmware/main/ui/assets/zs_font_20.c
+ * Opts: --font .assets-cache/funnel-500.ttf --size 20 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0x20-0x7E,0xB7,0xC5,0xC6,0xC9,0xD8,0xE5,0xE6,0xE9,0xF8,0x2022,0xC0-0xFF,0x100-0x17F -o ../firmware/kerne/ui/assets/zs_font_20.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
