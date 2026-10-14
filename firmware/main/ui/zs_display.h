@@ -31,6 +31,24 @@ void zs_display_init(uint8_t start_pct);
 void zs_display_set_brightness(uint8_t pct);
 uint8_t zs_display_get_brightness(void);
 
+/*
+ * Er klokken inde i natperioden, altsaa mellem ZS_NIGHT_START_HOUR og
+ * ZS_NIGHT_END_HOUR.
+ *
+ * Den staar HER fordi natten allerede var defineret her, til baglyset.
+ * Alarmen skal tie i samme timer som skaermen daemper, og to steder der
+ * hver har deres egen idé om hvornaar det er nat, ville med sikkerhed
+ * komme ud af trit en dag hvor nogen retter det ene tal.
+ *
+ * Giver FALSK naar uret ikke er sat. I praksis kan det kun ske paa en
+ * skaerm der aldrig har haft internet, og den er ikke sat op endnu, saa
+ * der er ingen alarm der kan tie.
+ *
+ * Svarer uanset om natdaempningen er slaaet til: det er et spoergsmaal
+ * om klokken, ikke om en indstilling.
+ */
+bool zs_display_er_nat(void);
+
 /* Slaar natdaempning til eller fra. */
 void zs_display_set_night_dimming(bool enabled);
 bool zs_display_get_night_dimming(void);
@@ -43,6 +61,43 @@ bool zs_display_get_night_dimming(void);
  * som koerer mange gange i sekundet.
  */
 void zs_display_touch_wake(void);
+
+/*
+ * Lad alarmen overtage baglyset.
+ *
+ * Kaldes af fejlsiden naar dens animation starter og stopper - IKKE af
+ * app-loekken. Ejerskabet foelger dermed animationen praecis: niveauet
+ * kommer kun derfra, og naar siden forlades, stopper animationen og
+ * giver baglyset tilbage i samme aandedrag.
+ *
+ * Det var foer app-loekkens opgave, og saa skulle hver gren i den huske
+ * at slukke. Én gren gjorde ikke: trykkede kunden "Vælg netværk",
+ * forlod loekken aldrig den gren hvor der blev slukket, og skaermen
+ * pulserede gennem hele opsaetningen - midt i det hun gjorde for at
+ * reparere det. Nu kan det ikke ske, for den der taender er den samme
+ * der slukker.
+ *
+ * Mens alarmen ejer baglyset, rOErer zs_display_tick, skyderen og et
+ * tryk kun MAALET, aldrig lysstyrken. Saa er der én skriver.
+ */
+void zs_display_set_alarm(bool on);
+
+/*
+ * Pulsens hoejde: 0 nederst, 255 paa den lysstyrke kunden har valgt.
+ *
+ * Kaldes fra fejlsidens animation, ét kald pr. billede, med den SAMME
+ * vaerdi der saetter farven paa fladen. Derfor aander lys og farve
+ * sammen - to ure ville glide fra hinanden i loebet af minutter.
+ *
+ * Bunden er ZS_ALARM_DIM_PCT af kundens lysstyrke, ikke et fast tal:
+ * staar skaermen paa 20 om aftenen, pulserer den mellem 20 og 7, ikke op
+ * til 100.
+ *
+ * GOER INGENTING hvis alarmen ikke ejer baglyset. Saa kan et sent kald
+ * fra en animation der er ved at blive stoppet, ikke efterlade
+ * lysstyrken et tilfaeldigt sted.
+ */
+void zs_display_alarm_niveau(uint8_t hoejde);
 
 /*
  * Kaldes cirka én gang i sekundet fra hovedloekken.

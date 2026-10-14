@@ -9,7 +9,7 @@
 | Hovedchip | ESP32-S3, to kerner, 240 MHz |
 | Flash | 8 MB, QIO |
 | PSRAM | 8 MB, oktal, 120 MHz |
-| Anden chip | RP2040, bruges ikke af zScreen |
+| Anden chip | RP2040, styrer summeren — se nedenfor |
 | Skærm | 4,0", 480 x 480, ST7701, 16-bit parallel RGB |
 | Touch | kapacitiv over I2C |
 | Netværk | wifi 2,4 GHz og Bluetooth. Vi bruger kun wifi |
@@ -20,8 +20,39 @@
 LoRa. Det er D1S, D1L og D1Pro der har det. Til en energiskærm er
 grundmodellen den rigtige: vi skal kun bruge skærmen og wifi.
 
-RP2040-chippen bruges ikke. Den sidder på boardet og styrer sensorer og
-SD-kort på de større modeller. Vi rører den ikke.
+### RP2040-chippen
+
+Den sidder på boardet og styrer sensorer og SD-kort på de større
+modeller. På en D1 er der ingen sensorer, så den passer kun én ting vi
+bruger: **summeren.**
+
+Summeren sidder på RP2040'ens GPIO 19 og er passiv — den skal have en
+PWM-tone, ikke bare spænding. ESP32'en kan ikke nå den. Det eneste der
+går mellem de to chips er en seriel ledning:
+
+| ESP32-S3 | | RP2040 |
+|---|---|---|
+| GPIO 19 (TX) | → | GPIO 17 (RX) |
+| GPIO 20 (RX) | ← | GPIO 16 (TX) |
+
+115200 baud, 8N1, pakker i COBS. Et bip er altså en pakke vi sender til
+den anden chip.
+
+**De to ben er ikke USB.** På en almindelig ESP32-S3 er GPIO 19 og 20
+chippens egne USB-ben, og ESP-IDF sætter som standard en konsol på dem
+oveni UART0. Her går de til RP2040'en, og der er intet USB-stik på dem.
+Derfor står `CONFIG_ESP_CONSOLE_SECONDARY_NONE=y` i
+`sdkconfig.defaults`: ellers holder USB-blokken fast på benene, og en
+pakke kommer aldrig ud. Skærmen flashes over UART0, som før — Seeed
+skriver selv at ESP32'en melder sig som `USB-SERIAL CH340`.
+
+Lyden kræver **to** ting: `ZS_LYD_ENABLED` i `zs_config.h`, og at
+RP2040'en har vores egen firmware. Firmwaren fra fabrikken svarer kun på
+sluk-kommandoen — den kender bip-kommandoen, men kalder den aldrig. Se
+`tools/rp2040/HVORDAN.md`.
+
+Som standard er lyden **slået fra**, netop fordi den anden chip skal
+flashes først. Blinket og baglys-pulsen virker uanset.
 
 ---
 

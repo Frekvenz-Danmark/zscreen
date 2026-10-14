@@ -81,6 +81,15 @@ int main(int argc, char **argv)
     test_fleet_felt();
     test_status();
     test_status_tekster();
+    test_fejl();
+    test_fejl_lyd();
+    test_fejl_glem();
+    test_fejl_blip();
+    test_fejl_sover_graense();
+    test_fejl_ser_ikke();
+    test_fejl_nat();
+    test_fejl_tekster();
+    test_lyd();
 
     printf("\n────────────────────────────────────────\n");
     if (zs_tests_failed == 0) {

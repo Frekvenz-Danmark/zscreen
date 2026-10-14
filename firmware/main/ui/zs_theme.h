@@ -71,6 +71,23 @@ typedef enum {
     ZS_ID_GOOD,
     ZS_ID_BAD,
     ZS_ID_WARN,
+    /*
+     * ALARMENS EGNE TRE. De er de SAMME i alle tre paletter.
+     *
+     * En alarm skal se ud som en alarm, uanset hvilket tema kunden har
+     * valgt. Og de maaler ikke op mod baggrunden som de andre farver:
+     * de to roede er deres EGEN flade - fejlsiden maler hele fladen med
+     * dem - og teksten maales mod dem og ikke mod temaets bund.
+     *
+     * Hvorfor to roede og ikke en roed og en normal bund: fladen skal
+     * flashe, og den skal vaere roed hele tiden. Gik den fra roed til
+     * temaets egen bund, ville halvdelen af blinket se ud som en helt
+     * almindelig side, og teksten skulle skifte farve midt i pulsen for
+     * at kunne laeses. Nu er den hvid hele vejen.
+     */
+    ZS_ID_ALARM_LYS,
+    ZS_ID_ALARM_MOERK,
+    ZS_ID_ALARM_TEKST,
     ZS_ID_COUNT
 } zs_col_id_t;
 
@@ -124,6 +141,15 @@ uint32_t zs_col(zs_col_id_t id);
 #define ZS_C_GOOD           zs_col(ZS_ID_GOOD)
 #define ZS_C_BAD            zs_col(ZS_ID_BAD)
 #define ZS_C_WARN           zs_col(ZS_ID_WARN)
+
+/*
+ * Alarmen. Fejlsiden flasher mellem de to roede, og teksten er hvid paa
+ * dem begge - maalt, se tools/check-colors.py. Teksten er ogsaa knappens
+ * FLADE, og den moerke roed er ordet paa den.
+ */
+#define ZS_C_ALARM_LYS      zs_col(ZS_ID_ALARM_LYS)
+#define ZS_C_ALARM_MOERK    zs_col(ZS_ID_ALARM_MOERK)
+#define ZS_C_ALARM_TEKST    zs_col(ZS_ID_ALARM_TEKST)
 
 /* ── Tema ─────────────────────────────────────────────────────────── */
 typedef enum {
@@ -342,6 +368,20 @@ lv_obj_t *zs_btn_primary_create(lv_obj_t *parent, const char *text);
 lv_obj_t *zs_btn_secondary_create(lv_obj_t *parent, const char *text);
 
 /*
+ * Knappen paa fejlsiden: HVID flade med moerkeroed skrift.
+ *
+ * Den primaere knap kan ikke bruges dér. Dens flade er temaets accent -
+ * orange i moerkt tema, daempet guld i lyst - og begge er mudder paa en
+ * roed bund. Det roede tema havde i forvejen loest det rigtigt: paa en
+ * roed flade er den rigtige knap hvid med roed skrift. Nu gOEr alle tre
+ * temaer det paa fejlsiden.
+ *
+ * Og den bliver ved at kunne laeses mens fladen pulserer: hvid mod baade
+ * den lyse og den moerke roed, og ordet staar paa det hvide.
+ */
+lv_obj_t *zs_btn_alarm_create(lv_obj_t *parent, const char *text);
+
+/*
  * En rad i en liste, fx et wifi-netvaerk eller en indstilling.
  *
  * Delene afleveres i en struct i stedet for at kalderen skal finde dem
@@ -408,8 +448,10 @@ void zs_style_text(lv_obj_t *obj, const lv_font_t *font, uint32_t color);
  *     │        [ knap ]                        │  76 px, valgfri
  *     └────────────────────────────────────────┘
  */
-#define ZS_PAGE_HEAD_HEIGHT   56
-#define ZS_PAGE_FOOT_HEIGHT   76
+/* Alias, som resten af layoutet. Tallene og vagterne staar i
+ * zs_layout.h, hvor guide-sidens regnestykke kan naa dem. */
+#define ZS_PAGE_HEAD_HEIGHT   ZS_G_PAGE_HEAD_HEIGHT
+#define ZS_PAGE_FOOT_HEIGHT   ZS_G_PAGE_FOOT_HEIGHT
 
 typedef struct {
     lv_obj_t *root;

@@ -151,3 +151,25 @@ CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
 # ── Log ───────────────────────────────────────────────────────────────
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_LOG_MAXIMUM_LEVEL_DEBUG=y
+
+# ── Konsollen og de to ben til RP2040'eren ────────────────────────────
+#
+# USB-Serial-JTAG slaas FRA som sekundaer konsol.
+#
+# Paa en almindelig ESP32-S3 er GPIO 19 og 20 chippens egne USB-ben, og
+# ESP-IDF saetter som standard en konsol paa dem oveni UART0. Paa
+# D1'eren gaar de to ben IKKE til et USB-stik - de gaar til RP2040'eren,
+# som styrer summeren:
+#
+#     ESP32-S3 GPIO 19  (TX)  ->  RP2040 GPIO 17  (RX)
+#     ESP32-S3 GPIO 20  (RX)  <-  RP2040 GPIO 16  (TX)
+#
+# Bliver USB-blokken ved med at holde fast paa benene, kan UART2 ikke
+# faa dem, og saa bliver et bip sendt uden at komme nogen steder. Det er
+# tavst: der er ingen fejl at se nogen steder, hverken i loggen eller
+# paa skaermen.
+#
+# Der mistes ingenting ved at slaa den fra, netop fordi der ikke er et
+# stik paa de ben. Skaermen flashes og overvaages over UART0, som foer -
+# se docs/hardware.md.
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y

@@ -42,11 +42,12 @@ static const zs_screen_id_t ALLE[] = {
     ZS_SCREEN_CONNECTING, ZS_SCREEN_INVERTER_SCAN, ZS_SCREEN_INVERTER_LIST,
     ZS_SCREEN_HOME, ZS_SCREEN_SETTINGS,
     ZS_SCREEN_DETAILS,
-    /* Netvaerkssiden er med fordi den TAENDER OG SLUKKER en LVGL-timer
-     * naar den vises og forlades. Bliver timeren ikke ryddet, vokser
-     * hukommelsen for hver gennemgang, og det er netop det den her
-     * proeve maaler. */
-    ZS_SCREEN_NONET,
+    /* Fejlsiden er med fordi den TAENDER OG SLUKKER en LVGL-animation
+     * naar den vises og forlades. Bliver animationen ikke ryddet,
+     * vokser hukommelsen for hver gennemgang - og vaerre: den bliver ved
+     * med at kalde sin funktion med pegepinde ind i objekter et
+     * temaskift har slettet. Det er netop det den her proeve maaler. */
+    ZS_SCREEN_FEJL,
 };
 #define ANTAL_SIDER (sizeof(ALLE) / sizeof(ALLE[0]))
 
@@ -128,6 +129,31 @@ void zs_selftest_run(void)
         zs_ui_set_theme(t);
 
         for (size_t i = 0; i < ANTAL_SIDER; i++) {
+            /*
+             * Fejlsiden faar en besked FOER den vises, og den skal
+             * BLINKE.
+             *
+             * Uden det her var siden med i proeven uden at det der skal
+             * maales, var i gang: animationen starter kun naar siden
+             * baade vises og har noget at blinke om, saa en side der
+             * bare blev vist, kunne ikke efterlade en animation - og saa
+             * maalte proeven ingenting.
+             *
+             * KUN DE TO DER HAR EN SIDE. Soevn stod her ogsaa, fra
+             * dengang den havde sine egne tekster - men den har ingen
+             * mere, saa hver tredje runde tegnede en TOM side: ingen
+             * titel, ingen overskrift, en forladt saetning om
+             * klokkeslaettet og en knap uden ord. En tilstand drift
+             * aldrig kan lave, fordi fejl_tik ikke viser siden for
+             * soevn. Og den maalte ingenting: uden blink startes der
+             * ingen animation, og animationen er det proeven er her for.
+             */
+            if (ALLE[i] == ZS_SCREEN_FEJL) {
+                static const zs_fejl_type_t slags[] = {
+                    ZS_FEJL_WIFI, ZS_FEJL_INVERTER,
+                };
+                zs_ui_set_fejl(slags[runde % 2], "14:05", true);
+            }
             zs_ui_show(ALLE[i]);
             /* Lang nok til at LVGL naar at tegne siden faerdig. Sker
              * det ikke, tester vi kun at objekterne blev lavet, ikke at

@@ -131,5 +131,14 @@ void test_ladeordre_vagter(void);
 void test_fleet_felt(void);
 void test_status(void);
 void test_status_tekster(void);
+void test_fejl(void);
+void test_fejl_lyd(void);
+void test_fejl_glem(void);
+void test_fejl_blip(void);
+void test_fejl_sover_graense(void);
+void test_fejl_ser_ikke(void);
+void test_fejl_nat(void);
+void test_fejl_tekster(void);
+void test_lyd(void);
 
 #endif /* ZS_TEST_H */

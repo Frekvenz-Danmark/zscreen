@@ -72,6 +72,53 @@ typedef enum {
     ZS_CMD_TILMELD_VIS,
 } zs_cmd_type_t;
 
+/*
+ * HVOR INVERTER-FLOWET BLEV STARTET FRA.
+ *
+ * De TRE sider - soeger, vaelg inverter, skriv adressen - bruges nu tre
+ * steder, og de skal ende tre forskellige steder. Det er AFSLUTNINGEN
+ * der er forskellig, ikke siderne, og den afgoeres af hvor flowet kom
+ * fra:
+ *
+ *   OPSAETNING      en ny skaerm. Et valgt anlaeg er det SIDSTE trin, og
+ *                   bagefter vises tilmeldingen - montoeren staar ved
+ *                   anlaegget NU.
+ *   INDSTILLINGER   anlaegget skiftes paa en skaerm der koerer. Tilbage
+ *                   til Indstillinger, hvor raekken viser adressen, saa
+ *                   svaret paa "blev den skiftet" staar der man kom fra.
+ *   REPARATION      en skaerm der ALLEREDE koerer, faar sin forbindelse
+ *                   lavet om. Tilbage til HOVEDSIDEN: det er dér tallene
+ *                   staar, og at de kommer igen, er hele kvitteringen
+ *                   paa at det virkede.
+ *
+ *                   TO veje fOErer hertil, og de gOEr praecis det samme -
+ *                   ZS_CMD_SETUP_RESTART og hele opsaetningen igennem:
+ *                     * "Vælg netværk" paa fejlsiden
+ *                     * "Netværk" i Indstillinger
+ *                   Den hed FEJL og daekkede kun den foerste. Den anden
+ *                   satte ingenting, saa den brugte hvad der tilfaeldigvis
+ *                   stod fra sidst - og havde ingen rOErt flowet siden
+ *                   opstart, var det OPSAETNING: tilmeldings-ceremoni og
+ *                   en ny kode paa en skaerm der havde koert i maanedsvis.
+ *                   ÉT navn for ÉN slags handling, saa den tredje vej
+ *                   ikke kan blive glemt.
+ *
+ * DEN VAR FOER EN BOOL, fra_indstillinger. Den kunne kun to af de tre,
+ * og da fejlsiden fik sin egen knap, maatte den laane den ene af dem:
+ * en kunde der rettede en forbindelse, fik "Anlægget er tilmeldt" og en
+ * ceremoni for noget der skete for et halvt aar siden - eller landede i
+ * Indstillinger, et sted hun ikke havde vaeret. En opregning kan
+ * udvides; en bool kan kun loeje.
+ *
+ * Og den foelger KOMMANDOEN og ikke en tilstand nogen skal huske at
+ * nulstille. Det var allerede grunden til at bool'en laa her.
+ */
+typedef enum {
+    ZS_INV_FRA_OPSAETNING = 0,
+    ZS_INV_FRA_INDSTILLINGER,
+    ZS_INV_FRA_REPARATION,
+} zs_inv_fra_t;
+
 typedef struct {
     zs_cmd_type_t type;
     char          ssid[ZS_SSID_MAX];
@@ -81,15 +128,13 @@ typedef struct {
     bool          flag;
     /*
      * HVOR INVERTER-VALGET KOM FRA. Kun ZS_CMD_INVERTER_SELECT bruger
-     * den.
+     * den. Se zs_inv_fra_t ovenfor.
      *
      * Et eget felt og ikke "flag": flag bruges af fem andre kommandoer
-     * med fem andre betydninger, og en bool der betyder noget nyt for
-     * hver kommando er en bool man laeser forkert. Se noten ved
-     * ZS_CMD_INVERTER_SELECT i zs_app.c om hvorfor oprindelsen skal
-     * med.
+     * med fem andre betydninger, og et felt der betyder noget nyt for
+     * hver kommando er et felt man laeser forkert.
      */
-    bool          fra_indstillinger;
+    zs_inv_fra_t  oprindelse;
 } zs_cmd_t;
 
 /*

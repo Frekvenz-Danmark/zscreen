@@ -93,6 +93,116 @@
 #define ZS_LOCATE_AFTER_FAILS   3
 #define ZS_LOCATE_RETRY_MS      (5 * 60 * 1000)
 
+/* ── Naar skaermen siger fra ───────────────────────────────────────── */
+/*
+ * Hvor laenge noget skal vaere vaek foer det er en fejl et menneske skal
+ * se paa. De to tal er IKKE ens, og de er regnet og ikke skudt efter.
+ *
+ * WIFI, tyve sekunder. En router der genstarter, en nabo der taender en
+ * mikroboelgeovn, en kanal der skifter: den slags sker, og skaermen
+ * henter sig selv uden at nogen behoever vide det. Tyve sekunder er
+ * laenge nok til at de tilfaelde er ovre, og kort nok til at en montoer
+ * der lige har trukket stikket kan se at skaermen opdagede det.
+ *
+ * INVERTEREN, to minutter. Den skal vaere LAENGERE end alt det
+ * skaermen allerede selv gOEr for at komme tilbage, ellers raaber den
+ * op mens reparationen er i gang:
+ *
+ *     tre hurtige forsoeg          ZS_RECONNECT_BURST a 500 ms
+ *     voksende pause              2, 4, 8, 16, 32, 60 s
+ *     og efter tre fejl, en soegning over hele undernettet, ~20 s
+ *
+ * Summen af de foerste fem pauser er 62 sekunder, og en soegning oveni
+ * er omkring firs. To minutter ligger over det hele, saa siden kun
+ * kommer frem naar skaermen faktisk har GIVET OP - og ikke mens den
+ * stadig er ved at finde en inverter der bare har skiftet adresse.
+ */
+#define ZS_FEJL_WIFI_GRAENSE_MS       (20 * 1000)
+#define ZS_FEJL_INVERTER_GRAENSE_MS   (120 * 1000)
+
+/*
+ * HVOR LAENGE "ANLAEGGET SOVER" KAN VAERE SANDT.
+ *
+ * Soevn afgoeres af hvad inverteren SELV meldte foer den forsvandt. Den
+ * oplysning bliver ikke nyere af at tiden gaar: en inverter der gik i
+ * stykker ét minut efter at have meldt "sover", ser ud som en der
+ * sover - og den ville blive meldt som sovende i al evighed. Graat
+ * maerke, intet blink, ingen lyd, ogsaa en tirsdag i juli.
+ *
+ * Tyve timer. Den laengste nat i Danmark er omkring sytten timer fra
+ * solnedgang til solopgang, saa tyve giver luft til en graa
+ * decemberdag hvor inverteren vaagner sent. Er den vaek laengere end
+ * det, er det ikke solen.
+ */
+#define ZS_FEJL_SOVER_MAKS_MS         (20 * 60 * 60 * 1000)
+
+/* ── Lyden ─────────────────────────────────────────────────────────── */
+/*
+ * Summeren sidder paa RP2040'eren og ikke paa ESP32'en, saa et bip er en
+ * pakke over UART. Se ui/zs_lyd.h for hvorfor, og tools/rp2040/ for den
+ * firmware der skal ligge i den anden chip foer der kommer en lyd.
+ */
+/*
+ * ÉT bip er to korte toner. Én tone alene kan forveksles med et knirk
+ * fra huset; to med en kort pause imellem er tydeligt noget der kommer
+ * fra en maskine. Laengere end knap et femtedels sekund bliver det en
+ * alarmklokke, og det er ikke det her er.
+ */
+#define ZS_LYD_TONE_MS          180
+#define ZS_LYD_TONER            2
+#define ZS_LYD_TONE_PAUSE_MS    220
+/*
+ * TONENS FREKVENS STAAR IKKE HER, og det er med vilje.
+ *
+ * Den stod her som ZS_LYD_HZ - og blev aldrig brugt af en eneste linje
+ * firmware. Det KAN den ikke: tonen laves af RP2040'eren, og ESP32'en
+ * sender kun "bip saa mange millisekunder". To tal der skal vaere ens,
+ * hvor kun det ene bliver brugt, er et tal der stille og roligt kommer
+ * til at vaere forkert.
+ *
+ * Frekvensen staar derfor ÉT sted: TONE_HZ i
+ * tools/rp2040/zscreen_rp2040.ino, hos den chip der faktisk laver
+ * lyden.
+ */
+
+/*
+ * HVOR MANGE GANGE DER BIPPES FOR ÉN FEJL, og hvor laenge der er
+ * imellem.
+ *
+ * Fire gange i alt: med det samme, efter fem minutter, efter et kvarter
+ * og efter tre kvarter. Saa er der stille.
+ *
+ * Grunden til at det stopper: en fejl kan vare i dagevis - en inverter
+ * der er sendt til reparation, et anlaeg der er slukket for vinteren -
+ * og en skaerm der bipper hvert femte minut i tre doegn bliver taget ned
+ * af vaeggen. Lyden er der for at FAA nogen hen til skaermen den foerste
+ * gang. Derefter staar beskeden paa fladen og blinker, og den bliver
+ * ved saa laenge fejlen er der.
+ *
+ * Pauserne er dem EFTER hvert bip. Det sidste tal bliver aldrig brugt,
+ * men staar der saa opslaget altid er inden for tabellen.
+ */
+#define ZS_LYD_PAUSER_MS { 5 * 60 * 1000, 10 * 60 * 1000, 30 * 60 * 1000, 0 }
+
+/*
+ * ER LYDEN SLAAET TIL. Standard er NUL, altsaa nej.
+ *
+ * Grunden er hardware og ikke en holdning: summeren sidder paa
+ * RP2040'eren, og den firmware der ligger i den fra fabrikken svarer
+ * KUN paa sluk-kommandoen. Den kender godt bip-kommandoen - den staar i
+ * dens egen kilde - men den kalder den aldrig. Maalt 13. oktober 2026
+ * ved at laese Seeeds egen indicator_rp2040.ino.
+ *
+ * Saetter man den her til 1 UDEN at have flashet den anden chip, sker
+ * der ingenting: pakken bliver sendt, og ingen svarer. Det er tavst, og
+ * tavse ting er dyre at fejlsoege. Derfor staar den paa nul indtil
+ * nogen har gjort trin to, og trin to staar i tools/rp2040/HVORDAN.md.
+ *
+ * Blinket og baglys-pulsen virker UANSET. De er paa ESP32'en, og de
+ * virker paa hver enhed der staar ude i dag.
+ */
+#define ZS_LYD_ENABLED          0
+
 /* ── Netvaerksscanning ─────────────────────────────────────────────── */
 #define ZS_SCAN_PARALLEL        12      /* samtidige sockets            */
 #define ZS_SCAN_PORT_TIMEOUT_MS 250     /* er der noget paa port 502    */
@@ -639,6 +749,35 @@
 #define ZS_BRIGHTNESS_NIGHT     25
 #define ZS_NIGHT_START_HOUR     22
 #define ZS_NIGHT_END_HOUR       6
+
+/* ── Baglyset naar der er en fejl ──────────────────────────────────── */
+/*
+ * HELE SKAERMEN PULSERER I LYSSTYRKE naar der er en fejl.
+ *
+ * Grunden er at skaermen haenger paa en vaeg og bliver set paa afstand,
+ * og at den der skal se beskeden, maaske staar med ryggen til. En roed
+ * overskrift kan ikke laeses fra den anden ende af et koekken, men en
+ * flade der skifter lysstyrke kan ses i oejenkrogen. Det er samme
+ * virkning som et blink i et vindue.
+ *
+ * Den virker paa HVER enhed der staar ude i dag, for baglyset sidder
+ * paa ESP32'ens eget ben. Lyden gOEr ikke - se ZS_LYD_ENABLED.
+ *
+ * Takten er den SAMME som overskriftens puls paa fejlsiden, saa lys og
+ * tekst aander sammen. To takter der ligger taet uden at vaere ens, ser
+ * ud som en fejl i skaermen.
+ *
+ * 35 procent er hvor langt NED den dykker, regnet af den lysstyrke
+ * kunden selv har valgt - ikke et fast tal. Staar skaermen paa 20 om
+ * aftenen, pulserer den mellem 20 og 7, og ikke op til 100.
+ *
+ * Takten saettes af LVGL's animation og ikke af en timer her. Der stod
+ * ogsaa et ZS_ALARM_STEP_MS paa 40 ms, fra dengang baglyset havde sin
+ * egen esp_timer. Den er vaek, og tallet var dermed et man kunne rette
+ * uden at der skete noget - den slags er vaerre end intet tal.
+ */
+#define ZS_ALARM_PERIOD_MS      1400
+#define ZS_ALARM_DIM_PCT        35
 
 /* ── Opdatering ───────────────────────────────────────────────────── */
 /*

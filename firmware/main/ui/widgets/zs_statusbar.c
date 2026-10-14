@@ -119,6 +119,7 @@ static badge_t badge_for(zs_link_state_t state, bool demo)
     switch (state) {
     case ZS_LINK_OK:           return (badge_t){ "FORBUNDET",      ZS_C_GOOD };
     case ZS_LINK_CONNECTING:   return (badge_t){ "FORBINDER",      ZS_C_LABEL };
+    case ZS_LINK_SOVER:        return (badge_t){ "SOVER",          ZS_C_LABEL };
     case ZS_LINK_NO_INVERTER:  return (badge_t){ "INGEN INVERTER", ZS_C_WARN };
     case ZS_LINK_NO_WIFI:
     default:                   return (badge_t){ "INTET NETVÆRK",  ZS_C_BAD };

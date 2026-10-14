@@ -28,6 +28,8 @@
 #include "zs_demo.h"
 #include "zs_price.h"
 #include "zs_screen_setup.h"
+#include "zs_fejl.h"
+#include "zs_lyd.h"
 #include "zs_screen_tilmeld.h"
 #include "zs_ota.h"
 #include "zs_tid.h"
@@ -182,6 +184,30 @@ static zs_fr_info_t s_demo_info;
 
 /* Ventetid foer naeste forsoeg, vokser for hvert fejlslagent. */
 static uint32_t s_backoff_ms = ZS_RECONNECT_MIN_MS;
+
+/*
+ * Fejlvagten. Se app/zs_fejl.h.
+ *
+ * Den staar HER og ikke nede ved fejl_tik, fordi publish_home ogsaa
+ * spoerger den: statuslinjen skal sige SOVER og ikke INGEN INVERTER naar
+ * anlaegget selv har meldt at det holder fri, og det er vagten der ved
+ * det.
+ */
+static zs_fejl_vagt_t s_fejl_vagt;
+
+/*
+ * HVORNAAR DER TIDLIGST FORBINDES IGEN.
+ *
+ * Den laa som en LOKAL i app_task, og det var et problem i det
+ * oejeblik fejlsiden fik en knap: handle_cmd kunne ikke naa den. En
+ * kunde der valgte en inverter, kunne derfor vente op til et minut paa
+ * det foerste forsoeg - ventetiden var vokset mens den gamle var nede -
+ * og i hele det minut kom fejlsiden frem igen med det samme.
+ *
+ * Her, ved siden af den ventetid den regnes af, saa de to staar
+ * sammen. Nul betyder "nu".
+ */
+static int64_t s_next_retry;
 
 const char *zs_version(void)
 {
@@ -750,7 +776,21 @@ static void publish_home(void)
     if (zs_wifi_state() != ZS_WIFI_CONNECTED) {
         s_home.link = ZS_LINK_NO_WIFI;
     } else if (!zs_fr_is_connected(&s_fr)) {
-        s_home.link = ZS_LINK_NO_INVERTER;
+        /*
+         * SOVER, ikke INGEN INVERTER, naar anlaegget selv meldte at det
+         * holdt fri.
+         *
+         * Foer stod der INGEN INVERTER i gult hele natten, hver nat, paa
+         * ethvert anlaeg uden batteri. Det er en advarsel om noget helt
+         * normalt, og et maerke der advarer om tirsdag aften, holder man
+         * op med at laese.
+         *
+         * Vagten afgoer det, og den siger det foerst naar den er sikker -
+         * altsaa efter ZS_FEJL_INVERTER_GRAENSE_MS. Indtil da staar der
+         * INGEN INVERTER, og det er rigtigt: saa laenge ved vi det ikke.
+         */
+        s_home.link = (s_fejl_vagt.type == ZS_FEJL_INVERTER_SOVER)
+                    ? ZS_LINK_SOVER : ZS_LINK_NO_INVERTER;
     } else if (s_home.stale) {
         s_home.link = ZS_LINK_CONNECTING;
     } else {
@@ -882,54 +922,238 @@ static void brug_prisomraade(const char *z)
 }
 
 /*
- * VISER OG SKJULER SIDEN DER SIGER AT NETTET ER VAEK.
+ * VISER OG SKJULER SIDEN DER SIGER AT NOGET ER VAEK.
  *
- * Reglen er med vilje smal, og begge halvdele af den er der for en
- * grund.
+ * SELVE REGLEN STAAR IKKE HER. Den staar i app/zs_fejl.c, som er en ren
+ * funktion uden LVGL og uden netvaerk, og derfor kan proeves paa en Mac
+ * - ogsaa de tilfaelde der ellers kraever at man tager wifi'et fra en
+ * skaerm, venter en time og saetter det paa igen. Se
+ * tests/host/test_fejl.c.
  *
- * DEN VENTER. Et wifi der falder ud i to sekunder og kommer igen, skal
- * ikke blinke roedt hos kunden. Routeren genstarter, naboen taender en
- * mikroboelgeovn, kanalen skifter: den slags sker, og skaermen henter
- * sig selv. Foerst naar nettet har vaeret vaek i ZS_NONET_GRAENSE_MS,
- * er det noget et menneske skal se paa.
+ * Her er kun det der ROERER noget: skaermen, baglyset og lyden.
  *
- * OG DEN RIVER IKKE NOGEN UD AF NOGET. Siden vises kun naar kunden
- * staar paa hovedsiden. Staar hun i Indstillinger eller paa
- * tilmeldingen, bliver hun der - et skift under fingeren er vaerre end
- * den besked der kom med det. Naar hun saa gaar hjem, er siden der.
+ * DEN RIVER IKKE NOGEN UD AF NOGET. Siden vises kun naar kunden staar
+ * paa hovedsiden. Staar hun i Indstillinger eller paa tilmeldingen,
+ * bliver hun der - et skift under fingeren er vaerre end den besked der
+ * kom med det. Naar hun saa gaar hjem, er siden der.
  *
- * Og den vej tilbage: er nettet tilbage mens siden staar, gaar vi hjem
- * af os selv. Det er netop derfor siden ikke har en tilbageknap.
+ * Og den vej tilbage: er forbindelsen tilbage mens siden staar, gaar vi
+ * hjem af os selv. Det er netop derfor siden ikke har en tilbageknap.
  */
-#define ZS_NONET_GRAENSE_MS  20000
 
-static int64_t s_net_tabt_ms;        /* 0 = nettet er der, eller vi ved det ikke */
+/* Hvad siden sidst fik at vide. Saa den ikke bliver tegnet om hvert
+ * andet sekund med praecis det samme indhold. */
+static zs_fejl_type_t s_fejl_sendt = ZS_FEJL_INGEN;
+static bool           s_fejl_sendt_blink;
+static char           s_fejl_sendt_tid[8];
+static bool           s_fejl_aldrig_sendt = true;
 
-static void nonet_tik(int64_t nu_ms)
+/*
+ * Klokkeslaettet for den sidste gode maaling, fx "14:05".
+ *
+ * Det er den ENESTE linje paa fejlsiden der fortaeller kunden hvor
+ * gammelt det hun lige kiggede paa, faktisk er. Uden den staar der at
+ * tallene "staar stille", og saa kan hun ikke vide om det er fem
+ * minutter eller fem timer siden.
+ *
+ * Regnet BAGLAENS fra det monotone ur og ikke gemt som et klokkeslaet:
+ * saetter NTP uret et minut frem mens vi staar i en fejl, skal tallets
+ * alder ikke aendre sig af det. Alderen er det vi kender; klokken er
+ * kun den maade den bliver skrevet paa.
+ *
+ * Tom streng hvis vi ikke har et ur eller aldrig har faaet en maaling.
+ */
+static void sidste_maaling_tid(char *ud, size_t n)
 {
-    bool paa_nettet = (zs_wifi_state() == ZS_WIFI_CONNECTED);
+    if (ud == NULL || n == 0) {
+        return;
+    }
+    ud[0] = '\0';
+    if (!s_clock_ok || s_last_good_ms == 0) {
+        return;
+    }
+    int64_t alder_ms = now_ms() - s_last_good_ms;
+    if (alder_ms < 0) {
+        alder_ms = 0;
+    }
+    time_t t = time(NULL) - (time_t)(alder_ms / 1000);
+    struct tm lt;
+    localtime_r(&t, &lt);
+    snprintf(ud, n, "%02d:%02d", lt.tm_hour, lt.tm_min);
+}
 
-    if (paa_nettet) {
-        s_net_tabt_ms = 0;
-        if (zs_ui_current() == ZS_SCREEN_NONET) {
-            ESP_LOGI(TAG, "nettet er tilbage, viser hovedsiden igen");
+/*
+ * GAA I DRIFT, OG FORBIND NU.
+ *
+ * Bruges hver gang appen gaar ind i ST_CONNECTING udefra - fra en
+ * fortrudt opsaetning, fra demoen, og naar den starter op.
+ *
+ * Den nulstiller ventetiden, og det er ikke pynt. s_backoff_ms vokser
+ * til et minut mens noget er nede, og s_next_retry er sat et minut ud i
+ * fremtiden. Skiftede vi bare tilstand, ville loekken sidde paa
+ * haenderne i op mod et minut foer det foerste forsoeg: forsiden staar
+ * med gamle tal, og kunden har netop trykket paa noget for at faa dem
+ * tilbage.
+ *
+ * Der stod FOER i ZS_CMD_SETUP_CANCEL at "ingen nulstilling er
+ * noedvendig, tidspunktet for naeste forsoeg er for laengst passeret".
+ * Det holder kun hvis opsaetningen varede laengere end ventetiden - og
+ * fortryder kunden med det samme, gOEr den ikke.
+ */
+static void gaa_i_drift(void)
+{
+    s_state = ST_CONNECTING;
+    s_next_retry = 0;
+    s_backoff_ms = ZS_RECONNECT_MIN_MS;
+}
+
+static void fejl_tik(int64_t nu_ms)
+{
+    zs_fejl_ind_t ind;
+    memset(&ind, 0, sizeof(ind));
+    ind.paa_wifi        = (zs_wifi_state() == ZS_WIFI_CONNECTED);
+    ind.inverter_svarer = zs_fr_is_connected(&s_fr);
+    ind.inverter_opsat  = (s_cfg.inverter_ip[0] != '\0');
+    /*
+     * Driftstilstanden fra den SIDSTE gode aflaesning. Nul naar
+     * inverteren ikke udfylder statusfelterne: saa er feltet ikke
+     * laest, og nul ville ellers blive laest som "slukket" - altsaa som
+     * om anlaegget holdt fri, hvorefter alarmen ville tie om en rigtig
+     * fejl. Vagten har sin egen vagt mod netop det, men den kan kun
+     * virke hvis vi siger "ukendt" naar det er ukendt.
+     */
+    ind.inverter_tilstand = s_home.live.status_ok
+                          ? s_home.live.inverter_state : 0;
+    /*
+     * NATTEN - OG "VI VED DET IKKE" TAELLER SOM NAT.
+     *
+     * zs_display_er_nat() svarer falsk naar uret ikke er sat, fordi
+     * baglyset ikke skal daempe paa et ur der staar i 1970. Til LYDEN er
+     * det den forkerte vej rundt:
+     *
+     *   Stroemmen gaar klokken tre om natten. Skaermen har ikke et ur
+     *   der overlever, saa den starter i 1970. Routeren er langsommere
+     *   end skaermen, saa der er ingen NTP og intet wifi. Tyve sekunder
+     *   efter opstart er der en wifi-fejl, uret er stadig 1970, "nat" er
+     *   falsk - og saa bipper den fire gange klokken tre.
+     *
+     * Ved vi ikke hvad klokken er, larmer vi ikke. Blinket er der
+     * stadig, og det vaekker ingen.
+     */
+    ind.nat             = zs_display_er_nat() || !s_clock_ok;
+    ind.demo            = s_demo;
+
+    zs_fejl_ud_t ud = zs_fejl_tik(&s_fejl_vagt, &ind, nu_ms);
+
+    /* Lyden foerst. Den er sand i ét enkelt tik, aldrig to i traek. */
+    if (ud.lyd) {
+        ESP_LOGW(TAG, "bipper: %s", zs_fejl_navn(ud.type));
+        zs_lyd_bip();
+    }
+
+    /*
+     * SOEVN HAR INGEN SIDE. Se noten over teksterne i zs_fejl.c.
+     *
+     * Reglen er den SAMME som blinkets: har fejlen en side, skal den
+     * ogsaa blinke, og omvendt. Soevn er hverken. Ét opslag, saa de to
+     * ikke kan komme til at sige hver sit - en side der ikke blinker,
+     * eller et blink uden en side, ser begge ud som en fejl i skaermen.
+     */
+    bool har_side = zs_fejl_alvorlig(ud.type);
+
+    if (!har_side) {
+        if (s_fejl_sendt != ZS_FEJL_INGEN && ud.type != s_fejl_sendt) {
+            ESP_LOGI(TAG, "%s er ovre (nu: %s)",
+                     zs_fejl_navn(s_fejl_sendt), zs_fejl_navn(ud.type));
+        } else if (ud.type != s_fejl_sendt) {
+            ESP_LOGI(TAG, "%s", zs_fejl_navn(ud.type));
+        }
+        s_fejl_sendt = ud.type;
+        s_fejl_sendt_tid[0] = '\0';
+        /*
+         * Staar siden fremme, skal vi hjem. Det gaelder baade naar
+         * forbindelsen er tilbage OG naar en fejl viser sig at vaere
+         * soevn: begge steder er forsiden det rigtige sted, for der er
+         * priserne og tandhjulet.
+         */
+        if (zs_ui_current() == ZS_SCREEN_FEJL) {
             zs_ui_show(ZS_SCREEN_HOME);
         }
         return;
     }
 
-    if (s_net_tabt_ms == 0) {
-        s_net_tabt_ms = nu_ms;
-        return;
+    /*
+     * KLOKKESLAETTET REGNES ÉN GANG PR. FEJL, ikke ved hvert tik.
+     *
+     * Det er ogsaa det rigtige svar paa spoergsmaalet: tidspunktet for
+     * den sidste maaling AENDRER SIG IKKE mens fejlen staar. Et tal der
+     * ligger fast, skal ikke regnes forfra fem gange i sekundet.
+     *
+     * Og det fjernede en rigtig fejl. Udregningen blander to ure - det
+     * monotone, som skrider jaevnt, og klokken, som skrider i hele
+     * sekunder - saa det rekonstruerede sekund vippede med ét op og ned.
+     * Laa den sidste maaling paa sekund 59, vippede MINUTTET med, og saa
+     * var strengen forskellig fra sidst ved hvert andet tik: siden blev
+     * tegnet om et par gange i sekundet, og vagten der skulle forhindre
+     * netop det, var sat ud af spillet.
+     *
+     * Tom streng naar uret ikke er sat. Bliver uret sat midt i fejlen,
+     * kommer tidspunktet foerst med naeste gang - og det er i orden: den
+     * ene gang det kan ske, er paa en skaerm uden netvaerk, hvor der
+     * alligevel ikke er et ur at regne af.
+     */
+    bool fik_tid = false;
+    if (s_fejl_sendt_tid[0] == '\0') {
+        sidste_maaling_tid(s_fejl_sendt_tid, sizeof(s_fejl_sendt_tid));
+        /*
+         * Blev uret sat MIDT i fejlen, skal siden have tidspunktet med
+         * med det samme - og kun den ene gang. Vippen kommer ikke
+         * tilbage af det: naar strengen foerst staar der, bliver den
+         * ikke regnet forfra.
+         */
+        fik_tid = (s_fejl_sendt_tid[0] != '\0');
     }
-    if (nu_ms - s_net_tabt_ms < ZS_NONET_GRAENSE_MS) {
-        return;                      /* for tidligt, det kan rette sig selv */
+
+    /*
+     * Tegn siden om naar der er noget nyt - ikke hvert andet sekund.
+     * Teksten er den samme hele vejen gennem en fejl, og en label der
+     * saettes forfra bliver tegnet om hver gang, ogsaa med det samme
+     * indhold.
+     */
+    if (s_fejl_aldrig_sendt || fik_tid || ud.type != s_fejl_sendt
+        || ud.blink != s_fejl_sendt_blink) {
+
+        if (ud.type != s_fejl_sendt) {
+            ESP_LOGW(TAG, "fejl: %s", zs_fejl_navn(ud.type));
+        }
+        s_fejl_aldrig_sendt = false;
+        s_fejl_sendt = ud.type;
+        s_fejl_sendt_blink = ud.blink;
+        zs_ui_set_fejl(ud.type,
+                       s_fejl_sendt_tid[0] != '\0' ? s_fejl_sendt_tid : NULL,
+                       ud.blink);
     }
+
     if (zs_ui_current() == ZS_SCREEN_HOME) {
-        ESP_LOGW(TAG, "nettet har været væk i %lld s, viser beskeden",
-                 (long long)((nu_ms - s_net_tabt_ms) / 1000));
-        zs_ui_show(ZS_SCREEN_NONET);
+        zs_ui_show(ZS_SCREEN_FEJL);
     }
+
+    /*
+     * BAGLYSET ROERES IKKE HERFRA.
+     *
+     * Det gjorde det foer, og saa skulle hver gren i loekken huske at
+     * slukke det. Én gren gjorde ikke: trykkede kunden "Vælg netværk",
+     * forlod vi aldrig den gren hvor der blev slukket, og skaermen
+     * pulserede gennem hele opsaetningen - midt i det hun gjorde for at
+     * reparere det.
+     *
+     * Nu ejer FEJLSIDENS ANIMATION baglyset. Den taender det naar den
+     * starter og giver det tilbage naar den stopper - og den stopper af
+     * sig selv naar siden skjules, uanset hvorfor. Saa kan ingen gren
+     * glemme det, for der er ikke en gren der skal huske noget.
+     *
+     * Se puls_start i ui/zs_screen_fejl.c.
+     */
 }
 
 /* Har serveren sat et nyt prisomraade? Spoerges i tik'et. */
@@ -1312,6 +1536,33 @@ static void handle_cmd(const zs_cmd_t *c)
         }
         s_fejl_i_traek = 0;
         s_tving_genfind = false;
+
+        /*
+         * ── ET NYT VALG SKAL HAVE EN REN TAVLE ──
+         *
+         * Tre ting, og hver af dem var en fejl man kunne se:
+         *
+         * 1. FORBIND NU, ikke om et minut. Ventetiden var vokset til op
+         *    mod ZS_RECONNECT_MAX_MS mens den gamle inverter var nede, og
+         *    den gjaldt stadig. En kunde der lige havde valgt, ventede
+         *    altsaa op til et minut paa det foerste forsoeg.
+         *
+         * 2. FEJLVAGTEN SKAL GLEMME DEN GAMLE. Dens ur loeb fra dengang
+         *    den gamle forsvandt, saa graensen var for laengst passeret:
+         *    fejlsiden kom frem igen i naeste tik, et par hundrede
+         *    millisekunder efter valget, selvom den nye ikke havde haft
+         *    en chance. Og den huskede den gamles driftstilstand, saa en
+         *    ny og helt doed inverter kunne blive meldt som "sover" -
+         *    altsaa med alarmen slaaet fra, tavst.
+         *
+         * 3. OG MAALINGEN SKAL VAEK. s_last_good_ms og have_data blev
+         *    ryddet, men ikke live. Det er live.inverter_state vagten
+         *    laeser, saa uden den her linje var punkt 2 kun halvt loest.
+         */
+        s_next_retry = 0;
+        s_backoff_ms = ZS_RECONNECT_MIN_MS;
+        zs_fejl_glem_inverteren(&s_fejl_vagt);
+        memset(&s_home.live, 0, sizeof(s_home.live));
         s_naeste_genfind_ms = 0;
         if (!gem_konfiguration()) {
             /* Skaermen virker videre, men den har glemt valget naar
@@ -1355,25 +1606,55 @@ static void handle_cmd(const zs_cmd_t *c)
          *
          * Fra Indstillinger: tilbage dertil. Raekken viser adressen, saa
          * svaret paa "blev den skiftet" staar der man kom fra.
+         *
+         * Fra FEJLSIDEN: hjem til forsiden. Kunden stod paa forsiden da
+         * det gik galt, og hun bad ikke om en opsaetning - hun bad om at
+         * tallene kom tilbage. Hverken en tilmelding eller en tur gennem
+         * Indstillinger hoerer til dér.
          */
-        if (c->fra_indstillinger) {
-            ESP_LOGI(TAG, "inverteren skiftet fra Indstillinger");
+        switch (c->oprindelse) {
+        case ZS_INV_FRA_INDSTILLINGER:
+            ESP_LOGI(TAG, "anlægget skiftet fra Indstillinger");
             zs_ui_show(ZS_SCREEN_SETTINGS);
             break;
-        }
 
-        s_tilmeld_naar_opsat = true;
-        /*
-         * Og saa er opsaetningen faerdig.
-         *
-         * Her stod et trin mere, hvor montoeren valgte DK1 eller DK2.
-         * Vaek 12. oktober 2026: prisomraadet kommer ned fra serveren
-         * gennem prisZone, se brug_prisomraade og ZS_FLEET_ZONE_FELT.
-         * Det er ikke montoerens oplysning - Platformen kender kundens
-         * adresse - og et menneske der gaetter paa en skaerm, gaetter
-         * nogle gange forkert.
-         */
-        slut_opsaetningen();
+        case ZS_INV_FRA_REPARATION:
+            ESP_LOGI(TAG, "anlægget valgt fra fejlsiden, tilbage til forsiden");
+            /*
+             * Vagten er ALLEREDE nulstillet, oppe ved valget - se
+             * zs_fejl_glem_inverteren.
+             *
+             * Her stod der at den med vilje IKKE blev nulstillet, og at
+             * en kunde der trykker paa knappen hvert minut, ellers
+             * aldrig ville faa beskeden at se igen. Det foerste er ikke
+             * sandt laengere, og det andet er prisen: uden
+             * nulstillingen kom fejlsiden frem igen et par hundrede
+             * millisekunder efter valget, fordi uret loeb fra dengang
+             * den GAMLE inverter forsvandt. Et valg der ikke kan
+             * afproeves er vaerre end et valg man skal traeffe to gange.
+             *
+             * Nedtaellingen begynder altsaa forfra, hver gang kunden
+             * vaelger. Det er et bevidst tryk fra et menneske, ikke
+             * noget der sker af sig selv.
+             */
+            zs_ui_show(ZS_SCREEN_HOME);
+            break;
+
+        case ZS_INV_FRA_OPSAETNING:
+            /*
+             * Og saa er opsaetningen faerdig.
+             *
+             * Her stod et trin mere, hvor montoeren valgte DK1 eller
+             * DK2. Vaek 12. oktober 2026: prisomraadet kommer ned fra
+             * serveren gennem prisZone, se brug_prisomraade og
+             * ZS_FLEET_ZONE_FELT. Det er ikke montoerens oplysning -
+             * Platformen kender kundens adresse - og et menneske der
+             * gaetter paa en skaerm, gaetter nogle gange forkert.
+             */
+            s_tilmeld_naar_opsat = true;
+            slut_opsaetningen();
+            break;
+        }
         break;
     }
 
@@ -1393,13 +1674,9 @@ static void handle_cmd(const zs_cmd_t *c)
          */
         if (s_cfg.configured && s_cfg.wifi_ssid[0] != '\0'
             && s_cfg.inverter_ip[0] != '\0') {
-            s_state = ST_CONNECTING;
-            /*
-             * Ingen nulstilling af ventetiden er noedvendig. Mens vi stod
-             * i ST_SETUP sprang loekken forbindelsesgrenen over, saa
-             * tidspunktet for naeste forsoeg er for laengst passeret, og
-             * loekken forbinder i den foerste runde efter det her.
-             */
+            /* Og forbind NU, ikke naar den gamle ventetid loeber ud. Se
+             * gaa_i_drift. */
+            gaa_i_drift();
             zs_ui_show(ZS_SCREEN_HOME);
             ESP_LOGI(TAG, "opsætningen blev afbrudt, tilbage til skærmen");
         } else {
@@ -1513,7 +1790,7 @@ static void handle_cmd(const zs_cmd_t *c)
         /* Tilbage til det skaermen ellers ville have lavet: drift hvis
          * den er sat op, ellers opsaetningen forfra. */
         if (s_cfg.configured) {
-            s_state = ST_CONNECTING;
+            gaa_i_drift();
             zs_ui_show(ZS_SCREEN_HOME);
         } else {
             s_state = ST_SETUP;
@@ -1666,7 +1943,7 @@ static void app_task(void *arg)
     zs_ui_set_price(&s_price);
 
     if (configured) {
-        s_state = ST_CONNECTING;
+        gaa_i_drift();
         zs_ui_show(ZS_SCREEN_HOME);
     } else {
         s_state = ST_SETUP;
@@ -1678,7 +1955,6 @@ static void app_task(void *arg)
 #endif
 
     int64_t next_poll = 0;
-    int64_t next_retry = 0;
     int64_t next_tick = 0;
     int64_t next_detail = 0;
 #if ZS_DEMO_ENABLED
@@ -1784,6 +2060,16 @@ static void app_task(void *arg)
             /* Tving Indstillinger og Detaljer til at blive fyldt igen. */
             last_screen = (zs_screen_id_t)-1;
             next_detail = 0;
+            /*
+             * Og fejlsiden, som er bygget HELT forfra af temaskiftet.
+             *
+             * Siden klarer sig selv: s_type, s_tid OG s_blink overlever
+             * nedrivningen, og create kalder skriv_teksten. Det her er
+             * derfor et siksak-baelte og ikke en noedvendighed - det
+             * koster ét kald, og det gOEr at siden ogsaa bliver fyldt
+             * hvis nogen en dag rydder mere i nedrivningen end i dag.
+             */
+            s_fejl_aldrig_sendt = true;
             zs_ui_set_home(&s_home);
             zs_ui_set_price(&s_price);
             zs_ui_set_demo(s_demo);
@@ -1952,6 +2238,21 @@ static void app_task(void *arg)
             }
         }
 
+        /*
+         * I DE TO TILSTANDE SER VI IKKE EFTER INVERTEREN.
+         *
+         * Begge grene nedenfor slutter med continue, saa fejl_tik bliver
+         * ikke kaldt. Uden den her linje fik vagten ét tik med hele
+         * demoen eller hele opsaetningen i, og fejlsiden sprang frem i
+         * samme sekund man gik tilbage til drift.
+         *
+         * Det staar FOER begge grene og ikke inde i hver, saa en tredje
+         * gren en dag ikke kan glemme den.
+         */
+        if (s_state == ST_SETUP || s_state == ST_DEMO) {
+            zs_fejl_ser_ikke(&s_fejl_vagt, t);
+        }
+
 #if ZS_DEMO_ENABLED
         if (s_state == ST_DEMO) {
             if (s_demo_restart) {
@@ -2002,11 +2303,11 @@ static void app_task(void *arg)
             continue;
         }
 
-        nonet_tik(t);
+        fejl_tik(t);
 
         /* ── forbind hvis vi ikke er forbundet ── */
         if (zs_wifi_state() != ZS_WIFI_CONNECTED) {
-            if (t >= next_retry) {
+            if (t >= s_next_retry) {
                 ESP_LOGI(TAG, "prøver at komme på netværket igen");
                 if (zs_wifi_connect(s_cfg.wifi_ssid, s_cfg.wifi_pass,
                                     ZS_WIFI_CONNECT_TIMEOUT_MS)) {
@@ -2024,20 +2325,20 @@ static void app_task(void *arg)
                         s_backoff_ms = ZS_RECONNECT_MAX_MS;
                     }
                 }
-                next_retry = now_ms() + s_backoff_ms;
+                s_next_retry = now_ms() + s_backoff_ms;
             }
             publish_home();
             continue;
         }
 
         if (!zs_fr_is_connected(&s_fr)) {
-            if (t >= next_retry) {
+            if (t >= s_next_retry) {
                 if (inverter_connect()) {
                     s_state = ST_RUNNING;
                     s_backoff_ms = ZS_RECONNECT_MIN_MS;
                     s_fejl_i_traek = 0;
                     s_fr.reconnect_count++;
-                    next_retry = now_ms() + s_backoff_ms;
+                    s_next_retry = now_ms() + s_backoff_ms;
                 } else {
                     ESP_LOGW(TAG, "inverteren på %s svarer ikke",
                              s_cfg.inverter_ip);
@@ -2046,7 +2347,7 @@ static void app_task(void *arg)
                     if (s_backoff_ms > ZS_RECONNECT_MAX_MS) {
                         s_backoff_ms = ZS_RECONNECT_MAX_MS;
                     }
-                    next_retry = now_ms() + s_backoff_ms;
+                    s_next_retry = now_ms() + s_backoff_ms;
 
                     /*
                      * Holder den op med at svare, er den maaske flyttet.
@@ -2057,7 +2358,7 @@ static void app_task(void *arg)
                     if ((s_tving_genfind || s_fejl_i_traek >= ZS_LOCATE_AFTER_FAILS)
                         && now_ms() >= s_naeste_genfind_ms) {
                         if (genfind_inverteren()) {
-                            next_retry = now_ms();
+                            s_next_retry = now_ms();
                             s_backoff_ms = ZS_RECONNECT_MIN_MS;
                         }
                     }
@@ -2102,7 +2403,7 @@ static void app_task(void *arg)
                 ESP_LOGW(TAG, "ingen brugbare tal i %d sekunder, forbinder forfra",
                          ZS_RECONNECT_AFTER_MS / 1000);
                 zs_fr_disconnect(&s_fr);
-                next_retry = now_ms();
+                s_next_retry = now_ms();
             }
         }
 
@@ -2115,6 +2416,11 @@ bool zs_app_start(void)
 {
     /* Foerst af alt, saa ingen opgave kan naa at laese et ur uden den. */
     tidszone_saet();
+
+    /* Fejlvagten begynder paa en frisk. Den HAR ingen hukommelse fra
+     * foer en genstart, og det er rigtigt: hvad der var galt i gaar,
+     * siger ingenting om hvad der er galt nu. */
+    zs_fejl_init(&s_fejl_vagt);
 
     /* Otte pladser er rigeligt: brugeren kan ikke trykke hurtigere end
      * opgaven arbejder, og bliver koen alligevel fuld, er den foerste

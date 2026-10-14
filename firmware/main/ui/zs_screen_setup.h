@@ -19,6 +19,7 @@
 #include "zs_wifi.h"
 #include "zs_discovery.h"
 #include "zs_ui.h"
+#include "zs_app.h"   /* zs_inv_fra_t */
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,17 +38,38 @@ lv_obj_t *zs_setup_root_inverter(void);
 lv_obj_t *zs_setup_root_inverter_manual(void);
 
 /*
- * HVOR INVERTER-FLOWET BLEV STARTET FRA.
+ * DE TO MAADER ET FLOW KAN STARTES PAA, og oprindelsen er et KRAV.
  *
- * Samme tre sider bruges to steder: i opsaetningen, hvor en valgt
- * inverter er det SIDSTE trin, og fra Indstillinger, hvor den bare skal
- * skiftes. De to skal ende forskelligt - og tilbage-knappen skal foere
- * forskellige steder - men siderne er de samme, saa nogen skal sige
- * hvilken af de to det er.
+ * Samme tre sider - soeger, vaelg anlaeg, skriv adressen - bruges fra
+ * tre steder, og de skal ende tre forskellige steder. Se zs_inv_fra_t i
+ * zs_app.h for hvad hver af dem betyder.
  *
- * Saettes FOER ZS_SCREEN_INVERTER_SCAN vises. Roerer ikke LVGL.
+ * HVORFOR DET ER DE HER TO FUNKTIONER OG IKKE EN SAETTER.
+ *
+ * Foer var der en zs_setup_inverter_fra(), som man skulle huske at
+ * kalde FOER man startede flowet. To af tre kaldesteder huskede det.
+ * Det tredje - "Netværk" i Indstillinger - gjorde ikke, og brugte
+ * derfor hvad der tilfaeldigvis stod fra sidste gang: havde ingen
+ * vaeret inde i flowet siden opstart, sluttede et netvaerksskift med
+ * tilmeldings-ceremonien og en ny kode paa en skaerm der havde koert i
+ * maanedsvis.
+ *
+ * Nu kan flowet ikke startes UDEN at sige hvor man kommer fra, fordi
+ * det er et argument. En fjerde indgang en dag kan ikke glemme det -
+ * den kan ikke oversaette uden.
+ *
+ * Begge roerer appen gennem koeen og venter ikke paa noget.
  */
-void zs_setup_inverter_fra_indstillinger(bool ja);
+
+/* Leder efter anlaegget. Viser soegesiden og saetter scanningen i gang. */
+void zs_setup_soeg_inverter(zs_inv_fra_t fra);
+
+/*
+ * Laver netvaerket om, altsaa HELE opsaetningen forfra: liste, kodeord,
+ * soegning, valg af anlaeg. Appen vaelger selv foerste side, se
+ * ZS_CMD_SETUP_RESTART.
+ */
+void zs_setup_skift_netvaerk(zs_inv_fra_t fra);
 
 void zs_setup_set_wifi_list(const zs_ap_t *aps, int n);
 void zs_setup_set_wifi_scanning(bool scanning);

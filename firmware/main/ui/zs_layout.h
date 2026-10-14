@@ -242,6 +242,118 @@
                              + ZS_G_WAIT_GAP)
 
 /* ------------------------------------------------------------------ */
+/* SIDERAMMEN                                                           */
+/* ------------------------------------------------------------------ */
+/*
+ * De stod i zs_theme.h, hvor alt andet layout er alias herfra. De
+ * flyttede hertil fordi guide-sidens regnestykke nedenfor skal kunne
+ * gaa op MOD dem, og en vagt i den her fil kan ikke naa zs_theme.h.
+ * zs_theme.h er nu alias, som den er for resten.
+ */
+#define ZS_G_PAGE_HEAD_HEIGHT  56
+#define ZS_G_PAGE_FOOT_HEIGHT  76
+
+/* ------------------------------------------------------------------ */
+/* GUIDE-SIDEN: fire kort der FLUGTER                                   */
+/* ------------------------------------------------------------------ */
+/*
+ * Fire trin som kort, og de skal fylde siden PRAECIS - ikke "cirka".
+ * Et kort der er én pixel for hoejt, giver et hul nederst eller et kort
+ * der er klippet, og begge ser ud som et uheld.
+ *
+ * Derfor er kortets hoejde UDREGNET af det der er tilbage, og ikke
+ * skrevet af. Rettes luften foeroven eller mellem kortene, bliver
+ * kortene selv lavere - og vagten nedenfor standser byggeriet hvis det
+ * ikke gaar op.
+ *
+ * Siden har en fod, altsaa knappen "Fortsæt", saa indholdet er
+ * skaermhoejden minus baade linjen foroven og foden.
+ */
+#define ZS_G_GUIDE_CONTENT_HEIGHT (ZS_G_SCR_HEIGHT - ZS_G_PAGE_HEAD_HEIGHT \
+                                   - ZS_G_PAGE_FOOT_HEIGHT)
+/*
+ * BAANDET MELLEM LINJEN FOROVEN OG DET FOERSTE KORT.
+ *
+ * Titlen staar MIDT i det, lodret. FOer laa den med 16 px luft over og
+ * en afsat hoejde paa 52 - men teksten fylder kun én linje, saa den sad
+ * i toppen af sin egen kasse: 16 px over og 46 under. Det ser ud som om
+ * den er skubbet op, og det var den.
+ *
+ * Nu er baandet ÉT tal, og midtstillingen laves af en flexbeholder i
+ * zs_screen_setup.c. Derfor passer den baade naar titlen er én linje og
+ * naar den bliver to paa et laengere sprog - vi behoever ikke vide
+ * hvilket af de to det bliver.
+ *
+ * 86 px, og teksten er 26: 30 px over og 30 px under. Vagten nedenfor
+ * holder fast paa at baandet kan rumme TO linjer, saa en oversaettelse
+ * ikke bliver klippet.
+ */
+#define ZS_G_GUIDE_BAAND        86
+/* 20 px skrift giver en 26 px linje. Maalt i zs_font_20.c,
+ * .line_height - ikke skudt efter. */
+#define ZS_G_GUIDE_TITLE_LINE   26
+#define ZS_G_GUIDE_CARD_GAP     10   /* mellem kortene                */
+#define ZS_G_GUIDE_BOTTOM       12   /* luft ned til foden            */
+#define ZS_G_GUIDE_CARDS        4
+
+/* Kortene begynder praecis hvor baandet slutter. */
+#define ZS_G_GUIDE_CARDS_Y      ZS_G_GUIDE_BAAND
+/* Resten, delt i fire. */
+#define ZS_G_GUIDE_CARD_HEIGHT \
+    ((ZS_G_GUIDE_CONTENT_HEIGHT - ZS_G_GUIDE_CARDS_Y - ZS_G_GUIDE_BOTTOM \
+      - (ZS_G_GUIDE_CARDS - 1) * ZS_G_GUIDE_CARD_GAP) / ZS_G_GUIDE_CARDS)
+
+/* Tallets spalte. FAST bredde, saa teksten begynder paa samme x i alle
+ * fire kort - det er det der gOEr at de flugter. */
+#define ZS_G_GUIDE_NUM_WIDTH    22
+#define ZS_G_GUIDE_NUM_GAP      12
+#define ZS_G_GUIDE_CARD_PAD     14
+
+/* ------------------------------------------------------------------ */
+/* FEJLSIDEN: én besked, midt paa fladen                              */
+/* ------------------------------------------------------------------ */
+/*
+ * Siden der kommer frem naar netvaerket eller anlaegget er vaek.
+ *
+ * Den har ÉN besked og ÉN knap, og intet andet. Derfor staar blokken
+ * MIDT paa fladen, baade vandret og lodret: der er ingen tal og ingen
+ * liste at stille op efter, og en blok oppe i hjoernet paa en ellers
+ * tom side ser ud som om der mangler noget under den.
+ *
+ * Knappen staar i sidens FOD, som paa alle de andre sider. FOer laa den
+ * midt i indholdet med et haandskrevet 92 px' spring, og saa stod den
+ * et andet sted end knappen paa hver anden side i hele fladen.
+ *
+ * Luften over og under blokken er UDREGNET af det der er tilbage, og
+ * ikke skrevet af. Det er det der goer at siden ogsaa er midtstillet
+ * paa en skaerm med en anden hoejde - se test_layout_800.c.
+ */
+#define ZS_G_FEJL_CONTENT_HEIGHT (ZS_G_SCR_HEIGHT - ZS_G_PAGE_HEAD_HEIGHT \
+                                  - ZS_G_PAGE_FOOT_HEIGHT)
+/* To linjer 28 px skrift. Den laengste overskrift er "Skærmen er ikke
+ * på netværket", som bryder i to paa 456 px. */
+#define ZS_G_FEJL_HEAD_HEIGHT   80
+#define ZS_G_FEJL_GAP           16
+/* Tre linjer 16 px, med luft. Forklaringen er den laengste tekst paa
+ * siden, og den maa ikke blive klippet paa et smalt sprog. */
+#define ZS_G_FEJL_BODY_HEIGHT   96
+
+#define ZS_G_FEJL_BLOK_HEIGHT   (ZS_G_FEJL_HEAD_HEIGHT + ZS_G_FEJL_GAP \
+                                 + ZS_G_FEJL_BODY_HEIGHT)
+/* Resten, delt i to: lige meget over og under. */
+#define ZS_G_FEJL_TOP           ((ZS_G_FEJL_CONTENT_HEIGHT \
+                                  - ZS_G_FEJL_BLOK_HEIGHT) / 2)
+#define ZS_G_FEJL_BODY_Y        (ZS_G_FEJL_TOP + ZS_G_FEJL_HEAD_HEIGHT \
+                                 + ZS_G_FEJL_GAP)
+
+/*
+ * Her stod maalet paa en RAMME langs kanten, som pulserede. Den er vaek:
+ * en seks pixels kant kan ikke ses fra den anden ende af et koekken, og
+ * det var hele formaalet. Nu flasher HELE fladen roedt, og en flade har
+ * ingen maal at regne - den er sidens egen.
+ */
+
+/* ------------------------------------------------------------------ */
 /* VENTETRINNET: titel, forklaring, bjaelke                            */
 /* ------------------------------------------------------------------ */
 /*
@@ -405,6 +517,62 @@ _Static_assert(ZS_G_PRICE_Y_NOTE + ZS_G_PRICE_NOTE_HEIGHT + ZS_G_PRICE_BOTTOM
  * at lade to blokke bytte plads - fx en bjaelke der havner over
  * forklaringen. Det ser man ikke paa et tal, men det ser man her.
  */
+/*
+ * GUIDE-SIDEN: stakken skal gaa op i indholdets hoejde, praecis.
+ */
+_Static_assert(ZS_G_GUIDE_CARDS_Y
+               + ZS_G_GUIDE_CARDS * ZS_G_GUIDE_CARD_HEIGHT
+               + (ZS_G_GUIDE_CARDS - 1) * ZS_G_GUIDE_CARD_GAP
+               + ZS_G_GUIDE_BOTTOM == ZS_G_GUIDE_CONTENT_HEIGHT,
+               "guide-siden gaar ikke op: titlen, de fire kort, luften "
+               "imellem og luften nederst skal fylde indholdet praecis");
+/* Baandet skal kunne rumme to linjer, saa et laengere sprog ikke
+ * bliver klippet. 86 >= 52. */
+_Static_assert(ZS_G_GUIDE_BAAND >= 2 * ZS_G_GUIDE_TITLE_LINE,
+               "guide-siden: baandet over kortene kan ikke rumme to "
+               "linjer af titlen");
+/* Og der skal vaere luft omkring den ene linje, ikke bare plads. */
+_Static_assert((ZS_G_GUIDE_BAAND - ZS_G_GUIDE_TITLE_LINE) / 2 >= ZS_G_EDGE,
+               "guide-siden: der er ikke luft nok over og under titlen");
+_Static_assert(ZS_G_GUIDE_CARD_HEIGHT >= ZS_G_TOUCH_MIN,
+               "guide-kortene er lavere end et trykfelt, og saa ser de "
+               "ud som streger og ikke som kort");
+/* Der skal vaere plads til en tekstlinje inde i kortet. */
+_Static_assert(ZS_G_GUIDE_CARD_HEIGHT - 2 * ZS_G_GUIDE_CARD_PAD
+               >= ZS_G_CARD_SUB_HEIGHT,
+               "guide-kortet er for lavt til sin egen tekst");
+_Static_assert(ZS_G_GUIDE_NUM_WIDTH + ZS_G_GUIDE_NUM_GAP
+               < ZS_G_CONTENT_WIDTH - 2 * ZS_G_GUIDE_CARD_PAD,
+               "tallets spalte fylder hele kortet");
+
+/*
+ * FEJLSIDEN: beskeden skal kunne vaere der, og staa i midten.
+ */
+_Static_assert(ZS_G_FEJL_BLOK_HEIGHT < ZS_G_FEJL_CONTENT_HEIGHT,
+               "fejlsiden: overskriften og forklaringen fylder mere end "
+               "indholdet, saa noget bliver klippet");
+_Static_assert(ZS_G_FEJL_TOP >= ZS_G_EDGE,
+               "fejlsiden: der er ikke luft nok over overskriften");
+/* Midtstillingen er HELE pointen: lige meget luft over og under. */
+_Static_assert(ZS_G_FEJL_TOP + ZS_G_FEJL_BLOK_HEIGHT + ZS_G_FEJL_TOP
+               <= ZS_G_FEJL_CONTENT_HEIGHT,
+               "fejlsiden: blokken staar ikke i midten");
+_Static_assert(ZS_G_FEJL_BODY_Y > ZS_G_FEJL_TOP + ZS_G_FEJL_HEAD_HEIGHT,
+               "fejlsiden: forklaringen skal staa UNDER overskriften");
+_Static_assert(ZS_G_FEJL_HEAD_HEIGHT >= 2 * 32,
+               "fejlsiden: der er ikke plads til to linjer 28 px i "
+               "overskriften");
+_Static_assert(ZS_G_FEJL_BODY_HEIGHT >= 3 * 24,
+               "fejlsiden: der er ikke plads til tre linjer 16 px i "
+               "forklaringen");
+
+/*
+ * Og foden skal kunne rumme en knap. Det gaelder alle sider med en fod,
+ * ikke kun fejlsiden, og det var ikke tjekket nogen steder.
+ */
+_Static_assert(ZS_G_PAGE_FOOT_HEIGHT - 2 * ZS_G_EDGE >= ZS_G_BTN_HEIGHT,
+               "sidens fod er for lav til en knap");
+
 _Static_assert(ZS_G_STEP_TITLE_Y < ZS_G_STEP_BODY_Y,
                "ventetrinnet: forklaringen skal staa UNDER titlen");
 _Static_assert(ZS_G_STEP_BODY_Y < ZS_G_STEP_BAR_Y,

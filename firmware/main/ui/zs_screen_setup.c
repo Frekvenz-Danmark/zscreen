@@ -43,28 +43,19 @@ static zs_keyboard_t *s_man_kb;
 static lv_obj_t      *s_inv_rescan;
 static lv_obj_t      *s_inv_manual;
 /*
- * HVOR FLOWET KOM FRA. Se zs_screen_setup.h.
+ * HVOR FLOWET KOM FRA. Se zs_screen_setup.h og zs_inv_fra_t.
  *
- * Standard er FALSE, altsaa opsaetningen. Det er den eneste vej der
+ * Standard er NUL, altsaa opsaetningen. Det er den eneste vej der
  * findes paa en ny skaerm, og en variabel der staar rigtigt naar den er
- * nul, kan ikke glemmes ved den foerste opstart.
+ * nul, kan ikke glemmes ved den foerste opstart. Det var grunden til at
+ * bool'en var vendt som den var, og den gaelder stadig for opregningen:
+ * ZS_INV_FRA_OPSAETNING er med vilje nummer nul.
  */
-static bool           s_inv_fra_indstillinger;
+static zs_inv_fra_t   s_inv_fra;
 /* "Opret anlaegget": trinnet FOER netvaerket. */
 static zs_page_t      s_guide_side;
 
-void zs_setup_inverter_fra_indstillinger(bool ja)
-{
-    s_inv_fra_indstillinger = ja;
-}
 
-/* Hvor tilbage foerer fra de tre inverter-sider. ÉT sted: tre kopier af
- * det her valg kunne komme til at pege tre forskellige steder. */
-static zs_screen_id_t inv_tilbage(void)
-{
-    return s_inv_fra_indstillinger ? ZS_SCREEN_SETTINGS
-                                   : ZS_SCREEN_WIFI_LIST;
-}
 
 /* Det netvaerk brugeren valgte, mens kodeordet skrives. */
 static char s_chosen_ssid[ZS_SSID_MAX];
@@ -85,6 +76,92 @@ static void send_cmd(zs_cmd_type_t type)
     memset(&c, 0, sizeof(c));
     c.type = type;
     zs_app_send(&c);
+}
+
+void zs_setup_soeg_inverter(zs_inv_fra_t fra)
+{
+    s_inv_fra = fra;
+    /*
+     * Siden skiftes HER og kommandoen sendes bagefter: en scanning tager
+     * omkring tyve sekunder, og i det tidsrum laeser appen ikke
+     * kommandoer. Ventede vi paa den, ville der gaa tyve sekunder hvor
+     * et tryk ikke gjorde noget synligt.
+     */
+    zs_ui_show(ZS_SCREEN_INVERTER_SCAN);
+    send_cmd(ZS_CMD_INVERTER_SCAN);
+}
+
+void zs_setup_skift_netvaerk(zs_inv_fra_t fra)
+{
+    s_inv_fra = fra;
+    /*
+     * ET TRYK SKAL KUNNE SES MED DET SAMME.
+     *
+     * Vi vaelger ikke den ENDELIGE side her - det gOEr appen, som er den
+     * eneste der ved om der er en opsaetning at gaa tilbage til. Men vi
+     * kvitterer.
+     *
+     * Uden kvitteringen kunne der gaa tyve sekunder hvor der ikke skete
+     * noget synligt: er wifi'et vaek, staar loekken inde i
+     * zs_wifi_connect med ZS_WIFI_CONNECT_TIMEOUT_MS og laeser ikke
+     * koeen. Kunden trykker paa den ENESTE knap paa en pulserende roed
+     * side, der sker ingenting, og saa trykker hun igen. Det var praecis
+     * den fejl der stod forklaret i zs_setup_soeg_inverter ovenfor - og
+     * den gjaldt den her vej lige saa meget.
+     *
+     * Teksten siger hvad der kommer til at ske, ikke hvad der sker nu.
+     * Appen rydder sider frem og tilbage; det her er kun et tegn paa at
+     * trykket blev hoert.
+     */
+    zs_setup_set_connect_status("Søger efter netværk ...", false, false);
+    zs_ui_show(ZS_SCREEN_CONNECTING);
+    send_cmd(ZS_CMD_SETUP_RESTART);
+}
+
+/*
+ * Tilbage fra de tre inverter-sider. ÉT sted: tre kopier af det her
+ * valg kunne komme til at pege tre forskellige steder.
+ *
+ * Den SKIFTER SELV siden i stedet for at svare hvor man skal hen, fordi
+ * den ene af de tre veje ikke er et sideskift.
+ */
+static void gaa_tilbage_fra_inverter(void)
+{
+    switch (s_inv_fra) {
+    case ZS_INV_FRA_INDSTILLINGER:
+        zs_ui_show(ZS_SCREEN_SETTINGS);
+        return;
+
+    /*
+     * EN REPARATION GAAR TILBAGE GENNEM APPEN, og det er ikke en omvej.
+     *
+     * Her stod zs_ui_show(ZS_SCREEN_HOME), og det kunne give en DOED
+     * skaerm. Kunden naar naemlig de her sider ad TRE veje, og de
+     * efterlader appen i to forskellige tilstande:
+     *
+     *   "Søg efter anlægget"   fejlsiden    appen bliver i ST_RUNNING
+     *   "Vælg netværk"         fejlsiden    ST_SETUP
+     *   "Netværk"              Indstillinger ST_SETUP
+     *
+     * I de to sidste staar der continue i loekken, saa appen hverken
+     * forbinder eller aflaeser. Forsiden kom frem med gamle tal og blev
+     * staaende saadan til naeste genstart - uden en fejl nogen steder,
+     * for fejl_tik bliver heller ikke kaldt i ST_SETUP.
+     *
+     * ZS_CMD_SETUP_CANCEL er lavet til praecis det: kun appen kan slippe
+     * tilstanden, og kun den ved om der er en opsaetning at gaa tilbage
+     * til. Den virker ogsaa fra den foerste vej, hvor der ikke var
+     * nogen tilstand at slippe - saa alle tre veje kan dele den ene
+     * linje.
+     */
+    case ZS_INV_FRA_REPARATION:
+        send_cmd(ZS_CMD_SETUP_CANCEL);
+        return;
+
+    case ZS_INV_FRA_OPSAETNING:
+        break;
+    }
+    zs_ui_show(ZS_SCREEN_WIFI_LIST);
 }
 
 /* Rydder alle boern i en beholder. lv_obj_clean sletter dem rigtigt,
@@ -144,26 +221,43 @@ static void on_welcome_demo(lv_event_t *e)
  * er netop det man goer, fire gange.
  */
 
-/* Ét nummereret trin: tallet i orange, teksten ved siden af. */
+/*
+ * ÉT TRIN SOM ET KORT.
+ *
+ * Kortet har FAST hoejde, og den er udregnet i zs_layout.h af det der er
+ * tilbage naar titlen og luften har faaet deres. Saa fylder de fire kort
+ * siden praecis, og der staar en vagt paa at det gaar op.
+ *
+ * Tallets spalte har ogsaa fast bredde. Det er den der goer at de fire
+ * tekster begynder paa samme x - uden den ville "1" og "4" vaere lige
+ * brede, men et tocifret trin en dag ville skubbe sin egen linje, og saa
+ * flugter kortene ikke laengere.
+ */
 static void guide_trin(lv_obj_t *forael, const char *nr, const char *tekst)
 {
-    lv_obj_t *raekke = lv_obj_create(forael);
-    lv_obj_remove_style_all(raekke);
-    lv_obj_set_width(raekke, LV_PCT(100));
-    lv_obj_set_height(raekke, LV_SIZE_CONTENT);
-    lv_obj_set_flex_flow(raekke, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_pad_column(raekke, 12, 0);
-    lv_obj_clear_flag(raekke, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *kort = lv_obj_create(forael);
+    lv_obj_remove_style_all(kort);
+    lv_obj_set_width(kort, LV_PCT(100));
+    lv_obj_set_height(kort, ZS_G_GUIDE_CARD_HEIGHT);
+    lv_obj_set_style_bg_color(kort, lv_color_hex(ZS_C_CARD), 0);
+    lv_obj_set_style_bg_opa(kort, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(kort, 14, 0);
+    lv_obj_set_style_pad_hor(kort, ZS_G_GUIDE_CARD_PAD, 0);
+    lv_obj_set_style_pad_column(kort, ZS_G_GUIDE_NUM_GAP, 0);
+    /* Indholdet midtstilles LODRET i kortet, saa en tekst der en dag
+     * bliver to linjer, vokser lige meget op og ned. */
+    lv_obj_set_flex_flow(kort, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(kort, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(kort, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t *t = lv_label_create(raekke);
+    lv_obj_t *t = lv_label_create(kort);
     lv_label_set_text(t, nr);
     zs_style_text(t, &zs_font_20, ZS_C_ACCENT);
-    /* Fast bredde, saa teksten starter paa samme sted i alle fire
-     * raekker. Uden den ville et tocifret trin skubbe sin egen linje. */
-    lv_obj_set_width(t, 22);
+    lv_obj_set_width(t, ZS_G_GUIDE_NUM_WIDTH);
     lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_RIGHT, 0);
 
-    lv_obj_t *l = lv_label_create(raekke);
+    lv_obj_t *l = lv_label_create(kort);
     lv_label_set_text(l, tekst);
     zs_style_text(l, &zs_font_16, ZS_C_TEXT);
     lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
@@ -185,7 +279,7 @@ static void on_guide_fortsaet(lv_event_t *e)
      * starter: appen starter den selv i tre forskellige tilfaelde, og ét
      * af dem ville blive glemt.
      */
-    s_inv_fra_indstillinger = false;
+    s_inv_fra = ZS_INV_FRA_OPSAETNING;
     /*
      * Vi beder appen fortsaette i stedet for at gaa direkte til listen
      * over netvaerk: har vi et netvaerk og et kodeord fra sidst, proever
@@ -198,29 +292,53 @@ static void build_guide(void)
 {
     zs_page_create(&s_guide_side, "Opret anlægget", on_guide_back, NULL, true);
 
-    lv_obj_t *over = lv_label_create(s_guide_side.content);
+    /*
+     * TITLEN STAAR MIDT I BAANDET mellem linjen foroven og det foerste
+     * kort - baade vandret og lodret.
+     *
+     * Den laa foer med 16 px luft over og en afsat hoejde paa 52. Men
+     * teksten er ÉN linje paa 26 px, saa den sad i toppen af sin egen
+     * kasse: 16 px over og 46 under. Den saa skubbet op ud, og det var
+     * den.
+     *
+     * Midtstillingen laves af en FLEXBEHOLDER og ikke af et udregnet y,
+     * og det er med vilje: saa skal vi ikke vide om teksten bliver én
+     * eller to linjer. Paa et laengere sprog bryder den i to og bliver
+     * stadig staaende i midten. Baandets hoejde staar i zs_layout.h med
+     * en vagt paa at der er plads til to linjer.
+     *
+     * Beholderen er ikke en kasse man kan se: remove_style_all tager
+     * baade bund, kant og luft, saa de 86 px er rene.
+     */
+    lv_obj_t *baand = lv_obj_create(s_guide_side.content);
+    lv_obj_remove_style_all(baand);
+    lv_obj_set_size(baand, ZS_CONTENT_WIDTH, ZS_G_GUIDE_BAAND);
+    lv_obj_set_pos(baand, ZS_EDGE, 0);
+    lv_obj_clear_flag(baand, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(baand, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(baand, LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *over = lv_label_create(baand);
     lv_label_set_text(over, "Gør dette i Frekvenz-appen først");
     zs_style_text(over, &zs_font_20, ZS_C_TEXT);
     lv_label_set_long_mode(over, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(over, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(over, ZS_CONTENT_WIDTH);
-    lv_obj_align(over, LV_ALIGN_TOP_LEFT, ZS_EDGE, 16);
 
-    lv_obj_t *col = zs_column_create(s_guide_side.content, 14);
-    lv_obj_align(col, LV_ALIGN_TOP_LEFT, ZS_EDGE, 62);
+    lv_obj_t *col = zs_column_create(s_guide_side.content,
+                                     ZS_G_GUIDE_CARD_GAP);
+    /* Kolonnen har ZS_EDGE luft foroven og forneden indbygget, og den
+     * skal IKKE have den her: kortenes placering er regnet ud til
+     * pixlen i zs_layout.h, og en ekstra luft ville skubbe den sidste
+     * ned under foden. */
+    lv_obj_set_style_pad_ver(col, 0, 0);
+    lv_obj_align(col, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_GUIDE_CARDS_Y);
 
     guide_trin(col, "1", "Åbn Frekvenz-appen og log ind.");
     guide_trin(col, "2", "Tryk på plus-ikonet øverst.");
     guide_trin(col, "3", "Vælg zScreen på listen.");
-    guide_trin(col, "4", "Følg guiden i appen, og kom tilbage hertil.");
-
-    lv_obj_t *note = lv_label_create(s_guide_side.content);
-    lv_label_set_text(note,
-        "Du får en kode på skærmen til sidst, som du scanner i appen. "
-        "Den skal du stå klar til.");
-    zs_style_text(note, &zs_font_16, ZS_C_LABEL);
-    lv_label_set_long_mode(note, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(note, ZS_CONTENT_WIDTH);
-    lv_obj_align(note, LV_ALIGN_BOTTOM_LEFT, ZS_EDGE, -ZS_EDGE);
+    guide_trin(col, "4", "Følg guiden i appen.");
 
     lv_obj_t *btn = zs_btn_primary_create(s_guide_side.footer, "Fortsæt");
     lv_obj_set_width(btn, ZS_CONTENT_WIDTH);
@@ -539,7 +657,7 @@ static void on_scan_back(lv_event_t *e)
 {
     (void)e;
     zs_discovery_abort();
-    zs_ui_show(inv_tilbage());
+    gaa_tilbage_fra_inverter();
 }
 
 static void build_scan(void)
@@ -566,7 +684,7 @@ static void build_scan(void)
 static void on_inv_back(lv_event_t *e)
 {
     (void)e;
-    zs_ui_show(inv_tilbage());
+    gaa_tilbage_fra_inverter();
 }
 
 static void on_inv_rescan(lv_event_t *e)
@@ -588,7 +706,7 @@ static void on_inv_pick(lv_event_t *e)
     zs_cmd_t c;
     memset(&c, 0, sizeof(c));
     c.type = ZS_CMD_INVERTER_SELECT;
-    c.fra_indstillinger = s_inv_fra_indstillinger;
+    c.oprindelse = s_inv_fra;
     snprintf(c.ip, sizeof(c.ip), "%s", s_found[idx].ip);
     zs_app_send(&c);
     /*
@@ -709,7 +827,7 @@ static void on_man_brug(lv_event_t *e)
     zs_cmd_t c;
     memset(&c, 0, sizeof(c));
     c.type = ZS_CMD_INVERTER_SELECT;
-    c.fra_indstillinger = s_inv_fra_indstillinger;
+    c.oprindelse = s_inv_fra;
     snprintf(c.ip, sizeof(c.ip), "%s", ip);
     zs_app_send(&c);
     /* Appen bestemmer hvor brugeren skal hen, som ved et valg fra

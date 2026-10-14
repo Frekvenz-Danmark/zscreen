@@ -12,6 +12,7 @@
  *     DEMO             orange, opdigtede tal
  *     Forbundet        groen, alt virker
  *     Forbinder        graa, undervejs
+ *     Sover            graa, anlaegget holder fri - ikke en fejl
  *     Ingen inverter   gul, wifi virker men inverteren svarer ikke
  *     Intet netvaerk   roed, ingen forbindelse
  *
@@ -35,6 +36,23 @@ extern "C" {
 typedef enum {
     ZS_LINK_OK = 0,       /* wifi og inverter svarer begge          */
     ZS_LINK_CONNECTING,   /* vi er i gang med at forbinde           */
+    /*
+     * ANLAEGGET HOLDER FRI, og det er ikke en fejl.
+     *
+     * En inverter uden batteri slukker naar solen er nede, og saa
+     * holder den op med at svare. FOer stod der INGEN INVERTER i gult
+     * hele natten, hver nat - en advarsel om noget der er helt
+     * normalt. Et maerke der advarer om tirsdag aften, er et maerke man
+     * holder op med at laese.
+     *
+     * Graat som FORBINDER, ikke gult. Det er en tilstand, ikke et
+     * problem.
+     *
+     * Hvem der afgoer det: app/zs_fejl.h. Den husker hvad inverteren
+     * SELV meldte foer den forsvandt, og kun hvis den meldte soevn
+     * eller slukket, staar der det her.
+     */
+    ZS_LINK_SOVER,
     ZS_LINK_NO_INVERTER,  /* wifi er oppe, inverteren svarer ikke   */
     ZS_LINK_NO_WIFI,      /* der er ingen netvaerksforbindelse      */
 } zs_link_state_t;

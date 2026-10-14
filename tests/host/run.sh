@@ -56,7 +56,8 @@ if [ "${ZS_NO_SANITIZE:-0}" != "1" ]; then
     CFLAGS+=( -fsanitize=address,undefined -fno-sanitize-recover=all )
 fi
 
-# zs_fronius.c linkes IKKE separat: test_fronius.c inkluderer den for
+# zs_fronius.c og zs_lyd.c linkes IKKE separat: test_fronius.c og
+# test_lyd.c inkluderer dem for
 # at naa de interne beregningsfunktioner. Linker vi den ogsaa her,
 # faar vi dobbeltdefinerede symboler.
 SRC=(
@@ -78,6 +79,8 @@ SRC=(
     test_ladeplan.c
     test_ladeordre.c
     test_status.c
+    test_fejl.c
+    test_lyd.c
     test_layout.c
     test_layout_800.c
     test_maerker.c
@@ -89,6 +92,7 @@ SRC=(
     ../../firmware/main/net/zs_ladeplan.c
     ../../firmware/main/net/zs_ladeordre.c
     ../../firmware/main/app/zs_status.c
+    ../../firmware/main/app/zs_fejl.c
     ../../firmware/main/ui/zs_qr.c
     ../../firmware/vendor/qrcodegen/qrcodegen.c
     ../../firmware/main/net/zs_modbus_tcp.c

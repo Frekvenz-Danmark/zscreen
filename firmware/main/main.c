@@ -29,6 +29,7 @@
 #include "zs_theme.h"
 #include "zs_ui.h"
 #include "zs_app.h"
+#include "zs_lyd.h"
 
 static const char *TAG = "zscreen";
 
@@ -68,6 +69,15 @@ void app_main(void)
     lv_port_sem_take();
     zs_ui_init();
     lv_port_sem_give();
+
+    /*
+     * Lyden. Den maa fejle: summeren sidder paa den anden chip, og er
+     * den ikke flashet, eller er lyden slaaet fra i byggningen, saa er
+     * der bare ingen lyd. En skaerm uden lyd pulserer stadig, baade i
+     * fladen og i baglyset, saa der er ingen grund til at standse
+     * opstarten over det.
+     */
+    (void)zs_lyd_init();
 
     if (!zs_app_start()) {
         ESP_LOGE(TAG, "kunne ikke starte hovedopgaven");

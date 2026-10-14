@@ -38,17 +38,22 @@ idf_component_register(
         "net/zs_ladeplan.c"
         "net/zs_ladeordre.c"
         "app/zs_status.c"
+        # Vagten der afgoer hvad der er galt. Ren C, ingen LVGL: samme
+        # kode koerer i tests/host.
+        "app/zs_fejl.c"
 
         "storage/zs_nvs.c"
 
         # Skaermen
         "ui/zs_display.c"
+        # Lyden. Summeren sidder paa den ANDEN chip, se ui/zs_lyd.h.
+        "ui/zs_lyd.c"
         "ui/zs_theme.c"
         "ui/zs_tilegrid.c"
         "ui/zs_ui.c"
         "ui/zs_screen_home.c"
         "ui/zs_screen_tilmeld.c"
-        "ui/zs_screen_nonet.c"
+        "ui/zs_screen_fejl.c"
         "ui/zs_qr.c"
         # QR til tilmeldingen. Udefra, MIT. Se
         # vendor/qrcodegen/HVORFOR.md for maalingerne.

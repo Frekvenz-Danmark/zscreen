@@ -16,7 +16,7 @@
 
 #include "zs_ui.h"
 #include "zs_screen_tilmeld.h"
-#include "zs_screen_nonet.h"
+#include "zs_screen_fejl.h"
 #include "zs_theme.h"
 #include "zs_screen_home.h"
 #include "zs_screen_setup.h"
@@ -52,7 +52,7 @@ void zs_ui_init(void)
     zs_setup_create();
     zs_settings_create();
     zs_tilmeld_page_create();
-    zs_nonet_page_create();
+    zs_fejl_page_create();
 
     s_ready = true;
     /* Vi viser velkomstsiden med den laase-frie udgave.
@@ -83,12 +83,12 @@ static lv_obj_t *root_of(zs_screen_id_t id)
     case ZS_SCREEN_DETAILS:       return zs_details_root();
     case ZS_SCREEN_THEME:         return zs_theme_page_root();
     case ZS_SCREEN_TILMELD:       return zs_tilmeld_page_root();
-    case ZS_SCREEN_NONET:         return zs_nonet_page_root();
+    case ZS_SCREEN_FEJL:          return zs_fejl_page_root();
     }
     return NULL;
 }
 
-#define SCREEN_COUNT  (ZS_SCREEN_NONET + 1)
+#define SCREEN_COUNT  (ZS_SCREEN_FEJL + 1)
 
 /*
  * Skifter side UDEN at tage laasen. Kalderen skal holde den.
@@ -116,15 +116,15 @@ static void show_locked(zs_screen_id_t id)
     }
     s_current = id;
     /*
-     * Blinket paa netvaerkssiden koerer kun mens siden vises.
+     * Pulsen paa fejlsiden koerer kun mens siden vises.
      *
-     * En LVGL-timer bliver ved med at tikke paa en skjult side, og saa
-     * ville skaermen blive tegnet om hvert 700. millisekund resten af
-     * tiden - for en farve ingen kan se. Det staar HER og ikke i siden
+     * En animation bliver ved med at tikke paa en skjult side, og saa
+     * ville skaermen blive tegnet om i hvert billede resten af tiden -
+     * for en bevaegelse ingen kan se. Det staar HER og ikke i siden
      * selv, saa den ikke kan glemmes naar nogen skifter side ad en ny
      * vej i fremtiden.
      */
-    zs_nonet_page_set_active(id == ZS_SCREEN_NONET);
+    zs_fejl_page_set_active(id == ZS_SCREEN_FEJL);
 }
 
 void zs_ui_show(zs_screen_id_t id)
@@ -165,12 +165,21 @@ void zs_ui_set_theme(zs_theme_mode_t m)
     zs_screen_home_destroy();
     zs_setup_destroy();
     zs_settings_destroy();
+    /*
+     * Fejlsiden skal OGSAA bygges om, og den blev glemt her i den
+     * udgave hvor den kun kunne wifi. Farverne paa dens overskrift og
+     * ramme er sat direkte paa objekterne, saa et temaskift efterlod en
+     * side i det gamle temas farver - usynligt indtil den dag noget gik
+     * i stykker, og saa stod der en roed der ikke passede til resten.
+     */
+    zs_fejl_page_destroy();
 
     zs_theme_set_mode(m);
 
     zs_screen_home_create(on_gear, NULL);
     zs_setup_create();
     zs_settings_create();
+    zs_fejl_page_create();
 
     show_locked(hvor);
     lv_port_sem_give();
@@ -267,6 +276,14 @@ void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi)
     if (!s_ready) { return; }
     lv_port_sem_take();
     zs_details_update(fr, own_ip, rssi);
+    lv_port_sem_give();
+}
+
+void zs_ui_set_fejl(zs_fejl_type_t type, const char *tid, bool blink)
+{
+    if (!s_ready) { return; }
+    lv_port_sem_take();
+    zs_fejl_page_update(type, tid, blink);
     lv_port_sem_give();
 }
 

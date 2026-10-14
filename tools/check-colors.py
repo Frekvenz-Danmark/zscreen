@@ -143,6 +143,47 @@ for tema, p in paletter.items():
             fejl.append(f"{tema} et {navn}-maerke kan ikke ses mod siden: "
                         f"{k:.2f}:1, skal vaere 3,00:1")
 
+    # ── Alarmen ──
+    #
+    # Fejlsiden maler HELE fladen og flasher mellem to roede. De to er
+    # derfor deres egen flade og maales IKKE mod temaets bund - de staar
+    # ikke paa den, de erstatter den. Derfor staar de heller ikke i BRUG
+    # ovenfor.
+    #
+    # Tre ting skal holde:
+    #
+    #   teksten skal kunne laeses paa BEGGE roede      4,50:1
+    #   og de to roede skal kunne skelnes, ellers
+    #   er der ikke noget blink                        1,50:1
+    #
+    # Knappen er daekket af den foerste: dens flade er tekstfarven, og
+    # ordet paa den er den moerke roed, altsaa det samme par.
+    #
+    # Den LYSE er den svaere: en lysere roed end #D73338 falder under
+    # 4,50 for hvid tekst. Maalt 14. oktober 2026 - #E04B4B giver 3,98,
+    # og saa kan en kunde ikke laese hvad der er galt.
+    lys = p["ZS_ID_ALARM_LYS"]
+    moerk = p["ZS_ID_ALARM_MOERK"]
+    atekst = p["ZS_ID_ALARM_TEKST"]
+
+    for flade, fnavn in ((lys, "den lyse roed"), (moerk, "den moerke roed")):
+        k = kontrast(atekst, flade)
+        if k < 4.5:
+            fejl.append(f"{tema} alarmens tekst paa {fnavn}: {k:.2f}:1, "
+                        f"skal mindst vaere 4,50:1")
+
+    # Knappens ord maales IKKE for sig. kontrast() er symmetrisk, saa
+    # kontrast(moerk, atekst) er praecis det samme tal som "alarmens
+    # tekst paa den moerke roed" i loekken ovenfor - og knappens flade ER
+    # tekstfarven. En kontrol der ikke kan fejle naar den foerste holder,
+    # er stoej: den giver to fejllinjer for én overtraedelse.
+
+    k = kontrast(lys, moerk)
+    if k < 1.5:
+        fejl.append(f"{tema} alarmens to roede kan ikke skelnes: "
+                    f"{k:.2f}:1, skal mindst vaere 1,50:1 - ellers er "
+                    f"der ikke noget blink")
+
     # Kortet skal kunne ses mod baggrunden, og kanten mod kortet.
     if kontrast(kort, bund) < 1.03:
         fejl.append(f"{tema} kortet kan ikke ses mod baggrunden: "

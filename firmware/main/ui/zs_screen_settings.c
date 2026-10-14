@@ -120,7 +120,21 @@ static void on_open_details(lv_event_t *e) { (void)e; zs_ui_show(ZS_SCREEN_DETAI
 static void on_change_wifi(lv_event_t *e)
 {
     (void)e;
-    send_simple(ZS_CMD_SETUP_RESTART);
+    /*
+     * DET HER ER EN REPARATION, ikke en ny opsaetning.
+     *
+     * Raekken fOErer gennem HELE opsaetningen - netvaerk, kodeord,
+     * soegning, valg af inverter - paa en skaerm der allerede koerer.
+     * Oprindelsen skal derfor saettes, og den blev det ikke: flowet
+     * brugte hvad der tilfaeldigvis stod fra sidste gang nogen havde
+     * vaeret inde i det. Havde ingen vaeret det siden opstart, stod der
+     * OPSAETNING, og saa sluttede et netvaerksskift med
+     * "Anlægget er tilmeldt" og en ny kode.
+     *
+     * Samme vaerdi som fejlsidens "Vælg netværk" bruger. De to gOEr
+     * det samme, saa de skal ende det samme sted. Se zs_inv_fra_t.
+     */
+    zs_setup_skift_netvaerk(ZS_INV_FRA_REPARATION);
 }
 
 static void on_change_tema(lv_event_t *e)
@@ -215,9 +229,7 @@ static void on_change_inverter(lv_event_t *e)
      *
      * Her skal den bare skiftes, og saa tilbage hertil.
      */
-    zs_setup_inverter_fra_indstillinger(true);
-    zs_ui_show(ZS_SCREEN_INVERTER_SCAN);
-    send_simple(ZS_CMD_INVERTER_SCAN);
+    zs_setup_soeg_inverter(ZS_INV_FRA_INDSTILLINGER);
 }
 
 static void on_brightness(lv_event_t *e)

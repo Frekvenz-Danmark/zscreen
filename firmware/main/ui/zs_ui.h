@@ -21,6 +21,7 @@
 #include "zs_price.h"
 #include "zs_ota.h"
 #include "zs_tilmeld.h"
+#include "zs_fejl.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,7 +41,7 @@ typedef enum {
     ZS_SCREEN_DETAILS,       /* detaljer om anlægget                */
     ZS_SCREEN_THEME,         /* vælg tema                           */
     ZS_SCREEN_TILMELD,       /* tilmeld anlægget til en kunde        */
-    ZS_SCREEN_NONET,         /* netværket er væk, blinker rødt       */
+    ZS_SCREEN_FEJL,          /* noget er væk, siden pulserer         */
 } zs_screen_id_t;
 
 /* Bygger alle skaerme. Kaldes én gang fra app_main, med LVGL-laasen
@@ -84,6 +85,16 @@ void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi);
 /* Tilmeldingssiden. Se zs_screen_tilmeld.h for hvorfor der er en stand
  * og ikke bare en kode. */
 void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode);
+
+/*
+ * Fejlsiden: hvad der er galt, hvornaar den sidste maaling kom, og om
+ * der skal pulseres.
+ *
+ * tid maa vaere NULL naar uret ikke er sat. blink kommer fra
+ * zs_fejl_tik og besluttes ikke i brugerfladen: reglen om at en
+ * inverter der sover ikke skal blinke, skal kun staa ét sted.
+ */
+void zs_ui_set_fejl(zs_fejl_type_t type, const char *tid, bool blink);
 
 #ifdef __cplusplus
 }

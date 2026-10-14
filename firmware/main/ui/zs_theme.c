@@ -22,6 +22,8 @@ static lv_style_t s_card;
 static lv_style_t s_card_pressed;
 static lv_style_t s_btn_primary;
 static lv_style_t s_btn_primary_pressed;
+static lv_style_t s_btn_alarm;
+static lv_style_t s_btn_alarm_pressed;
 static lv_style_t s_btn_secondary;
 static lv_style_t s_btn_secondary_pressed;
 static lv_style_t s_row;
@@ -61,6 +63,9 @@ static const uint32_t PALET[ZS_THEME_COUNT][ZS_ID_COUNT] = {
          * kraever. Samme roede, kun lysere. */
         [ZS_ID_BAD]          = 0xF97E7E,
         [ZS_ID_WARN]         = 0xFBBF24,
+        [ZS_ID_ALARM_LYS]    = 0xD73338,
+        [ZS_ID_ALARM_MOERK]  = 0x7F1D1D,
+        [ZS_ID_ALARM_TEKST]  = 0xFFFFFF,
     },
     [ZS_THEME_LIGHT] = {
         [ZS_ID_BG]           = 0xF7FAF9,
@@ -80,6 +85,9 @@ static const uint32_t PALET[ZS_THEME_COUNT][ZS_ID_COUNT] = {
         [ZS_ID_GOOD]         = 0x15803D,
         [ZS_ID_BAD]          = 0xC02626,
         [ZS_ID_WARN]         = 0xA16207,
+        [ZS_ID_ALARM_LYS]    = 0xD73338,
+        [ZS_ID_ALARM_MOERK]  = 0x7F1D1D,
+        [ZS_ID_ALARM_TEKST]  = 0xFFFFFF,
     },
     /*
      * Roedt. Bunden er #D73338, som den skal vaere.
@@ -120,6 +128,9 @@ static const uint32_t PALET[ZS_THEME_COUNT][ZS_ID_COUNT] = {
         [ZS_ID_GOOD]         = 0xEDFFF4,
         [ZS_ID_BAD]          = 0xFFFFFF,
         [ZS_ID_WARN]         = 0xFFFBEA,
+        [ZS_ID_ALARM_LYS]    = 0xD73338,
+        [ZS_ID_ALARM_MOERK]  = 0x7F1D1D,
+        [ZS_ID_ALARM_TEKST]  = 0xFFFFFF,
     },
 };
 
@@ -266,6 +277,20 @@ static void fyld_stilarter(void)
      * fejres, og en knap der skifter kuloer virker som en anden knap. */
     lv_style_set_bg_opa(&s_btn_primary_pressed, LV_OPA_80);
 
+    /*
+     * Fejlsidens knap: HVID flade, moerkeroed skrift. Se
+     * zs_btn_alarm_create i zs_theme.h for hvorfor den primaere ikke kan
+     * bruges paa en roed bund.
+     */
+    base_surface(&s_btn_alarm, ZS_C_ALARM_TEKST, 0, 14, 0);
+    lv_style_set_pad_hor(&s_btn_alarm, 22);
+    lv_style_set_text_color(&s_btn_alarm, lv_color_hex(ZS_C_ALARM_MOERK));
+    lv_style_set_text_font(&s_btn_alarm, &zs_font_20);
+
+    nulstil_foerste_gang(&s_btn_alarm_pressed);
+    /* Nedtonet, som den primaere. Et tryk skal ses, ikke fejres. */
+    lv_style_set_bg_opa(&s_btn_alarm_pressed, LV_OPA_80);
+
     base_surface(&s_btn_secondary, ZS_C_BG, ZS_C_BORDER, 14, 1);
     lv_style_set_bg_opa(&s_btn_secondary, LV_OPA_TRANSP);
     lv_style_set_pad_hor(&s_btn_secondary, 22);
@@ -396,6 +421,11 @@ static lv_obj_t *make_button(lv_obj_t *parent, const char *text,
 lv_obj_t *zs_btn_primary_create(lv_obj_t *parent, const char *text)
 {
     return make_button(parent, text, &s_btn_primary, &s_btn_primary_pressed);
+}
+
+lv_obj_t *zs_btn_alarm_create(lv_obj_t *parent, const char *text)
+{
+    return make_button(parent, text, &s_btn_alarm, &s_btn_alarm_pressed);
 }
 
 lv_obj_t *zs_btn_secondary_create(lv_obj_t *parent, const char *text)
