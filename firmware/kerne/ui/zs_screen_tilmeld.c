@@ -360,7 +360,7 @@ void zs_tilmeld_page_create(void)
      * vejledningen, hvor laenge den gaelder - er svar paa spoergsmaal
      * man kun stiller hvis det foerste ikke lykkedes.
      */
-    s_over = linje(&zs_font_20, ZS_C_TEXT);
+    s_over = linje(&zs_font_rad, ZS_C_TEXT);
 
     /* Hvid plade med luft, saa QR'en staar paa lyst uanset tema. */
     s_plade = lv_obj_create(s_side.content);
@@ -375,15 +375,15 @@ void zs_tilmeld_page_create(void)
     lv_obj_add_flag(s_plade, LV_OBJ_FLAG_HIDDEN);
 
     /*
-     * Koden staar i zs_font_28 og ikke i zs_font_num_64.
+     * Koden staar i zs_font_stor og ikke i zs_font_tal.
      *
      * Den store skrift har KUN cifre og komma - den blev lavet til
      * wattene paa hovedskaermen - og koden har bogstaver. Skulle den
      * staa stoerre, skal de 32 tegn i alfabetet med i den store
      * skrifttype, og det koster flash vi foerst vil maale.
      */
-    s_kode   = linje(&zs_font_28, ZS_C_VALUE);
-    s_hjaelp = linje(&zs_font_16, ZS_C_TEXT_DIM);
+    s_kode   = linje(&zs_font_stor, ZS_C_VALUE);
+    s_hjaelp = linje(&zs_font_broed, ZS_C_TEXT_DIM);
 
     /*
      * VENTETRINNET.
@@ -398,7 +398,7 @@ void zs_tilmeld_page_create(void)
     zs_step_create(&s_trin, s_side.content);
     zs_step_vis(&s_trin, false);
 
-    s_guide  = linje(&zs_font_16, ZS_C_TEXT_DIM);
+    s_guide  = linje(&zs_font_broed, ZS_C_TEXT_DIM);
 
     s_knap = zs_btn_primary_create(s_side.content, "Lav en kode");
     lv_obj_set_width(s_knap, ZS_CONTENT_WIDTH);
@@ -702,9 +702,9 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
      * saa de to tilstande ikke kan komme til at efterlade hinandens.
      */
     if (tilmeldt) {
-        zs_style_text(s_hjaelp, &zs_font_20, ZS_C_TEXT);
+        zs_style_text(s_hjaelp, &zs_font_rad, ZS_C_TEXT);
     } else {
-        zs_style_text(s_hjaelp, &zs_font_16, ZS_C_TEXT_DIM);
+        zs_style_text(s_hjaelp, &zs_font_broed, ZS_C_TEXT_DIM);
     }
 
     /* Kodefeltet skjules naar der ikke staar noget i det. En tom linje i
@@ -713,9 +713,9 @@ void zs_tilmeld_page_update(zs_tilmeld_stand_t stand, const char *kode)
     if (!klar) {
         /* Tankestregen staar i daempet farve naar der ikke er en kode,
          * saa den ikke ser ud som noget man kan bruge. */
-        zs_style_text(s_kode, &zs_font_28, ZS_C_TEXT_DIM);
+        zs_style_text(s_kode, &zs_font_stor, ZS_C_TEXT_DIM);
     } else {
-        zs_style_text(s_kode, &zs_font_28, ZS_C_VALUE);
+        zs_style_text(s_kode, &zs_font_stor, ZS_C_VALUE);
     }
 
     (void)stak();

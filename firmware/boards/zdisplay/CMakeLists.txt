@@ -97,5 +97,5 @@ idf_build_set_property(COMPILE_DEFINITIONS "BSP_CONFIG_NO_GRAPHIC_LIB=1" APPEND)
 # og appen hed "v0.27.0-dirty". Det er IKKE et versionsnummer
 # zs_version_parse kan laese, og en skaerm der ikke forstaar sin egen
 # version opdaterer aldrig. Se ZS_VERSION i kerne/kilder.cmake.
-include("${ZS_FW_DIR}/kerne/kilder.cmake")
+include("${ZS_FW_DIR}/kerne/version.cmake")
 project(zdisplay VERSION ${ZS_VERSION})

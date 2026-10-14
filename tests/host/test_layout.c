@@ -130,3 +130,31 @@ void test_layout(void)
     CHECK("en knap kan rammes", ZS_G_BTN_HEIGHT >= ZS_G_TOUCH_MIN);
     CHECK("et valgfelt kan rammes", ZS_G_CHOICE_HEIGHT >= ZS_G_TOUCH_MIN);
 }
+
+/*
+ * HVER konstant paa referenceskaermen, mod den gemte liste.
+ *
+ * Se tests/fixtures/layout-480.h for hvorfor den findes: et byg kan
+ * ikke bruges til at proeve at zScreens flade staar stille, fordi to
+ * byg af samme kode giver forskellige filer.
+ */
+void test_layout_480_alle(void)
+{
+    ZS_SUITE("Referenceskaermen: hvert tal staar hvor det stod");
+
+    int antal = 0, gale = 0;
+#define ZS_FORVENTET(navn, vaerdi)                                  \
+    do {                                                            \
+        antal++;                                                    \
+        if ((int)(navn) != (vaerdi)) {                              \
+            gale++;                                                 \
+            ZS_FAIL(#navn " er %d, og skal vaere %d paa 480 x 480",  \
+                    (int)(navn), (vaerdi));                         \
+        }                                                           \
+    } while (0);
+#include "../fixtures/layout-480.h"
+#undef ZS_FORVENTET
+
+    CHECK_INT("ingen af dem har flyttet sig", gale, 0);
+    CHECK("og listen er ikke tom", antal > 50);
+}

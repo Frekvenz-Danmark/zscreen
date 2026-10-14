@@ -9,7 +9,7 @@
 /* lv_async_call, se set_map_later nedenfor. */
 #include "misc/lv_async.h"
 
-LV_FONT_DECLARE(zs_font_kb_24)
+LV_FONT_DECLARE(zs_font_kb)
 
 /* Taster med saerlig betydning. De staar som tekst i gitteret og
  * genkendes paa praecis den tekst, saa der ikke er tvivl om hvilken
@@ -434,7 +434,7 @@ zs_keyboard_t *zs_keyboard_create(lv_obj_t *parent, lv_obj_t *target,
     lv_obj_set_style_bg_opa(kb->matrix, LV_OPA_COVER, LV_PART_ITEMS);
     lv_obj_set_style_radius(kb->matrix, 8, LV_PART_ITEMS);
     lv_obj_set_style_text_color(kb->matrix, lv_color_hex(ZS_C_TEXT), LV_PART_ITEMS);
-    lv_obj_set_style_text_font(kb->matrix, &zs_font_kb_24, LV_PART_ITEMS);
+    lv_obj_set_style_text_font(kb->matrix, &zs_font_kb, LV_PART_ITEMS);
     lv_obj_set_style_border_width(kb->matrix, 0, LV_PART_ITEMS);
     lv_obj_set_style_shadow_width(kb->matrix, 0, LV_PART_ITEMS);
 

@@ -180,11 +180,11 @@ const char *zs_theme_hint(zs_theme_mode_t m);
 
 /* ── Skrifttyper ──────────────────────────────────────────────────── */
 /* Funnel Sans, den samme som frekvenz.nu og Zbox-webfladen. */
-LV_FONT_DECLARE(zs_font_num_64)   /* store tal, kun cifre og komma  */
-LV_FONT_DECLARE(zs_font_28)       /* enheder og overskrifter        */
-LV_FONT_DECLARE(zs_font_20)       /* listerader og knapper          */
-LV_FONT_DECLARE(zs_font_16)       /* undertekst og brOEdtekst       */
-LV_FONT_DECLARE(zs_font_13)       /* etiketter med versaler         */
+LV_FONT_DECLARE(zs_font_tal)   /* store tal, kun cifre og komma  */
+LV_FONT_DECLARE(zs_font_stor)       /* enheder og overskrifter        */
+LV_FONT_DECLARE(zs_font_rad)       /* listerader og knapper          */
+LV_FONT_DECLARE(zs_font_broed)       /* undertekst og brOEdtekst       */
+LV_FONT_DECLARE(zs_font_etiket)       /* etiketter med versaler         */
 
 /* ── Logoer ───────────────────────────────────────────────────────── */
 /*
@@ -311,8 +311,8 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
  * LVGL fortaeller hvor grundlinjen ligger:
  *     grundlinje fra overkant = line_height - base_line
  *
- *     zs_font_num_64   54 - 9 = 45
- *     zs_font_28       31 - 5 = 26
+ *     zs_font_tal   54 - 9 = 45
+ *     zs_font_stor       31 - 5 = 26
  *
  * Enheden skal derfor saenkes 45 - 26 = 19 px i forhold til tallet.
  * Vi regner det ud paa stedet ud fra skrifttyperne i stedet for at

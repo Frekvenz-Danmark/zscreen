@@ -44,7 +44,7 @@ void zs_tile_create(zs_tile_t *t, lv_obj_t *parent,
 
     t->head_icon = lv_label_create(t->card);
     lv_label_set_text(t->head_icon, icon != NULL ? icon : "");
-    lv_obj_set_style_text_font(t->head_icon, &zs_icons_20, 0);
+    lv_obj_set_style_text_font(t->head_icon, &zs_ikon_lille, 0);
     lv_obj_set_style_text_color(t->head_icon, lv_color_hex(ZS_C_LABEL), 0);
     lv_obj_align(t->head_icon, LV_ALIGN_TOP_RIGHT, 0, ZS_CARD_HEAD_Y);
 
@@ -62,24 +62,24 @@ void zs_tile_create(zs_tile_t *t, lv_obj_t *parent,
 
     t->value = lv_label_create(t->value_box);
     lv_label_set_text(t->value, "-");
-    zs_style_text(t->value, &zs_font_num_64, ZS_C_TEXT);
+    zs_style_text(t->value, &zs_font_tal, ZS_C_TEXT);
 
     t->unit = lv_label_create(t->value_box);
     lv_label_set_text(t->unit, "");
-    zs_style_text(t->unit, &zs_font_28, ZS_C_LABEL);
+    zs_style_text(t->unit, &zs_font_stor, ZS_C_LABEL);
     lv_obj_set_style_translate_y(t->unit,
-                                 baseline_offset(&zs_font_num_64, &zs_font_28), 0);
+                                 baseline_offset(&zs_font_tal, &zs_font_stor), 0);
 
     /* ── undertekst ── */
     t->sub_icon = lv_label_create(t->card);
     lv_label_set_text(t->sub_icon, "");
-    lv_obj_set_style_text_font(t->sub_icon, &zs_icons_20, 0);
+    lv_obj_set_style_text_font(t->sub_icon, &zs_ikon_lille, 0);
     lv_obj_set_style_text_color(t->sub_icon, lv_color_hex(ZS_C_LABEL), 0);
     lv_obj_align(t->sub_icon, LV_ALIGN_TOP_LEFT, 0, ZS_CARD_SUB_Y - 1);
 
     t->sub_text = lv_label_create(t->card);
     lv_label_set_text(t->sub_text, "");
-    zs_style_text(t->sub_text, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(t->sub_text, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(t->sub_text, LV_LABEL_LONG_DOT);
     lv_obj_align(t->sub_text, LV_ALIGN_TOP_LEFT, 0, ZS_CARD_SUB_Y);
     lv_obj_set_width(t->sub_text, ZS_CARD_IN_WIDTH);

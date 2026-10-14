@@ -270,7 +270,7 @@ static void fyld_stilarter(void)
     base_surface(&s_btn_primary, ZS_C_ACCENT, 0, 14, 0);
     lv_style_set_pad_hor(&s_btn_primary, 22);
     lv_style_set_text_color(&s_btn_primary, lv_color_hex(ZS_C_BG));
-    lv_style_set_text_font(&s_btn_primary, &zs_font_20);
+    lv_style_set_text_font(&s_btn_primary, &zs_font_rad);
 
     nulstil_foerste_gang(&s_btn_primary_pressed);
     /* Nedtonet i stedet for at skifte farve. Et tryk skal ses, ikke
@@ -285,7 +285,7 @@ static void fyld_stilarter(void)
     base_surface(&s_btn_alarm, ZS_C_ALARM_TEKST, 0, 14, 0);
     lv_style_set_pad_hor(&s_btn_alarm, 22);
     lv_style_set_text_color(&s_btn_alarm, lv_color_hex(ZS_C_ALARM_MOERK));
-    lv_style_set_text_font(&s_btn_alarm, &zs_font_20);
+    lv_style_set_text_font(&s_btn_alarm, &zs_font_rad);
 
     nulstil_foerste_gang(&s_btn_alarm_pressed);
     /* Nedtonet, som den primaere. Et tryk skal ses, ikke fejres. */
@@ -295,7 +295,7 @@ static void fyld_stilarter(void)
     lv_style_set_bg_opa(&s_btn_secondary, LV_OPA_TRANSP);
     lv_style_set_pad_hor(&s_btn_secondary, 22);
     lv_style_set_text_color(&s_btn_secondary, lv_color_hex(ZS_C_TEXT));
-    lv_style_set_text_font(&s_btn_secondary, &zs_font_20);
+    lv_style_set_text_font(&s_btn_secondary, &zs_font_rad);
 
     nulstil_foerste_gang(&s_btn_secondary_pressed);
     lv_style_set_bg_color(&s_btn_secondary_pressed, lv_color_hex(ZS_C_CARD));
@@ -396,7 +396,7 @@ lv_obj_t *zs_label_create(lv_obj_t *parent, const char *text)
 {
     lv_obj_t *lbl = lv_label_create(parent);
     lv_label_set_text(lbl, text != NULL ? text : "");
-    zs_style_text(lbl, &zs_font_13, ZS_C_LABEL);
+    zs_style_text(lbl, &zs_font_etiket, ZS_C_LABEL);
     /* Lidt luft mellem bogstaverne. Versaler i smaa stoerrelser bliver
      * ellers til en klump man skal laese to gange. */
     lv_obj_set_style_text_letter_space(lbl, 1, 0);
@@ -465,7 +465,7 @@ void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
     if (icon != NULL) {
         out->icon = lv_label_create(row);
         lv_label_set_text(out->icon, icon);
-        lv_obj_set_style_text_font(out->icon, &zs_icons_20, 0);
+        lv_obj_set_style_text_font(out->icon, &zs_ikon_lille, 0);
         lv_obj_set_style_text_color(out->icon, lv_color_hex(ZS_C_LABEL), 0);
         lv_obj_align(out->icon, LV_ALIGN_LEFT_MID, 0, 0);
         x = ZS_ROW_ICON_W;
@@ -474,7 +474,7 @@ void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
     if (title != NULL) {
         out->title = lv_label_create(row);
         lv_label_set_text(out->title, title);
-        zs_style_text(out->title, &zs_font_20, ZS_C_TEXT);
+        zs_style_text(out->title, &zs_font_rad, ZS_C_TEXT);
         lv_label_set_long_mode(out->title, LV_LABEL_LONG_DOT);
         lv_obj_align(out->title, LV_ALIGN_LEFT_MID, x, 0);
 
@@ -495,7 +495,7 @@ void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
     if (chevron) {
         out->chevron = lv_label_create(row);
         lv_label_set_text(out->chevron, ZS_ICON_CHEVRON_RIGHT);
-        lv_obj_set_style_text_font(out->chevron, &zs_icons_20, 0);
+        lv_obj_set_style_text_font(out->chevron, &zs_ikon_lille, 0);
         lv_obj_set_style_text_color(out->chevron, lv_color_hex(ZS_C_LABEL), 0);
         lv_obj_align(out->chevron, LV_ALIGN_RIGHT_MID, 0, 0);
         rx = -30;
@@ -504,7 +504,7 @@ void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
     if (value != NULL) {
         out->value = lv_label_create(row);
         lv_label_set_text(out->value, value);
-        zs_style_text(out->value, &zs_font_16, ZS_C_LABEL);
+        zs_style_text(out->value, &zs_font_broed, ZS_C_LABEL);
         lv_obj_align(out->value, LV_ALIGN_RIGHT_MID, rx, 0);
     }
 }
@@ -548,7 +548,7 @@ void zs_page_create(zs_page_t *p, const char *title,
 
         lv_obj_t *ic = lv_label_create(p->back);
         lv_label_set_text(ic, ZS_ICON_ARROW_LEFT);
-        lv_obj_set_style_text_font(ic, &zs_icons_20, 0);
+        lv_obj_set_style_text_font(ic, &zs_ikon_lille, 0);
         lv_obj_set_style_text_color(ic, lv_color_hex(ZS_C_TEXT), 0);
         lv_obj_center(ic);
 
@@ -557,7 +557,7 @@ void zs_page_create(zs_page_t *p, const char *title,
 
     p->title = lv_label_create(p->head);
     lv_label_set_text(p->title, title != NULL ? title : "");
-    zs_style_text(p->title, &zs_font_28, ZS_C_TEXT);
+    zs_style_text(p->title, &zs_font_stor, ZS_C_TEXT);
     lv_label_set_long_mode(p->title, LV_LABEL_LONG_DOT);
     lv_obj_set_width(p->title, ZS_SCR_WIDTH - title_x - ZS_EDGE);
     lv_obj_align(p->title, LV_ALIGN_LEFT_MID, title_x, 0);
@@ -642,13 +642,13 @@ lv_obj_t *zs_choice_create(lv_obj_t *parent, const char *titel,
 
     lv_obj_t *t = lv_label_create(b);
     lv_label_set_text(t, titel);
-    zs_style_text(t, &zs_font_28, ZS_C_TEXT);
+    zs_style_text(t, &zs_font_stor, ZS_C_TEXT);
     lv_obj_align(t, LV_ALIGN_TOP_LEFT, 16, 14);
 
     if (forklaring != NULL && forklaring[0] != '\0') {
         lv_obj_t *f = lv_label_create(b);
         lv_label_set_text(f, forklaring);
-        zs_style_text(f, &zs_font_16, ZS_C_LABEL);
+        zs_style_text(f, &zs_font_broed, ZS_C_LABEL);
         lv_label_set_long_mode(f, LV_LABEL_LONG_WRAP);
         lv_obj_set_width(f, ZS_CONTENT_WIDTH - 32);
         lv_obj_align(f, LV_ALIGN_TOP_LEFT, 16, 50);

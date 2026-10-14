@@ -59,9 +59,9 @@
  * Aendrer nogen en skriftstoerrelse, foelger hoejden med. */
 static lv_coord_t card_content_height(void)
 {
-    return zs_font_13.line_height + CARD_LINE_GAP
-         + zs_font_28.line_height + CARD_LINE_GAP
-         + zs_font_16.line_height;
+    return zs_font_etiket.line_height + CARD_LINE_GAP
+         + zs_font_stor.line_height + CARD_LINE_GAP
+         + zs_font_broed.line_height;
 }
 
 void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
@@ -80,21 +80,21 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
     /* Prisen og enheden staar paa samme grundlinje, som paa forsiden. */
     p->value = lv_label_create(parent);
     lv_label_set_text(p->value, "-");
-    zs_style_text(p->value, &zs_font_num_64, ZS_C_VALUE);
+    zs_style_text(p->value, &zs_font_tal, ZS_C_VALUE);
     lv_obj_set_pos(p->value, ZS_EDGE, Y_VALUE);
 
     p->unit = lv_label_create(parent);
     lv_label_set_text(p->unit, "");
-    zs_style_text(p->unit, &zs_font_28, ZS_C_LABEL);
+    zs_style_text(p->unit, &zs_font_stor, ZS_C_LABEL);
     /* Samme udregning som i zs_tile.c: forskellen paa de to
      * skrifttypers grundlinjer. */
     lv_obj_set_pos(p->unit, ZS_EDGE, Y_VALUE
-        + (zs_font_num_64.line_height - zs_font_num_64.base_line)
-        - (zs_font_28.line_height - zs_font_28.base_line));
+        + (zs_font_tal.line_height - zs_font_tal.base_line)
+        - (zs_font_stor.line_height - zs_font_stor.base_line));
 
     p->word = lv_label_create(parent);
     lv_label_set_text(p->word, "");
-    zs_style_text(p->word, &zs_font_20, ZS_C_LABEL);
+    zs_style_text(p->word, &zs_font_rad, ZS_C_LABEL);
     lv_obj_set_pos(p->word, ZS_EDGE, Y_WORD);
 
     /* ── soejlerne ── */
@@ -117,7 +117,7 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
     for (int i = 0; i < 4; i++) {
         p->axis[i] = lv_label_create(parent);
         lv_label_set_text(p->axis[i], "");
-        zs_style_text(p->axis[i], &zs_font_13, ZS_C_STALE);
+        zs_style_text(p->axis[i], &zs_font_etiket, ZS_C_STALE);
         lv_obj_set_style_text_align(p->axis[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_width(p->axis[i], 40);
         lv_obj_set_y(p->axis[i], Y_AXIS);
@@ -134,8 +134,8 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
      * tal skrevet i haanden. Saa kan de ikke komme til at overlappe
      * eller staa uden for kassen naar en stoerrelse aendres. */
     lv_coord_t y_label = 0;
-    lv_coord_t y_value = y_label + zs_font_13.line_height + CARD_LINE_GAP;
-    lv_coord_t y_time  = y_value + zs_font_28.line_height + CARD_LINE_GAP;
+    lv_coord_t y_value = y_label + zs_font_etiket.line_height + CARD_LINE_GAP;
+    lv_coord_t y_time  = y_value + zs_font_stor.line_height + CARD_LINE_GAP;
 
     lv_coord_t indvendigt = CARDS_H - 2 * CARD_PAD;
     if (card_content_height() > indvendigt) {
@@ -158,19 +158,19 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
 
         *k[i].vaerdi = lv_label_create(*k[i].kort);
         lv_label_set_text(*k[i].vaerdi, "-");
-        zs_style_text(*k[i].vaerdi, &zs_font_28, ZS_C_TEXT);
+        zs_style_text(*k[i].vaerdi, &zs_font_stor, ZS_C_TEXT);
         lv_obj_align(*k[i].vaerdi, LV_ALIGN_TOP_LEFT, 0, y_value);
 
         *k[i].tid = lv_label_create(*k[i].kort);
         lv_label_set_text(*k[i].tid, "");
-        zs_style_text(*k[i].tid, &zs_font_16, ZS_C_LABEL);
+        zs_style_text(*k[i].tid, &zs_font_broed, ZS_C_LABEL);
         lv_obj_align(*k[i].tid, LV_ALIGN_TOP_LEFT, 0, y_time);
     }
 
     /* Den vigtigste linje paa siden. */
     p->note = lv_label_create(parent);
     lv_label_set_text(p->note, "Spotpris uden afgifter og moms");
-    zs_style_text(p->note, &zs_font_16, ZS_C_STALE);
+    zs_style_text(p->note, &zs_font_broed, ZS_C_STALE);
     lv_label_set_long_mode(p->note, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(p->note, ZS_CONTENT_WIDTH);
     lv_obj_set_pos(p->note, ZS_EDGE, Y_NOTE);
@@ -178,7 +178,7 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
     /* Vises i stedet for det hele naar der ikke er priser. */
     p->error = lv_label_create(parent);
     lv_label_set_text(p->error, "");
-    zs_style_text(p->error, &zs_font_20, ZS_C_LABEL);
+    zs_style_text(p->error, &zs_font_rad, ZS_C_LABEL);
     lv_obj_set_style_text_align(p->error, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(p->error, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(p->error, ZS_SCR_WIDTH - 4 * ZS_EDGE);

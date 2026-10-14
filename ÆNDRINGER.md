@@ -1,3 +1,125 @@
+## 2026-10-14 18:10
+
+### Fladen skalerer nu, og den gjorde den kun halvt
+Skærmen står på højkant og virker. Men halvdelen af tallene i fladen
+fulgte skærmen og halvdelen stod fast. Målt, før noget blev rettet:
+
+| | 480 x 480 | 800 x 1280 |
+|---|---|---|
+| siden | 408 | 1208 — følger |
+| ét kort | 222 x 186 | 382 x 586 — følger |
+| kortets tekstblok | 92 | **92 — stod fast** |
+| luften i kortet | 33 | 233 — følger |
+| søjlediagrammet | 104 | 904 — følger |
+| de to priskort | 100 | **100 — stod fast** |
+| ventesidens spinder | 64 | **64 — stod fast** |
+
+Altså kasser der var alt for store, med indhold der var alt for lille
+midt i dem. Og strømdiagrammet — sol, hus, net, batteri og stregerne
+imellem — havde sine **egne** faste tal og fyldte 345 px af en side på
+1208, klemt op i øverste venstre hjørne.
+
+**Roden er tre macroer i `zs_layout.h`:**
+
+```
+ZS_G_SK_WIDTH(v)    bredder og x-positioner
+ZS_G_SK_HEIGHT(v)   højder og y-positioner
+ZS_G_SK(v)          FORMER - cirkler, ikoner, skriftstørrelser.
+                    Den mindste af de to, så en cirkel bliver rund.
+```
+
+**På referenceskærmen er de alle tre præcis 1:1.** 480/480 = 1, så hver
+værdi er uændret på zScreen. Det er aritmetik, ikke en hensigt — og det
+er efterprøvet: alle **85** ZS_G-konstanter er sammenlignet mod forrige
+commit, og ingen af dem har flyttet sig.
+
+**En finger skaleres ikke.** `ZS_G_TOUCH_MIN` står fast på 44 px, og de
+to skærme har næsten samme tæthed — 170 mod 189 punkter pr. tomme — så
+44 px er næsten lige stort på fingeren begge steder. Rækker og knapper
+skalerer til gengæld, men med et gulv ved en finger.
+
+**Tre steder gik regnestykket ikke op, og vagterne fangede alle tre.**
+Siden kunne ikke deles i to hele kort (1101 er ulige), kortets tekst
+kunne ikke deles i to lige mellemrum (351 er ulige), og guide-siden
+kunne ikke deles i fire kort. Reglen er nu den samme hver gang: resten
+lægges i det øverste element, hvor ingen ser den. På 480 er resten nul
+alle tre steder.
+
+### Skrifterne har fået navne efter rolle, og et sæt pr. skærm
+En skrifttype i LVGL er et bitmap. Den kan ikke skaleres på skærmen, så
+større kasser med samme skrift giver bare mere luft. Derfor genererer
+`tools/build-assets.sh` nu **ét sæt pr. skærmbredde** i
+`ui/assets/<bredde>/`, med de samme navne i begge:
+
+```
+zs_font_tal  zs_font_stor  zs_font_rad  zs_font_broed
+zs_font_etiket  zs_font_kb  zs_ikon_lille  zs_ikon_stor
+```
+
+Navnene siger hvad skriften bruges **til** og ikke hvor stor den er. Her
+stod `zs_font_num_64` og `zs_font_20`, og det var præcise navne så længe
+der var én skærm. Med to er de direkte misvisende: på ZDisplay er
+"zs_font_20" 33 px.
+
+Størrelserne regnes med **samme brøk som layoutet**, `v * bredde / 480`,
+så en kasse på 90 px får en skrift på 106 — præcis som en kasse på 54
+får 64 på referenceskærmen.
+
+Hvert board vælger sit sæt med `ZS_ASSET_SAET`, og `kilder.cmake` falder
+hvis det ikke er sat. Versionsnummeret er flyttet til `version.cmake`,
+fordi en projektfil og en komponent ikke kan se hinandens variabler —
+det blev målt, byggeriet faldt på netop det.
+
+### QR'en var låst til den lille skærm
+232 px er 8 pixels pr. modul, målt på jern 11. oktober. På 800 x 1280
+har siden 1131 px, så 232 er unødigt lille til noget der skal scannes af
+en telefon på en væg.
+
+Den står nu som **moduler gange pixels pr. modul**, og det er pixels pr.
+modul der følger skærmen. Det er ikke pænhed: et helt antal pixels pr.
+modul er præcis det der holder modulernes kanter skarpe. Havde vi
+skaleret de 232 direkte, var det blevet 386 — altså 13,3 px pr. modul,
+og så ville hver tredje modul være en pixel bredere end sine naboer.
+
+På referenceskærmen: 8 x 29 = 232, uændret. På ZDisplay: 13 x 29 = 377.
+Målingen på jern holder stadig — den beviste at 232 kan læses, og 377 er
+større. Større er nemmere.
+
+### Tre vagter skulle lære den nye struktur
+`check-byg.py` kendte ikke sæt pr. board; nu har assets deres egen regel
+(hver fil i et sæt skal stå i listen, og hvert board skal vælge et sæt
+der findes). `check-text.py` tjekker nu **begge** sæt — at de dækker det
+samme er noget man bør kunne regne med, men "bør" er ikke godt nok når
+konsekvensen er en tom firkant på en væg. Og `check-maal.py` kunne ikke
+læse målene, fordi de nu står som `ZS_G_SK(44)`.
+
+Dertil en ny prøve: `tests/fixtures/layout-480.h` holder alle 85
+konstanter på referenceskærmen. Et **byg** kan ikke bruges til det —
+to byg af samme kode giver forskellige filer, fordi der står et
+tidsstempel i app-beskrivelsen og underskriften har tilfældigt salt.
+Det er målt.
+
+### Det der stadig er en designbeslutning
+Skaleringen løser ikke kortet på forsiden. Kortet er 550 px højt, de tre
+tekstlinjer fylder 153, og mellemrummet bliver 175 — altså stadig
+større end tallet selv, som er tommelfingerreglen for hvornår to linjer
+hører sammen for øjet.
+
+Der er to veje, og de er begge design:
+
+1. **Flere kort.** Tre rækker i stedet for to giver kort på 360 px, og så
+   holder reglen. Men vi har fire tal og seks pladser.
+2. **Større tal.** En tal-linje på 147 px lukker hullet med to kort. Det
+   kræver en skrift på omkring 175 px, og så skal det måles om "100" kan
+   være der i bredden.
+
+`test_layout_800.c` siger hvor langt der er, så valget bliver taget med
+åbne øjne.
+
+Og logoet: ordmærket skaleres **op** fra 345 px til 433 og bliver en
+smule uskarpt. Kilden i `brand/` er ikke stor nok. Det siger
+`build-assets.sh` selv ved hver kørsel.
+
 ## 2026-10-14 17:05
 
 ### Vejen i mål for ZDisplay, delt i syv faser

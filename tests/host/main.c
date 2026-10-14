@@ -49,6 +49,7 @@ int main(int argc, char **argv)
     test_fleet_svar_rigtigt();
     test_sunspec_energi();
     test_layout();
+    test_layout_480_alle();
     test_layout_800();
     test_maerker();
     test_locate_null();

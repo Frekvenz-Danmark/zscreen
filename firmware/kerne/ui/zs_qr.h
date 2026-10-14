@@ -63,8 +63,44 @@ extern "C" {
  * 44 px galt, fordi det regnede med to tekstlinjer hvor der kun blev
  * én. Derfor staar maalingen i loggen nu: saa skal den naeste ikke
  * gaette heller.
+ *
+ * ──────────────────────────────────────────────────────────────────────
+ * OG SAA KOM DER EN SKAERM MERE.
+ *
+ * 232 er maalt til en 4 tommer skaerm hvor siden har 424 px. Paa 800 x
+ * 1280 har siden 1131, og saa er en QR paa 232 px unoedigt lille - den
+ * skal scannes af en telefon paa en vaeg.
+ *
+ * Tallet staar derfor nu som MODULER GANGE PIXELS PER MODUL, og det er
+ * pixels per modul der foelger skaermen. Det er ikke bare pænere: et
+ * HELT antal pixels per modul er praecis det der holder modulernes
+ * kanter skarpe, og en udtvaeret QR er en QR en telefon ikke laeser.
+ * Havde vi skaleret de 232 direkte, var det blevet 386 - altsaa 13,3
+ * pixels per modul, og saa ville hver tredje modul vaere en pixel
+ * bredere end sine naboer.
+ *
+ * Paa referenceskaermen giver det 8 x 29 = 232, altsaa praecis som foer.
+ * Paa 800 x 1280 giver det 13 x 29 = 377.
+ *
+ * MAALINGEN PAA JERN HOLDER STADIG. tools/qr-laes beviste at en telefon
+ * kan laese 232 px. 377 er STOERRE, og stoerre er nemmere - en QR bliver
+ * ikke svaerere at scanne af at vokse. Havde det vaeret den anden vej,
+ * skulle der maales igen.
  */
-#define ZS_QR_SKAERM_MAAL_PX  232
+#include "zs_layout.h"
+
+/* Moduler for en kode paa seks tegn: 21 plus luften paa hver side. */
+#define ZS_QR_MODULER_SEKS    (21 + 2 * ZS_QR_KANT_MODULER)
+#define ZS_QR_MODUL_PX        ZS_G_SK(8)
+#define ZS_QR_SKAERM_MAAL_PX  (ZS_QR_MODUL_PX * ZS_QR_MODULER_SEKS)
+
+/* Et helt antal pixels per modul er hele pointen. */
+_Static_assert(ZS_QR_SKAERM_MAAL_PX % ZS_QR_MODULER_SEKS == 0,
+               "QR'en skal vaere et helt antal pixels per modul, "
+               "ellers bliver modulernes kanter uens");
+_Static_assert(ZS_QR_MODUL_PX >= 8,
+               "under 8 pixels per modul er mindre end det der er maalt "
+               "paa jern. Se tools/qr-laes foer du saetter den ned");
 
 /*
  * Hvor mange pixels hvert modul maa vaere, hvis hele koden med luft skal

@@ -40,6 +40,7 @@
 # ikke opdager en ny fil foer man rydder byggemappen.
 
 get_filename_component(ZS_KERNE_DIR  "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
+include("${CMAKE_CURRENT_LIST_DIR}/version.cmake")
 get_filename_component(ZS_VENDOR_DIR "${CMAKE_CURRENT_LIST_DIR}/../vendor" ABSOLUTE)
 
 # ---------------------------------------------------------------------
@@ -120,23 +121,47 @@ set(ZS_FLADE_SRCS
 #
 # Bygges af tools/build-assets.sh.
 #
-# De er FAELLES indtil videre, og det er en midlertidig tilstand: de er
-# skaaret til en 4 tommer skaerm. Paa 8 tommer er 64 px tal for smaa til
-# at blive laest fra en sofa. Naar ZDisplays flade skal se rigtig ud,
-# skal der genereres et saet mere, og saa bliver den her liste pr. board.
+# DE ER PR. BOARD, og det er de noedt til at vaere.
+#
+# En skrifttype i LVGL er et bitmap. Den kan ikke skaleres paa skaermen
+# - en 64 px skrift er 64 px, ogsaa paa en skaerm der er dobbelt saa
+# stor. Da fladen blev gjort skalerbar, blev kasserne 1,67 gange saa
+# store paa ZDisplay, og teksten i dem blev praecis lige saa lille.
+#
+# Derfor er der ét saet pr. skaermbredde i ui/assets/<bredde>/, med de
+# SAMME navne i begge. Navnene siger hvad skriften bruges til og ikke
+# hvor stor den er - se tools/build-assets.sh.
+#
+# Boardet SKAL saette ZS_ASSET_SAET. Stod der en standard her, ville et
+# nyt board faa den forkerte skrift uden at nogen opdagede det: det
+# ville bygge, boote og se lidt forkert ud.
+if(NOT DEFINED ZS_ASSET_SAET)
+    message(FATAL_ERROR
+        "ZS_ASSET_SAET er ikke sat. Hvert board skal vaelge sit saet af "
+        "skrifttyper FOER det henter kilder.cmake, fx:\n"
+        "    set(ZS_ASSET_SAET 800)\n"
+        "Saettene ligger i firmware/kerne/ui/assets/.")
+endif()
+if(NOT EXISTS "${ZS_KERNE_DIR}/ui/assets/${ZS_ASSET_SAET}/zs_font_tal.c")
+    message(FATAL_ERROR
+        "Der er ingen skrifttyper i ui/assets/${ZS_ASSET_SAET}/.\n"
+        "Byg dem med:  ./tools/build-assets.sh")
+endif()
+set(ZS_ASSET_DIR "${ZS_KERNE_DIR}/ui/assets/${ZS_ASSET_SAET}")
+
 set(ZS_ASSET_SRCS
-    "${ZS_KERNE_DIR}/ui/assets/zs_font_num_64.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_font_28.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_font_20.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_font_16.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_font_13.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_font_kb_24.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_icons_20.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_icons_28.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_img_zmark.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_img_zmark_pos.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_img_wordmark.c"
-    "${ZS_KERNE_DIR}/ui/assets/zs_img_wordmark_pos.c")
+    "${ZS_ASSET_DIR}/zs_font_tal.c"
+    "${ZS_ASSET_DIR}/zs_font_stor.c"
+    "${ZS_ASSET_DIR}/zs_font_rad.c"
+    "${ZS_ASSET_DIR}/zs_font_broed.c"
+    "${ZS_ASSET_DIR}/zs_font_etiket.c"
+    "${ZS_ASSET_DIR}/zs_font_kb.c"
+    "${ZS_ASSET_DIR}/zs_ikon_lille.c"
+    "${ZS_ASSET_DIR}/zs_ikon_stor.c"
+    "${ZS_ASSET_DIR}/zs_img_zmark.c"
+    "${ZS_ASSET_DIR}/zs_img_zmark_pos.c"
+    "${ZS_ASSET_DIR}/zs_img_wordmark.c"
+    "${ZS_ASSET_DIR}/zs_img_wordmark_pos.c")
 
 # ---------------------------------------------------------------------
 # ZS_KERNE_INCLUDE_DIRS
@@ -155,31 +180,6 @@ set(ZS_KERNE_INCLUDE_DIRS
     "${ZS_KERNE_DIR}/ui"
     "${ZS_KERNE_DIR}/ui/widgets"
     "${ZS_VENDOR_DIR}/qrcodegen")
-
-# ---------------------------------------------------------------------
-# ZS_VERSION - versionsnummeret, ét sted for begge produkter
-# ---------------------------------------------------------------------
-#
-# ESP-IDF laeser normalt version.txt fra PROJEKTETS mappe. Med to
-# produkter ville det vaere to filer, og de ville komme ud af trit: de
-# to udgives med SAMME versionsmaerke fra samme repo.
-#
-# Her stod der foer ingenting for ZDisplay, og saa faldt den tilbage paa
-# "git describe". Det gav "v0.27.0-dirty" i en byggemappe med
-# uncommitterede aendringer, og det er IKKE et versionsnummer
-# zs_version_parse kan laese. Konsekvensen ville vaere en skaerm der
-# aldrig opdaterer, fordi den ikke forstaar sin egen version.
-#
-# Derfor: ét version.txt i firmware/, laest her, sat for begge.
-file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../version.txt" ZS_VERSION LIMIT_COUNT 1)
-string(STRIP "${ZS_VERSION}" ZS_VERSION)
-if(NOT ZS_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-    message(FATAL_ERROR
-        "firmware/version.txt siger '${ZS_VERSION}'. Det skal vaere tre "
-        "tal med punktummer, fx 0.27.0 - ellers kan skaermen ikke "
-        "sammenligne sin egen version med et maerke paa GitHub, og saa "
-        "opdaterer den aldrig.")
-endif()
 
 # ---------------------------------------------------------------------
 # ZS_STRENGE_FLAG - advarsler i VORES kode er fejl

@@ -301,7 +301,7 @@ void zs_fejl_page_create(void)
      */
     s_over = lv_label_create(s_side.content);
     lv_label_set_text(s_over, zs_fejl_overskrift(s_type));
-    zs_style_text(s_over, &zs_font_28, ZS_C_ALARM_TEKST);
+    zs_style_text(s_over, &zs_font_stor, ZS_C_ALARM_TEKST);
     lv_label_set_long_mode(s_over, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_over, ZS_CONTENT_WIDTH);
     lv_obj_set_height(s_over, ZS_G_FEJL_HEAD_HEIGHT);
@@ -329,7 +329,7 @@ void zs_fejl_page_create(void)
      * Hierarkiet kommer derfor fra STOERRELSEN, 28 px mod 16 px, og ikke
      * fra farven. Det er en foelge af fladen, ikke en forglemmelse.
      */
-    zs_style_text(s_under, &zs_font_16, ZS_C_ALARM_TEKST);
+    zs_style_text(s_under, &zs_font_broed, ZS_C_ALARM_TEKST);
     lv_label_set_long_mode(s_under, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_under, ZS_CONTENT_WIDTH);
     lv_obj_set_height(s_under, ZS_G_FEJL_BODY_HEIGHT);

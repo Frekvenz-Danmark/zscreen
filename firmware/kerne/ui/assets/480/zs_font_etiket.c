@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 13 px
  * Bpp: 4
- * Opts: --font .assets-cache/funnel-600.ttf --size 13 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0x20-0x7E,0xB7,0xC5,0xC6,0xC9,0xD8,0xE5,0xE6,0xE9,0xF8,0x2022,0xC0-0xFF,0x100-0x17F -o ../firmware/kerne/ui/assets/zs_font_13.c
+ * Opts: --font .assets-cache/funnel-600.ttf --size 13 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0x20-0x7E,0xB7,0xC5,0xC6,0xC9,0xD8,0xE5,0xE6,0xE9,0xF8,0x2022,0xC0-0xFF,0x100-0x17F -o ../firmware/kerne/ui/assets/480/zs_font_etiket.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -10,11 +10,11 @@
 #include "lvgl.h"
 #endif
 
-#ifndef ZS_FONT_13
-#define ZS_FONT_13 1
+#ifndef ZS_FONT_ETIKET
+#define ZS_FONT_ETIKET 1
 #endif
 
-#if ZS_FONT_13
+#if ZS_FONT_ETIKET
 
 /*-----------------
  *    BITMAPS
@@ -2452,9 +2452,9 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
 
 /*Initialize a public general font descriptor*/
 #if LVGL_VERSION_MAJOR >= 8
-const lv_font_t zs_font_13 = {
+const lv_font_t zs_font_etiket = {
 #else
-lv_font_t zs_font_13 = {
+lv_font_t zs_font_etiket = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
@@ -2476,5 +2476,5 @@ lv_font_t zs_font_13 = {
 
 
 
-#endif /*#if ZS_FONT_13*/
+#endif /*#if ZS_FONT_ETIKET*/
 

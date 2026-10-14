@@ -70,7 +70,7 @@ static void make_switch_row(lv_obj_t *parent, const char *icon,
         }
         lv_obj_t *h = lv_label_create(row);
         lv_label_set_text(h, hint);
-        zs_style_text(h, &zs_font_16, ZS_C_LABEL);
+        zs_style_text(h, &zs_font_broed, ZS_C_LABEL);
         lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
         /* Bredden er raden minus luft, ikonet og kontakten til hoejre. */
         lv_obj_set_width(h, ZS_CONTENT_WIDTH - 2 * 16
@@ -90,13 +90,13 @@ static void detail_line(lv_obj_t *parent, const char *label, const char *value)
 
     lv_obj_t *l = lv_label_create(row);
     lv_label_set_text(l, label);
-    zs_style_text(l, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(l, &zs_font_broed, ZS_C_LABEL);
     lv_obj_set_width(l, 170);
     lv_obj_align(l, LV_ALIGN_TOP_LEFT, 0, 0);
 
     lv_obj_t *v = lv_label_create(row);
     lv_label_set_text(v, (value != NULL && value[0] != '\0') ? value : "-");
-    zs_style_text(v, &zs_font_16, ZS_C_TEXT);
+    zs_style_text(v, &zs_font_broed, ZS_C_TEXT);
     lv_label_set_long_mode(v, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(v, ZS_CONTENT_WIDTH - 178);
     lv_obj_align(v, LV_ALIGN_TOP_LEFT, 178, 0);
@@ -187,7 +187,7 @@ static void build_tema(void)
 
     lv_obj_t *h = lv_label_create(s_tema.content);
     lv_label_set_text(h, "Vælg hvordan skærmen skal se ud.");
-    zs_style_text(h, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(h, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(h, ZS_CONTENT_WIDTH);
     lv_obj_set_pos(h, ZS_EDGE, 16);
@@ -365,14 +365,14 @@ static void on_reset(lv_event_t *e)
 
     lv_obj_t *titel = lv_label_create(kort);
     lv_label_set_text(titel, "Nulstil skærmen");
-    zs_style_text(titel, &zs_font_20, ZS_C_TEXT);
+    zs_style_text(titel, &zs_font_rad, ZS_C_TEXT);
     lv_obj_set_width(titel, LV_PCT(100));
 
     lv_obj_t *tekst = lv_label_create(kort);
     lv_label_set_text(tekst,
         "Alt bliver slettet, også wifi og den valgte inverter. "
         "Skærmen skal sættes op forfra bagefter.");
-    zs_style_text(tekst, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(tekst, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(tekst, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(tekst, LV_PCT(100));
 
@@ -490,12 +490,12 @@ static void build_settings(void)
 
     lv_obj_t *bl = lv_label_create(brow);
     lv_label_set_text(bl, "Lysstyrke");
-    zs_style_text(bl, &zs_font_20, ZS_C_TEXT);
+    zs_style_text(bl, &zs_font_rad, ZS_C_TEXT);
     lv_obj_align(bl, LV_ALIGN_TOP_LEFT, 0, 0);
 
     s_slider_val = lv_label_create(brow);
     lv_label_set_text(s_slider_val, "80 %");
-    zs_style_text(s_slider_val, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(s_slider_val, &zs_font_broed, ZS_C_LABEL);
     lv_obj_align(s_slider_val, LV_ALIGN_TOP_RIGHT, 0, 2);
 
     s_slider = lv_slider_create(brow);
@@ -557,7 +557,7 @@ static void build_settings(void)
     char vtxt[32];
     snprintf(vtxt, sizeof(vtxt), "%s %s", ZS_PRODUCT_NAME, zs_version());
     lv_label_set_text(ver, vtxt);
-    zs_style_text(ver, &zs_font_16, ZS_C_STALE);
+    zs_style_text(ver, &zs_font_broed, ZS_C_STALE);
     lv_obj_set_style_pad_top(ver, 16, 0);
     lv_obj_set_style_pad_bottom(ver, 16, 0);
 }
@@ -750,7 +750,7 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
                     "Forbruget er blevet regnet negativt. Det kan ikke lade sig "
                     "gøre, så elmålerens fortegn er sandsynligvis vendt. "
                     "Prøv at slå \"Byt køb og salg\" til under Indstillinger.");
-                zs_style_text(w, &zs_font_16, ZS_C_WARN);
+                zs_style_text(w, &zs_font_broed, ZS_C_WARN);
                 lv_label_set_long_mode(w, LV_LABEL_LONG_WRAP);
                 lv_obj_set_width(w, ZS_CONTENT_WIDTH);
             }
@@ -760,7 +760,7 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
             lv_label_set_text(w,
                 "Uden elmåler kan skærmen ikke vise forbrug eller køb og salg. "
                 "Solceller og batteri virker som normalt.");
-            zs_style_text(w, &zs_font_16, ZS_C_LABEL);
+            zs_style_text(w, &zs_font_broed, ZS_C_LABEL);
             lv_label_set_long_mode(w, LV_LABEL_LONG_WRAP);
             lv_obj_set_width(w, ZS_CONTENT_WIDTH);
         }

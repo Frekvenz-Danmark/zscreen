@@ -28,9 +28,20 @@ void test_layout_800(void)
 
     CHECK("skaermen er den nye", ZS_G_SCR_WIDTH == 800 && ZS_G_SCR_HEIGHT == 1280);
 
-    /* Alt det der regnes ud, regnes nu om. */
-    CHECK("sidehoejden foelger med", ZS_G_PAGE_HEIGHT == 1280 - 44 - 28);
-    CHECK("indholdsbredden foelger med", ZS_G_CONTENT_WIDTH == 800 - 2 * 12);
+    /*
+     * HER STOD DER FOER at sidehoejden var 1280 - 44 - 28 og bredden
+     * 800 - 2 x 12. Begge tal var FASTE, og det var netop fejlen: en
+     * statuslinje paa 44 px og en kant paa 12 px er tegnet til en 4
+     * tommer skaerm. Nu skalerer de, og proeven spoerger om
+     * REGLERNE holder i stedet for om tallene er de samme.
+     */
+    CHECK("statuslinjen er blevet hoejere", ZS_G_BAR_HEIGHT > 44);
+    CHECK("kanten er blevet bredere", ZS_G_EDGE > 12);
+    CHECK("siden fylder stadig det der er tilbage",
+          ZS_G_BAR_HEIGHT + ZS_G_PAGE_HEIGHT + ZS_G_DOTS_HEIGHT
+          == ZS_G_SCR_HEIGHT);
+    CHECK("og indholdet fylder bredden mellem kanterne",
+          ZS_G_CONTENT_WIDTH + 2 * ZS_G_EDGE == ZS_G_SCR_WIDTH);
 
     /* De samme regler som paa 480. Holder de her, holder de overalt. */
     CHECK("to kort og luften omkring fylder praecis bredden",
@@ -39,56 +50,83 @@ void test_layout_800(void)
     CHECK("to kort og luften fylder sidens hoejde",
           ZS_G_GRID_GAP + ZS_G_CARD_HEIGHT + ZS_G_GRID_GAP
           + ZS_G_CARD_HEIGHT + ZS_G_GRID_GAP == ZS_G_PAGE_HEIGHT);
-    CHECK("linjen, siden og prikkerne fylder skaermen",
-          ZS_G_BAR_HEIGHT + ZS_G_PAGE_HEIGHT + ZS_G_DOTS_HEIGHT
-          == ZS_G_SCR_HEIGHT);
     CHECK("underteksten slutter praecis i bunden af kortet",
           ZS_G_CARD_SUB_Y + ZS_G_CARD_SUB_HEIGHT == ZS_G_CARD_IN_HEIGHT);
-    CHECK("de to mellemrum er stadig ens",
-          ZS_G_CARD_VALUE_Y - (ZS_G_CARD_HEAD_Y + ZS_G_CARD_HEAD_HEIGHT)
-          == ZS_G_CARD_SUB_Y - (ZS_G_CARD_VALUE_Y + ZS_G_CARD_VALUE_HEIGHT));
+
+    /*
+     * DEN ENE PIXEL. Luften i kortet er 351 her, altsaa ulige, og
+     * resten laegges over det store tal. De to mellemrum er derfor ikke
+     * HELT ens - de er ens plus en pixel, og det er med vilje. Se
+     * ZS_G_CARD_TEXT_REST.
+     */
+    CHECK("de to mellemrum er ens, paa den ene pixel naer",
+          (ZS_G_CARD_VALUE_Y - (ZS_G_CARD_HEAD_Y + ZS_G_CARD_HEAD_HEIGHT))
+          - (ZS_G_CARD_SUB_Y - (ZS_G_CARD_VALUE_Y + ZS_G_CARD_VALUE_HEIGHT))
+          == ZS_G_CARD_TEXT_REST);
+    CHECK("og resten er hoejst én pixel", ZS_G_CARD_TEXT_REST <= 1);
 
     CHECK("intet gaar tabt i heltalsdivision paa bredden",
           (ZS_G_CONTENT_WIDTH - ZS_G_GRID_GAP) % 2 == 0);
     CHECK("eller paa hoejden",
           (ZS_G_PAGE_HEIGHT - 3 * ZS_G_GRID_GAP) % 2 == 0);
 
-    /* De fysiske maal maa IKKE have aendret sig. En finger er den samme. */
+    /*
+     * EN FINGER VOKSER IKKE. Trykfeltet skal staa fast, og alt man kan
+     * trykke paa skal vaere mindst saa stort.
+     */
     CHECK("trykfeltet er uaendret", ZS_G_TOUCH_MIN == 44);
-    CHECK("raden er uaendret", ZS_G_ROW_HEIGHT == 56);
-    CHECK("skriftstoerrelserne i kortet er uaendrede",
-          ZS_G_CARD_HEAD_HEIGHT == 20 && ZS_G_CARD_VALUE_HEIGHT == 54
-          && ZS_G_CARD_SUB_HEIGHT == 18);
-
-    ZS_SUITE("Layout på 800 x 1280: hvad der ser galt ud selv om det går op");
+    CHECK("raden er mindst en finger", ZS_G_ROW_HEIGHT >= ZS_G_TOUCH_MIN);
+    CHECK("knappen er mindst en finger", ZS_G_BTN_HEIGHT >= ZS_G_TOUCH_MIN);
+    CHECK("valget er mindst en finger", ZS_G_CHOICE_HEIGHT >= ZS_G_TOUCH_MIN);
 
     /*
-     * REGNESTYKKET HOLDER, MEN DESIGNET GOER IKKE, og det skal staa her
-     * saa ingen tror at proeverne ovenfor betyder "klar til den nye
-     * skaerm".
+     * TEKSTEN I KORTET SKAL VOKSE MED KORTET.
      *
-     * Paa 480 er mellemrummet mellem overskrift og tal 33 px. Paa 800 x
-     * 1280 bliver kortet mere end tre gange saa hoejt, mens teksten i det
-     * bliver praecis lige saa stor. Saa vokser mellemrummet til noget der
-     * ser ud som en fejl: et kort der er naesten tomt med tre smaa linjer
-     * spredt ud i det.
+     * Her stod der foer at skriftstoerrelserne var UAENDREDE, og det
+     * var sandt - det var bare ikke i orden. Et kort der er 3 gange
+     * hoejere med praecis lige saa smaa linjer i er det der ser forkert
+     * ud paa en vaeg.
      *
-     * Det rigtige paa en hoej skaerm er FLERE kort, ikke stoerre kort. Den
-     * her proeve siger hvornaar graensen er naaet, saa valget bliver taget
-     * med aabne oejne og ikke opdaget paa en vaeg hos en kunde.
+     * Nu foelger de skaermens BREDDE, fordi en tekst skal kunne vaere
+     * der i bredden. 800 / 480 giver 1,67, og det kan regnes efter.
      */
-    CHECK("kortet bliver mere end dobbelt saa hoejt som paa 480",
+    CHECK("overskriften er vokset", ZS_G_CARD_HEAD_HEIGHT > 20);
+    CHECK("det store tal er vokset", ZS_G_CARD_VALUE_HEIGHT > 54);
+    CHECK("underteksten er vokset", ZS_G_CARD_SUB_HEIGHT > 18);
+    CHECK_INT("og tallet er vokset med skaermens bredde",
+              ZS_G_CARD_VALUE_HEIGHT, 54 * 800 / 480);
+
+    ZS_SUITE("Layout på 800 x 1280: det der stadig er en designbeslutning");
+
+    /*
+     * REGNESTYKKET HOLDER NU, OG KORTET ER STADIG FOR TOMT.
+     *
+     * Tommelfingerreglen er at et mellemrum mellem to tekstlinjer ikke
+     * boer vaere stoerre end den stoerste af dem. Paa 480 er 33 under
+     * 54, og det ser rigtigt ud.
+     *
+     * Efter skaleringen er tallet 90 og mellemrummet 175. Altsaa stadig
+     * for tomt - og det kan skaleringen ikke loese, for kortet er 550
+     * px hoejt og tre tekstlinjer fylder 153.
+     *
+     * Der er to veje, og de er begge DESIGN og ikke aritmetik:
+     *
+     *   1. FLERE KORT. Tre raekker i stedet for to giver kort paa 360
+     *      px, og saa holder reglen. Men vi har fire tal og seks
+     *      pladser, saa der skal findes to mere.
+     *   2. STOERRE TAL. Et tal paa 160 px i stedet for 90 lukker hullet
+     *      med to kort. Det kraever en skrifttype paa omkring 190 px,
+     *      og saa skal det maales om "100" kan vaere der i bredden.
+     *
+     * Proeven herunder siger hvor langt der er, saa valget bliver
+     * taget med aabne oejne og ikke opdaget paa en vaeg hos en kunde.
+     */
+    CHECK("kortet er mere end dobbelt saa hoejt som paa 480",
           ZS_G_CARD_HEIGHT > 2 * 186);
-    CHECK("og mellemrummet i kortet bliver mere end seks gange saa stort",
-          ZS_G_CARD_TEXT_GAP > 6 * 33);
-
-    /*
-     * Tommelfingerreglen: et mellemrum mellem to tekstlinjer boer ikke
-     * vaere stoerre end den stoerste af dem. Er det det, hoerer linjerne
-     * ikke laengere sammen for oejet. Paa 480 er 33 under 54 og det ser
-     * rigtigt ud. Paa 800 x 1280 er det ikke.
-     */
-    CHECK("paa den nye skaerm er mellemrummet stoerre end tallet selv, "
-          "altsaa skal der taenkes design og ikke bare skaleres",
+    CHECK("mellemrummet er stadig stoerre end tallet selv - altsaa "
+          "mangler der en designbeslutning, ikke en skalering",
           ZS_G_CARD_TEXT_GAP > ZS_G_CARD_VALUE_HEIGHT);
+    CHECK_INT("og hvor meget tallet skal vokse for at reglen holder",
+              (ZS_G_CARD_IN_HEIGHT - ZS_G_CARD_HEAD_HEIGHT
+               - ZS_G_CARD_SUB_HEIGHT) / 3, 147);
 }

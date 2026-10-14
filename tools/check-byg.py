@@ -63,6 +63,16 @@ SRC = ROD / "firmware/kerne"
 # ved at laegge en mappe her.
 BOARDS = ("zscreen", "zdisplay")
 
+# Skrifttyperne ligger i ét saet pr. skaermbredde, ui/assets/<bredde>/,
+# og hvert board vaelger sit med ZS_ASSET_SAET. En skrift i LVGL er et
+# bitmap og kan ikke skaleres paa skaermen, saa de KAN ikke vaere
+# faelles - se tools/build-assets.sh.
+#
+# Derfor er assets undtaget fra regel 1 nedenfor og har deres egen
+# regel: hver fil i et saet skal staa i listen, og hvert board skal
+# vaelge et saet der findes.
+ASSET_ROD = "ui/assets/"
+
 # Motoren: de mapper hvor koden skal kunne koere paa BEGGE chips, og i
 # tests/host paa en Mac uden ESP-IDF.
 MOTOR_DIRS = ("net/", "app/", "util/", "storage/")
@@ -272,6 +282,50 @@ def tjek_board(navn, cmake, kerne_kilder, kerne_stier):
     return egne
 
 
+def tjek_assets():
+    """Hvert saet af skrifttyper skal staa helt i listen, og hvert board
+    skal vaelge et saet der findes."""
+    tekst = (ROD / "firmware/kerne/kilder.cmake").read_text(encoding="utf-8")
+    navne = re.findall(r'"\$\{ZS_ASSET_DIR\}/([^"]+\.c)"', tekst)
+    if not navne:
+        fejl.append("firmware/kerne/kilder.cmake: fandt ingen filer under "
+                    "${ZS_ASSET_DIR}. Er listen over skrifttyper skrevet om?")
+        return
+
+    rod = ROD / "firmware/kerne" / ASSET_ROD
+    saet = sorted(d.name for d in rod.iterdir() if d.is_dir())
+    if not saet:
+        fejl.append(f"der er ingen saet i firmware/kerne/{ASSET_ROD}. "
+                    f"Byg dem med ./tools/build-assets.sh")
+        return
+
+    for s in saet:
+        forventet = {(rod / s / n).resolve() for n in navne}
+        faktisk = {c.resolve() for c in (rod / s).glob("*.c")}
+        for mangler in sorted(forventet - faktisk):
+            fejl.append(f"{mangler.relative_to(ROD)} staar i listen, men "
+                        f"filen findes ikke. Byg saettene med "
+                        f"./tools/build-assets.sh")
+        for ekstra in sorted(faktisk - forventet):
+            fejl.append(f"{ekstra.relative_to(ROD)} findes, men staar ikke i "
+                        f"listen under ${{ZS_ASSET_DIR}} i kilder.cmake. "
+                        f"Saa bliver den aldrig oversat.")
+
+    # Og at hvert board vaelger et saet der er der.
+    for board in BOARDS:
+        cm = ROD / f"firmware/boards/{board}/main/CMakeLists.txt"
+        if not cm.exists():
+            continue            # sagt fra om i tjek_cmake()
+        m = re.search(r"set\(ZS_ASSET_SAET\s+(\w+)\)",
+                      cm.read_text(encoding="utf-8"))
+        if not m:
+            fejl.append(f"{board} saetter ikke ZS_ASSET_SAET, saa den ved "
+                        f"ikke hvilke skrifttyper den skal bruge")
+        elif m.group(1) not in saet:
+            fejl.append(f"{board} vaelger saettet '{m.group(1)}', og det "
+                        f"findes ikke. Der er: {', '.join(saet)}")
+
+
 def tjek_cmake():
     kerne_kilder, kerne_stier = kerne()
     if not kerne_kilder:
@@ -286,8 +340,10 @@ def tjek_cmake():
     # ene produkt. Det ville ikke vaere en byggefejl, men en funktion
     # der mangler hos en kunde paa det ene produkt.
     for c in sorted(SRC.rglob("*.c")):
+        rel = c.relative_to(SRC).as_posix()
+        if rel.startswith(ASSET_ROD):
+            continue            # egen regel, se tjek_assets()
         if c.resolve() not in i_kerne:
-            rel = c.relative_to(SRC).as_posix()
             fejl.append(f"firmware/kerne/{rel} findes, men staar ikke i "
                         f"firmware/kerne/kilder.cmake. Saa bliver den ikke "
                         f"oversat til nogen af skaermene. Hoerer den kun til "
@@ -322,6 +378,7 @@ def tjek_cmake():
 def main():
     print("Tjekker at hver bygning kan finde sine headere ...")
     tjek_cmake()
+    tjek_assets()
     tjek_motoren()
     for navn, sti in (("enhedstestene", ROD / "tests/host/run.sh"),
                       ("vaerktoejet", ROD / "tools/zs-probe/build.sh")):

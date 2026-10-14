@@ -9,6 +9,10 @@
 # ET NYT BOARD ER FIRE FILER: main.c, og én for hver kontrakt i
 # kerne/hal/ - lv_port.h, zs_baglys.h og zs_lyd.h.
 
+# Skrifttyperne. Skaermen er 480 x 480, saa saettet er 480. En
+# skrift i LVGL er et bitmap og kan ikke skaleres paa skaermen,
+# saa hvert board har sit saet. Se tools/build-assets.sh.
+set(ZS_ASSET_SAET 480)
 include("${CMAKE_CURRENT_LIST_DIR}/../../../kerne/kilder.cmake")
 
 idf_component_register(

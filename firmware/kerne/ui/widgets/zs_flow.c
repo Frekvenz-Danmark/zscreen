@@ -11,9 +11,28 @@
  * Siden er 480 x 408. Udregningen staar i zs_flow.h og er kontrolleret
  * saa nederste kant lander paa 363 af 408.
  */
+/*
+ * ALLE MAAL HERUNDER ER SKALEREDE, og de var det ikke foer.
+ *
+ * Tallene er tegnet paa 480 x 480, og de stod som raa pixels: HUB_Y
+ * 182, Y_BAT_SUB 345, SIDE_DX 172. Paa 800 x 1280 betoed det at hele
+ * diagrammet - sol, hus, net, batteri og stregerne imellem - fyldte
+ * 345 px af en side paa 1160 og laa klemt op i oeverste venstre
+ * hjoerne. Det var det foerste man kunne SE var galt paa den store
+ * skaerm.
+ *
+ * Reglen er den samme som i zs_layout.h:
+ *   ZS_G_SK_HEIGHThoejder og y-positioner
+ *   ZS_G_SK_WIDTH bredder og afstande ud til siden
+ *   ZS_G_SK     FORMER - knudepunktets radius, stregtykkelsen, ikoner.
+ *               Den mindste af de to, saa en cirkel bliver rund.
+ *
+ * Paa 480 x 480 er alle tre praecis 1:1, saa hvert tal her er uaendret
+ * paa zScreen.
+ */
 #define CX            ZS_G_CX  /* midterlinjen, se zs_layout.h        */
-#define HUB_Y         182      /* knudepunktets midte                 */
-#define HUB_R         20
+#define HUB_Y         ZS_G_SK_HEIGHT(182)      /* knudepunktets midte                 */
+#define HUB_R         ZS_G_SK(20)
 
 /* De to sideknuder sidder SYMMETRISK om midten.
  *
@@ -22,31 +41,31 @@
  * bredere skaerm ville den venstre blive siddende og den hoejre ryge ud
  * over kanten. Nu staar afstanden fra midten ÉT sted, og saa kan de ikke
  * komme fra hinanden. */
-#define SIDE_DX       172      /* fra midten ud til en sideknude       */
+#define SIDE_DX       ZS_G_SK_WIDTH(172)      /* fra midten ud til en sideknude       */
 #define SIDE_L        (CX - SIDE_DX)
 #define SIDE_R        (CX + SIDE_DX)
 
-#define LINE_W        4        /* stregtykkelse                       */
-#define NODE_W        150      /* bredden af en knudes tekst          */
+#define LINE_W        ZS_G_SK(4)        /* stregtykkelse                       */
+#define NODE_W        ZS_G_SK_WIDTH(150)      /* bredden af en knudes tekst          */
 
-#define Y_SUN_ICON    20
-#define Y_SUN_VALUE   52
-#define Y_VLINE_TOP   90       /* fra sol ned til knudepunktet        */
-#define VLINE_TOP_H   72
-#define Y_SIDE_ICON   168
-#define Y_SIDE_VALUE  204
-#define Y_SIDE_LABEL  239
-#define Y_VLINE_BOT   202      /* fra knudepunktet ned til batteri    */
-#define VLINE_BOT_H   72
-#define Y_BAT_ICON    278
-#define Y_BAT_VALUE   310
-#define Y_BAT_SUB     345
+#define Y_SUN_ICON    ZS_G_SK_HEIGHT(20)
+#define Y_SUN_VALUE   ZS_G_SK_HEIGHT(52)
+#define Y_VLINE_TOP   ZS_G_SK_HEIGHT(90)       /* fra sol ned til knudepunktet        */
+#define VLINE_TOP_H   ZS_G_SK_HEIGHT(72)
+#define Y_SIDE_ICON   ZS_G_SK_HEIGHT(168)
+#define Y_SIDE_VALUE  ZS_G_SK_HEIGHT(204)
+#define Y_SIDE_LABEL  ZS_G_SK_HEIGHT(239)
+#define Y_VLINE_BOT   ZS_G_SK_HEIGHT(202)      /* fra knudepunktet ned til batteri    */
+#define VLINE_BOT_H   ZS_G_SK_HEIGHT(72)
+#define Y_BAT_ICON    ZS_G_SK_HEIGHT(278)
+#define Y_BAT_VALUE   ZS_G_SK_HEIGHT(310)
+#define Y_BAT_SUB     ZS_G_SK_HEIGHT(345)
 
 /* De vandrette streger stopper foer knudepunktet og foer ikonet.
  *
  * Her stod 92 og 388, og 388 er 480 - 92. Samme sag som sideknuderne:
  * to tal der hoerer sammen, skrevet som om de ikke gjorde. */
-#define HLINE_DX      148      /* fra midten ud til hvor stregen stopper */
+#define HLINE_DX      ZS_G_SK_WIDTH(148)      /* fra midten ud til hvor stregen stopper */
 #define HLINE_L_X     (CX - HLINE_DX)
 #define HLINE_L_W     (CX - HUB_R - HLINE_L_X)
 #define HLINE_R_X     (CX + HUB_R)
@@ -66,11 +85,14 @@ static lv_obj_t *make_icon(lv_obj_t *p, const char *sym, lv_coord_t cx, lv_coord
 {
     lv_obj_t *o = lv_label_create(p);
     lv_label_set_text(o, sym);
-    lv_obj_set_style_text_font(o, &zs_icons_28, 0);
+    lv_obj_set_style_text_font(o, &zs_ikon_stor, 0);
     lv_obj_set_style_text_color(o, lv_color_hex(ZS_C_LABEL), 0);
     lv_obj_set_style_text_align(o, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_width(o, 40);
-    lv_obj_set_pos(o, cx - 20, y);
+    /* ZS: ikonets felt er 40 bredt, altsaa 20 til hver side af midten.
+     * Begge tal skal foelge skaermen, ellers staar et stort ikon i et
+     * lille felt - eller omvendt. */
+    lv_obj_set_width(o, ZS_G_SK(40));
+    lv_obj_set_pos(o, cx - ZS_G_SK(40) / 2, y);
     return o;
 }
 
@@ -108,16 +130,16 @@ static lv_obj_t *make_arrow(lv_obj_t *p, lv_coord_t cx, lv_coord_t cy)
 {
     lv_obj_t *o = lv_label_create(p);
     lv_label_set_text(o, "");
-    lv_obj_set_style_text_font(o, &zs_icons_20, 0);
+    lv_obj_set_style_text_font(o, &zs_ikon_lille, 0);
     lv_obj_set_style_text_color(o, lv_color_hex(ZS_C_LABEL), 0);
     lv_obj_set_style_text_align(o, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_width(o, 24);
-    lv_obj_set_pos(o, cx - 12, cy - 10);
+    lv_obj_set_width(o, ZS_G_SK(24));
+    lv_obj_set_pos(o, cx - ZS_G_SK(24) / 2, cy - ZS_G_SK(10));
     /* Baggrund i sidens farve, saa pilen "klipper" stregen og ikke
      * ligger oven paa den som en klat. */
     lv_obj_set_style_bg_color(o, lv_color_hex(ZS_C_BG), 0);
     lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_ver(o, 2, 0);
+    lv_obj_set_style_pad_ver(o, ZS_G_SK(2), 0);
     return o;
 }
 
@@ -151,24 +173,24 @@ void zs_flow_create(zs_flow_t *f, lv_obj_t *parent)
 
     /* Sol */
     f->sun_icon  = make_icon(parent, ZS_ICON_SUN, CX, Y_SUN_ICON);
-    f->sun_value = make_text(parent, &zs_font_28, ZS_C_TEXT, CX, Y_SUN_VALUE);
+    f->sun_value = make_text(parent, &zs_font_stor, ZS_C_TEXT, CX, Y_SUN_VALUE);
 
     /* Hus */
     f->house_icon  = make_icon(parent, ZS_ICON_HOUSE, SIDE_L, Y_SIDE_ICON);
-    f->house_value = make_text(parent, &zs_font_28, ZS_C_TEXT, SIDE_L, Y_SIDE_VALUE);
-    f->house_label = make_text(parent, &zs_font_13, ZS_C_LABEL, SIDE_L, Y_SIDE_LABEL);
+    f->house_value = make_text(parent, &zs_font_stor, ZS_C_TEXT, SIDE_L, Y_SIDE_VALUE);
+    f->house_label = make_text(parent, &zs_font_etiket, ZS_C_LABEL, SIDE_L, Y_SIDE_LABEL);
     lv_obj_set_style_text_letter_space(f->house_label, 1, 0);
 
     /* Net */
     f->grid_icon  = make_icon(parent, ZS_ICON_ZAP, SIDE_R, Y_SIDE_ICON);
-    f->grid_value = make_text(parent, &zs_font_28, ZS_C_TEXT, SIDE_R, Y_SIDE_VALUE);
-    f->grid_label = make_text(parent, &zs_font_13, ZS_C_LABEL, SIDE_R, Y_SIDE_LABEL);
+    f->grid_value = make_text(parent, &zs_font_stor, ZS_C_TEXT, SIDE_R, Y_SIDE_VALUE);
+    f->grid_label = make_text(parent, &zs_font_etiket, ZS_C_LABEL, SIDE_R, Y_SIDE_LABEL);
     lv_obj_set_style_text_letter_space(f->grid_label, 1, 0);
 
     /* Batteri */
     f->bat_icon  = make_icon(parent, ZS_ICON_BATTERY, CX, Y_BAT_ICON);
-    f->bat_value = make_text(parent, &zs_font_28, ZS_C_TEXT, CX, Y_BAT_VALUE);
-    f->bat_sub   = make_text(parent, &zs_font_16, ZS_C_LABEL, CX, Y_BAT_SUB);
+    f->bat_value = make_text(parent, &zs_font_stor, ZS_C_TEXT, CX, Y_BAT_VALUE);
+    f->bat_sub   = make_text(parent, &zs_font_broed, ZS_C_LABEL, CX, Y_BAT_SUB);
 }
 
 /* ------------------------------------------------------------------ */

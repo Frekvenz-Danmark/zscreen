@@ -43,7 +43,7 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
     lv_label_set_text(sb->badge, "");
     /* Skriften paa maerket hoerer til temaet, ikke til bunden.
      * Se noten ved ZS_C_BADGE_TEXT i zs_theme.h. */
-    zs_style_text(sb->badge, &zs_font_13, ZS_C_BADGE_TEXT);
+    zs_style_text(sb->badge, &zs_font_etiket, ZS_C_BADGE_TEXT);
     lv_obj_set_style_text_letter_space(sb->badge, 1, 0);
     lv_obj_set_style_bg_opa(sb->badge, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(sb->badge, 6, 0);
@@ -53,12 +53,12 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
 
     sb->time = lv_label_create(sb->bar);
     lv_label_set_text(sb->time, "");
-    zs_style_text(sb->time, &zs_font_20, ZS_C_TEXT_DIM);
+    zs_style_text(sb->time, &zs_font_rad, ZS_C_TEXT_DIM);
     lv_obj_align(sb->time, LV_ALIGN_TOP_RIGHT, -(ZS_SCR_WIDTH - TIME_RIGHT), 10);
 
     sb->status_icon = lv_label_create(sb->bar);
     lv_label_set_text(sb->status_icon, ZS_ICON_WIFI_OFF);
-    lv_obj_set_style_text_font(sb->status_icon, &zs_icons_20, 0);
+    lv_obj_set_style_text_font(sb->status_icon, &zs_ikon_lille, 0);
     lv_obj_set_style_text_color(sb->status_icon, lv_color_hex(ZS_C_STALE), 0);
     lv_obj_set_pos(sb->status_icon, ICON_X, (ZS_BAR_HEIGHT - 20) / 2);
 
@@ -74,7 +74,7 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
 
         lv_obj_t *ic = lv_label_create(sb->gear);
         lv_label_set_text(ic, ZS_ICON_SETTINGS);
-        lv_obj_set_style_text_font(ic, &zs_icons_20, 0);
+        lv_obj_set_style_text_font(ic, &zs_ikon_lille, 0);
         lv_obj_set_style_text_color(ic, lv_color_hex(ZS_C_LABEL), 0);
         lv_obj_center(ic);
     }

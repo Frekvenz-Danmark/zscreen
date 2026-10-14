@@ -19,10 +19,48 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 CACHE=".assets-cache"
-OUT="../firmware/kerne/ui/assets"
+ASSETS="../firmware/kerne/ui/assets"
 FORCE="${1:-}"
 
-mkdir -p "${CACHE}" "${OUT}"
+# ---------------------------------------------------------------------
+# TO SAET, ET PR. SKAERMSTOERRELSE
+# ---------------------------------------------------------------------
+#
+# HVORFOR.
+#
+# En skrifttype i LVGL er et bitmap. Den kan ikke skaleres paa skaermen
+# - en 64 px skrift er 64 px, ogsaa paa en skaerm der er dobbelt saa
+# stor. Da fladen blev bygget til 800 x 1280, blev kasserne 1,67 gange
+# saa store, og teksten i dem blev praecis lige saa lille. Det var det
+# man kunne SE var galt.
+#
+# Derfor genereres der ét saet pr. skaerm, med de SAMME navne. Navnene
+# siger hvad skriften bruges TIL og ikke hvor stor den er:
+#
+#   zs_font_tal      det store tal i et kort
+#   zs_font_stor     enheder og overskrifter
+#   zs_font_rad      listerader og knapper
+#   zs_font_broed    undertekst og broedtekst
+#   zs_font_etiket   etiketter med versaler
+#   zs_font_kb       tastaturet, med ikoner i samme skrift
+#   zs_ikon_lille    ikoner i statuslinjen og paa pile
+#   zs_ikon_stor     ikoner i kort og paa overskrifter
+#
+# Her stod der foer zs_font_num_64 og zs_font_20. Det var praecise navne
+# saa laenge der var ÉN skaerm. Med to er de direkte misvisende: paa
+# ZDisplay er "zs_font_20" 33 px.
+#
+# STOERRELSERNE REGNES MED SAMME BROEK SOM LAYOUTET: v * bredde / 480.
+# Det er ZS_G_SK i zs_layout.h, og det er med vilje det samme regnestykke
+# - saa en kasse paa 90 px faar en skrift paa 106, praecis som en kasse
+# paa 54 faar 64 paa referenceskaermen.
+REF_W=480
+SAET_BREDDER="480 800"
+
+# Skalerer et maal til det saet vi er i gang med.
+sk() { echo $(( $1 * SAET_W / REF_W )); }
+
+mkdir -p "${CACHE}"
 
 info() { printf '\033[1;36m==>\033[0m %s\n' "$1"; }
 ok()   { printf '\033[1;32m OK\033[0m %s\n' "$1"; }
@@ -161,98 +199,120 @@ build_font() {
     ok "${name} ($(wc -c < "${dst}" | tr -d ' ') bytes C-kode)"
 }
 
-info "Bygger skrifttyper"
-build_font zs_font_num_64 "${CACHE}/funnel-600.ttf" 64 "${TAL}"
-build_font zs_font_28     "${CACHE}/funnel-600.ttf" 28 "${NAVNE}"
-build_font zs_font_20     "${CACHE}/funnel-500.ttf" 20 "${NAVNE}"
-build_font zs_font_16     "${CACHE}/funnel-500.ttf" 16 "${NAVNE}"
-build_font zs_font_13     "${CACHE}/funnel-600.ttf" 13 "${NAVNE}"
-
-# Tastaturets skrifttype er en blanding.
-#
-# En knap i et LVGL-knapgitter kan kun have ÉN skrifttype, og
-# tastaturet har baade bogstaver og tre ikoner: skift, slet og faerdig.
-# Derfor flettes Funnel Sans og de tre Lucide-glyffer sammen til én
-# skrifttype. lv_font_conv kan tage flere kilder, og et --range gaelder
-# for den --font der staar lige foer.
-#
-#   0xE04A  arrow-up   skift mellem store og smaa bogstaver
-#   0xE0AE  delete     slet et tegn
-#   0xE06C  check      faerdig
-KB_ICONS="0xe04a,0xe0ae,0xe06c"
-if [ ! -s "${OUT}/zs_font_kb_24.c" ] || [ "${FORCE}" = "--force" ]; then
-    ${LVFC} --size 24 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h \
-            --font "${CACHE}/funnel-500.ttf" --range "${DANSK}" \
-            --font "${CACHE}/lucide.ttf"     --range "${KB_ICONS}" \
-            -o "${OUT}/zs_font_kb_24.c" >/dev/null
-    ok "zs_font_kb_24 ($(wc -c < "${OUT}/zs_font_kb_24.c" | tr -d ' ') bytes C-kode)"
-else
-    ok "zs_font_kb_24 findes"
-fi
-
 # ---------------------------------------------------------------------
-# Ikoner
+# Ét saet ad gangen
 # ---------------------------------------------------------------------
-# Lucide er den samme ikonpakke som Zbox-webfladen bruger, saa en
-# advarselstrekant ser ens ud paa skaermen og i browseren.
 #
-# Listen over ikoner staar i tools/icons.py og bruges to steder: her,
-# til at vaelge hvad der kommer med i skrifttypen, og til at skrive
-# firmwarens zs_icons.h. Ét sted, saa navn og tegning ikke kan komme
-# til at pege paa hver sit.
-ICONS="$(python3 icons.py --range)" || fail "kunne ikke laese ikonlisten"
+# SAET_W er skaermens bredde, og alt herinde skaleres med sk().
+# OUT er saettets egen mappe, saa de to saet ikke skriver over hinanden.
+byg_saet() {
+    SAET_W="$1"
+    OUT="${ASSETS}/${SAET_W}"
+    mkdir -p "${OUT}"
+    info "===== Saet til ${SAET_W} px bredde ====="
 
-build_icons() {
-    local name="$1" size="$2"
-    local dst="${OUT}/${name}.c"
-    if [ -s "${dst}" ] && [ "${FORCE}" != "--force" ]; then
-        ok "${name} findes"
-        return 0
+    info "Bygger skrifttyper"
+    build_font zs_font_tal    "${CACHE}/funnel-600.ttf" "$(sk 64)" "${TAL}"
+    build_font zs_font_stor   "${CACHE}/funnel-600.ttf" "$(sk 28)" "${NAVNE}"
+    build_font zs_font_rad    "${CACHE}/funnel-500.ttf" "$(sk 20)" "${NAVNE}"
+    build_font zs_font_broed  "${CACHE}/funnel-500.ttf" "$(sk 16)" "${NAVNE}"
+    build_font zs_font_etiket "${CACHE}/funnel-600.ttf" "$(sk 13)" "${NAVNE}"
+
+    # Tastaturets skrifttype er en blanding.
+    #
+    # En knap i et LVGL-knapgitter kan kun have ÉN skrifttype, og
+    # tastaturet har baade bogstaver og tre ikoner: skift, slet og faerdig.
+    # Derfor flettes Funnel Sans og de tre Lucide-glyffer sammen til én
+    # skrifttype. lv_font_conv kan tage flere kilder, og et --range gaelder
+    # for den --font der staar lige foer.
+    #
+    #   0xE04A  arrow-up   skift mellem store og smaa bogstaver
+    #   0xE0AE  delete     slet et tegn
+    #   0xE06C  check      faerdig
+    KB_ICONS="0xe04a,0xe0ae,0xe06c"
+    if [ ! -s "${OUT}/zs_font_kb.c" ] || [ "${FORCE}" = "--force" ]; then
+        ${LVFC} --size "$(sk 24)" --bpp 4 --no-compress --format lvgl --lv-include lvgl.h \
+                --font "${CACHE}/funnel-500.ttf" --range "${DANSK}" \
+                --font "${CACHE}/lucide.ttf"     --range "${KB_ICONS}" \
+                -o "${OUT}/zs_font_kb.c" >/dev/null
+        ok "zs_font_kb ($(wc -c < "${OUT}/zs_font_kb.c" | tr -d ' ') bytes C-kode)"
+    else
+        ok "zs_font_kb findes"
     fi
-    ${LVFC} --font "${CACHE}/lucide.ttf" --size "${size}" --bpp 4 --no-compress \
-            --format lvgl --lv-include lvgl.h \
-            --range "${ICONS}" -o "${dst}" >/dev/null
-    ok "${name} ($(wc -c < "${dst}" | tr -d ' ') bytes C-kode)"
+
+    # ---------------------------------------------------------------------
+    # Ikoner
+    # ---------------------------------------------------------------------
+    # Lucide er den samme ikonpakke som Zbox-webfladen bruger, saa en
+    # advarselstrekant ser ens ud paa skaermen og i browseren.
+    #
+    # Listen over ikoner staar i tools/icons.py og bruges to steder: her,
+    # til at vaelge hvad der kommer med i skrifttypen, og til at skrive
+    # firmwarens zs_icons.h. Ét sted, saa navn og tegning ikke kan komme
+    # til at pege paa hver sit.
+    ICONS="$(python3 icons.py --range)" || fail "kunne ikke laese ikonlisten"
+
+    build_icons() {
+        local name="$1" size="$2"
+        local dst="${OUT}/${name}.c"
+        if [ -s "${dst}" ] && [ "${FORCE}" != "--force" ]; then
+            ok "${name} findes"
+            return 0
+        fi
+        ${LVFC} --font "${CACHE}/lucide.ttf" --size "${size}" --bpp 4 --no-compress \
+                --format lvgl --lv-include lvgl.h \
+                --range "${ICONS}" -o "${dst}" >/dev/null
+        ok "${name} ($(wc -c < "${dst}" | tr -d ' ') bytes C-kode)"
+    }
+
+    info "Bygger ikoner"
+    build_icons zs_ikon_lille "$(sk 20)"
+    build_icons zs_ikon_stor  "$(sk 28)"
+    # zs_icons.h er kodepunkter og ikke pixels, saa den er faelles for
+    # begge saet og skrives kun én gang.
+    if [ "${SAET_W}" = "${REF_W}" ]; then
+        python3 icons.py --header "../firmware/kerne/ui/zs_icons.h" \
+            || fail "kunne ikke skrive zs_icons.h"
+    fi
+
+    # ---------------------------------------------------------------------
+    # Logoer
+    # ---------------------------------------------------------------------
+    # Logoerne bygges kun hvis brand-mappen er der.
+    #
+    # De raa logofiler er ikke i det offentlige repo, men de FAERDIGE
+    # C-filer er. Derfor kan enhver hente projektet og bygge firmwaren, og
+    # kun den der har brand-mappen kan lave logoerne om.
+    if [ -d "../brand" ]; then
+        info "Bygger logoer"
+        # To saet: negativ til moerkt tema, positiv til lyst. Samme maal, saa
+        # de kan byttes ud uden at noget flytter sig paa skaermen.
+        python3 png2lvgl.py "../brand/Z-logo-neg.png" "${OUT}/zs_img_zmark.c" \
+            --name zs_img_zmark --height "$(sk 26)"
+        python3 png2lvgl.py "../brand/Z-logo.png" "${OUT}/zs_img_zmark_pos.c" \
+            --name zs_img_zmark_pos --height "$(sk 26)"
+        python3 png2lvgl.py "../brand/Frekvenz - logo payoff-neg.png" \
+            "${OUT}/zs_img_wordmark.c" --name zs_img_wordmark --width "$(sk 260)"
+        python3 png2lvgl.py "../brand/Frekvenz - logo payoff.png" \
+            "${OUT}/zs_img_wordmark_pos.c" --name zs_img_wordmark_pos --width "$(sk 260)"
+    else
+        info "Springer logoer over"
+        if [ -s "${OUT}/zs_img_zmark.c" ] && [ -s "${OUT}/zs_img_wordmark.c" ] \
+           && [ -s "${OUT}/zs_img_zmark_pos.c" ] \
+           && [ -s "${OUT}/zs_img_wordmark_pos.c" ]; then
+            ok "brand-mappen er ikke her, men de faerdige logoer findes"
+        else
+            fail "brand-mappen mangler, og logoerne er ikke bygget."
+        fi
+    fi
+
+    # ---------------------------------------------------------------------
 }
 
-info "Bygger ikoner"
-build_icons zs_icons_20 20
-build_icons zs_icons_28 28
-python3 icons.py --header "../firmware/kerne/ui/zs_icons.h" \
-    || fail "kunne ikke skrive zs_icons.h"
+for b in ${SAET_BREDDER}; do
+    byg_saet "${b}"
+done
 
-# ---------------------------------------------------------------------
-# Logoer
-# ---------------------------------------------------------------------
-# Logoerne bygges kun hvis brand-mappen er der.
-#
-# De raa logofiler er ikke i det offentlige repo, men de FAERDIGE
-# C-filer er. Derfor kan enhver hente projektet og bygge firmwaren, og
-# kun den der har brand-mappen kan lave logoerne om.
-if [ -d "../brand" ]; then
-    info "Bygger logoer"
-    # To saet: negativ til moerkt tema, positiv til lyst. Samme maal, saa
-    # de kan byttes ud uden at noget flytter sig paa skaermen.
-    python3 png2lvgl.py "../brand/Z-logo-neg.png" "${OUT}/zs_img_zmark.c" \
-        --name zs_img_zmark --height 26
-    python3 png2lvgl.py "../brand/Z-logo.png" "${OUT}/zs_img_zmark_pos.c" \
-        --name zs_img_zmark_pos --height 26
-    python3 png2lvgl.py "../brand/Frekvenz - logo payoff-neg.png" \
-        "${OUT}/zs_img_wordmark.c" --name zs_img_wordmark --width 260
-    python3 png2lvgl.py "../brand/Frekvenz - logo payoff.png" \
-        "${OUT}/zs_img_wordmark_pos.c" --name zs_img_wordmark_pos --width 260
-else
-    info "Springer logoer over"
-    if [ -s "${OUT}/zs_img_zmark.c" ] && [ -s "${OUT}/zs_img_wordmark.c" ] \
-       && [ -s "${OUT}/zs_img_zmark_pos.c" ] \
-       && [ -s "${OUT}/zs_img_wordmark_pos.c" ]; then
-        ok "brand-mappen er ikke her, men de faerdige logoer findes"
-    else
-        fail "brand-mappen mangler, og logoerne er ikke bygget."
-    fi
-fi
-
-# ---------------------------------------------------------------------
 info "Faerdig"
 TOTAL=$(cat "${OUT}"/*.c | wc -c | tr -d ' ')
 echo

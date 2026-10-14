@@ -30,10 +30,10 @@ SRC = ROOT / "firmware/kerne"
 # og de tjekkes ved at blive genereret fra den samme liste som
 # navnene i zs_icons.h.
 TEXT_FONTS = [
-    "zs_font_28", "zs_font_20", "zs_font_16", "zs_font_13", "zs_font_kb_24",
+    "zs_font_stor", "zs_font_rad", "zs_font_broed", "zs_font_etiket", "zs_font_kb",
 ]
 # Det store taltema har med vilje kun cifre og skilletegn.
-NUMBER_FONTS = ["zs_font_num_64"]
+NUMBER_FONTS = ["zs_font_tal"]
 
 
 def parse_font_coverage(path: pathlib.Path) -> set:
@@ -95,14 +95,33 @@ def main():
               file=sys.stderr)
         return 1
 
+    # BEGGE saet skal kunne tegne alt hvad vi skriver.
+    #
+    # Skrifttyperne ligger i ét saet pr. skaermbredde, ui/assets/<bredde>/,
+    # fordi en LVGL-skrift er et bitmap og ikke kan skaleres paa
+    # skaermen. Saettene bygges af samme TTF med samme tegnomraader, saa
+    # de BOER daekke det samme - men "boer" er ikke godt nok, naar
+    # konsekvensen er en tom firkant paa en kundes vaeg. Her tjekkes de
+    # hver for sig.
+    saet = sorted(d for d in ASSETS.iterdir() if d.is_dir())
+    if not saet:
+        print("FEJL: der er ingen saet i ui/assets/. "
+              "Koer ./tools/build-assets.sh", file=sys.stderr)
+        return 1
+
     fonts = {}
-    for name in TEXT_FONTS + NUMBER_FONTS:
-        p = ASSETS / f"{name}.c"
-        if not p.exists():
-            print(f"FEJL: {name}.c mangler. Koer ./tools/build-assets.sh",
-                  file=sys.stderr)
-            return 1
-        fonts[name] = parse_font_coverage(p)
+    for d in saet:
+        for name in TEXT_FONTS + NUMBER_FONTS:
+            p = d / f"{name}.c"
+            if not p.exists():
+                print(f"FEJL: {d.name}/{name}.c mangler. "
+                      f"Koer ./tools/build-assets.sh", file=sys.stderr)
+                return 1
+            # Navnet beholdes, men daekningen er SNITTET af alle saet:
+            # et tegn taeller kun som daekket hvis det kan tegnes i dem
+            # alle.
+            d_ny = parse_font_coverage(p)
+            fonts[name] = d_ny if name not in fonts else (fonts[name] & d_ny)
 
     if "--list" in sys.argv:
         for name, cov in fonts.items():
@@ -156,7 +175,7 @@ def main():
     # kan taste er kun plads, og derfor har det med vilje det smalle
     # omraade - se NAVNE mod DANSK i build-assets.sh. Det tegner aldrig
     # et kundenavn.
-    for name in [f for f in TEXT_FONTS if f != "zs_font_kb_24"]:
+    for name in [f for f in TEXT_FONTS if f != "zs_font_kb"]:
         for navn in NAVNE_UDEFRA:
             huller = [c for c in navn if ord(c) not in fonts[name]]
             if huller:

@@ -11,6 +11,10 @@
 # zScreen-projektet: en GLOB betyder at cmake ikke opdager en ny fil
 # foer man rydder byggemappen.
 
+# Skrifttyperne. Skaermen er 800 x 1280, saa saettet er 800. En
+# skrift i LVGL er et bitmap og kan ikke skaleres paa skaermen,
+# saa hvert board har sit saet. Se tools/build-assets.sh.
+set(ZS_ASSET_SAET 800)
 include("${CMAKE_CURRENT_LIST_DIR}/../../../kerne/kilder.cmake")
 
 idf_component_register(

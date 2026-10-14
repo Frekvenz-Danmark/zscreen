@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 64 px
  * Bpp: 4
- * Opts: --font .assets-cache/funnel-600.ttf --size 64 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0x30-0x39,0x2C,0x2E,0x2D,0x25 -o ../firmware/kerne/ui/assets/zs_font_num_64.c
+ * Opts: --font .assets-cache/funnel-600.ttf --size 64 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0x30-0x39,0x2C,0x2E,0x2D,0x25 -o ../firmware/kerne/ui/assets/480/zs_font_tal.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -10,11 +10,11 @@
 #include "lvgl.h"
 #endif
 
-#ifndef ZS_FONT_NUM_64
-#define ZS_FONT_NUM_64 1
+#ifndef ZS_FONT_TAL
+#define ZS_FONT_TAL 1
 #endif
 
-#if ZS_FONT_NUM_64
+#if ZS_FONT_TAL
 
 /*-----------------
  *    BITMAPS
@@ -1181,9 +1181,9 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
 
 /*Initialize a public general font descriptor*/
 #if LVGL_VERSION_MAJOR >= 8
-const lv_font_t zs_font_num_64 = {
+const lv_font_t zs_font_tal = {
 #else
-lv_font_t zs_font_num_64 = {
+lv_font_t zs_font_tal = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
@@ -1205,5 +1205,5 @@ lv_font_t zs_font_num_64 = {
 
 
 
-#endif /*#if ZS_FONT_NUM_64*/
+#endif /*#if ZS_FONT_TAL*/
 

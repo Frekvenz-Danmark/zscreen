@@ -3,13 +3,13 @@
  *
  *     ┌────────────────────────────────┐
  *     │                                │
- *     │     Leder efter din inverter   │   zs_font_28
+ *     │     Leder efter din inverter   │   zs_font_stor
  *     │                                │
- *     │  Enheden gennemgaar netvaerket │   zs_font_16, daempet
+ *     │  Enheden gennemgaar netvaerket │   zs_font_broed, daempet
  *     │                                │
  *     │  ████████░░░░░░░░░░░░░░░░░░░░  │   8 px bjaelke
  *     │                                │
- *     │          Fandt 2               │   zs_font_16, orange
+ *     │          Fandt 2               │   zs_font_broed, orange
  *     └────────────────────────────────┘
  *
  * HVORFOR DEN FINDES.

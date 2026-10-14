@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 24 px
  * Bpp: 4
- * Opts: --size 24 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --font .assets-cache/funnel-500.ttf --range 0x20-0x7E,0xB7,0xC5,0xC6,0xC9,0xD8,0xE5,0xE6,0xE9,0xF8,0x2022 --font .assets-cache/lucide.ttf --range 0xe04a,0xe0ae,0xe06c -o ../firmware/kerne/ui/assets/zs_font_kb_24.c
+ * Opts: --size 24 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --font .assets-cache/funnel-500.ttf --range 0x20-0x7E,0xB7,0xC5,0xC6,0xC9,0xD8,0xE5,0xE6,0xE9,0xF8,0x2022 --font .assets-cache/lucide.ttf --range 0xe04a,0xe0ae,0xe06c -o ../firmware/kerne/ui/assets/480/zs_font_kb.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -10,11 +10,11 @@
 #include "lvgl.h"
 #endif
 
-#ifndef ZS_FONT_KB_24
-#define ZS_FONT_KB_24 1
+#ifndef ZS_FONT_KB
+#define ZS_FONT_KB 1
 #endif
 
-#if ZS_FONT_KB_24
+#if ZS_FONT_KB
 
 /*-----------------
  *    BITMAPS
@@ -1793,9 +1793,9 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
 
 /*Initialize a public general font descriptor*/
 #if LVGL_VERSION_MAJOR >= 8
-const lv_font_t zs_font_kb_24 = {
+const lv_font_t zs_font_kb = {
 #else
-lv_font_t zs_font_kb_24 = {
+lv_font_t zs_font_kb = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
@@ -1817,5 +1817,5 @@ lv_font_t zs_font_kb_24 = {
 
 
 
-#endif /*#if ZS_FONT_KB_24*/
+#endif /*#if ZS_FONT_KB*/
 

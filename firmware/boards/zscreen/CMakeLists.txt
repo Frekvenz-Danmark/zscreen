@@ -39,7 +39,7 @@ idf_build_set_property(COMPILE_DEFINITIONS "ZS_G_SCR_HEIGHT=480" APPEND)
 # Versionsnummeret kommer fra firmware/version.txt, som BEGGE produkter
 # deler. Se ZS_VERSION i kerne/kilder.cmake for hvorfor det ikke bare
 # ligger i projektmappen som ESP-IDF ellers forventer.
-include("${ZS_FW_DIR}/kerne/kilder.cmake")
+include("${ZS_FW_DIR}/kerne/version.cmake")
 project(zscreen VERSION ${ZS_VERSION})
 
 # ---------------------------------------------------------------------

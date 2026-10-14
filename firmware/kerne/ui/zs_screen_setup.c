@@ -253,13 +253,13 @@ static void guide_trin(lv_obj_t *forael, const char *nr, const char *tekst)
 
     lv_obj_t *t = lv_label_create(kort);
     lv_label_set_text(t, nr);
-    zs_style_text(t, &zs_font_20, ZS_C_ACCENT);
+    zs_style_text(t, &zs_font_rad, ZS_C_ACCENT);
     lv_obj_set_width(t, ZS_G_GUIDE_NUM_WIDTH);
     lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_RIGHT, 0);
 
     lv_obj_t *l = lv_label_create(kort);
     lv_label_set_text(l, tekst);
-    zs_style_text(l, &zs_font_16, ZS_C_TEXT);
+    zs_style_text(l, &zs_font_broed, ZS_C_TEXT);
     lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
     lv_obj_set_flex_grow(l, 1);
 }
@@ -321,7 +321,7 @@ static void build_guide(void)
 
     lv_obj_t *over = lv_label_create(baand);
     lv_label_set_text(over, "Gør dette i Frekvenz-appen først");
-    zs_style_text(over, &zs_font_20, ZS_C_TEXT);
+    zs_style_text(over, &zs_font_rad, ZS_C_TEXT);
     lv_label_set_long_mode(over, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(over, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(over, ZS_CONTENT_WIDTH);
@@ -360,14 +360,14 @@ static void build_welcome(void)
 
     lv_obj_t *t = lv_label_create(c);
     lv_label_set_text(t, "Se hvad dit anlæg laver lige nu");
-    zs_style_text(t, &zs_font_20, ZS_C_TEXT);
+    zs_style_text(t, &zs_font_rad, ZS_C_TEXT);
     lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 175);
 
     lv_obj_t *s = lv_label_create(c);
     lv_label_set_text(s,
         "Skærmen skal på samme netværk som din inverter.\n"
         "Det tager et par minutter.");
-    zs_style_text(s, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(s, &zs_font_broed, ZS_C_LABEL);
     lv_obj_set_style_text_align(s, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(s, ZS_SCR_WIDTH - 4 * ZS_EDGE);
     lv_obj_align(s, LV_ALIGN_TOP_MID, 0, 210);
@@ -386,7 +386,7 @@ static void build_welcome(void)
 
     lv_obj_t *dh = lv_label_create(c);
     lv_label_set_text(dh, "Se hvordan skærmen ser ud, uden et anlæg");
-    zs_style_text(dh, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(dh, &zs_font_broed, ZS_C_LABEL);
     lv_obj_set_style_text_align(dh, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(dh, ZS_SCR_WIDTH - 4 * ZS_EDGE);
     lv_obj_align(dh, LV_ALIGN_TOP_MID, 0, 358);
@@ -460,7 +460,7 @@ static void build_wifi(void)
 
     s_wifi_hint = lv_label_create(s_wifi.content);
     lv_label_set_text(s_wifi_hint, "Søger efter netværk ...");
-    zs_style_text(s_wifi_hint, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(s_wifi_hint, &zs_font_broed, ZS_C_LABEL);
     lv_obj_align(s_wifi_hint, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_EDGE);
 
     s_wifi_list = zs_column_create(s_wifi.content, 8);
@@ -559,7 +559,7 @@ static void build_password(void)
 
     s_pass_field = lv_label_create(box);
     lv_label_set_text(s_pass_field, "");
-    zs_style_text(s_pass_field, &zs_font_20, ZS_C_TEXT);
+    zs_style_text(s_pass_field, &zs_font_rad, ZS_C_TEXT);
     lv_label_set_long_mode(s_pass_field, LV_LABEL_LONG_CLIP);
     lv_obj_set_width(s_pass_field, ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - 8 - 32);
     lv_obj_align(s_pass_field, LV_ALIGN_LEFT_MID, 0, 0);
@@ -572,7 +572,7 @@ static void build_password(void)
 
     s_pass_eye_icon = lv_label_create(s_pass_eye);
     lv_label_set_text(s_pass_eye_icon, ZS_ICON_EYE);
-    lv_obj_set_style_text_font(s_pass_eye_icon, &zs_icons_20, 0);
+    lv_obj_set_style_text_font(s_pass_eye_icon, &zs_ikon_lille, 0);
     lv_obj_set_style_text_color(s_pass_eye_icon, lv_color_hex(ZS_C_LABEL), 0);
     lv_obj_center(s_pass_eye_icon);
 
@@ -591,7 +591,7 @@ static void build_password(void)
      * beskrives den med ord i stedet. */
     lv_label_set_text(hj, "Er netværket åbent, så tryk bare på tasten "
                           "med fluebenet uden at skrive noget.");
-    zs_style_text(hj, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(hj, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(hj, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(hj, ZS_CONTENT_WIDTH);
     lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, 110);
@@ -636,7 +636,7 @@ static void build_connecting(void)
 
     s_connect_text = lv_label_create(s_connect.content);
     lv_label_set_text(s_connect_text, "Forbinder til netværket ...");
-    zs_style_text(s_connect_text, &zs_font_20, ZS_C_TEXT);
+    zs_style_text(s_connect_text, &zs_font_rad, ZS_C_TEXT);
     lv_obj_set_style_text_align(s_connect_text, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(s_connect_text, ZS_SCR_WIDTH - 4 * ZS_EDGE);
     /* Ikke 160 skrevet ind: se ZS_G_WAIT_TEXT_Y i zs_layout.h. */
@@ -857,7 +857,7 @@ static void build_manual(void)
 
     s_man_field = lv_label_create(box);
     lv_label_set_text(s_man_field, "");
-    zs_style_text(s_man_field, &zs_font_20, ZS_C_TEXT);
+    zs_style_text(s_man_field, &zs_font_rad, ZS_C_TEXT);
     lv_label_set_long_mode(s_man_field, LV_LABEL_LONG_CLIP);
     lv_obj_set_width(s_man_field, ZS_CONTENT_WIDTH - 32);
     lv_obj_align(s_man_field, LV_ALIGN_LEFT_MID, 0, 0);
@@ -867,7 +867,7 @@ static void build_manual(void)
     lv_label_set_text(hj,
         "Står på inverterens webside under Kommunikation, hvor Modbus TCP "
         "også slås til.");
-    zs_style_text(hj, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(hj, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(hj, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(hj, ZS_CONTENT_WIDTH);
     lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, 110);
@@ -881,7 +881,7 @@ static void build_manual(void)
      */
     s_man_fejl = lv_label_create(s_man.content);
     lv_label_set_text(s_man_fejl, "");
-    zs_style_text(s_man_fejl, &zs_font_16, ZS_C_BAD);
+    zs_style_text(s_man_fejl, &zs_font_broed, ZS_C_BAD);
     lv_label_set_long_mode(s_man_fejl, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_man_fejl, ZS_CONTENT_WIDTH);
     lv_obj_align(s_man_fejl, LV_ALIGN_TOP_LEFT, ZS_EDGE, 168);
@@ -903,7 +903,7 @@ static void build_inverter(void)
 
     s_inv_hint = lv_label_create(s_inv.content);
     lv_label_set_text(s_inv_hint, "");
-    zs_style_text(s_inv_hint, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(s_inv_hint, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(s_inv_hint, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_inv_hint, ZS_CONTENT_WIDTH);
     lv_obj_align(s_inv_hint, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_EDGE);
@@ -1168,7 +1168,7 @@ void zs_setup_set_inverter_list(const zs_found_t *list, int n)
         }
         lv_obj_t *sl = lv_label_create(r.row);
         lv_label_set_text(sl, sub);
-        zs_style_text(sl, &zs_font_16, ZS_C_LABEL);
+        zs_style_text(sl, &zs_font_broed, ZS_C_LABEL);
         lv_obj_align(sl, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, 15);
 
         /* Ryk navnet op saa de to linjer staar paent under hinanden.

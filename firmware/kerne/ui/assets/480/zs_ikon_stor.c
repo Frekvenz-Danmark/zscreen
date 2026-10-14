@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 28 px
  * Bpp: 4
- * Opts: --font .assets-cache/lucide.ttf --size 28 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0xe178,0xe0f5,0xe054,0xe053,0xe1b4,0xe1ae,0xe5f7,0xe5f8,0xe1af,0xe154,0xe04a,0xe042,0xe048,0xe049,0xe193,0xe10a,0xe06c,0xe06e,0xe06f,0xe06d,0xe10b,0xe145,0xe37f,0xe1b2,0xe0ba,0xe0bb,0xe226,0xe077,0xe140,0xe0f9,0xe151,0xe148,0xe18e,0xe0ae -o ../firmware/kerne/ui/assets/zs_icons_28.c
+ * Opts: --font .assets-cache/lucide.ttf --size 28 --bpp 4 --no-compress --format lvgl --lv-include lvgl.h --range 0xe178,0xe0f5,0xe054,0xe053,0xe1b4,0xe1ae,0xe5f7,0xe5f8,0xe1af,0xe154,0xe04a,0xe042,0xe048,0xe049,0xe193,0xe10a,0xe06c,0xe06e,0xe06f,0xe06d,0xe10b,0xe145,0xe37f,0xe1b2,0xe0ba,0xe0bb,0xe226,0xe077,0xe140,0xe0f9,0xe151,0xe148,0xe18e,0xe0ae -o ../firmware/kerne/ui/assets/480/zs_ikon_stor.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -10,11 +10,11 @@
 #include "lvgl.h"
 #endif
 
-#ifndef ZS_ICONS_28
-#define ZS_ICONS_28 1
+#ifndef ZS_IKON_STOR
+#define ZS_IKON_STOR 1
 #endif
 
-#if ZS_ICONS_28
+#if ZS_IKON_STOR
 
 /*-----------------
  *    BITMAPS
@@ -1261,9 +1261,9 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
 
 /*Initialize a public general font descriptor*/
 #if LVGL_VERSION_MAJOR >= 8
-const lv_font_t zs_icons_28 = {
+const lv_font_t zs_ikon_stor = {
 #else
-lv_font_t zs_icons_28 = {
+lv_font_t zs_ikon_stor = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
@@ -1285,5 +1285,5 @@ lv_font_t zs_icons_28 = {
 
 
 
-#endif /*#if ZS_ICONS_28*/
+#endif /*#if ZS_IKON_STOR*/
 

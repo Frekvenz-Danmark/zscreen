@@ -47,12 +47,85 @@
 #ifndef ZS_G_SCR_HEIGHT
 #define ZS_G_SCR_HEIGHT     480
 #endif
-#define ZS_G_BAR_HEIGHT     44
-#define ZS_G_DOTS_HEIGHT    28
-#define ZS_G_PAGE_HEIGHT    (ZS_G_SCR_HEIGHT - ZS_G_BAR_HEIGHT - ZS_G_DOTS_HEIGHT)
-#define ZS_G_EDGE           12
-#define ZS_G_GRID_GAP       12
+/*
+ * ── SKALERINGEN ────────────────────────────────────────────────────────
+ *
+ * HVORFOR DEN FINDES.
+ *
+ * Fladen blev tegnet paa 480 x 480. Da den samme flade blev bygget til
+ * 800 x 1280, fulgte HALVDELEN af tallene med og halvdelen stod fast.
+ * Det blev maalt, og det ser saadan ud:
+ *
+ *                        480 x 480    800 x 1280
+ *   siden                  408          1208     foelger
+ *   ét kort            222 x 186     382 x 586    foelger
+ *   kortets tekstblok       92            92      STAAR FAST
+ *   luften i kortet         33           233      foelger
+ *   soejlediagrammet       104           904      foelger
+ *   de to priskort         100           100      STAAR FAST
+ *   ventesidens spinder      64            64      STAAR FAST
+ *
+ * Resultatet er praecis det man ville forvente: kasser der er alt for
+ * store, med indhold der er alt for lille midt i dem. Og
+ * stroemdiagrammet, som havde sine egne faste tal, fyldte 345 px af en
+ * side paa 1208.
+ *
+ * HVORDAN DE TRE MACROER SKAL BRUGES.
+ *
+ *   ZS_G_SK_WIDTH(v)   bredder og x-positioner. Foelger skaermens BREDDE.
+ *   ZS_G_SK_HEIGHT(v)   hoejder og y-positioner. Foelger skaermens HOEJDE.
+ *   ZS_G_SK(v)     FORMER - en cirkel, et ikon, en skriftstoerrelse.
+ *                  Den mindste af de to, saa en cirkel bliver ved at
+ *                  vaere rund og en tekst bliver ved at kunne vaere der
+ *                  i bredden.
+ *
+ * PAA REFERENCESKAERMEN ER DE ALLE TRE PRAECIS 1:1. 480/480 = 1, saa
+ * hver eneste vaerdi i den her fil er uaendret paa zScreen. Det er ikke
+ * en hensigt, det er aritmetik, og der er en proeve paa det i
+ * tests/host/test_layout.c.
+ *
+ * HELTALSMATEMATIK, ingen flydende tal. En skaerm skal ikke regne i
+ * kommatal for at finde ud af hvor en kasse skal staa.
+ *
+ * DET DER IKKE MAA SKALERES: en finger. Se ZS_G_TOUCH_MIN.
+ */
+#define ZS_G_REF_WIDTH      480
+#define ZS_G_REF_HEIGHT     480
+
+#define ZS_G_SK_WIDTH(v)        ((v) * ZS_G_SCR_WIDTH  / ZS_G_REF_WIDTH)
+#define ZS_G_SK_HEIGHT(v)        ((v) * ZS_G_SCR_HEIGHT / ZS_G_REF_HEIGHT)
+#define ZS_G_SK(v)          (ZS_G_SK_WIDTH(v) < ZS_G_SK_HEIGHT(v) \
+                             ? ZS_G_SK_WIDTH(v) : ZS_G_SK_HEIGHT(v))
+
+#define ZS_G_BAR_HEIGHT     ZS_G_SK(44)
+#define ZS_G_EDGE           ZS_G_SK(12)
+#define ZS_G_GRID_GAP       ZS_G_SK(12)
 #define ZS_G_CONTENT_WIDTH  (ZS_G_SCR_WIDTH - 2 * ZS_G_EDGE)
+
+/*
+ * SIDEN SKAL KUNNE DELES I TO HELE KORT, og den ene pixel der kan blive
+ * tilbage, laegges i prikstriben.
+ *
+ * Her stod bare "skaermen minus linjen minus prikkerne". Det gik op paa
+ * 480: 408 - 3 x 12 = 372, og 372 / 2 = 186 praecis. Paa 800 x 1280
+ * blev det 1161 - 60 = 1101, og 1101 er ULIGE - saa to kort plus tre
+ * mellemrum gav 1160 og ikke 1161. Vagten nederst i filen fangede det,
+ * og det er praecis hvad den er til for.
+ *
+ * En pixel ser ingen. Men "layoutet gaar op" er en paastand man kan
+ * regne efter, og den slags skal holde paa ENHVER skaerm - ellers kan
+ * man ikke bruge den til noget.
+ *
+ * Derfor: prikstriben har et MINDSTEMAAL, siden tager det der kan deles
+ * i to, og resten falder ned i striben. Paa 480 giver det 28 praecis
+ * som foer.
+ */
+#define ZS_G_DOTS_MIN       ZS_G_SK(28)
+#define ZS_G_PAGE_RAA       (ZS_G_SCR_HEIGHT - ZS_G_BAR_HEIGHT - ZS_G_DOTS_MIN)
+#define ZS_G_PAGE_HEIGHT    (((ZS_G_PAGE_RAA - 3 * ZS_G_GRID_GAP) / 2) * 2 \
+                             + 3 * ZS_G_GRID_GAP)
+#define ZS_G_DOTS_HEIGHT    (ZS_G_SCR_HEIGHT - ZS_G_BAR_HEIGHT \
+                             - ZS_G_PAGE_HEIGHT)
 /*
  * Kortets hoejde, UDREGNET og ikke skrevet af.
  *
@@ -86,7 +159,7 @@
  * afgoer om teksten i et kort fylder det ud eller loeber over kanten, og
  * det er det foerste der gaar galt den dag skaermen skifter stoerrelse.
  */
-#define ZS_G_CARD_PAD       14    /* luft inde i kortet               */
+#define ZS_G_CARD_PAD       ZS_G_SK(14)    /* luft inde i kortet               */
 #define ZS_G_CARD_IN_WIDTH  (ZS_G_CARD_WIDTH - 2 * ZS_G_CARD_PAD)
 #define ZS_G_CARD_IN_HEIGHT (ZS_G_CARD_HEIGHT - 2 * ZS_G_CARD_PAD)
 
@@ -96,9 +169,9 @@
  * valgt efter hvad man kan laese paa to meters afstand, ikke efter hvor
  * mange pixels der tilfaeldigvis er.
  */
-#define ZS_G_CARD_HEAD_HEIGHT  20
-#define ZS_G_CARD_VALUE_HEIGHT 54
-#define ZS_G_CARD_SUB_HEIGHT   18
+#define ZS_G_CARD_HEAD_HEIGHT  ZS_G_SK(20)
+#define ZS_G_CARD_VALUE_HEIGHT ZS_G_SK(54)
+#define ZS_G_CARD_SUB_HEIGHT   ZS_G_SK(18)
 
 /*
  * PLACERINGERNE er derimod udregnet, for de afhaenger af kortets hoejde.
@@ -110,21 +183,52 @@
  *     tallet paa 20 + 33 = 53, underteksten paa 53 + 54 + 33 = 140
  * Praecis de tal der stod her foer.
  */
-#define ZS_G_CARD_TEXT_GAP  ((ZS_G_CARD_IN_HEIGHT - ZS_G_CARD_HEAD_HEIGHT \
-                              - ZS_G_CARD_VALUE_HEIGHT \
-                              - ZS_G_CARD_SUB_HEIGHT) / 2)
+#define ZS_G_CARD_TEXT_SUM  (ZS_G_CARD_HEAD_HEIGHT + ZS_G_CARD_VALUE_HEIGHT \
+                             + ZS_G_CARD_SUB_HEIGHT)
+#define ZS_G_CARD_TEXT_LUFT (ZS_G_CARD_IN_HEIGHT - ZS_G_CARD_TEXT_SUM)
+#define ZS_G_CARD_TEXT_GAP  (ZS_G_CARD_TEXT_LUFT / 2)
+/*
+ * DEN ENE PIXEL DER KAN BLIVE TILBAGE.
+ *
+ * Luften i kortet deles i to lige store mellemrum. Er den ULIGE, bliver
+ * der én pixel til rest, og saa gaar regnestykket ikke op - vagten
+ * nederst i filen fangede det paa 800 x 1280, hvor luften er 351.
+ *
+ * Resten laegges OVER det store tal. Ikke under: tallet er det oejet
+ * gaar til, og staar det en pixel for hoejt eller lavt, ser ingen det -
+ * men staar overskriften klemt op mod kanten, kan man se det.
+ *
+ * Paa 480 x 480 er luften 66, altsaa lige, og resten er NUL. Hvert tal
+ * i kortet er uaendret der.
+ */
+#define ZS_G_CARD_TEXT_REST (ZS_G_CARD_TEXT_LUFT % 2)
+
 #define ZS_G_CARD_HEAD_Y    0
 #define ZS_G_CARD_VALUE_Y   (ZS_G_CARD_HEAD_Y + ZS_G_CARD_HEAD_HEIGHT \
-                             + ZS_G_CARD_TEXT_GAP)
+                             + ZS_G_CARD_TEXT_GAP + ZS_G_CARD_TEXT_REST)
 #define ZS_G_CARD_SUB_Y     (ZS_G_CARD_VALUE_Y + ZS_G_CARD_VALUE_HEIGHT \
                              + ZS_G_CARD_TEXT_GAP)
 
 /* Fysiske maal: en finger bliver ikke stoerre af at skaermen goer. De
  * skal BLIVE staaende naar vi skifter skaerm. */
+/*
+ * EN FINGER VOKSER IKKE MED SKAERMEN.
+ *
+ * ZS_G_TOUCH_MIN er ikke et designtal, det er en tomme. Og de to
+ * skaerme har naesten samme taethed - 4 tommer paa 480 x 480 giver 170
+ * punkter pr. tomme, 8 tommer paa 800 x 1280 giver 189 - saa 44 px er
+ * naesten lige stort paa fingeren begge steder. Derfor staar det fast.
+ *
+ * Raekker og knapper skaleres til gengaeld: de er visuelle, og paa en 8
+ * tommer skaerm paa en vaeg skal de kunne ses. Men de maa ALDRIG blive
+ * mindre end en finger, og det er derfor der staar et gulv.
+ */
 #define ZS_G_TOUCH_MIN      44
-#define ZS_G_ROW_HEIGHT     56
-#define ZS_G_BTN_HEIGHT     52
-#define ZS_G_CHOICE_HEIGHT  92
+
+#define ZS_G_GULV(v)        ((v) < ZS_G_TOUCH_MIN ? ZS_G_TOUCH_MIN : (v))
+#define ZS_G_ROW_HEIGHT     ZS_G_GULV(ZS_G_SK(56))
+#define ZS_G_BTN_HEIGHT     ZS_G_GULV(ZS_G_SK(52))
+#define ZS_G_CHOICE_HEIGHT  ZS_G_GULV(ZS_G_SK(92))
 
 /* ------------------------------------------------------------------ */
 /* Statuslinjen foroven                                                */
@@ -139,9 +243,9 @@
  * Nu regnes de FRA HOEJRE KANT, saa de flytter med. Tallene er de samme
  * paa 480, og det staar der en vagt paa nedenfor.
  */
-#define ZS_G_BAR_EDGE       6     /* luft ud til kanten               */
-#define ZS_G_BAR_ICON_W     20    /* statusikonet                     */
-#define ZS_G_BAR_ICON_GAP   10    /* mellem ikonet og naboen          */
+#define ZS_G_BAR_EDGE       ZS_G_SK(6)     /* luft ud til kanten               */
+#define ZS_G_BAR_ICON_W     ZS_G_SK(20)    /* statusikonet                     */
+#define ZS_G_BAR_ICON_GAP   ZS_G_SK(10)    /* mellem ikonet og naboen          */
 
 /* Tandhjulet er en hel fingerflade, helt ude i hoejre hjoerne. */
 #define ZS_G_BAR_GEAR_X     (ZS_G_SCR_WIDTH - ZS_G_BAR_EDGE - ZS_G_TOUCH_MIN)
@@ -181,20 +285,20 @@
  * er tilbage. Det er et valg, og det staar her saa det er til at se og
  * aendre ét sted.
  */
-#define ZS_G_PRICE_TOP        14   /* luft foeroven                    */
-#define ZS_G_PRICE_LABEL_HEIGHT    16   /* 13 px skrift -> 16 px linje      */
-#define ZS_G_PRICE_GAP_LABEL   6
-#define ZS_G_PRICE_VALUE_HEIGHT    54   /* 64 px tal, kun cifre             */
-#define ZS_G_PRICE_GAP_VALUE   4
-#define ZS_G_PRICE_WORD_HEIGHT     24
-#define ZS_G_PRICE_GAP_WORD   14
-#define ZS_G_PRICE_GAP_CHART   4
-#define ZS_G_PRICE_AXIS_HEIGHT     16   /* timeaksen                        */
-#define ZS_G_PRICE_GAP_AXIS   12
-#define ZS_G_PRICE_CARDS_HEIGHT   100
-#define ZS_G_PRICE_GAP_CARDS  12
-#define ZS_G_PRICE_NOTE_HEIGHT     18
-#define ZS_G_PRICE_BOTTOM     10   /* luft ned til sidens kant         */
+#define ZS_G_PRICE_TOP        ZS_G_SK_HEIGHT(14)   /* luft foeroven                    */
+#define ZS_G_PRICE_LABEL_HEIGHT    ZS_G_SK(16)   /* 13 px skrift -> 16 px linje      */
+#define ZS_G_PRICE_GAP_LABEL   ZS_G_SK_HEIGHT(6)
+#define ZS_G_PRICE_VALUE_HEIGHT    ZS_G_SK(54)   /* 64 px tal, kun cifre             */
+#define ZS_G_PRICE_GAP_VALUE   ZS_G_SK_HEIGHT(4)
+#define ZS_G_PRICE_WORD_HEIGHT     ZS_G_SK(24)
+#define ZS_G_PRICE_GAP_WORD   ZS_G_SK_HEIGHT(14)
+#define ZS_G_PRICE_GAP_CHART   ZS_G_SK_HEIGHT(4)
+#define ZS_G_PRICE_AXIS_HEIGHT     ZS_G_SK(16)   /* timeaksen                        */
+#define ZS_G_PRICE_GAP_AXIS   ZS_G_SK_HEIGHT(12)
+#define ZS_G_PRICE_CARDS_HEIGHT   ZS_G_SK_HEIGHT(100)
+#define ZS_G_PRICE_GAP_CARDS  ZS_G_SK_HEIGHT(12)
+#define ZS_G_PRICE_NOTE_HEIGHT     ZS_G_SK(18)
+#define ZS_G_PRICE_BOTTOM     ZS_G_SK_HEIGHT(10)   /* luft ned til sidens kant         */
 
 /* Alt det der IKKE er soejler. */
 #define ZS_G_PRICE_FAST \
@@ -235,9 +339,9 @@
  * et valg om hvordan den skal se ud, ikke et regnestykke. Det valg ligger
  * nu ÉT sted, her, i stedet for at vaere gemt i et tal midt i koden.
  */
-#define ZS_G_WAIT_SPIN_Y    70
-#define ZS_G_WAIT_SPIN_SIZE 64
-#define ZS_G_WAIT_GAP       26
+#define ZS_G_WAIT_SPIN_Y    ZS_G_SK_HEIGHT(70)
+#define ZS_G_WAIT_SPIN_SIZE ZS_G_SK(64)
+#define ZS_G_WAIT_GAP       ZS_G_SK_HEIGHT(26)
 #define ZS_G_WAIT_TEXT_Y    (ZS_G_WAIT_SPIN_Y + ZS_G_WAIT_SPIN_SIZE \
                              + ZS_G_WAIT_GAP)
 
@@ -250,8 +354,8 @@
  * gaa op MOD dem, og en vagt i den her fil kan ikke naa zs_theme.h.
  * zs_theme.h er nu alias, som den er for resten.
  */
-#define ZS_G_PAGE_HEAD_HEIGHT  56
-#define ZS_G_PAGE_FOOT_HEIGHT  76
+#define ZS_G_PAGE_HEAD_HEIGHT  ZS_G_SK_HEIGHT(56)
+#define ZS_G_PAGE_FOOT_HEIGHT  ZS_G_SK_HEIGHT(76)
 
 /* ------------------------------------------------------------------ */
 /* GUIDE-SIDEN: fire kort der FLUGTER                                   */
@@ -288,26 +392,38 @@
  * holder fast paa at baandet kan rumme TO linjer, saa en oversaettelse
  * ikke bliver klippet.
  */
-#define ZS_G_GUIDE_BAAND        86
-/* 20 px skrift giver en 26 px linje. Maalt i zs_font_20.c,
+#define ZS_G_GUIDE_BAAND        ZS_G_SK_HEIGHT(86)
+/* 20 px skrift giver en 26 px linje. Maalt i zs_font_rad.c,
  * .line_height - ikke skudt efter. */
-#define ZS_G_GUIDE_TITLE_LINE   26
-#define ZS_G_GUIDE_CARD_GAP     10   /* mellem kortene                */
-#define ZS_G_GUIDE_BOTTOM       12   /* luft ned til foden            */
+#define ZS_G_GUIDE_TITLE_LINE   ZS_G_SK(26)
+#define ZS_G_GUIDE_CARD_GAP     ZS_G_SK_HEIGHT(10)   /* mellem kortene                */
+#define ZS_G_GUIDE_BOTTOM       ZS_G_SK_HEIGHT(12)   /* luft ned til foden            */
 #define ZS_G_GUIDE_CARDS        4
 
 /* Kortene begynder praecis hvor baandet slutter. */
-#define ZS_G_GUIDE_CARDS_Y      ZS_G_GUIDE_BAAND
-/* Resten, delt i fire. */
-#define ZS_G_GUIDE_CARD_HEIGHT \
-    ((ZS_G_GUIDE_CONTENT_HEIGHT - ZS_G_GUIDE_CARDS_Y - ZS_G_GUIDE_BOTTOM \
-      - (ZS_G_GUIDE_CARDS - 1) * ZS_G_GUIDE_CARD_GAP) / ZS_G_GUIDE_CARDS)
+/*
+ * Resten, delt i fire - og det der IKKE kan deles i fire, laegges i
+ * baandet foroven.
+ *
+ * Paa 480 er luften 220, og 220 / 4 = 55 praecis, saa resten er nul og
+ * baandet bliver 86 som foer. Paa 800 x 1280 er luften 590, og 590 / 4
+ * giver 147 med 2 til rest. To pixels oeverst paa siden ser ingen; to
+ * pixels der ikke er gjort noget ved, faar vagten nedenfor til at
+ * stoppe byggeriet - og det er rigtigt af den, for "siden gaar op" skal
+ * vaere sandt og ikke naesten sandt.
+ */
+#define ZS_G_GUIDE_LUFT \
+    (ZS_G_GUIDE_CONTENT_HEIGHT - ZS_G_GUIDE_BAAND - ZS_G_GUIDE_BOTTOM \
+     - (ZS_G_GUIDE_CARDS - 1) * ZS_G_GUIDE_CARD_GAP)
+#define ZS_G_GUIDE_CARD_HEIGHT  (ZS_G_GUIDE_LUFT / ZS_G_GUIDE_CARDS)
+#define ZS_G_GUIDE_CARDS_Y      (ZS_G_GUIDE_BAAND \
+                                 + ZS_G_GUIDE_LUFT % ZS_G_GUIDE_CARDS)
 
 /* Tallets spalte. FAST bredde, saa teksten begynder paa samme x i alle
  * fire kort - det er det der gOEr at de flugter. */
-#define ZS_G_GUIDE_NUM_WIDTH    22
-#define ZS_G_GUIDE_NUM_GAP      12
-#define ZS_G_GUIDE_CARD_PAD     14
+#define ZS_G_GUIDE_NUM_WIDTH    ZS_G_SK(22)
+#define ZS_G_GUIDE_NUM_GAP      ZS_G_SK_WIDTH(12)
+#define ZS_G_GUIDE_CARD_PAD     ZS_G_SK(14)
 
 /* ------------------------------------------------------------------ */
 /* FEJLSIDEN: én besked, midt paa fladen                              */
@@ -332,11 +448,11 @@
                                   - ZS_G_PAGE_FOOT_HEIGHT)
 /* To linjer 28 px skrift. Den laengste overskrift er "Skærmen er ikke
  * på netværket", som bryder i to paa 456 px. */
-#define ZS_G_FEJL_HEAD_HEIGHT   80
-#define ZS_G_FEJL_GAP           16
+#define ZS_G_FEJL_HEAD_HEIGHT   ZS_G_SK_HEIGHT(80)
+#define ZS_G_FEJL_GAP           ZS_G_SK_HEIGHT(16)
 /* Tre linjer 16 px, med luft. Forklaringen er den laengste tekst paa
  * siden, og den maa ikke blive klippet paa et smalt sprog. */
-#define ZS_G_FEJL_BODY_HEIGHT   96
+#define ZS_G_FEJL_BODY_HEIGHT   ZS_G_SK_HEIGHT(96)
 
 #define ZS_G_FEJL_BLOK_HEIGHT   (ZS_G_FEJL_HEAD_HEIGHT + ZS_G_FEJL_GAP \
                                  + ZS_G_FEJL_BODY_HEIGHT)
@@ -364,7 +480,7 @@
  * MAALT I KODEN 13. oktober 2026, foer det her blev lavet:
  *
  *     inverter-soegningen        tilmeldingen
- *     titel  zs_font_28          titel  zs_font_20
+ *     titel  zs_font_stor          titel  zs_font_rad
  *     tekst  ZS_C_LABEL          tekst  ZS_C_TEXT_DIM
  *     bredde 480 - 4*12 = 432    bredde 480 - 2*12 = 456
  *     y      80 / 124 / 190      y      en flex-stak fra 8
@@ -394,11 +510,11 @@
  * sider - det er inverter-soegningens maal, og nu ogsaa tilmeldingens. */
 #define ZS_G_STEP_WIDTH     (ZS_G_SCR_WIDTH - 4 * ZS_G_EDGE)
 
-#define ZS_G_STEP_TITLE_Y   80
-#define ZS_G_STEP_BODY_Y    124
-#define ZS_G_STEP_BAR_Y     190
-#define ZS_G_STEP_BAR_HEIGHT     8
-#define ZS_G_STEP_NOTE_Y    214
+#define ZS_G_STEP_TITLE_Y   ZS_G_SK_HEIGHT(80)
+#define ZS_G_STEP_BODY_Y    ZS_G_SK_HEIGHT(124)
+#define ZS_G_STEP_BAR_Y     ZS_G_SK_HEIGHT(190)
+#define ZS_G_STEP_BAR_HEIGHT     ZS_G_SK(8)
+#define ZS_G_STEP_NOTE_Y    ZS_G_SK_HEIGHT(214)
 
 /* ------------------------------------------------------------------ */
 /* Reglerne, tjekket naar der BYGGES                                   */
@@ -444,7 +560,7 @@ _Static_assert(ZS_G_BAR_HEIGHT + ZS_G_PAGE_HEIGHT + ZS_G_DOTS_HEIGHT
                "statuslinjen, siden og prikkerne fylder ikke skaermen");
 
 /* Teksten i kortet skal fylde det helt ud, hverken mere eller mindre. */
-_Static_assert(ZS_G_CARD_HEAD_HEIGHT + ZS_G_CARD_TEXT_GAP
+_Static_assert(ZS_G_CARD_TEXT_REST + ZS_G_CARD_HEAD_HEIGHT + ZS_G_CARD_TEXT_GAP
                + ZS_G_CARD_VALUE_HEIGHT + ZS_G_CARD_TEXT_GAP
                + ZS_G_CARD_SUB_HEIGHT == ZS_G_CARD_IN_HEIGHT,
                "teksten i kortet gaar ikke op: de tre linjer og de to "
@@ -587,9 +703,16 @@ _Static_assert(ZS_G_STEP_WIDTH < ZS_G_CONTENT_WIDTH,
                "ventetrinnet skal vaere SMALLERE end sidens indhold: det "
                "er luften i siderne der goer at teksten kan laeses");
 
+/*
+ * Den her gaelder KUN referenceskaermen. Paa en anden stoerrelse
+ * flytter teksten sig med skaleringen, og det er netop meningen.
+ * De tre andre 480-vagter staar laengere nede, bag samme betingelse.
+ */
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
 _Static_assert(ZS_G_WAIT_TEXT_Y == 160,
                "teksten paa ventesiden er flyttet. Den skal staa paa 160 "
                "som foer, altsaa 26 px under spinderen.");
+#endif
 _Static_assert(ZS_G_WAIT_TEXT_Y + 2 * ZS_G_ROW_HEIGHT <= ZS_G_PAGE_HEIGHT,
                "ventesidens tekst har ikke plads paa siden");
 

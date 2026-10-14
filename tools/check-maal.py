@@ -48,13 +48,27 @@ def tal_fra_layout():
     t = LAYOUT.read_text(encoding="utf-8")
 
     def find(navn):
-        m = re.search(r"#define\s+" + navn + r"\s+(\d+)", t)
+        """Tallet bag en konstant, ogsaa naar den er skaleret.
+
+        Vaerdierne i zs_layout.h er ikke laengere raa pixels: de staar
+        som ZS_G_SK(44) og ZS_G_SK_HEIGHT(80), fordi fladen skal passe
+        paa flere skaermstoerrelser. Paa REFERENCESKAERMEN er alle tre
+        skaleringer 1:1, saa tallet inde i parentesen ER vaerdien paa
+        480 x 480 - og det er netop de tal den her vagt forbyder at
+        skrive ind i fladen.
+        """
+        m = re.search(r"#define\s+" + navn +
+                      r"\s+(?:ZS_G_SK(?:_WIDTH|_HEIGHT)?\()?(\d+)", t)
         return int(m.group(1)) if m else None
 
     bredde = find("ZS_G_SCR_WIDTH")
     hoejde = find("ZS_G_SCR_HEIGHT")
     bar = find("ZS_G_BAR_HEIGHT")
-    dots = find("ZS_G_DOTS_HEIGHT")
+    # ZS_G_DOTS_HEIGHT er ikke laengere et tal: striben tager det der
+    # bliver tilbage naar siden er delt i to hele kort, saa den staar
+    # som skaermen minus linjen minus siden. Mindstemaalet ER tallet paa
+    # referenceskaermen - se ZS_G_DOTS_MIN i zs_layout.h.
+    dots = find("ZS_G_DOTS_MIN")
     if None in (bredde, hoejde, bar, dots):
         fejl.append("kunne ikke laese skaermens maal ud af zs_layout.h. "
                     "Er konstanterne doebt om?")

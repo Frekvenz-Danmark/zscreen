@@ -67,7 +67,7 @@ HEADER_TOP = '''/*
  * ind i en LVGL-etiket:
  *
  *     lv_label_set_text(lbl, ZS_ICON_SUN);
- *     lv_obj_set_style_text_font(lbl, &zs_icons_20, 0);
+ *     lv_obj_set_style_text_font(lbl, &zs_ikon_lille, 0);
  *
  * FILEN ER GENERERET. Ret ikke i den i haanden.
  * Listen staar i tools/icons.py, og den samme liste bestemmer ogsaa
@@ -83,8 +83,8 @@ HEADER_TOP = '''/*
 
 #include "lvgl.h"
 
-LV_FONT_DECLARE(zs_icons_20)
-LV_FONT_DECLARE(zs_icons_28)
+LV_FONT_DECLARE(zs_ikon_lille)
+LV_FONT_DECLARE(zs_ikon_stor)
 '''
 
 

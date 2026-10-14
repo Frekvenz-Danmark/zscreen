@@ -22,14 +22,14 @@ void zs_step_create(zs_step_t *s, lv_obj_t *forael)
     }
 
     s->titel = lv_label_create(forael);
-    zs_style_text(s->titel, &zs_font_28, ZS_C_TEXT);
+    zs_style_text(s->titel, &zs_font_stor, ZS_C_TEXT);
     lv_label_set_long_mode(s->titel, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s->titel, ZS_G_STEP_WIDTH);
     lv_obj_set_style_text_align(s->titel, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(s->titel, LV_ALIGN_TOP_MID, 0, ZS_G_STEP_TITLE_Y);
 
     s->tekst = lv_label_create(forael);
-    zs_style_text(s->tekst, &zs_font_16, ZS_C_LABEL);
+    zs_style_text(s->tekst, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(s->tekst, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s->tekst, ZS_G_STEP_WIDTH);
     lv_obj_set_style_text_align(s->tekst, LV_TEXT_ALIGN_CENTER, 0);
@@ -49,7 +49,7 @@ void zs_step_create(zs_step_t *s, lv_obj_t *forael)
 
     s->note = lv_label_create(forael);
     lv_label_set_text(s->note, "");
-    zs_style_text(s->note, &zs_font_16, ZS_C_ACCENT);
+    zs_style_text(s->note, &zs_font_broed, ZS_C_ACCENT);
     lv_obj_set_width(s->note, ZS_G_STEP_WIDTH);
     lv_obj_set_style_text_align(s->note, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(s->note, LV_ALIGN_TOP_MID, 0, ZS_G_STEP_NOTE_Y);
