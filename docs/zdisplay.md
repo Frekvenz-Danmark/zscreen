@@ -480,19 +480,33 @@ Herunder kun det korte.
 2. **Byg C6-firmwaren** af `esp_hosted` 2.13.0's slave og flash den over
    UART. Derefter: lad wifi stå i et døgn.
 3. **Mål flashen** og lås partitionstabellen.
-4. **Udgivelsen.** `.github/workflows/release.yml` bygger kun zScreen.
-   Manglen er nu **håndhævet** og ikke kun skrevet ned: en skærm leder
-   efter sit eget navn i udgivelsen, og `tools/check-udgivelse.py`
-   kræver at release.yml lægger en fil op med det navn. ZDisplay står i
-   `IKKE_UDGIVET_ENDNU` med en grund, og den linje skal fjernes med
-   vilje. Et produkt **mere** kan ikke komme til at mangle i stilhed.
-   Den skal bygge begge og lægge `zdisplay-<version>.bin` op ved siden
-   af `zscreen-<version>.bin`. Firmwaren er klar til det — den vælger
-   selv sin egen fil — men arbejdsgangen er med vilje ikke rørt endnu:
-   en fejl der kan stoppe en zScreen-udgivelse skal laves når nogen
-   sidder og ser på den.
-   **Og zScreen skal uploades FØRST.** En skærm der kører v0.27.0 eller
-   ældre tager den første `.bin` i udgivelsen, uanset hvad den heder.
+4. ~~**Udgivelsen.**~~ **Færdig 14. oktober 2026.**
+   `.github/workflows/release.yml` har nu to job: `release` bygger
+   zScreen med ESP-IDF 5.1.7, og `release-zdisplay` bygger ZDisplay med
+   5.4.2. De lægger `zscreen-<version>.bin` og
+   `zdisplay-<version>.bin` op i **samme** udgivelse, og hver skærm
+   vælger selv sin egen fil ud fra `ZS_OTA_ASSET_PREFIX`.
+
+   **Rækkefølgen er ikke et tilfælde.** `release-zdisplay` har
+   `needs: release`, så zScreens fil altid ligger op først. En skærm
+   der kører v0.27.0 eller ældre kender ikke præfikset og tager den
+   **første** `.bin` i udgivelsen — lagde ZDisplay sin fil op først,
+   ville hver gammel zScreen i marken hente firmware til en ESP32-P4
+   og afvise den for evigt.
+
+   `tools/check-udgivelse.py` håndhæver tre ting, og alle tre er
+   muteret:
+   - at der findes et job der lægger `zscreen-*.bin` op,
+   - at det job **ikke** venter på noget, og at hvert andet
+     udgivende job venter på det,
+   - at filnavnet begynder med præcis det præfiks skærmen leder efter.
+     Matchningen er `strncmp`, så `zdisplay_` i stedet for
+     `zdisplay-` ville betyde at ingen ZDisplay nogensinde opdaterede.
+
+   **Samme nøgle til begge.** Begge boards peger på
+   `secure/zscreen-signing.pem` i deres `sdkconfig.defaults`. Det er ét
+   nøglepar til hele flåden, og konsekvensen står i toppen af
+   `release.yml`: nøglen kan ikke skiftes over luften.
 5. **Skrifttyperne** skal genereres i større grad, og så skal fladen på
    800 x 1280 ses igennem af et menneske.
 6. **Højttaleren**, når der er en skærm at høre den på.

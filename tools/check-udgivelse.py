@@ -57,21 +57,16 @@ PRAEFIKS = re.compile(r'#define\s+ZS_OTA_ASSET_PREFIX\s+"([^"]+)"')
 # ZS_OTA_ASSET_PREFIX). Er filen ikke der, henter skaermen ingenting og
 # proever igen hver halve time - for evigt, uden at nogen kan se hvorfor.
 #
-# ZDisplay staar her fordi release.yml kun bygger zScreen. Det er en
-# bevidst mangel: de to produkter bygger med hver sin ESP-IDF, saa de
-# skal vaere to job, og de to job skal laegge op i SAMME udgivelse. Det
-# arbejde kan stoppe en udgivelse, og det skal laves naar nogen sidder og
-# ser paa det - ikke klemmes ind.
+# LISTEN ER TOM, og det er den rigtige tilstand.
 #
-# Men det maa ikke blive glemt, og det maa ikke kunne ske for et
-# PRODUKT MERE uden at nogen siger ja. Derfor staar manglen her, hvor
-# den skal fjernes med vilje, i stedet for i en note nogen laeser.
-IKKE_UDGIVET_ENDNU = {
-    "zdisplay-": "release.yml bygger kun zScreen. Se docs/zdisplay.md, "
-                 "afsnittet 'Det naeste'. Og HUSK: zScreen skal laegges "
-                 "op FOERST, saa skaerme paa v0.27.0 og aeldre - som tager "
-                 "den foerste .bin i udgivelsen - stadig rammer deres egen.",
-}
+# Her stod "zdisplay-" med den begrundelse at release.yml kun byggede
+# zScreen. Den mangel er lukket 14. okt 2026: release.yml har nu to job,
+# ét per ESP-IDF, og de laegger op i samme udgivelse.
+#
+# Listen bliver staaende tom, fordi den er stedet hvor et produkt
+# MIDLERTIDIGT kan vaere uden udgivelse - med en grund, skrevet ned, et
+# sted der skal roeres med vilje. Ikke i en note nogen laeser.
+IKKE_UDGIVET_ENDNU = {}
 
 
 def tjek_praefikser(release_tekst):
@@ -100,6 +95,94 @@ def tjek_praefikser(release_tekst):
     return ud
 
 
+# ------------------------------------------------------------------
+# RAEKKEFOELGEN I UDGIVELSEN
+# ------------------------------------------------------------------
+#
+# Skaerme paa v0.27.0 og aeldre kender ikke praefikset. De tager den
+# FOERSTE .bin i udgivelsen - se noten ved zs_version_asset_passer. Saa
+# zScreens fil skal ligge op foerst, og det maa ikke afhaenge af hvilket
+# job GitHub tilfaeldigvis koerer hurtigst.
+#
+# Reglen: det job der udgiver zScreen, venter ikke paa noget. Hvert
+# ANDET job der udgiver en .bin, SKAL vente paa det.
+JOB = re.compile(r"^  ([a-z0-9][a-z0-9-]*):\s*$", re.M)
+FOERST = "zscreen-"
+
+
+def jobbene(tekst):
+    """Deler release.yml op i job. Tekst, ikke YAML - stdlib kun."""
+    ud = {}
+    traef = list(JOB.finditer(tekst))
+    for i, m in enumerate(traef):
+        slut = traef[i + 1].start() if i + 1 < len(traef) else len(tekst)
+        ud[m.group(1)] = tekst[m.end():slut]
+    return ud
+
+
+def tjek_raekkefoelgen(tekst):
+    job = jobbene(tekst)
+    if not job:
+        return ["fandt ingen job i release.yml. Er filen skrevet om? "
+                "Saa er raekkefoelgen ikke laengere tjekket"]
+    ud = []
+    foerst_job = None
+    andre = []
+    for navn, krop in job.items():
+        # Det er FILNAVNET der afgoer hvem der udgiver hvad, og
+        # ikke om strengen staar i jobbet. Foerste forsoeg
+        # ledte efter "zscreen-" hvor som helst i kroppen, og
+        # saa pegede den paa ZDisplay-jobbet - fordi
+        # signeringsnoeglen hedder secure/zscreen-signing.pem.
+        # Vagten sagde fra paa noeglens navn.
+        m = re.search(r"^\s*files:\s*(\S+)", krop, re.M)
+        if m is None:
+            continue                      # bygger ikke, udgiver ikke
+        if m.group(1).startswith(FOERST):
+            foerst_job = navn
+        else:
+            andre.append((navn, krop))
+
+    if foerst_job is None:
+        return [f"intet job i release.yml udgiver {FOERST}*.bin. Enten er "
+                f"zScreen holdt op med at blive udgivet, eller filnavnet "
+                f"er aendret - og saa henter hver zScreen i marken "
+                f"ingenting"]
+
+    if re.search(r"^\s*needs:", job[foerst_job], re.M):
+        ud.append(f"jobbet {foerst_job} udgiver {FOERST}*.bin og venter "
+                  f"paa et andet job. Saa er zScreens fil ikke laengere "
+                  f"den foerste i udgivelsen, og gamle skaerme henter "
+                  f"den forkerte firmware")
+
+    for navn, krop in andre:
+        m = re.search(r"^\s*needs:\s*(\S+)", krop, re.M)
+        if m is None:
+            ud.append(f"jobbet {navn} udgiver en fil uden at vente paa "
+                      f"{foerst_job}. Saa afgoer tilfaeldet hvilken .bin "
+                      f"der ligger foerst i udgivelsen, og skaerme paa "
+                      f"v0.27.0 og aeldre tager den foerste")
+        elif m.group(1) != foerst_job:
+            ud.append(f"jobbet {navn} venter paa {m.group(1)} og ikke paa "
+                      f"{foerst_job}, som udgiver {FOERST}*.bin")
+    return ud
+
+
+def tjek_filnavnene(tekst, praefikser):
+    """Hedder filen i 'files:' det samme som skaermen leder efter."""
+    ud = []
+    udgivet = set(re.findall(r"^\s*files:\s*(\S+)", tekst, re.M))
+    for pre in praefikser:
+        if pre in IKKE_UDGIVET_ENDNU:
+            continue
+        if not any(f.startswith(pre) for f in udgivet):
+            ud.append(f"release.yml udgiver {sorted(udgivet)}, og ingen af "
+                      f"dem begynder med {pre} - som er praefikset en "
+                      f"skaerm leder efter. Et filnavn der er taet paa, er "
+                      f"ikke godt nok: matchningen er strncmp")
+    return ud
+
+
 def main():
     print("Tjekker at vi sender det vi har testet ...")
     fundet = {}
@@ -114,8 +197,12 @@ def main():
             return 1
         fundet[navn] = billeder
 
-    fejl = tjek_praefikser(
-        (ROD / ".github/workflows/release.yml").read_text(encoding="utf-8"))
+    rel = (ROD / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    fejl = tjek_praefikser(rel)
+    fejl += tjek_raekkefoelgen(rel)
+    fejl += tjek_filnavnene(
+        rel, PRAEFIKS.findall(
+            (ROD / "firmware/kerne/zs_config.h").read_text(encoding="utf-8")))
     # Hver oversaetter der sender firmware ud, skal ogsaa vaere proevet.
     for b in sorted(fundet["release.yml"] - fundet["test.yml"]):
         fejl.append(f"release.yml bygger med {b}, som test.yml ikke "
@@ -135,7 +222,9 @@ def main():
 
     print(f"  {GROEN} OK{SLUT} test.yml bygger med "
           f"{', '.join(sorted(fundet['test.yml']))}, udgivelsen med "
-          f"{', '.join(sorted(fundet['release.yml']))}, og alle er faste.")
+          f"{', '.join(sorted(fundet['release.yml']))}, alle er faste, "
+          f"begge produkter bliver udgivet, og zScreens fil ligger op "
+          f"foerst.")
     return 0
 
 

@@ -50,6 +50,23 @@ on:
 permissions:
   contents: write
 
+# ------------------------------------------------------------------
+# TO PRODUKTER, TO JOB, OG RAEKKEFOELGEN ER IKKE LIGEGYLDIG.
+# ------------------------------------------------------------------
+#
+# De to skaerme bygges med hver sin ESP-IDF - 5.1.7 til zScreen og
+# 5.4.2 til ZDisplay - og en container kan kun vaere én af dem. Derfor
+# to job og ikke ét.
+#
+# ZDisplay VENTER paa zScreen (needs), og det er ikke for at spare en
+# maskine. Skaerme paa v0.27.0 og aeldre tager den FOERSTE .bin i
+# udgivelsen, fordi de ikke kendte praefikset endnu - se
+# zs_version_asset_passer og ZS_OTA_ASSET_PREFIX. Lagde ZDisplay sin
+# fil op foerst, ville hver gammel zScreen i marken hente firmware til
+# en ESP32-P4 og afvise den for evigt.
+#
+# Med needs er raekkefoelgen ikke et sammentraef.
+
 jobs:
   release:
     # Laast med vilje, ikke ubuntu-latest.
@@ -124,3 +141,79 @@ jobs:
         with:
           files: zscreen-*.bin
           generate_release_notes: true
+
+  # ------------------------------------------------------------------
+  # ZDisplay. Samme noegle, samme udgivelse, anden ESP-IDF.
+  # ------------------------------------------------------------------
+  release-zdisplay:
+    needs: release          # se noten om raekkefoelgen ovenfor
+    runs-on: ubuntu-24.04
+    container: espressif/idf:v5.4.2
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Tjek at mærket og version.txt passer sammen
+        shell: bash
+        run: |
+          MAERKE="${GITHUB_REF_NAME#v}"
+          FIL="$(cat firmware/version.txt | tr -d '[:space:]')"
+          if [ "$MAERKE" != "$FIL" ]; then
+            echo "Mærket er $MAERKE men firmware/version.txt siger $FIL."
+            exit 1
+          fi
+          echo "Version $FIL"
+
+      - name: Læg signeringsnøglen på plads
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: |
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "Hemmeligheden SIGNING_KEY mangler. Uden den kan"
+            echo "firmwaren ikke signeres, og ingen skærm vil tage"
+            echo "imod den."
+            exit 1
+          fi
+          mkdir -p secure
+          # SAMME fil som zScreen. Begge boards peger paa
+          # secure/zscreen-signing.pem i deres sdkconfig.defaults, og
+          # det er med vilje: ÉN noegle til hele flaaden. Skiftes det,
+          # skal begge sdkconfig.defaults rettes OG hver skaerm flashes
+          # med ledning - se noten i toppen af filen.
+          printf '%s' "$SIGNING_KEY" > secure/zscreen-signing.pem
+          chmod 600 secure/zscreen-signing.pem
+
+      - name: Byg og signer
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          cd firmware/boards/zdisplay
+          idf.py build
+
+      - name: Kontrollér underskriften
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          espsecure.py verify_signature --version 2 \
+            --keyfile secure/zscreen-signing.pem \
+            firmware/boards/zdisplay/build/zdisplay.bin
+
+      - name: Navngiv filen efter versionen
+        shell: bash
+        run: |
+          # Navnet SKAL begynde med "zdisplay-". Det er praefikset
+          # ZDisplay leder efter i udgivelsen, se ZS_OTA_ASSET_PREFIX.
+          cp firmware/boards/zdisplay/build/zdisplay.bin \
+             "zdisplay-${GITHUB_REF_NAME}.bin"
+          ls -l "zdisplay-${GITHUB_REF_NAME}.bin"
+
+      - name: Slet nøglen igen
+        if: always()
+        run: rm -f secure/zscreen-signing.pem
+
+      - name: Udgiv
+        uses: softprops/action-gh-release@v2
+        with:
+          files: zdisplay-*.bin

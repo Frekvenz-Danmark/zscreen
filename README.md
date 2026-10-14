@@ -108,6 +108,27 @@ idf.py set-target esp32p4
 idf.py build
 ```
 
+### Flashning
+
+```bash
+./tools/flash-firmware.sh zdisplay          # finder porten selv
+./tools/flash-firmware.sh zscreen /dev/cu.usbmodem31201
+```
+
+Scriptet henter den rigtige ESP-IDF for det board man beder om, sætter
+`PATH=/usr/bin` først, og siger fra hvis der sidder mere end én enhed i
+USB. De tre ting fejler ellers tavst eller med en besked der peger det
+forkerte sted hen — flasher man ZDisplay fra en 5.1.7-terminal, siger
+den at `esp32p4` ikke findes, og det lyder som om kortet er i stykker.
+
+Det flasher **én** skærm ad gangen med vilje. To produkter på den samme
+ledning er to chancer for at ramme den forkerte, og en fejlflashet skærm
+skal have besøg.
+
+Begge skærme kan altid flashes med ledning: sikker opstart er slået fra
+med vilje, så et tabt nøglepar ikke er en kasseret skærm. Se noten i
+`.github/workflows/release.yml`.
+
 ## Test uden hardware
 
 ```bash
