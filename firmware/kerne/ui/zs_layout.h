@@ -317,6 +317,48 @@
  * naar den bygger zs_ikon_lille, saa de to kan ikke komme i utakt.
  */
 /*
+ * EN RAEKKE MED EN KONTAKT: TITEL, FORKLARING OG EN VIPPE.
+ *
+ * "Daemp om natten" og "Byt koeb og salg" bruger den, og alle tre maal
+ * i den var skaleret med skaermens HOEJDE i stedet for med formen:
+ *
+ *                     zScreen        ZDisplay
+ *   raden             76 px          202 px   om 75 px tekst
+ *   mellem linjerne   26 px           69 px   om linjer paa 42 og 33
+ *   vippen            52 x 30         86 x 80
+ *
+ * 86 x 80 er naesten kvadratisk, og en vippe med rund ende bliver
+ * derfor en cirkel. Det er den "store runde grimme cirkel".
+ *
+ * Reglen er den samme som overalt ellers i filen: en kasse og en
+ * knap holder deres FORM, saa de skaleres med ZS_G_SK. Og afstanden
+ * mellem to tekstlinjer regnes af LINJERNE, ikke af skaermen.
+ *
+ * PAA REFERENCESKAERMEN staar de gamle tal, saa zScreen ikke flytter
+ * sig - se noten ved ZS_G_CARD_KANT.
+ */
+#define ZS_G_SWITCH_WIDTH   ZS_G_SK(52)
+#define ZS_G_SWITCH_HEIGHT  ZS_G_SK(30)
+/* Pladsen der skal holdes fri til hoejre for teksten: vippen plus luft. */
+#define ZS_G_SWITCH_PLADS   (ZS_G_SWITCH_WIDTH + ZS_G_SK_WIDTH(10))
+
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
+#define ZS_G_SWROW_HEIGHT   76
+#define ZS_G_SWROW_TITEL_DY (-12)
+#define ZS_G_SWROW_HJAELP_DY 14
+#else
+/* Luften mellem de to linjer. 3 px paa 480, og den foelger formen. */
+#define ZS_G_SWROW_LUFT     ZS_G_SK(3)
+/* Hele tekstblokken: titlens linje, luft, forklaringens linje. */
+#define ZS_G_SWROW_BLOK     (ZS_LH_RAD + ZS_G_SWROW_LUFT + ZS_LH_BROED)
+/* Raden er blokken plus lige meget luft over og under. */
+#define ZS_G_SWROW_HEIGHT   (ZS_G_SWROW_BLOK + 2 * ZS_G_SK(15))
+/* De to linjer stilles om radens midte, hver med sin halve linje. */
+#define ZS_G_SWROW_TITEL_DY (-(ZS_G_SWROW_BLOK / 2) + ZS_LH_RAD / 2)
+#define ZS_G_SWROW_HJAELP_DY ((ZS_G_SWROW_BLOK / 2) - ZS_LH_BROED / 2)
+#endif
+
+/*
  * ET INDTASTNINGSFELT: EN RAMME MED TEKSTEN I.
  *
  * Kodeordssiden og "find manuelt" bygger det samme felt, og de
@@ -478,6 +520,22 @@
  * ramme den. Bliver 0 hvis skyderen allerede er tyk nok. */
 #define ZS_G_SLIDER_EKSTRA  (ZS_G_SLIDER_HEIGHT >= ZS_G_TOUCH_MIN ? 0 \
                              : (ZS_G_TOUCH_MIN - ZS_G_SLIDER_HEIGHT + 1) / 2)
+
+/*
+ * PILEN I ET KORTS UNDERTEKST.
+ *
+ * Kortene NETTET og BATTERI saetter et ikon foran underteksten -
+ * "saelger til nettet", "lader", "aflader" - og teksten skulle rykke
+ * til side for det. Afstanden stod som (20 + 6) i zs_tile.c: ikonets
+ * bredde paa zScreen plus luften efter det.
+ *
+ * Paa ZDisplay er ikonet 33 px bredt, og teksten startede stadig 26 px
+ * inde. Altsaa laa den oven i pilen, uden luft imellem - paa BEGGE
+ * kort. Samme fejl som ZS_G_ROW_ICON_W, og rettet paa samme maade:
+ * ikonets EGEN bredde plus luften, saa luften foelger ikonet naar
+ * skriften vokser i stedet for at blive aedt af det.
+ */
+#define ZS_G_CARD_SUB_IKON  (ZS_G_ROW_ICON_SIZE + ZS_G_SK_WIDTH(6))
 
 /*
  * PRIKKERNE NEDERST PAA FORSIDEN.
@@ -1111,6 +1169,30 @@ _Static_assert(ZS_G_KB_HOEJDE / ZS_G_KB_RAEKKER >= ZS_G_TOUCH_MIN,
 _Static_assert(ZS_G_KB_HOEJDE + ZS_G_BAR_HEIGHT < ZS_G_SCR_HEIGHT,
                "tastaturet og statuslinjen fylder hele skaermen, saa "
                "der er ikke plads til det man skriver i");
+
+/*
+ * KONTAKT-RAEKKEN SKAL GAA OP.
+ *
+ * Gaelder ikke referenceskaermen, som ikke har skriftens maal: der er
+ * de gamle tal regnet efter i haanden én gang.
+ */
+#if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT)
+/* Vippen skal vaere en PILLE og ikke en cirkel: bredere end hoej. */
+_Static_assert(ZS_G_SWITCH_WIDTH > ZS_G_SWITCH_HEIGHT * 3 / 2,
+               "vippen er naesten kvadratisk, og saa ser den ud som en "
+               "cirkel. Se ZS_G_SWITCH_WIDTH");
+/* Og den skal kunne rammes. */
+_Static_assert(ZS_G_SWITCH_WIDTH >= ZS_G_TOUCH_MIN,
+               "vippen er smallere end en finger");
+/* De to linjer maa ikke ligge oven i hinanden. */
+_Static_assert(ZS_G_SWROW_TITEL_DY + ZS_LH_RAD / 2
+               <= ZS_G_SWROW_HJAELP_DY - ZS_LH_BROED / 2,
+               "titlen og forklaringen i en kontakt-raekke ligger oven "
+               "i hinanden. Se ZS_G_SWROW_LUFT");
+/* Og begge skal vaere inde i raden. */
+_Static_assert(ZS_G_SWROW_BLOK <= ZS_G_SWROW_HEIGHT,
+               "teksten i en kontakt-raekke fylder mere end raden");
+#endif
 
 /*
  * LUFTEN OVER OG UNDER FELTET SKAL VAERE DEN SAMME.

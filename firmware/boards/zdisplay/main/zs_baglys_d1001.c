@@ -56,7 +56,43 @@ bool zs_baglys_init(uint8_t start_pct)
         return false;
     }
 
-    ESP_LOGI(TAG, "baglys klar, %u %%", (unsigned)start_pct);
+    /*
+     * OG SAA SLUKKES LYSDIODEN.
+     *
+     * Der sidder en trefarvet lysdiode ved kameraet, paa GPIO 22, 36 og
+     * 23. Den lyste paa hver enhed fra opstart, og den lyste GROENT ved
+     * siden af kameraet - saa det ser ud som om kameraet optager. Det
+     * goer det ikke. En skaerm der haenger i et hjem og ser ud som om
+     * den filmer, er ikke en kosmetisk fejl.
+     *
+     * HVOR DET KOMMER FRA. Seeeds bsp_display_brightness_init()
+     * opretter de tre LEDC-kanaler med
+     *
+     *     .duty = 100
+     *
+     * og lysdioden er AKTIV LAV:
+     *
+     *     duty_cycle = (1024 * (100 - percent)) / 100
+     *
+     * Altsaa er duty 100 ud af 1024 ikke "10 % lys", det er omkring 90
+     * %. Og ingenting slukker dem bagefter: bsp_led_*_set() findes, men
+     * BSP'en kalder dem ikke selv.
+     *
+     * Vi retter det HER og ikke i Seeeds fil. Submodulet skal kunne
+     * opdateres uden at vores rettelser forsvinder - og det her er
+     * desuden en beslutning om PRODUKTET: skal dioden bruges til noget
+     * en dag, er det det her sted der skal give den lov.
+     *
+     * Svaret ses ikke efter med vilje: bsp_led_*_set returnerer void.
+     * Virker LEDC ikke, er baglyset ovenfor allerede faldet igennem med
+     * en besked.
+     */
+    bsp_led_red_set(false);
+    bsp_led_green_set(false);
+    bsp_led_blue_set(false);
+
+    ESP_LOGI(TAG, "baglys klar, %u %%, og lysdioden ved kameraet er slukket",
+             (unsigned)start_pct);
     return true;
 }
 

@@ -101,7 +101,21 @@ def argumenter(tekst, i):
 
 
 def uden_kommentarer(t):
-    t = re.sub(r"/\*.*?\*/", "", t, flags=re.S)
+    """Fjerner kommentarer UDEN at flytte linjenumrene.
+
+    Her stod der bare "", og en blokkommentar over tolv linjer blev
+    derfor til ingenting - saa alt under den rykkede tolv linjer op.
+    Vagten pegede paa en linje der ikke var den den mente, og i den
+    her kodebase er en blokkommentar paa tyve linjer det normale.
+    En vagt der sender dig det forkerte sted hen, koster mere end den
+    sparer.
+
+    Nu beholder hver kommentar sine linjeskift, saa nummeret passer med
+    filen.
+    """
+    def nyline(m):
+        return "\n" * m.group(0).count("\n")
+    t = re.sub(r"/\*.*?\*/", nyline, t, flags=re.S)
     return re.sub(r"//[^\n]*", "", t)
 
 
@@ -147,6 +161,45 @@ UNDTAGET = {
                           "naar koden skaleres",
     "ZS_QR_MAKS_UDGAVE":  "QR-kodens udgavenummer",
 }
+
+
+# ---------------------------------------------------------------------
+# Raa pixeltal i en lv_coord_t.
+#
+# Det tredje hul. Vagten saa kaldene og #define'erne, men ikke det her:
+#
+#     lv_coord_t x = (icon != NULL && icon[0] != '\0') ? (20 + 6) : 0;
+#
+# Tallet staar i en almindelig tildeling, og kaldet bagefter bruger
+# bare "x". 20 er ikonets bredde og 6 er luften efter det - paa
+# zScreen. Paa ZDisplay er ikonet 33 px bredt, saa teksten laa oven i
+# pilen i baade NETTET- og BATTERI-kortet. Brugeren saa det paa
+# glasset; vagten saa ingenting.
+#
+# lv_coord_t ER LVGLs pixeltype. Et raat tal der tildeles den, er et
+# maal - der er ikke andet det kan vaere.
+# ---------------------------------------------------------------------
+
+COORD = re.compile(r"\blv_coord_t\s+\w+\s*=\s*([^;]+);")
+
+
+def tjek_coord(tekst, fil):
+    """Raa tal der tildeles en lv_coord_t."""
+    ud = []
+    for m in COORD.finditer(tekst):
+        udtryk = m.group(1)
+        rest = udtryk
+        for r in FRI:
+            rest = r.sub("", rest)
+        raa = sorted({int(d.group(1)) for d in TAL.finditer(rest)} - SMAA)
+        if raa:
+            nr = tekst[:m.start()].count("\n") + 1
+            ud.append(
+                f"{fil}:{nr}: en lv_coord_t faar de raa pixeltal {raa}. "
+                f"Pak dem i ZS_G_SK (former), ZS_G_SK_WIDTH (bredder) "
+                f"eller ZS_G_SK_HEIGHT (hoejder) - eller giv dem et navn "
+                f"i zs_layout.h")
+    return ud
 
 
 def referencegrene(tekst):
@@ -222,6 +275,7 @@ def main():
         if "/assets/" in f.as_posix():
             continue
         tekst = uden_kommentarer(f.read_text(encoding="utf-8"))
+        fejl.extend(tjek_coord(tekst, f.relative_to(ROD)))
         linjer = tekst.split("\n")
         for m in KALD.finditer(tekst):
             kald += 1

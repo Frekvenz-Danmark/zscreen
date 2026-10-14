@@ -50,10 +50,10 @@ static void make_switch_row(lv_obj_t *parent, const char *icon,
     zs_row_create(&r, parent, icon, title, NULL, false);
     lv_obj_t *row = r.row;
     lv_obj_set_width(row, ZS_CONTENT_WIDTH);
-    lv_obj_set_height(row, hint != NULL ? ZS_G_SK_HEIGHT(76) : ZS_ROW_HEIGHT);
+    lv_obj_set_height(row, hint != NULL ? ZS_G_SWROW_HEIGHT : ZS_ROW_HEIGHT);
 
     lv_obj_t *sw = lv_switch_create(row);
-    lv_obj_set_size(sw, ZS_G_SK_WIDTH(52), ZS_G_SK_HEIGHT(30));
+    lv_obj_set_size(sw, ZS_G_SWITCH_WIDTH, ZS_G_SWITCH_HEIGHT);
     lv_obj_align(sw, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_bg_color(sw, lv_color_hex(ZS_C_BORDER), LV_PART_MAIN);
     lv_obj_set_style_bg_color(sw, lv_color_hex(ZS_C_ACCENT),
@@ -66,16 +66,18 @@ static void make_switch_row(lv_obj_t *parent, const char *icon,
 
     if (hint != NULL) {
         if (r.title != NULL) {
-            lv_obj_align(r.title, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, -ZS_G_SK_HEIGHT(12));
+            lv_obj_align(r.title, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W,
+                         ZS_G_SWROW_TITEL_DY);
         }
         lv_obj_t *h = lv_label_create(row);
         lv_label_set_text(h, hint);
         zs_style_text(h, &zs_font_broed, ZS_C_LABEL);
         lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
         /* Bredden er raden minus luft, ikonet og kontakten til hoejre. */
-        lv_obj_set_width(h, ZS_CONTENT_WIDTH - 2 * ZS_G_SK_WIDTH(16)
-                            - ZS_ROW_ICON_W - ZS_G_SK_WIDTH(62));
-        lv_obj_align(h, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, ZS_G_SK_HEIGHT(14));
+        lv_obj_set_width(h, ZS_CONTENT_WIDTH - 2 * ZS_G_ROW_PAD
+                            - ZS_ROW_ICON_W - ZS_G_SWITCH_PLADS);
+        lv_obj_align(h, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W,
+                     ZS_G_SWROW_HJAELP_DY);
     }
 }
 
@@ -200,7 +202,7 @@ static void build_tema(void)
     zs_theme_mode_t nu = zs_theme_mode();
     for (int i = 0; i < ZS_THEME_COUNT; i++) {
         zs_theme_mode_t m = (zs_theme_mode_t)i;
-        lv_coord_t y = 56 + i * (ZS_CHOICE_HEIGHT + ZS_CHOICE_GAP);
+        lv_coord_t y = ZS_G_SK(56) + i * (ZS_CHOICE_HEIGHT + ZS_CHOICE_GAP);
         zs_choice_create(s_tema.content, zs_theme_name(m), zs_theme_hint(m),
                          y, m == nu, on_tema_valgt, (void *)(uintptr_t)i);
     }

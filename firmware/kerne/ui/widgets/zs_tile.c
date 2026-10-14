@@ -189,7 +189,8 @@ void zs_tile_set_sub(zs_tile_t *t, const char *icon, const char *text,
     /* Teksten rykker til side for ikonet naar der er ét, og helt ud til
      * kanten naar der ikke er. Ellers ville alle underteksterne staa
      * med et hul foran sig paa de kort der ikke bruger ikonet. */
-    lv_coord_t x = (icon != NULL && icon[0] != '\0') ? (20 + 6) : 0;
+    lv_coord_t x = (icon != NULL && icon[0] != '\0')
+                   ? ZS_G_CARD_SUB_IKON : 0;
     lv_obj_align(t->sub_text, LV_ALIGN_TOP_LEFT, x, ZS_CARD_SUB_Y);
     lv_obj_set_width(t->sub_text, ZS_CARD_IN_WIDTH - x);
 }

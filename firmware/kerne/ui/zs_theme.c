@@ -592,7 +592,7 @@ void zs_page_create(zs_page_t *p, const char *title,
     lv_obj_set_pos(p->head, 0, 0);
     lv_obj_clear_flag(p->head, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_coord_t title_x = ZS_EDGE + 4;
+    lv_coord_t title_x = ZS_EDGE + ZS_G_SK(4);
 
     if (back_cb != NULL) {
         /* Hele knappen er 44 x 44 selvom pilen er 20 px. Se noten om
