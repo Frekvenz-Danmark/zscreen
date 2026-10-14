@@ -93,3 +93,52 @@ jobs:
             exit 1
           fi
           echo "Ingen advarsler."
+
+  zdisplay:
+    name: Byg ZDisplay
+    # HVORFOR DET HER JOB FINDES.
+    #
+    # De to produkter deler motoren i firmware/kerne.cmake. Uden det her
+    # job kan en aendring i net/ eller app/ vaere groen hele vejen og
+    # samtidig have braekket ZDisplay, og ingen ville se det foer nogen
+    # byggede i haanden.
+    #
+    # Det er ikke teoretisk. Da ZDisplay blev lagt til, stoppede
+    # bygningen paa at storage/zs_nvs.c bad om esp_phy_init.h, som slet
+    # ikke findes for esp32p4 fordi radioen sidder i en anden chip. Den
+    # slags findes KUN ved at bygge til begge chips.
+    #
+    # Laast med vilje, ikke ubuntu-latest. Se begrundelsen ovenfor.
+    runs-on: ubuntu-24.04
+    # ESP32-P4 kraever mindst ESP-IDF 5.3, og 5.4.2 er den Seeed selv
+    # proever deres SDK med. zScreen bliver paa 5.1.7 indtil vi flytter
+    # begge, se docs/zdisplay.md.
+    container: espressif/idf:v5.4.2
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      # Uden en nøgle bygger vi usigneret, praecis som zScreen ovenfor.
+      - name: Byg
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          cd firmware/boards/zdisplay
+          sed -i 's|^CONFIG_SECURE_.*||' sdkconfig.defaults
+          idf.py build
+
+      - name: Tjek at der ikke er advarsler i vores egen kode
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          cd firmware/boards/zdisplay
+          rm -rf build
+          idf.py build 2>&1 | tee /tmp/byg-zdisplay.log
+          # Baade den delte kode i firmware/main og boardets egne filer.
+          # Seeeds BSP og LVGL er ikke vores, og de advarer.
+          if grep -E "(firmware/main|boards/zdisplay/main)/.*(warning|error):" /tmp/byg-zdisplay.log; then
+            echo "Der er advarsler i vores egen kode."
+            exit 1
+          fi
+          echo "Ingen advarsler."

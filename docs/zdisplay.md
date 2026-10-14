@@ -171,18 +171,24 @@ byggefejl.
 Der står nu to `_Static_assert` i `firmware/boards/zdisplay/main/lv_port.c`
 der binder vores mål til deres. Flytter tallene sig, falder byggeriet.
 
-### En ting i deres touch-opsætning der skal ses på
+### Deres touch-opsætning ser forkert ud, og er det ikke
 
-Deres `bsp_touch_new()` sætter `rst_gpio_num = 12`. GPIO 12 på det her
-board er **C6'erens BOOT-ben** (`BSP_WIFI_BOOT`). Touch-resettet sidder
-på benudvideren (`BSP_LCD_TOUCH_RST`), og den kode har de kommenteret
-ud. Det kan altså være at en touch-reset trækker i radiochippens
-boot-ben.
+`bsp_touch_new()` sætter `rst_gpio_num = 12`, og GPIO 12 på det her
+board er C6'erens BOOT-ben. Det ser ud som om en touch-reset trækker i
+radiochippens boot-ben.
 
-Vi kalder deres funktion som den er, for vi ved ikke endnu om det
-betyder noget i praksis — `rst_gpio_num` bliver måske aldrig brugt når
-touch svarer. Men hvis C6'eren opfører sig mærkeligt efter opstart, er
-det her man skal se først.
+Det gør den ikke. Driveren bruger tallet som et **benudvider-nummer**,
+ikke som et chip-GPIO: `esp_lcd_touch_gsl3670.c` kalder
+`esp_io_expander_set_level(io_expander, 1 << rst_gpio_num, …)`, og
+`1 << 12` er præcis `BSP_LCD_TOUCH_RST`. Chippens eget GPIO 12 bliver
+aldrig rørt.
+
+Det er også derfor Seeed har kommenteret reset-koden ud i deres egen
+`bsp_touch_new()`: driveren gør det selv.
+
+Det står her fordi det så galt ud, og fordi den næste der læser de linjer
+vil tro det samme. Her er svaret, så ingen går og leder i den forkerte
+chip.
 
 ---
 

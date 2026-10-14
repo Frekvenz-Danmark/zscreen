@@ -5,6 +5,18 @@ sdkconfig
 sdkconfig.old
 sdkconfig.ci
 dependencies.lock
+# MEN ZDisplays skal med.
+#
+# Den er det eneste sted de TRANSITIVE versioner staar. Vi pinner
+# esp_hosted og esp_wifi_remote praecist i idf_component.yml, men deres
+# egne afhaengigheder er erklaeret som '*', '>=4.0', '>=5.2' og ^1.1.0 -
+# altsaa flydende. Uden laasefilen giver et byg af samme maerke om et aar
+# andre dele, og her er "andre dele" en SDIO-transport der skal passe med
+# firmwaren i en helt anden chip.
+#
+# zScreen har ingen hentede komponenter, saa dens laasefil siger
+# ingenting. Derfor kun den her.
+!firmware/boards/zdisplay/dependencies.lock
 managed_components/
 *.bin
 *.elf

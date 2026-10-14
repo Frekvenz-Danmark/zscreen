@@ -23,6 +23,13 @@
 ## at en ny udgave kan komme ind mellem to byg uden at nogen har valgt
 ## den - og her er "en ny udgave" en radio der skal passe med firmwaren
 ## i en HELT anden chip.
+##
+## DE TO LINJER HERUNDER ER IKKE NOK ALENE. Komponenterne har deres
+## egne afhaengigheder, og de er erklaeret som '*', '>=4.0', '>=5.2' og
+## ^1.1.0 - altsaa flydende. Det er dependencies.lock der binder dem,
+## og netop derfor er den fil med i git for det her projekt. Se
+## .gitignore. Retter du en version her, skal laasefilen med i samme
+## commit.
 dependencies:
   idf:
     version: '>=5.3'

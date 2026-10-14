@@ -17,6 +17,22 @@ faaet, var bygget af en oversaetter ingen test havde set.
 Scriptet tjekker ogsaa at det IKKE er et flydende maerke som "latest"
 eller "release-v5.3": en udgivelse skal kunne bygges igen om et aar og
 give det samme.
+
+TO PRODUKTER, OG DERFOR TO OVERSAETTERE.
+
+Reglen var foer "begge filer skal bruge PRAECIS ét billede, og det
+samme". Den holdt da der var én skaerm. Nu er der to: zScreen bygges med
+5.1.7, og ZDisplay SKAL have mindst 5.3, fordi ESP32-P4 ikke findes i
+5.1.
+
+Reglen er derfor vendt om til den paastand der faktisk betyder noget:
+HVER oversaetter der bruges til en udgivelse, skal ogsaa vaere brugt i
+test. Altsaa release.yml's billeder er en delmaengde af test.yml's.
+
+Den fanger stadig den fejl den blev skrevet for - rettes test.yml til en
+ny IDF og glemmes release.yml, saa bygger release med et billede ingen
+test har set - og den tillader det vi faktisk har: at test.yml proever
+MERE end der bliver sendt ud. Det er den rigtige vej at vaere skaev.
 """
 
 import re
@@ -43,29 +59,29 @@ def main():
         if not billeder:
             print(f"  {ROED}FEJL{SLUT} {navn} bygger ikke i nogen container")
             return 1
-        if len(billeder) > 1:
-            print(f"  {ROED}FEJL{SLUT} {navn} bruger flere billeder: "
-                  f"{sorted(billeder)}")
-            return 1
-        fundet[navn] = billeder.pop()
+        fundet[navn] = billeder
 
     fejl = []
-    if fundet["test.yml"] != fundet["release.yml"]:
-        fejl.append(f"test.yml bygger med {fundet['test.yml']} men "
-                    f"release.yml med {fundet['release.yml']}")
-    for navn, b in fundet.items():
-        if not FAST.match(b):
-            fejl.append(f"{navn} bruger {b}, som kan flytte sig. "
-                        f"Skriv en fast version som espressif/idf:v5.3.6, "
-                        f"saa en udgivelse kan bygges igen om et aar")
+    # Hver oversaetter der sender firmware ud, skal ogsaa vaere proevet.
+    for b in sorted(fundet["release.yml"] - fundet["test.yml"]):
+        fejl.append(f"release.yml bygger med {b}, som test.yml ikke "
+                    f"bruger. Saa bliver den fil kunderne faar, bygget af "
+                    f"en oversaetter ingen test har set")
+    for navn, billeder in fundet.items():
+        for b in sorted(billeder):
+            if not FAST.match(b):
+                fejl.append(f"{navn} bruger {b}, som kan flytte sig. "
+                            f"Skriv en fast version som espressif/idf:v5.3.6, "
+                            f"saa en udgivelse kan bygges igen om et aar")
 
     if fejl:
         for f in fejl:
             print(f"  {ROED}FEJL{SLUT} {f}")
         return 1
 
-    print(f"  {GROEN} OK{SLUT} begge bygger med {fundet['test.yml']}, "
-          f"og versionen er fast.")
+    print(f"  {GROEN} OK{SLUT} test.yml bygger med "
+          f"{', '.join(sorted(fundet['test.yml']))}, udgivelsen med "
+          f"{', '.join(sorted(fundet['release.yml']))}, og alle er faste.")
     return 0
 
 

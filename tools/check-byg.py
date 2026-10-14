@@ -50,6 +50,25 @@ SRC = ROD / "firmware/main"
 # Genererede filer. De bliver lavet af tools/build-assets.sh.
 SPRING_OVER = ("ui/assets/",)
 
+# De filer under firmware/main der med VILJE kun bygges af zScreen.
+#
+# HVORFOR LISTEN ER EKSPLICIT.
+#
+# Reglen herunder var foer "hver .c skal staa i CMakeLists.txt", og det
+# var nok dengang der var ét produkt. Da kildelisten flyttede til
+# kerne.cmake, blev reglen loesnet til "skal bygges af mindst ÉT
+# produkt" - og saa kunne en ny fil i net/ staa i zScreens egen liste
+# alene, bestaa vagten, og aldrig blive oversat til ZDisplay. Det er
+# PRAECIS det hul kerne.cmake findes for at lukke, og det var afproevet:
+# en opdigtet net/zs_foo.c kun i firmware/main/CMakeLists.txt gav "alle
+# kilder er med" og udgangskode 0.
+#
+# Nu gaelder: alt under firmware/main skal staa i kerne.cmake, UNDTAGEN
+# de her fire. Kommer der en femte board-fil, skal den skrives ind her -
+# og det er en beslutning man tager med aabne oejne, ikke noget der sker
+# ved et uheld.
+KUN_ZSCREEN = ("main.c", "lv_port.c", "ui/zs_baglys_d1.c", "ui/zs_lyd.c")
+
 # VORES EGNE headere, og kun dem.
 #
 # Det er en liste over hvad vi HAR og ikke en liste over alt det fremmede.
@@ -213,24 +232,36 @@ def tjek_cmake():
     if p4_cmake.exists():
         p4 = tjek_board("ZDisplay", p4_cmake, kerne_kilder, kerne_stier)
 
-    # Regel 1: hver .c under firmware/main skal bygges af MINDST ét
-    # produkt. Ellers bliver den slet ikke oversat, uden en advarsel
-    # nogen steder.
-    bygget = set(kerne_kilder) | set(s3) | set(p4)
+    # Regel 1: motoren og fladen skal staa i kerne.cmake, saa BEGGE
+    # produkter bygger dem. Kun de fire board-filer maa staa alene i
+    # zScreens egen liste. Se KUN_ZSCREEN.
+    i_kerne = set(kerne_kilder)
+    i_s3 = set(s3)
     for c in sorted(SRC.rglob("*.c")):
         rel = c.relative_to(SRC).as_posix()
         if any(rel.startswith(x) for x in SPRING_OVER):
             continue
-        if c.resolve() not in bygget:
-            fejl.append(f"firmware/main/{rel} findes, men staar hverken i "
-                        f"kerne.cmake eller i et boards CMakeLists. Den bliver "
-                        f"aldrig oversat.")
+        p = c.resolve()
+        if rel in KUN_ZSCREEN:
+            if p not in i_s3:
+                fejl.append(f"firmware/main/{rel} staar i KUN_ZSCREEN i "
+                            f"check-byg.py, men ikke i firmware/main/"
+                            f"CMakeLists.txt. Saa bygger INGEN den.")
+        elif p not in i_kerne:
+            hvor = "zScreens egen liste" if p in i_s3 else "ingen liste"
+            fejl.append(f"firmware/main/{rel} staar i {hvor} og ikke i "
+                        f"firmware/kerne.cmake. Saa bliver den ikke oversat "
+                        f"til ZDisplay, og det er ikke en byggefejl - det er "
+                        f"en funktion der mangler paa det ene produkt. Hoerer "
+                        f"den kun til paa zScreen, saa skriv den i "
+                        f"KUN_ZSCREEN i check-byg.py.")
 
-    # Og samme regel for ZDisplays egne filer.
-    p4_dir = p4_cmake.parent
+    # Og at ZDisplays egne filer er med i dens egen liste. De ligger
+    # ikke under firmware/main, saa reglen ovenfor naar dem ikke.
     if p4_cmake.exists():
-        for c in sorted(p4_dir.rglob("*.c")):
-            if c.resolve() not in bygget:
+        i_p4 = set(p4) | i_kerne
+        for c in sorted(p4_cmake.parent.rglob("*.c")):
+            if c.resolve() not in i_p4:
                 rel = c.relative_to(ROD).as_posix()
                 fejl.append(f"{rel} findes, men staar ikke i SRCS. Den bliver "
                             f"aldrig oversat til ZDisplay.")

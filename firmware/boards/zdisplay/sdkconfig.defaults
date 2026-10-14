@@ -50,8 +50,25 @@ CONFIG_PARTITION_TABLE_OFFSET=0xA000
 CONFIG_FREERTOS_HZ=1000
 
 # ── Skaerm ────────────────────────────────────────────────────────────
-# To billedbuffere, saa der kan tegnes i den ene mens den anden vises.
-CONFIG_BSP_LCD_DPI_BUFFER_NUMS=2
+#
+# ÉN billedbuffer, og det er MAALT og ikke valgt af sparsommelighed.
+#
+# Her stod 2, med "saa der kan tegnes i den ene mens den anden vises".
+# Det passer ikke med den maade vi tegner paa. ESP-IDF's dpi-panel
+# skifter kun billedbuffer i den gren hvor LVGL's tegnebuffer LIGGER
+# INDE I en af panelets egne buffere - "no copy, just cache write back",
+# esp_lcd_panel_dpi.c linje 501. Vores tegnebuffere er to selvstaendige
+# stykker PSRAM paa 120 linjer, saa vi rammer altid DMA2D-grenen, og
+# cur_fb_index bliver staaende paa 0 fra linje 440 og aldrig aendret.
+#
+# Den anden buffer blev altsaa aldrig tegnet i. Den kostede 800 x 1280 x
+# 2 = 2.048.000 bytes PSRAM for ingenting.
+#
+# Vil vi have den rigtige gevinst - ingen kopi OG intet der river - skal
+# LVGL tegne direkte i panelets egne buffere med direct mode. Det er to
+# fulde buffere paa 2 MB stykket og en anden lv_port. Det venter til der
+# er en skaerm at se flimmer paa.
+CONFIG_BSP_LCD_DPI_BUFFER_NUMS=1
 # 16 bit pr. pixel. Fladen er skrevet til RGB565, og 24 bit ville goere
 # hver buffer 3 MB i stedet for 2 uden at vise andet.
 CONFIG_BSP_LCD_COLOR_FORMAT_RGB565=y
