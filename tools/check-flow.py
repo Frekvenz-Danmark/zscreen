@@ -139,7 +139,8 @@ def main():
               f"blevet omdoebt?")
         return 1
 
-    fejl = tjek_opsaetningens_slutning()
+    regel2 = tjek_opsaetningens_slutning()
+    fejl = list(regel2)
     undtaget = 0
     for s in sider:
         if s["tilbage"] != "NULL":
@@ -155,9 +156,20 @@ def main():
         for linje in fejl:
             print(f"  {ROED}FEJL{SLUT} {linje}")
         print()
-        print("  Giv siden en tilbage-knap, eller skriv den paa UNDTAGELSER")
-        print("  i det her script MED en grund. En side uden vej tilbage er")
-        print("  en skaerm der er gaaet i staa for den der staar foran den.")
+        # Raadet skal passe til fejlen. Stod regel 1's raad
+        # under en regel 2-fejl, sendte det laeseren efter en
+        # tilbage-knap der var der hele tiden.
+        if len(fejl) > len(regel2):
+            print("  Giv siden en tilbage-knap, eller skriv den paa "
+                  "UNDTAGELSER")
+            print("  i det her script MED en grund. En side uden vej "
+                  "tilbage er")
+            print("  en skaerm der er gaaet i staa for den der staar "
+                  "foran den.")
+        if regel2:
+            print("  Tilbage skal foere TILBAGE. Peg paa trinnet foer i")
+            print("  stedet for paa forsiden - saa kan en pil ikke komme")
+            print("  til at betyde \"spring over\". Se regel 2 i hovedet.")
         return 1
 
     print(f"  {GROEN} OK{SLUT} {len(sider)} sider, {len(sider) - undtaget} "
