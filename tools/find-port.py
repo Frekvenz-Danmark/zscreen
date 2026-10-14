@@ -1,6 +1,20 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 zScreen - finder hvilken seriel port en given skaerm sidder paa.
+
+SYSTEMETS PYTHON, IKKE "env python3". Det er med vilje.
+
+Homebrews python er i stykker paa den her maskine: plistlib henter
+pyexpat, og pyexpat er bygget mod en anden libexpat end den der ligger
+i /usr/lib. Det falder med
+
+    Symbol not found: _XML_SetAllocTrackerActivationThreshold
+
+og det siger ingenting om hvad man skal goere. Samme faelde som ved
+byggeriet, hvor ESP-IDF skal have /usr/bin foerst.
+
+Og scriptet er macOS-kun i forvejen - det laeser ioreg - saa der er
+ingenting tabt ved at pege direkte paa /usr/bin/python3.
 
     ./tools/find-port.py zdisplay   ->  /dev/cu.usbmodem31201
     ./tools/find-port.py zscreen    ->  /dev/cu.usbmodem11201
