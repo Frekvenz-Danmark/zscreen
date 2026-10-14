@@ -1415,7 +1415,41 @@ static void slut_opsaetningen(void)
 {
     if (s_tilmeld_naar_opsat) {
         s_tilmeld_naar_opsat = false;
-        zs_tilmeld_page_set_return(ZS_SCREEN_HOME);
+        /*
+         * TILBAGE FOERER TILBAGE, OG IKKE FORBI.
+         *
+         * Her stod ZS_SCREEN_HOME, og saa betoed tilbage-knappen paa
+         * tilmeldingssiden "spring tilmeldingen over". Tavst: der blev
+         * ikke spurgt om noget, der stod ingen besked, og siden har
+         * ingen anden udgang - saa ÉT tryk paa pilen sendte montoeren
+         * til forsiden med et anlaeg der aldrig blev tilmeldt. Det
+         * gjaldt baade zScreen og ZDisplay, for beslutningen staar her
+         * i den faelles motor.
+         *
+         * Alle de ANDRE sider i opsaetningen gaar tilbage GENNEM
+         * flowet - inverter-siden foerer til "Vaelg netvaerk", se
+         * gaa_tilbage_fra_inverter. Tilmeldingen var den eneste der
+         * sprang ud af flowet, og det var ikke et valg nogen havde
+         * taget: det var det samme maal som siden bruger naar den
+         * aabnes frivilligt fra Indstillinger.
+         *
+         * Nu foerer den til trinnet FOER, altsaa der hvor inverteren
+         * blev valgt. Der er derfor ingen vej til forsiden foer
+         * tilmeldingen er gennemfoert - og den vej findes: naar
+         * serveren skriver kundens navn, gaar skaermen hjem af sig
+         * selv efter ZS_TILMELDT_VIS_MS. Se noten ved
+         * ZS_TILMELD_TILMELDT ovenfor.
+         *
+         * PRISEN, sagt hoejt: koden kommer fra serveren. Er serveren
+         * nede eller nettet vaek, bliver skaermen staaende i
+         * opsaetningen indtil den kommer op igen. Jakob valgte det
+         * strammere 14. okt 2026, efter at have hoert netop det -
+         * samme afvejning som i fundament-beslutningen om at
+         * tilmelding kraever at anlaegget er fundet foerst. Siden skal
+         * derfor sige TYDELIGT hvorfor der ikke er nogen kode endnu,
+         * og det goer den: se zs_tilmeld_stand_t.
+         */
+        zs_tilmeld_page_set_return(ZS_SCREEN_INVERTER_LIST);
         (void)zs_app_tilmeld_vis(true);
         zs_ui_set_tilmeld(zs_app_tilmeld_stand(), zs_app_tilmeld_kode());
         zs_ui_show(ZS_SCREEN_TILMELD);
