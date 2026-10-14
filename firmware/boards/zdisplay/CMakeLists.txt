@@ -50,7 +50,10 @@ endif()
 set(EXTRA_COMPONENT_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/components"
     "${D1001_SDK}/components/esp_lcd_jd9365_8"
-    "${D1001_SDK}/components/esp_lcd_touch_gsl3670"
+    # esp_lcd_touch_gsl3670 staar her IKKE med vilje. Deres driver
+    # skriver ud over tre buffere, og vores rettede kopi ligger i
+    # components/zd_touch - se hovedet af filen der. Stod begge her,
+    # ville de definere de samme navne.
     "${D1001_SDK}/components/esp_io_expander_pca9535"
     "${SEEED_SDK}/components/lvgl")
 

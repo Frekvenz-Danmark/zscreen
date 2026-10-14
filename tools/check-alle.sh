@@ -33,6 +33,8 @@ VAGTER=(
     "Ingen blindgyde|${PY} tools/check-flow.py"
     "Udgivelsen|${PY} tools/check-udgivelse.py"
     "Seeeds BSP|${PY} tools/check-bsp-zdisplay.py"
+    "Partitionerne|${PY} tools/check-partitioner.py"
+    "Touch-kopien|${PY} tools/check-touch-zdisplay.py"
     "Dokumentationen|${PY} tools/check-dokumentation.py"
 )
 

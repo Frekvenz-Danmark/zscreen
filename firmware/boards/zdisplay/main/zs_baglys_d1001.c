@@ -65,6 +65,31 @@ void zs_baglys_set(uint8_t pct)
     if (!s_klar) {
         return;
     }
+
+    /*
+     * DEN GROENNE KNAP SLUKKER SKAERMEN, OG DET SKAL VI RESPEKTERE.
+     *
+     * Seeeds BSP saetter selv en haandtering paa knappen: ét tryk
+     * saetter lysstyrken til 0 OG slukker panelet med
+     * esp_lcd_panel_disp_on_off(disp_panel, false). Se
+     * bsp_button_single_click_event_cb i deres kilde.
+     *
+     * Vores side ved ingenting om det. Reglerne i zs_display kalder
+     * herned ved hvert tick - natdaempning, alarmpuls, opvaagning efter
+     * et tryk - og det foerste af dem ville taende BAGLYSET igen paa et
+     * panel der er slukket.
+     *
+     * Resultatet er det vaerste af to verdener: en skaerm der lyser
+     * kraftigt og viser INGENTING. Kunden har slukket den, og den staar
+     * og lyser hvidt paa vaeggen.
+     *
+     * bsp_backlight_get_enable_state() er deres egen maade at spoerge
+     * om brugeren har slukket. Har de det, roerer vi ikke lyset.
+     */
+    if (!bsp_backlight_get_enable_state()) {
+        return;
+    }
+
     /* BSP'en klipper selv til 0-100 og regner om til 10 bits duty. */
     (void)bsp_display_brightness_set((int)pct);
 }

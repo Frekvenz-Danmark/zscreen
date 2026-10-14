@@ -156,8 +156,27 @@ static void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *co
          * bliver tegnet. Et glip paa ét billede ser ingen; en frossen
          * skaerm ser alle.
          */
-        ESP_LOGW(TAG, "en ramme kunne ikke sendes til skaermen: %s",
-                 esp_err_to_name(err));
+        /*
+         * KUN DEN FOERSTE LOGLINJE, og saa et tal.
+         *
+         * Gaar kopien i staa, sker det ved HVER ramme - og LVGL tegner
+         * op til 200 gange i sekundet. En advarsel pr. ramme ville
+         * fylde serieporten helt og skubbe alt andet ud af loggen,
+         * praecis naar man har mest brug for at kunne laese den.
+         *
+         * ESP-IDF's dpi-panel tager sin draw_sem FOER den kan fejle
+         * (esp_lcd_panel_dpi.c), saa en fejl her betyder at semaforen er
+         * tabt og at hver efterfoelgende ramme ogsaa fejler. Tallet
+         * siger hvor laenge det har varet.
+         */
+        static uint32_t s_fejl;
+        if (s_fejl++ == 0) {
+            ESP_LOGW(TAG, "en ramme kunne ikke sendes til skaermen: %s. "
+                          "Flere fejl af samme slags logges ikke.",
+                     esp_err_to_name(err));
+        } else if ((s_fejl % 600u) == 0u) {
+            ESP_LOGW(TAG, "%u rammer er nu gaaet tabt", (unsigned)s_fejl);
+        }
         lv_disp_flush_ready(&disp_drv);
     }
 }
@@ -201,7 +220,27 @@ static void touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
     esp_lcd_touch_point_data_t punkt[1] = { 0 };
     uint8_t antal = 0;
 
-    esp_lcd_touch_read_data(s_touch);
+    /*
+     * HVIS LAESNINGEN FEJLER, ER DER INGEN BEROERING.
+     *
+     * Her stod kaldet uden at se paa svaret. Fejler I2C-laesningen,
+     * udleder driveren tilstanden af en buffer der ikke blev skrevet,
+     * og saa kan et busglimt blive et RIGTIGT tryk paa et tilfaeldigt
+     * punkt - som godt kan ligge inden for skaermen og dermed slippe
+     * gennem tjekket nedenfor.
+     *
+     * Det er praecis den fejl zScreen har haft: en skaerm der startede
+     * demoen af sig selv halvandet sekund efter opstart, fordi et
+     * ugyldigt svar blev regnet om til et tryk. Dens port melder sluppet
+     * og gaar hjem i det tilfaelde, og det goer den her nu ogsaa.
+     */
+    if (esp_lcd_touch_read_data(s_touch) != ESP_OK) {
+        data->state   = LV_INDEV_STATE_REL;
+        data->point.x = sidste_x;
+        data->point.y = sidste_y;
+        return;
+    }
+
     esp_err_t err = esp_lcd_touch_get_data(s_touch, punkt, &antal, 1);
 
     bool gyldig = err == ESP_OK

@@ -58,7 +58,10 @@ idf_component_register(
         esp_lcd_touch
         esp_codec_dev
         esp_lcd_jd9365_8
-        esp_lcd_touch_gsl3670
+        # zd_touch og IKKE esp_lcd_touch_gsl3670: deres driver
+        # skriver ud over tre buffere, saa vi bygger en rettet kopi.
+        # Headeren er stadig deres, og kommer med fra zd_touch.
+        zd_touch
         esp_io_expander_pca9535
 
     PRIV_REQUIRES

@@ -72,7 +72,28 @@ CONFIG_SPI_FLASH_SUPPORT_WINBOND_CHIP=y
 
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
-CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
+
+# ── SPIFFS skal kunne adressere hele storage ──────────────────────────
+#
+# storage er 23,9 MB. SPIFFS kan IKKE naa saa langt med standardsiden
+# paa 256 bytes: sidetallet er en uint16, saa loftet er 65535 x 256,
+# altsaa 16 MB. ESP-IDF siger det selv i spiffs/esp_spiffs.c linje 190:
+#
+#   "spiffs partition is too large for spiffs_page_ix type.
+#    Please increase CONFIG_SPIFFS_PAGE_SIZE."
+#
+# og esp_vfs_spiffs_register() svarer ESP_ERR_INVALID_ARG. Partitionen
+# ville altsaa have vaeret ubrugelig - i en tabel der ikke kan aendres
+# naar enheden er sendt ud.
+#
+# Med 512 bytes pr. side bliver det 46.875 sider, og alle fire
+# graenser i esp_spiffs.c holder. Prisen er at den mindste fil fylder
+# 512 bytes i stedet for 256, og det betyder ingenting for gemte
+# maalinger.
+#
+# tools/check-partitioner.py regner de fire graenser efter for begge
+# produkter, saa det ikke kan skride igen.
+CONFIG_SPIFFS_PAGE_SIZE=512
 # 0xA000 og ikke 0x8000: P4'erens bootloader starter paa 0x2000 og har
 # ellers kun 5 procent luft tilbage naar den er signeret. Se
 # partitions.csv.
