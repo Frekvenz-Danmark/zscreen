@@ -472,6 +472,10 @@ på hardware, og listen i afsnittet "Det der skal måles" står urørt.
 
 ### Det næste, i rækkefølge
 
+**Hele vejen i mål står i `zdisplay-faseplan.md`**, delt i syv faser med
+hvad der er målt, hvad der kun er læst, og hvad der ikke er afprøvet.
+Herunder kun det korte.
+
 1. **Tænd den.** Flash, se om panelet kommer op, og om touch rammer.
 2. **Byg C6-firmwaren** af `esp_hosted` 2.13.0's slave og flash den over
    UART. Derefter: lad wifi stå i et døgn.

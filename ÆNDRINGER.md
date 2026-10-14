@@ -1,3 +1,33 @@
+## 2026-10-14 17:05
+
+### Vejen i mål for ZDisplay, delt i syv faser
+`docs/zdisplay-faseplan.md`. Hver fase har tre afsnit: det der er
+**målt**, det der kun er **læst** i andres kode eller papirer, og det der
+er **ikke afprøvet**. Der står ingen tidsestimater — vi ved hvad der
+blokerer hvad, og det er det vi kan sige.
+
+To tal blev målt for at kunne skrive planen i stedet for at gætte:
+
+**C6-firmwaren kan bygges her.** `network_adapter.bin`, 1.176.496 bytes,
+bygget af `esp_hosted` 2.13.0 — samme udgave som vores egen side — med
+ESP-IDF 5.4.2 og målet `esp32c6`. Før stod der "cirka 1,2 MB" som et
+overslag. Nu er det et tal.
+
+**Et kort på 800 x 1280 er 382 x 586 px**, mod 222 x 186 på zScreen.
+Altså 3,1 gange højere. Tallet i kortet står stadig i 64 px, fordi
+skrifttyperne er skåret til en 4 tommer skærm. Regnestykket siger at de
+er for små; hvor store de skal være, er en designbeslutning og står som
+sådan i planen.
+
+Dertil står de to ting i opstartsloggen vi har besluttet at leve med —
+SD-kortet der ikke sidder i, og tre advarsler fra Seeeds
+`bsp_power_init()` — skrevet ned, så den næste der læser en log ved at
+de er kendte og ikke nye.
+
+`faseplan.md` siger nu i første afsnit at den handler om
+flådestyringen, og hvor ZDisplays plan ligger. Det er samme grund som
+den fil blev skrevet af: planen skal kunne findes uden at lede.
+
 ## 2026-10-14 16:40
 
 ### De to produkter står nu symmetrisk, og flashen er målt til 32 MB

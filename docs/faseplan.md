@@ -1,5 +1,10 @@
 # Faseplanen
 
+**Den her fil handler om FLÅDESTYRINGEN.** ZDisplay har sin egen vej i
+mål, og den står i `zdisplay-faseplan.md`. De to planer deler to huller
+— skærmen har aldrig stået på et rigtigt anlæg, og ladeplanen er ikke
+målt — men ellers er de hver sit arbejde.
+
 Arbejdet med flådestyringen er delt i fem faser, A til E.
 
 **Den her fil findes fordi planen ikke stod nogen steder.** Faserne var

@@ -74,7 +74,11 @@ UDENFOR = ("DESIGN.txt", "modbus_controller.py",
            # det er DER beviset staar for hvad en chip kan: soc_caps.h
            # siger om der er wifi i chippen, og mac_addr.c viser at hele
            # ESP_MAC_WIFI_STA-grenen ligger bag netop den.
-           "soc_caps.h", "mac_addr.c")
+           "soc_caps.h", "mac_addr.c",
+           # Sikkerhedskopien af enhedens fabriksflash. Den ligger i
+           # ~/esp/d1001-fabrik/ og IKKE i repoet: den er 32 MB, og det
+           # er Seeeds firmware og ikke vores. Se zdisplay-faseplan.md.
+           "SHA256.txt")
 
 
 def konstanter():
