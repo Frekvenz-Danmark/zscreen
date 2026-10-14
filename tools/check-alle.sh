@@ -30,6 +30,7 @@ VAGTER=(
     "Farver|${PY} tools/check-colors.py"
     "Målene i fladen|${PY} tools/check-maal.py"
     "Fladens pixeltal|${PY} tools/check-flade.py"
+    "zScreens 480-bevis|${PY} tools/lav-layout-fikstur.py --tjek"
     "LVGL-låsen|${PY} tools/check-lvgl-laas.py"
     "Ingen blindgyde|${PY} tools/check-flow.py"
     "Udgivelsen|${PY} tools/check-udgivelse.py"

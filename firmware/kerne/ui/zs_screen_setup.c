@@ -541,7 +541,7 @@ static void build_password(void)
     zs_page_create(&s_pass, "Kodeord", on_pass_back, NULL, false);
 
     lv_obj_t *lbl = zs_label_create(s_pass.content, "KODEORD TIL NETVÆRKET");
-    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(16));
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_FIELD_LABEL_Y);
 
     /* Indtastningsfeltet. En ramme med teksten i, og et oeje ved siden
      * af til at vise hvad der staar. Samme felt som "find manuelt" -
@@ -550,13 +550,13 @@ static void build_password(void)
     zs_field_t felt;
     zs_field_create(&felt, s_pass.content,
                     ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - ZS_G_SK_WIDTH(8));
-    lv_obj_align(felt.box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(42));
+    lv_obj_align(felt.box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_FIELD_BOX_Y);
     s_pass_field = felt.field;
 
     s_pass_eye = lv_btn_create(s_pass.content);
     lv_obj_remove_style_all(s_pass_eye);
     lv_obj_set_size(s_pass_eye, ZS_TOUCH_MIN, ZS_TOUCH_MIN);
-    lv_obj_align(s_pass_eye, LV_ALIGN_TOP_RIGHT, -ZS_EDGE, ZS_G_SK_HEIGHT(48));
+    lv_obj_align(s_pass_eye, LV_ALIGN_TOP_RIGHT, -ZS_EDGE, ZS_G_FIELD_EYE_Y);
     lv_obj_add_event_cb(s_pass_eye, on_pass_eye, LV_EVENT_CLICKED, NULL);
 
     s_pass_eye_icon = lv_label_create(s_pass_eye);
@@ -583,7 +583,7 @@ static void build_password(void)
     zs_style_text(hj, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(hj, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(hj, ZS_CONTENT_WIDTH);
-    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(110));
+    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_FIELD_HJAELP_Y);
 
     /* Tastaturet ligger paa siden selv, ikke i indholdet, saa det
      * bliver staaende naar indholdet rulles. */
@@ -832,14 +832,14 @@ static void build_manual(void)
     zs_page_create(&s_man, "Find manuelt", on_man_back, NULL, false);
 
     lv_obj_t *lbl = zs_label_create(s_man.content, "INVERTERENS IP-ADRESSE");
-    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(16));
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_FIELD_LABEL_Y);
 
     /* Samme felt som kodeordssiden: en ramme med teksten i. To felter der
      * ser ens ud, er to felter montoeren ikke skal laere hver for sig -
      * og nu er det ogsaa den SAMME kode, saa de ikke kan komme i utakt. */
     zs_field_t felt;
     zs_field_create(&felt, s_man.content, ZS_CONTENT_WIDTH);
-    lv_obj_align(felt.box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(42));
+    lv_obj_align(felt.box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_FIELD_BOX_Y);
     s_man_field = felt.field;
 
     /* Hvor man finder den. Det er det foerste spoergsmaal der kommer. */
@@ -850,7 +850,7 @@ static void build_manual(void)
     zs_style_text(hj, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(hj, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(hj, ZS_CONTENT_WIDTH);
-    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(110));
+    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_FIELD_HJAELP_Y);
 
     /*
      * FEJLLINJEN HAR SIN EGEN PLADS, OGSAA NAAR DEN ER TOM.

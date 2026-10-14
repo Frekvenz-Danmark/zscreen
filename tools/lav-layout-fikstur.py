@@ -85,8 +85,15 @@ def vaerdierne(navne):
     Tallene regnes af cc med headeren som den er, saa listen kan ikke
     komme i utakt med et regnestykke jeg har laest forkert.
     """
+    # #ifdef om hver linje, fordi nogle navne KUN findes uden for
+    # referenceskaermen - fx ZS_G_FIELD_LUFT, som er luften omkring
+    # feltet og paa 480 er erstattet af de tre gamle faste tal. Uden
+    # #ifdef kan dumpen ikke oversaettes, og saa ser det ud som om
+    # headeren er i stykker.
     linjer = "\n".join(
-        f'    printf("ZS_FORVENTET({n}, %d)\\n", (int)({n}));' for n in navne)
+        f'#ifdef {n}\n'
+        f'    printf("ZS_FORVENTET({n}, %d)\\n", (int)({n}));\n'
+        f'#endif' for n in navne)
     src = ("#include <stdio.h>\n"
            f'#include "{HEADER}"\n'
            "int main(void){\n" + linjer + "\n    return 0;\n}\n")

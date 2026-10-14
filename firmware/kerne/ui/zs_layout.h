@@ -351,6 +351,55 @@
 #define ZS_G_FIELD_INDE(w)  ((w) - 2 * ZS_G_FIELD_PAD - 2 * ZS_G_FIELD_KANT)
 
 /*
+ * ETIKET, FELT OG HJAELPETEKST - DEN SAMME BLOK PAA TO SIDER.
+ *
+ * Kodeordssiden og "find manuelt" har begge en etiket, et felt og en
+ * linje hjaelpetekst under det. Y-vaerdierne stod som tre faste tal -
+ * 16, 42 og 110 - og de tre tal siger ikke hvad de BETYDER. Det kom
+ * frem paa ZDisplay:
+ *
+ *     luft over feltet   41 px
+ *     luft under feltet  88 px
+ *
+ * Teksten laa altsaa mere end dobbelt saa langt fra feltet som
+ * etiketten gjorde, og det ses med det samme. Grunden er at de tre
+ * tal foelger skaermens HOEJDE (2,67 gange) mens feltet foelger sin
+ * form (1,67 gange) - saa hullet voksede hurtigere end kassen.
+ *
+ * Nu er luften ÉT tal, og den bruges to gange: over feltet og under
+ * det. Saa kan de to afstande ikke komme i utakt, uanset skaerm.
+ *
+ * PAA REFERENCESKAERMEN staar de tre gamle tal. Der er luften 9 px
+ * over og 12 under, altsaa ogsaa skaev - men zScreen skal ikke flytte
+ * sig, og 3 px er ikke vaerd at flytte en flade der staar i marken
+ * for. Tallene staar skrevet ned her, saa beslutningen kan tages om.
+ */
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
+#define ZS_G_FIELD_LABEL_Y  16
+#define ZS_G_FIELD_BOX_Y    42
+#define ZS_G_FIELD_HJAELP_Y 110
+#else
+#define ZS_G_FIELD_LABEL_Y  ZS_G_SK_HEIGHT(16)
+#define ZS_G_FIELD_BOX_Y    ZS_G_SK_HEIGHT(42)
+/* Luften over feltet, maalt fra etikettens egen linje. DEN er maalet
+ * for luften under feltet ogsaa. */
+#define ZS_G_FIELD_LUFT     (ZS_G_FIELD_BOX_Y \
+                             - (ZS_G_FIELD_LABEL_Y + ZS_LH_ETIKET))
+#define ZS_G_FIELD_HJAELP_Y (ZS_G_FIELD_BOX_Y + ZS_G_FIELD_HEIGHT \
+                             + ZS_G_FIELD_LUFT)
+#endif
+/*
+ * Oejet ved siden af feltet staar LODRET MIDT i feltet.
+ *
+ * Det stod som ZS_G_SK_HEIGHT(48), og det var praecis midten paa
+ * zScreen: 48 + 22 = 70, og feltets midte er 42 + 28 = 70. Paa
+ * ZDisplay blev oejets midte 150 og feltets 158, altsaa 8 px for
+ * hoejt. Nu regnes det ud af feltet, og paa 480 giver det samme 48.
+ */
+#define ZS_G_FIELD_EYE_Y    (ZS_G_FIELD_BOX_Y \
+                             + (ZS_G_FIELD_HEIGHT - ZS_G_TOUCH_MIN) / 2)
+
+/*
  * TASTATURET.
  *
  * Hoejden stod som ZS_KB_HEIGHT 224 i zs_keyboard.h - et raat tal i
@@ -1062,6 +1111,36 @@ _Static_assert(ZS_G_KB_HOEJDE / ZS_G_KB_RAEKKER >= ZS_G_TOUCH_MIN,
 _Static_assert(ZS_G_KB_HOEJDE + ZS_G_BAR_HEIGHT < ZS_G_SCR_HEIGHT,
                "tastaturet og statuslinjen fylder hele skaermen, saa "
                "der er ikke plads til det man skriver i");
+
+/*
+ * LUFTEN OVER OG UNDER FELTET SKAL VAERE DEN SAMME.
+ *
+ * Den er sand af sig selv i regnestykket ovenfor, og det er netop
+ * meningen - men den staar her, saa den dag nogen skriver et tal ind
+ * i stedet for udtrykket, siger bygningen fra. Gaelder ikke
+ * referenceskaermen, hvor de tre gamle tal staar med vilje.
+ */
+#if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT)
+_Static_assert(ZS_G_FIELD_BOX_Y - (ZS_G_FIELD_LABEL_Y + ZS_LH_ETIKET)
+               == ZS_G_FIELD_HJAELP_Y
+                  - (ZS_G_FIELD_BOX_Y + ZS_G_FIELD_HEIGHT),
+               "luften over og under indtastningsfeltet er ikke den "
+               "samme. Se ZS_G_FIELD_LUFT");
+/* Og hjaelpeteksten skal kunne staa i to linjer uden at gaa ind under
+ * tastaturet. */
+_Static_assert(ZS_G_FIELD_HJAELP_Y + 2 * ZS_LH_BROED
+               <= ZS_G_SCR_HEIGHT - ZS_G_KB_HOEJDE
+                  - ZS_G_PAGE_HEAD_HEIGHT,
+               "hjaelpeteksten under feltet gaar ind under tastaturet");
+#endif
+/* Oejet skal vaere midt i feltet, paa den ene pixel naer som en ulige
+ * hoejde giver. */
+_Static_assert(ZS_G_FIELD_EYE_Y + ZS_G_TOUCH_MIN / 2
+               - (ZS_G_FIELD_BOX_Y + ZS_G_FIELD_HEIGHT / 2) <= 1
+               && ZS_G_FIELD_BOX_Y + ZS_G_FIELD_HEIGHT / 2
+                  - (ZS_G_FIELD_EYE_Y + ZS_G_TOUCH_MIN / 2) <= 1,
+               "oejet staar ikke midt i indtastningsfeltet. Se "
+               "ZS_G_FIELD_EYE_Y");
 
 /*
  * EN RAMME OM ÉN LINJE TEKST SKAL KUNNE RUMME LINJEN.
