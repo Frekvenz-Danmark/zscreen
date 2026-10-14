@@ -70,10 +70,47 @@
  * op.
  */
 #define ZS_OTA_ASSET_PREFIX  "zdisplay-"
+/*
+ * Skaermens navn paa flaaden, altsaa ZS_FLEET_NAVN_PREFIX plus MAC'en.
+ *
+ * Det SKAL vaere et andet end zScreens. Serveren kan ellers ikke se
+ * hvilket produkt en skaerm er, og to produkter med samme navnerum er
+ * ikke til at holde ude fra hinanden naar der skal fejlsoeges.
+ */
+#define ZS_FLEET_NAVN_PREFIX "zdisplay-"
+/*
+ * HVILKEN MAC DER GOER SKAERMEN UNIK, og hvorfor det ikke er den samme
+ * som paa zScreen.
+ *
+ * ESP_MAC_WIFI_STA FINDES IKKE paa ESP32-P4. Radioen er i en anden chip,
+ * saa chippen har ingen wifi-MAC: esp32p4's soc_caps.h saetter ikke
+ * SOC_WIFI_SUPPORTED, og i ESP-IDF's mac_addr.c ligger hele
+ * ESP_MAC_WIFI_STA-grenen bag netop den. esp_read_mac() svarer
+ * ESP_ERR_NOT_SUPPORTED.
+ *
+ * Og det ville IKKE have vaeret en byggefejl. Det ville have vaeret
+ * endnu vaerre: zs_fleet_unique_id() falder tilbage til "ukendt" naar
+ * kaldet fejler, saa HVER ENESTE ZDisplay ville melde ind paa flaaden
+ * med praecis det samme navn. To skaerme med samme klient-id slaar
+ * hinanden af, og en doed MQTT-session lever halvandet minut - saa det
+ * ville se ud som et daarligt netvaerk hos kunden.
+ *
+ * ESP_MAC_BASE er fabrikkens MAC fra eFuse, som alle de andre udledes
+ * af. Den findes paa alle chips.
+ *
+ * zScreen bliver paa ESP_MAC_WIFI_STA. Paa ESP32-S3 er de to PRAECIS de
+ * samme seks bytes - ESP_MAC_WIFI_STA er en ren memcpy af base-MAC'en
+ * uden forskydning - men en skaerms navn paa flaaden er ikke noget man
+ * aendrer paa en slutning. Det er maalt i ESP-IDF's kilde, ikke paa en
+ * skaerm, og det er forskellen.
+ */
+#define ZS_MAC_TYPE          ESP_MAC_BASE
 #else
 #define ZS_PRODUCT_NAME      "zScreen"
 #define ZS_HAR_LOKAL_RADIO   1
 #define ZS_OTA_ASSET_PREFIX  "zscreen-"
+#define ZS_FLEET_NAVN_PREFIX "zscreen-"
+#define ZS_MAC_TYPE          ESP_MAC_WIFI_STA
 #endif
 
 /* ── Skaerm ────────────────────────────────────────────────────────── */

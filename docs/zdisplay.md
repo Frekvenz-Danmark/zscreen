@@ -402,6 +402,53 @@ Tre ting blev fundet ved at bygge, og ingen af dem stod i noget datablad:
    sendt ud, så den ligger nu på 0xA000 fra starten.
 3. **Seeeds BSP mangler en include.** Se afsnittet ovenfor.
 
+### Og det gennemgangen fandt bagefter
+
+Ti ting, i to runder, og den værste ville ikke have været en byggefejl.
+
+**Hver ZDisplay ville have meldt sig på flåden med samme navn.**
+`zs_fleet_unique_id()` byggede navnet af `esp_read_mac(…,
+ESP_MAC_WIFI_STA)`. Den MAC-type findes ikke på ESP32-P4: chippen har
+ingen radio, så `soc_caps.h` sætter ikke `SOC_WIFI_SUPPORTED`, og hele
+grenen i ESP-IDF's `mac_addr.c` ligger bag netop den. Kaldet svarer
+`ESP_ERR_NOT_SUPPORTED`, og koden faldt tilbage til `"zscreen-ukendt"` —
+**for hver enkelt enhed**. To skærme med samme klient-id slår hinanden
+af, og en død MQTT-session lever halvandet minut, så det ville have set
+ud som et dårligt netværk hos kunden.
+
+Navnet og MAC-typen er nu `ZS_FLEET_NAVN_PREFIX` og `ZS_MAC_TYPE` pr.
+board. ZDisplay bruger `ESP_MAC_BASE`, fabrikkens MAC fra eFuse, som
+findes på alle chips. zScreen bliver på `ESP_MAC_WIFI_STA`: på ESP32-S3
+er de to præcis de samme seks bytes, men en skærms navn på flåden er
+ikke noget man ændrer på en slutning.
+
+**Låsefilen kan ikke committes.** Den blev lagt i git for at binde de
+transitive versioner, og det var forkert: komponentstyringen skriver
+lokale komponenter ud med en absolut sti fra den maskine der byggede,
+så et byg på en anden maskine — CI først — dør i selve
+afhængighedsopslaget. I stedet er **hver** hentet komponent pinnet
+præcist i vores egne `idf_component.yml`. Ti styks. Et byg fra bunden
+med slettet låsefil og `managed_components` giver de samme versioner.
+
+**Reglen hele opdelingen hviler på var ikke håndhævet.** `kerne.cmake`
+lovede at `tools/check-headers.sh` sagde fra hvis der kom et
+hardware-kald ned i motoren. Det gør den ikke; den tjekker kun
+include-guards. Reglen står nu i `tools/check-byg.py` som
+`FORBUDT_I_MOTOREN`: ingen `driver/`, ingen `soc/`, ingen `esp_lcd`,
+ingen LVGL, intet `bsp`-navn og intet board-navn i `net/`, `app/`,
+`util/` eller `storage/`.
+
+**Vagten på kildelisten var for slap.** Den krævede kun at en fil blev
+bygget af mindst ét produkt, så en ny fil i `net/` kunne stå i zScreens
+egen liste alene og aldrig blive oversat til ZDisplay. Det er præcis det
+hul `kerne.cmake` findes for at lukke. Nu skal alt under `firmware/main`
+stå i `kerne.cmake`, undtagen de fire filer i `KUN_ZSCREEN`.
+
+**Og to ting der kostede hukommelse og en forkert note:** den anden
+billedbuffer blev aldrig tegnet i — 2 MB PSRAM for ingenting, se
+`sdkconfig.defaults` — og min note om at Seeeds touch-reset trak i
+radiochippens boot-ben var gal. Se afsnittet ovenfor.
+
 Ikke lavet: en skærm der har været tændt. Alt herunder er stadig uprøvet
 på hardware, og listen i afsnittet "Det der skal måles" står urørt.
 
@@ -412,6 +459,11 @@ på hardware, og listen i afsnittet "Det der skal måles" står urørt.
    UART. Derefter: lad wifi stå i et døgn.
 3. **Mål flashen** og lås partitionstabellen.
 4. **Udgivelsen.** `.github/workflows/release.yml` bygger kun zScreen.
+   Manglen er nu **håndhævet** og ikke kun skrevet ned: en skærm leder
+   efter sit eget navn i udgivelsen, og `tools/check-udgivelse.py`
+   kræver at release.yml lægger en fil op med det navn. ZDisplay står i
+   `IKKE_UDGIVET_ENDNU` med en grund, og den linje skal fjernes med
+   vilje. Et produkt **mere** kan ikke komme til at mangle i stilhed.
    Den skal bygge begge og lægge `zdisplay-<version>.bin` op ved siden
    af `zscreen-<version>.bin`. Firmwaren er klar til det — den vælger
    selv sin egen fil — men arbejdsgangen er med vilje ikke rørt endnu:

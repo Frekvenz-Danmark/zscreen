@@ -35,7 +35,13 @@ get_filename_component(ZS_VENDOR_DIR "${CMAKE_CURRENT_LIST_DIR}/vendor" ABSOLUTE
 # uden ESP-IDF. Det er derfor Modbus-afkodningen og fejlvagten kan
 # proeves uden en skaerm, og den egenskab er vaerd at passe paa: der maa
 # ikke komme et bsp_-kald, en driver/gpio.h eller en lvgl.h ned i nogen
-# af de her filer. tools/check-headers.sh siger fra.
+# af de her filer.
+#
+# Det er HAANDHAEVET i tools/check-byg.py, se FORBUDT_I_MOTOREN. Her
+# stod der foer at check-headers.sh gjorde det, og det passede ikke:
+# den tjekker kun at ingen konstant kolliderer med en include-guard.
+# Paastanden hele opdelingen hviler paa var altsaa uhaandhaevet, og det
+# blev fundet af en gennemgang og ikke af et byg.
 set(ZS_MOTOR_SRCS
     "${ZS_MAIN_DIR}/util/zs_tekst.c"
     "${ZS_MAIN_DIR}/util/zs_tid.c"

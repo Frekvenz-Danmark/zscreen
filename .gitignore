@@ -4,19 +4,22 @@ firmware/build/
 sdkconfig
 sdkconfig.old
 sdkconfig.ci
+# dependencies.lock KAN IKKE COMMITTES, og det er proevet.
+#
+# Den blev lagt i git for at binde de transitive versioner. Men
+# komponentstyringen skriver lokale komponenter ud med en ABSOLUT sti:
+#
+#   path: /Users/yassinayoub/Desktop/.../esp_io_expander_pca9535
+#
+# Paa en anden maskine - CI, eller en anden udvikler - findes den sti
+# ikke, og saa doer "idf.py build" i selve afhaengighedsopslaget, ikke
+# med en forstaaelig fejl.
+#
+# I stedet er HVER hentet komponent pinnet praecist i vores egne
+# idf_component.yml. Saa staar versionerne i git uden stier, og
+# laasefilen er kun en byggerest. Se
+# firmware/boards/zdisplay/main/idf_component.yml.
 dependencies.lock
-# MEN ZDisplays skal med.
-#
-# Den er det eneste sted de TRANSITIVE versioner staar. Vi pinner
-# esp_hosted og esp_wifi_remote praecist i idf_component.yml, men deres
-# egne afhaengigheder er erklaeret som '*', '>=4.0', '>=5.2' og ^1.1.0 -
-# altsaa flydende. Uden laasefilen giver et byg af samme maerke om et aar
-# andre dele, og her er "andre dele" en SDIO-transport der skal passe med
-# firmwaren i en helt anden chip.
-#
-# zScreen har ingen hentede komponenter, saa dens laasefil siger
-# ingenting. Derfor kun den her.
-!firmware/boards/zdisplay/dependencies.lock
 managed_components/
 *.bin
 *.elf

@@ -180,6 +180,14 @@ static bool s_abonneret;
 /* Smaating                                                            */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Navnet er praefiks plus tolv hextegn plus nul. Med en for lille
+ * buffer ville snprintf afkorte, og to skaerme kunne faa SAMME navn
+ * uden at nogen saa en fejl. Derfor et tjek ved bygningen.
+ */
+_Static_assert(sizeof(ZS_FLEET_NAVN_PREFIX) + 12 <= sizeof(s_unik),
+               "s_unik er for lille til praefikset plus MAC'en");
+
 const char *zs_fleet_unique_id(void)
 {
     if (s_unik[0] == '\0') {
@@ -187,10 +195,23 @@ const char *zs_fleet_unique_id(void)
         /* Fabriks-MAC fra eFuse. Kan ikke aendres, og er forskellig paa
          * hver chip. Vi tager den og ikke wifi-MAC'en, for den sidste
          * afhaenger af hvilken grAEnseflade der er oppe. */
-        if (esp_read_mac(mac, ESP_MAC_WIFI_STA) != ESP_OK) {
-            snprintf(s_unik, sizeof(s_unik), "zscreen-ukendt");
+        /* Hvilken MAC-type der kan laeses, afhaenger af chippen. Se
+         * ZS_MAC_TYPE i zs_config.h: paa ESP32-P4 findes der ingen
+         * wifi-MAC, fordi radioen er en anden chip. */
+        if (esp_read_mac(mac, ZS_MAC_TYPE) != ESP_OK) {
+            /*
+             * Falder vi her, har ALLE skaerme af den slags samme navn.
+             * Det er derfor det staar som en fejl og ikke en advarsel:
+             * den skal findes paa den foerste enhed, ikke paa den
+             * tiende hos en kunde.
+             */
+            ZS_LOGE(TAG, "MAC'en kunne ikke laeses. Skaermen har intet "
+                         "entydigt navn paa flåden");
+            snprintf(s_unik, sizeof(s_unik),
+                     ZS_FLEET_NAVN_PREFIX "ukendt");
         } else {
-            snprintf(s_unik, sizeof(s_unik), "zscreen-%02x%02x%02x%02x%02x%02x",
+            snprintf(s_unik, sizeof(s_unik),
+                     ZS_FLEET_NAVN_PREFIX "%02x%02x%02x%02x%02x%02x",
                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         }
     }

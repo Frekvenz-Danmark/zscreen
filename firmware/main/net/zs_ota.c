@@ -109,7 +109,9 @@ void zs_ota_get_target(char *ud, size_t ud_len)
 
 /* GitHub afviser forespoergsler uden. Den siger hvem vi er, og
  * indeholder ikke noget om den enkelte enhed. */
-#define USER_AGENT      "zScreen"
+/* Produktnavnet, ikke "zScreen" skrevet af. GitHub ser den her streng,
+ * og den skal sige hvilket produkt der spoerger. */
+#define USER_AGENT      ZS_PRODUCT_NAME
 
 typedef struct {
     char  *buf;

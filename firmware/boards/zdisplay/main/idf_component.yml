@@ -24,16 +24,41 @@
 ## den - og her er "en ny udgave" en radio der skal passe med firmwaren
 ## i en HELT anden chip.
 ##
-## DE TO LINJER HERUNDER ER IKKE NOK ALENE. Komponenterne har deres
-## egne afhaengigheder, og de er erklaeret som '*', '>=4.0', '>=5.2' og
-## ^1.1.0 - altsaa flydende. Det er dependencies.lock der binder dem,
-## og netop derfor er den fil med i git for det her projekt. Se
-## .gitignore. Retter du en version her, skal laasefilen med i samme
-## commit.
+## OGSAA DE TRANSITIVE, og det er derfor listen er laengere end de to
+## ting vi faktisk bad om.
+##
+## esp_hosted og esp_wifi_remote traekker selv fem komponenter ind, og
+## de er erklaeret som '*', '>=4.0', '>=5.2' og ^1.1.0 - altsaa
+## flydende. Uden de her linjer ville et byg af samme versionsmaerke om
+## et aar give andre dele, og her er "andre dele" en SDIO-transport der
+## skal passe med firmwaren i en HELT anden chip.
+##
+## Laasefilen kunne have gjort det, men den KAN ikke committes: den
+## skriver lokale komponenter ud med en absolut sti fra den maskine der
+## byggede. Se .gitignore.
+##
+## Versionerne er dem der blev loest 14. oktober 2026 og bygget groent.
+## Skal en af dem loeftes, saa loeft den med vilje og byg igen.
 dependencies:
   idf:
     version: '>=5.3'
+
+  # Det vi selv beder om.
   espressif/esp_wifi_remote:
     version: "1.6.5"
   espressif/esp_hosted:
     version: "2.13.0"
+
+  # Det de to traekker med. Pinnet her, saa de ikke flyder.
+  espressif/eppp_link:
+    version: "1.1.6"
+  espressif/wifi_remote_over_eppp:
+    version: "0.3.3"
+  espressif/esp_serial_slave_link:
+    version: "1.1.2"
+  espressif/cmake_utilities:
+    version: "0.5.3"
+  espressif/esp_io_expander:
+    version: "1.2.1"
+  espressif/esp_lcd_touch:
+    version: "1.2.1"

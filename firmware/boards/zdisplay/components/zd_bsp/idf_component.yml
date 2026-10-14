@@ -1,17 +1,22 @@
 ## Afhaengigheder til Seeeds BSP, skrevet af os. Se CMakeLists.txt for
 ## hvorfor vi ikke bruger deres egen manifest.
 ##
-## Versionerne er dem Seeed selv bygger med, saa vi ikke proever en
-## kombination ingen har afproevet paa hardwaren.
+## Versionerne er pinnet PRAECIST og ikke som "1.2.*" eller "^4.0.0".
+## Samme grund som i main/idf_component.yml: et byg af samme
+## versionsmaerke om et aar skal give de samme dele, og laasefilen kan
+## ikke committes fordi den indeholder absolutte stier.
+##
+## Seeed bygger selv med 1.2.* og ^4.0.0, saa vi ligger inden for det de
+## har afproevet - vi har bare valgt hvilken.
 dependencies:
   idf:
     version: '>=5.3'
   # Lydkodekken ES8311. Deres BSP bruger den i bsp_audio_*, og headeren
   # udstiller esp_codec_dev_handle_t.
   espressif/esp_codec_dev:
-    version: "1.2.*"
+    version: "1.2.0"
     public: true
   # Den groenne knap. iot_button v4 har den gpio-opsaetning deres
   # bsp_power_init() bruger.
   espressif/button:
-    version: "^4.0.0"
+    version: "4.2.1"

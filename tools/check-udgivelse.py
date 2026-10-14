@@ -46,6 +46,59 @@ BILLEDE = re.compile(r'^\s*container:\s*(\S+)\s*$', re.M)
 # v5.3.6 er fast. v5.3, release-v5.3 og latest flytter sig.
 FAST = re.compile(r'^espressif/idf:v\d+\.\d+\.\d+$')
 
+# Det navn hver skaerm leder efter i en udgivelse.
+PRAEFIKS = re.compile(r'#define\s+ZS_OTA_ASSET_PREFIX\s+"([^"]+)"')
+
+# Produkter der endnu IKKE bliver udgivet, og hvorfor.
+#
+# HVORFOR LISTEN FINDES, OG HVORFOR DEN IKKE ER EN KOMMENTAR.
+#
+# En skaerm leder efter sit eget navn i udgivelsen (se
+# ZS_OTA_ASSET_PREFIX). Er filen ikke der, henter skaermen ingenting og
+# proever igen hver halve time - for evigt, uden at nogen kan se hvorfor.
+#
+# ZDisplay staar her fordi release.yml kun bygger zScreen. Det er en
+# bevidst mangel: de to produkter bygger med hver sin ESP-IDF, saa de
+# skal vaere to job, og de to job skal laegge op i SAMME udgivelse. Det
+# arbejde kan stoppe en udgivelse, og det skal laves naar nogen sidder og
+# ser paa det - ikke klemmes ind.
+#
+# Men det maa ikke blive glemt, og det maa ikke kunne ske for et
+# PRODUKT MERE uden at nogen siger ja. Derfor staar manglen her, hvor
+# den skal fjernes med vilje, i stedet for i en note nogen laeser.
+IKKE_UDGIVET_ENDNU = {
+    "zdisplay-": "release.yml bygger kun zScreen. Se docs/zdisplay.md, "
+                 "afsnittet 'Det naeste'. Og HUSK: zScreen skal laegges "
+                 "op FOERST, saa skaerme paa v0.27.0 og aeldre - som tager "
+                 "den foerste .bin i udgivelsen - stadig rammer deres egen.",
+}
+
+
+def tjek_praefikser(release_tekst):
+    """Leder hver skaerm efter et navn udgivelsen faktisk laegger op?"""
+    sti = ROD / "firmware/main/zs_config.h"
+    praefikser = PRAEFIKS.findall(sti.read_text(encoding="utf-8"))
+    ud = []
+    if not praefikser:
+        return ["fandt ingen ZS_OTA_ASSET_PREFIX i zs_config.h. "
+                "Er den doebt om? Uden den ved ingen skaerm hvilken fil "
+                "der er dens"]
+    if len(praefikser) != len(set(praefikser)):
+        ud.append(f"to produkter leder efter det SAMME navn: "
+                  f"{sorted(praefikser)}. Saa kan en skaerm hente den "
+                  f"andens firmware")
+    for pre in praefikser:
+        if pre in release_tekst:
+            continue
+        if pre in IKKE_UDGIVET_ENDNU:
+            print(f"  {GROEN}note{SLUT} {pre}* bliver ikke udgivet endnu: "
+                  f"{IKKE_UDGIVET_ENDNU[pre]}")
+            continue
+        ud.append(f"en skaerm leder efter {pre}*.bin, men release.yml "
+                  f"laegger ikke en fil op med det navn. Saa henter den "
+                  f"ingenting og proever igen hver halve time, for evigt")
+    return ud
+
 
 def main():
     print("Tjekker at vi sender det vi har testet ...")
@@ -61,7 +114,8 @@ def main():
             return 1
         fundet[navn] = billeder
 
-    fejl = []
+    fejl = tjek_praefikser(
+        (ROD / ".github/workflows/release.yml").read_text(encoding="utf-8"))
     # Hver oversaetter der sender firmware ud, skal ogsaa vaere proevet.
     for b in sorted(fundet["release.yml"] - fundet["test.yml"]):
         fejl.append(f"release.yml bygger med {b}, som test.yml ikke "

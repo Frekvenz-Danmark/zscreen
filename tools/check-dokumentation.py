@@ -69,7 +69,12 @@ UDENFOR = ("DESIGN.txt", "modbus_controller.py",
            "esp_timer.h", "esp_phy_init.h",
            # ESP-IDF's eget opsaetningsscript, som README og
            # docs/zdisplay.md beder folk om at hente.
-           "export.sh")
+           "export.sh",
+           # ESP-IDF's egne kilder. docs/zdisplay.md peger paa dem fordi
+           # det er DER beviset staar for hvad en chip kan: soc_caps.h
+           # siger om der er wifi i chippen, og mac_addr.c viser at hele
+           # ESP_MAC_WIFI_STA-grenen ligger bag netop den.
+           "soc_caps.h", "mac_addr.c")
 
 
 def konstanter():

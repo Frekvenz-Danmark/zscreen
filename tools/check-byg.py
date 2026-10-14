@@ -69,6 +69,64 @@ SPRING_OVER = ("ui/assets/",)
 # ved et uheld.
 KUN_ZSCREEN = ("main.c", "lv_port.c", "ui/zs_baglys_d1.c", "ui/zs_lyd.c")
 
+# Motoren: de mapper hvor koden skal kunne koere paa BEGGE chips, og i
+# tests/host paa en Mac uden ESP-IDF.
+MOTOR_DIRS = ("net/", "app/", "util/", "storage/")
+
+# Hvad motoren IKKE maa hente.
+#
+# HVORFOR REGLEN STAAR HER OG IKKE KUN I EN KOMMENTAR.
+#
+# kerne.cmake lovede at "tools/check-headers.sh siger fra" hvis der kom
+# et hardware-kald ned i motoren. Det passede ikke: check-headers.sh
+# tjekker kun at ingen konstant kolliderer med en include-guard. Hele
+# opdelingen mellem de to produkter hviler paa at motoren er fri af
+# hardware - og den paastand var uhaandhaevet.
+#
+# Det er ikke en teoretisk regel. Er den overholdt, kan 16.000 linjer
+# deles mellem to vidt forskellige chips og samtidig proeves paa en Mac.
+# Brydes den ét sted, holder ingen af de tre ting laengere.
+FORBUDT_I_MOTOREN = (
+    (re.compile(r"^driver/"), "en driver fra ESP-IDF"),
+    (re.compile(r"^(soc|hal)/"), "chippens egne registre"),
+    (re.compile(r"^esp_lcd"), "en skaermdriver"),
+    (re.compile(r"^(lvgl|lv_conf|lv_port)"), "LVGL"),
+    (re.compile(r"bsp", re.I), "en board-support-pakke"),
+    (re.compile(r"^(display|touch)\.h$"), "en board-header"),
+    (re.compile(r"re_terminal|sensecap|indicator", re.I), "et bestemt board"),
+)
+# Og kald, ikke kun headere: et bsp_-navn kan naas gennem en header der
+# ikke selv heder noget med bsp.
+FORBUDT_KALD = re.compile(r"\bbsp_[a-z][a-z0-9_]*\s*\(")
+
+
+def tjek_motoren():
+    """Er motoren fri af hardware?"""
+    for c in sorted(SRC.rglob("*.[ch]")):
+        rel = c.relative_to(SRC).as_posix()
+        if not any(rel.startswith(d) for d in MOTOR_DIRS):
+            continue
+        tekst = c.read_text(encoding="utf-8", errors="replace")
+        for m in re.finditer(r'^\s*#\s*include\s+[<"]([^>"]+)[>"]', tekst, re.M):
+            navn = m.group(1)
+            if navn.startswith("zs_") or navn.startswith("../zs_"):
+                continue
+            for moenster, hvad in FORBUDT_I_MOTOREN:
+                if moenster.search(navn):
+                    fejl.append(f"firmware/main/{rel} henter {navn}, altsaa "
+                                f"{hvad}. Motoren skal kunne oversaettes til "
+                                f"to forskellige chips OG paa en Mac uden "
+                                f"ESP-IDF. Hoerer det til hardwaren, saa laeg "
+                                f"det i boardets egne filer og lad motoren "
+                                f"kalde en funktion i stedet - som "
+                                f"ui/zs_baglys.h.")
+                    break
+        m = FORBUDT_KALD.search(tekst)
+        if m:
+            fejl.append(f"firmware/main/{rel} kalder {m.group(0)[:-1].strip()}"
+                        f"(), altsaa direkte ind i en board-support-pakke. "
+                        f"Se forklaringen ovenfor.")
+
 # VORES EGNE headere, og kun dem.
 #
 # Det er en liste over hvad vi HAR og ikke en liste over alt det fremmede.
@@ -227,10 +285,19 @@ def tjek_cmake():
         return
 
     s3 = tjek_board("zScreen", SRC / "CMakeLists.txt", kerne_kilder, kerne_stier)
+
+    # ZDisplays liste SKAL findes. Stod der "if exists" her, ville en
+    # flyttet eller omdoebt fil betyde at hele ZDisplay-halvdelen af
+    # vagten holdt op med at tjekke noget som helst - og udskriften
+    # ville stadig sige "alle seks bygninger". En vagt der ikke kan
+    # koere, skal sige fra.
     p4_cmake = ROD / "firmware/boards/zdisplay/main/CMakeLists.txt"
-    p4 = []
-    if p4_cmake.exists():
-        p4 = tjek_board("ZDisplay", p4_cmake, kerne_kilder, kerne_stier)
+    if not p4_cmake.exists():
+        fejl.append(f"{p4_cmake.relative_to(ROD)} findes ikke. Er ZDisplay "
+                    f"flyttet? Vagten kan ikke tjekke det ene af de to "
+                    f"produkter, og saa tjekker den ikke det den lover.")
+        return
+    p4 = tjek_board("ZDisplay", p4_cmake, kerne_kilder, kerne_stier)
 
     # Regel 1: motoren og fladen skal staa i kerne.cmake, saa BEGGE
     # produkter bygger dem. Kun de fire board-filer maa staa alene i
@@ -258,18 +325,18 @@ def tjek_cmake():
 
     # Og at ZDisplays egne filer er med i dens egen liste. De ligger
     # ikke under firmware/main, saa reglen ovenfor naar dem ikke.
-    if p4_cmake.exists():
-        i_p4 = set(p4) | i_kerne
-        for c in sorted(p4_cmake.parent.rglob("*.c")):
-            if c.resolve() not in i_p4:
-                rel = c.relative_to(ROD).as_posix()
-                fejl.append(f"{rel} findes, men staar ikke i SRCS. Den bliver "
-                            f"aldrig oversat til ZDisplay.")
+    i_p4 = set(p4) | i_kerne
+    for c in sorted(p4_cmake.parent.rglob("*.c")):
+        if c.resolve() not in i_p4:
+            rel = c.relative_to(ROD).as_posix()
+            fejl.append(f"{rel} findes, men staar ikke i SRCS. Den bliver "
+                        f"aldrig oversat til ZDisplay.")
 
 
 def main():
     print("Tjekker at hver bygning kan finde sine headere ...")
     tjek_cmake()
+    tjek_motoren()
     for navn, sti in (("enhedstestene", ROD / "tests/host/run.sh"),
                       ("vaerktoejet", ROD / "tools/zs-probe/build.sh")):
         kilder, stier = kilder_og_stier_fra_shell(sti)
@@ -292,7 +359,8 @@ def main():
         print(f"\n  {len(fejl)} ting at rette.")
         return 1
 
-    print("  alle kilder er med, og alle seks bygninger kan finde det de beder om")
+    print("  alle kilder er med, motoren er fri af hardware, og alle seks "
+          "bygninger kan finde det de beder om")
     return 0
 
 

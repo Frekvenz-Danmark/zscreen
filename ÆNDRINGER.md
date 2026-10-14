@@ -1,3 +1,70 @@
+## 2026-10-14 14:05
+
+### Anden runde af gennemgangen: fem mere, og den værste var tavs
+Rettelserne fra første runde lavede én ny fejl, og gennemgangen fandt
+fire ting den ikke havde set første gang. Alle fem er efterprøvet i
+koden eller i ESP-IDF's egen kilde.
+
+**Hver ZDisplay ville have meldt sig på flåden med samme navn.**
+`zs_fleet_unique_id()` byggede navnet af `esp_read_mac(…,
+ESP_MAC_WIFI_STA)`. Den MAC-type findes ikke på ESP32-P4: chippen har
+ingen radio, så `soc_caps.h` sætter ikke `SOC_WIFI_SUPPORTED`, og hele
+grenen i `mac_addr.c` ligger bag netop den. Kaldet svarer
+`ESP_ERR_NOT_SUPPORTED`, og koden faldt tilbage til `"zscreen-ukendt"` —
+for hver enkelt enhed.
+
+Det ville ikke have været en byggefejl. To skærme med samme klient-id
+slår hinanden af, og en død MQTT-session lever halvandet minut, så det
+ville have set ud som et dårligt netværk hos kunden. Navnet og
+MAC-typen er nu `ZS_FLEET_NAVN_PREFIX` og `ZS_MAC_TYPE` pr. board;
+ZDisplay bruger `ESP_MAC_BASE`, som findes på alle chips. zScreen bliver
+på `ESP_MAC_WIFI_STA` — på ESP32-S3 er de to præcis de samme seks bytes,
+men en skærms navn på flåden ændres ikke på en slutning. Dertil en
+`_Static_assert` på at bufferen kan rumme præfiks plus MAC, for en
+afkortning ville give to skærme samme navn uden en fejl nogen steder.
+
+**Låsefilen kunne ikke committes, og det var min egen regression.** Jeg
+lagde `dependencies.lock` i git i sidste commit for at binde de
+transitive versioner. Komponentstyringen skriver lokale komponenter ud
+med en absolut sti fra den maskine der byggede:
+
+    path: /Users/yassinayoub/Desktop/.../esp_io_expander_pca9535
+
+På en anden maskine findes den sti ikke, og `idf.py build` dør i selve
+afhængighedsopslaget. Det ville have brækket det CI-job jeg lige havde
+lagt ind. I stedet er **hver** hentet komponent pinnet præcist i vores
+egne `idf_component.yml` — ti styks. Et byg fra bunden med slettet
+låsefil og `managed_components` giver de samme versioner.
+
+**Reglen hele opdelingen hviler på var ikke håndhævet.** `kerne.cmake`
+lovede at `check-headers.sh` sagde fra hvis der kom et hardware-kald ned
+i motoren. Det gør den ikke; den tjekker kun include-guards. Reglen står
+nu i `check-byg.py` som `FORBUDT_I_MOTOREN`: ingen `driver/`, ingen
+`soc/`, ingen `esp_lcd`, ingen LVGL, intet `bsp`-navn og intet
+board-navn i `net/`, `app/`, `util/` eller `storage/`. Motoren er ren i
+dag, så vagten er grøn fra første kørsel — men nu kan den ikke blive
+uren uden at bygget siger fra.
+
+**ZDisplay-halvdelen af byggevagten kunne holde op med at tjekke i
+stilhed.** Begge ZDisplay-regler lå bag `if p4_cmake.exists()` uden
+else, så en flyttet fil ville give "alle seks bygninger" og udgangskode
+0. Nu er det en fejl.
+
+**Og det præfiks ZDisplay leder efter, lægger udgivelsen ikke op.** En
+skærm leder efter sit eget navn i udgivelsen; er filen ikke der, henter
+den ingenting og prøver igen hver halve time, for evigt.
+`check-udgivelse.py` kræver nu at release.yml lægger en fil op med det
+navn hver skærm leder efter. ZDisplay står i `IKKE_UDGIVET_ENDNU` med en
+grund og med påmindelsen om at zScreen skal lægges op først. Manglen er
+dermed håndhævet i stedet for skrevet ned, og et produkt mere kan ikke
+komme til at mangle i stilhed.
+
+Og `USER_AGENT` i `zs_ota.c` var `"zScreen"` skrevet af. Nu
+`ZS_PRODUCT_NAME`, så GitHub ser hvilket produkt der spørger.
+
+Begge firmwarer bygger. 1819 enhedstjek, alle 11 vagter grønne. De tre
+skærpede vagter er prøvet ved at bryde dem og se dem falde.
+
 ## 2026-10-14 13:30
 
 ### Firmwaren bygger nu til to skærme, og motoren står ét sted
