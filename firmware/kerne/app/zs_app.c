@@ -1834,7 +1834,7 @@ static void handle_cmd(const zs_cmd_t *c)
         s_price_next_try = 0;
         if (s_cfg.price_zone[0] == '\0') {
             snprintf(s_price.fejl, sizeof(s_price.fejl),
-                     "Venter på prisområdet fra Frekvenz");
+                     "Afventer prisområde for kunde");
         }
         zs_ui_set_price(&s_price);
         /* Tilbage til det skaermen ellers ville have lavet: drift hvis
@@ -1986,7 +1986,7 @@ static void app_task(void *arg)
          * laengere, og et raad man ikke kan foelge, er vaerre end
          * ingenting. Omraadet kommer fra serveren, se brug_prisomraade. */
         snprintf(s_price.fejl, sizeof(s_price.fejl),
-                 "Venter på prisområdet fra Frekvenz");
+                 "Afventer prisområde for kunde");
     } else {
         snprintf(s_price.fejl, sizeof(s_price.fejl), "Henter priser ...");
     }
