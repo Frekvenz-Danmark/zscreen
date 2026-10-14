@@ -305,7 +305,13 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
 const char *zs_fejl_titel(zs_fejl_type_t t)
 {
     switch (t) {
-    case ZS_FEJL_INGEN_STROEM:    return "Ingen strøm";
+    /*
+     * INGEN TITEL I SIDEHOVEDET. Overskriften siger det hele i to
+     * linjer, og "Ingen strøm" ovenover var det samme sagt en gang
+     * mere med andre ord. To overskrifter paa den samme side er ikke
+     * to oplysninger.
+     */
+    case ZS_FEJL_INGEN_STROEM:    break;
     case ZS_FEJL_WIFI:
     case ZS_FEJL_INVERTER:        return "Ingen forbindelse";
     case ZS_FEJL_INVERTER_SOVER:
@@ -317,7 +323,21 @@ const char *zs_fejl_titel(zs_fejl_type_t t)
 const char *zs_fejl_overskrift(zs_fejl_type_t t)
 {
     switch (t) {
-    case ZS_FEJL_INGEN_STROEM:    return "Skærmen kører på batteri";
+    /*
+     * TO LINJER, OG DEN ANDEN ER DET MAN SKAL GOERE.
+     *
+     * Her stod "Skærmen kører på batteri", og det er en iagttagelse.
+     * Den fortaeller hvad skaermen er i gang med, ikke hvad der er
+     * sket eller hvad man gOEr ved det. Nu siger foerste linje hvad
+     * der ER sket og anden linje hvad man skal - og linjeskiftet er
+     * med vilje, saa de to laeses som to ting.
+     *
+     * Maalt i zs_font_stor paa 760: 583 og 329 px. Begge paa ÉN linje
+     * hver, saa skiftet falder hvor der staar \n og ikke et tilfaeldigt
+     * sted.
+     */
+    case ZS_FEJL_INGEN_STROEM:    return "Strømforsyningen er fjernet\n"
+                                         "Tilslut den igen.";
     case ZS_FEJL_WIFI:            return "Skærmen er ikke på netværket";
     case ZS_FEJL_INVERTER:        return "Anlægget svarer ikke";
     case ZS_FEJL_INVERTER_SOVER:

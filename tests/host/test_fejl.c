@@ -339,8 +339,9 @@ void test_fejl(void)
           ud.type == ZS_FEJL_INGEN);
 
     /* Teksterne skal findes, ellers staar siden tom. */
-    CHECK("stroemfejlen har en titel",
-          zs_fejl_titel(ZS_FEJL_INGEN_STROEM)[0] != '\0');
+    CHECK("stroemfejlen har INGEN titel i sidehovedet - overskriften "
+          "siger det hele i to linjer",
+          zs_fejl_titel(ZS_FEJL_INGEN_STROEM)[0] == '\0');
     CHECK("og en overskrift",
           zs_fejl_overskrift(ZS_FEJL_INGEN_STROEM)[0] != '\0');
     CHECK("og en forklaring",
@@ -821,16 +822,28 @@ void test_fejl_tekster(void)
      * skaerm der er i stykker. Derfor staar det nu som en tabel: hver
      * type MED om den skal have en knap.
      */
-    const struct { zs_fejl_type_t t; bool knap; } alle[] = {
-        { ZS_FEJL_WIFI,         true  },
-        { ZS_FEJL_INVERTER,     true  },
-        { ZS_FEJL_INGEN_STROEM, false },
+    const struct { zs_fejl_type_t t; bool titel; bool knap; } alle[] = {
+        { ZS_FEJL_WIFI,         true,  true  },
+        { ZS_FEJL_INVERTER,     true,  true  },
+        /*
+         * Stroemsvigt har hverken titel eller knap, og begge er valg.
+         * Overskriften siger det hele i to linjer - hvad der er sket,
+         * og hvad man gOEr - saa en titel i sidehovedet ville vaere
+         * det samme sagt en gang mere. Og der er ingenting at trykke
+         * paa: kablet skal i.
+         */
+        { ZS_FEJL_INGEN_STROEM, false, false },
     };
 
     for (unsigned i = 0; i < sizeof(alle) / sizeof(alle[0]); i++) {
         zs_fejl_type_t t = alle[i].t;
-        CHECK("hver fejl har en titel",
-              zs_fejl_titel(t) != NULL && zs_fejl_titel(t)[0] != '\0');
+        if (alle[i].titel) {
+            CHECK("hver fejl har en titel",
+                  zs_fejl_titel(t) != NULL && zs_fejl_titel(t)[0] != '\0');
+        } else {
+            CHECK("og den uden titel har INGEN titel",
+                  zs_fejl_titel(t) != NULL && zs_fejl_titel(t)[0] == '\0');
+        }
         CHECK("hver fejl har en overskrift",
               zs_fejl_overskrift(t) != NULL && zs_fejl_overskrift(t)[0] != '\0');
         CHECK("hver fejl har en forklaring",
@@ -855,6 +868,17 @@ void test_fejl_tekster(void)
     CHECK("wifi og inverter siger ikke det samme",
           strcmp(zs_fejl_overskrift(ZS_FEJL_WIFI),
                  zs_fejl_overskrift(ZS_FEJL_INVERTER)) != 0);
+    /*
+     * TO LINJER I OVERSKRIFTEN, og linjeskiftet er en del af teksten.
+     * Forsvinder det, staar der "Strømforsyningen er fjernet Tilslut
+     * den igen." i én lang linje - og saa laeses de to ting som én.
+     */
+    CHECK("stroemmens overskrift har et linjeskift",
+          strchr(zs_fejl_overskrift(ZS_FEJL_INGEN_STROEM), '\n') != NULL);
+    CHECK("og den siger hvad man SKAL, ikke kun hvad der er",
+          strstr(zs_fejl_overskrift(ZS_FEJL_INGEN_STROEM),
+                 "Tilslut") != NULL);
+
     CHECK("og stroemmen siger noget tredje",
           strcmp(zs_fejl_overskrift(ZS_FEJL_INGEN_STROEM),
                  zs_fejl_overskrift(ZS_FEJL_WIFI)) != 0

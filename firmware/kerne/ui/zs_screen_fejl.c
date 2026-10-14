@@ -105,6 +105,75 @@ static const char *ikonet(zs_fejl_type_t t)
     return "";
 }
 
+/*
+ * STILLER DE TRE TING OP, MIDT PAA SIDEN.
+ *
+ * HVORFOR DET REGNES HER OG IKKE I zs_layout.h.
+ *
+ * Overskriften er én linje paa to af fejlene og to linjer paa den
+ * tredje, og forklaringen er to linjer paa ZDisplay og kan blive tre
+ * paa en anden skaerm. Hoejden af stakken er altsaa ikke et tal man
+ * kan skrive ned - den afhaenger af teksten OG af skaermens bredde.
+ *
+ * Foerst stod der faste hoejder, og saa laa luften INDE i labelet:
+ * overskriftens kasse var 213 px om 60 px tekst paa ZDisplay, saa
+ * afstanden ned til ikonet maaltes fra en kant man ikke kan se. Ikonet
+ * laa langt nede selvom begge mellemrum var det samme tal.
+ *
+ * Nu er labelerne LV_SIZE_CONTENT, vi SPOERGER LVGL hvor hoeje de blev,
+ * og stilles op efter det. Saa er afstanden over og under ikonet den
+ * samme paa glasset og ikke kun i koden.
+ *
+ * Kalderen holder LVGL-laasen, se zs_ui_set_fejl.
+ */
+static void stak_op(void)
+{
+    if (s_over == NULL || s_under == NULL) {
+        return;
+    }
+
+    const char *ik = ikonet(s_type);
+    bool har_ikon = (ik != NULL && ik[0] != '\0');
+    if (s_ikon != NULL) {
+        lv_label_set_text(s_ikon, har_ikon ? ik : "");
+        if (har_ikon) {
+            lv_obj_clear_flag(s_ikon, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_ikon, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    /* Uden den her er hoejderne fra FOER teksten blev sat. */
+    lv_obj_update_layout(s_side.content);
+
+    lv_coord_t h_over  = lv_obj_get_height(s_over);
+    lv_coord_t h_under = lv_obj_get_height(s_under);
+    lv_coord_t h_ikon  = (har_ikon && s_ikon != NULL)
+                       ? lv_obj_get_height(s_ikon) : 0;
+
+    lv_coord_t luft = har_ikon ? ZS_G_FEJL_IKON_GAP : ZS_G_FEJL_GAP;
+    lv_coord_t stak = h_over + luft + h_under
+                    + (har_ikon ? (h_ikon + luft) : 0);
+
+    /*
+     * Midt paa siden. Bliver stakken hoejere end siden - en meget lang
+     * forklaring paa en meget lav skaerm - laegges den oeverst i stedet
+     * for at blive skubbet op over sidehovedet.
+     */
+    lv_coord_t top = (ZS_G_FEJL_CONTENT_HEIGHT - stak) / 2;
+    if (top < 0) {
+        top = 0;
+    }
+
+    lv_obj_align(s_over, LV_ALIGN_TOP_MID, 0, top);
+    lv_coord_t y = top + h_over + luft;
+    if (har_ikon && s_ikon != NULL) {
+        lv_obj_align(s_ikon, LV_ALIGN_TOP_MID, 0, y);
+        y += h_ikon + luft;
+    }
+    lv_obj_align(s_under, LV_ALIGN_TOP_MID, 0, y);
+}
+
 static void skriv_teksten(void)
 {
     if (s_over == NULL) {
@@ -169,26 +238,7 @@ static void skriv_teksten(void)
         lv_label_set_text(s_under, zs_fejl_forklaring(s_type));
     }
 
-    /*
-     * Og hele blokken flytter sig, for en side MED ikon er hoejere end
-     * en uden - og begge skal staa midt paa siden. Tallene er to saet i
-     * zs_layout.h, saa der ikke regnes her.
-     */
-    const char *ik = ikonet(s_type);
-    bool har_ikon = (ik != NULL && ik[0] != '\0');
-    if (s_ikon != NULL) {
-        lv_label_set_text(s_ikon, har_ikon ? ik : "");
-        if (har_ikon) {
-            lv_obj_clear_flag(s_ikon, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_align(s_ikon, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_IKON_Y);
-        } else {
-            lv_obj_add_flag(s_ikon, LV_OBJ_FLAG_HIDDEN);
-        }
-    }
-    lv_obj_align(s_over, LV_ALIGN_TOP_MID, 0,
-                 har_ikon ? ZS_G_FEJL_ITOP : ZS_G_FEJL_TOP);
-    lv_obj_align(s_under, LV_ALIGN_TOP_MID, 0,
-                 har_ikon ? ZS_G_FEJL_IBODY_Y : ZS_G_FEJL_BODY_Y);
+    stak_op();
 }
 
 /*
@@ -366,9 +416,26 @@ void zs_fejl_page_create(void)
     zs_style_text(s_over, &zs_font_stor, ZS_C_ALARM_TEKST);
     lv_label_set_long_mode(s_over, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_over, ZS_CONTENT_WIDTH);
-    lv_obj_set_height(s_over, ZS_G_FEJL_HEAD_HEIGHT);
+    /*
+     * HOEJDEN ER BLAEKKETS, ikke en reserveret kasse.
+     *
+     * Her stod ZS_G_FEJL_HEAD_HEIGHT, altsaa 213 px paa ZDisplay - og
+     * overskriften er 60 px hoej med én linje. De 153 px luft laa
+     * INDE i labelet, saa afstanden ned til ikonet maaltes fra en kant
+     * der ikke var der at se. Resultatet var et ikon der laa alt for
+     * langt nede, selvom begge mellemrum var sat til det samme tal.
+     *
+     * Med LV_SIZE_CONTENT er labelets kant der hvor teksten slutter,
+     * og saa kan stakken stilles op efter det man kan SE. Den regnes i
+     * stak_op() nedenfor.
+     */
+    lv_obj_set_height(s_over, LV_SIZE_CONTENT);
+    /* Luft mellem de to linjer i overskriften. Uden den klistrer
+     * "Tilslut den igen." op under linjen over. */
+    lv_obj_set_style_text_line_space(s_over, ZS_G_FEJL_LINJE_LUFT, 0);
     lv_obj_set_style_text_align(s_over, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_align(s_over, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_TOP);
+    /* Placeringen saettes af stak_op() nedenfor, naar teksten er
+     * paa plads og hoejderne kan maales. */
 
     /*
      * Der staar HVAD det betyder, og ikke bare at der er en fejl.
@@ -388,11 +455,11 @@ void zs_fejl_page_create(void)
      */
     s_ikon = lv_label_create(s_side.content);
     lv_label_set_text(s_ikon, ikonet(s_type));
-    lv_obj_set_style_text_font(s_ikon, &zs_ikon_stor, 0);
+    lv_obj_set_style_text_font(s_ikon, &zs_ikon_kaempe, 0);
     lv_obj_set_style_text_color(s_ikon, lv_color_hex(ZS_C_ALARM_TEKST), 0);
     lv_obj_set_style_text_align(s_ikon, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_width(s_ikon, ZS_CONTENT_WIDTH);
-    lv_obj_align(s_ikon, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_IKON_Y);
+
 
     s_under = lv_label_create(s_side.content);
     lv_label_set_text(s_under, zs_fejl_forklaring(s_type));
@@ -409,9 +476,9 @@ void zs_fejl_page_create(void)
     zs_style_text(s_under, &zs_font_broed, ZS_C_ALARM_TEKST);
     lv_label_set_long_mode(s_under, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_under, ZS_CONTENT_WIDTH);
-    lv_obj_set_height(s_under, ZS_G_FEJL_BODY_HEIGHT);
+    lv_obj_set_height(s_under, LV_SIZE_CONTENT);   /* se noten ovenfor */
     lv_obj_set_style_text_align(s_under, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_align(s_under, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_BODY_Y);
+
 
     /* Hvid flade, moerkeroed skrift. Se zs_btn_alarm_create. */
     s_knap = zs_btn_alarm_create(s_side.footer, zs_fejl_knap(s_type));
@@ -421,6 +488,10 @@ void zs_fejl_page_create(void)
     /* Knappens tekst skal kunne skiftes. zs_btn_primary_create saetter
      * en label som eneste barn. */
     s_knap_tekst = lv_obj_get_child(s_knap, 0);
+
+    /* Og saa stilles de tre ting op efter deres MAALTE hoejder. Den
+     * samme funktion koerer igen hver gang teksten skifter. */
+    stak_op();
 
 
     /*

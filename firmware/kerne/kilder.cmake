@@ -159,6 +159,10 @@ set(ZS_ASSET_SRCS
     "${ZS_ASSET_DIR}/zs_font_kb.c"
     "${ZS_ASSET_DIR}/zs_ikon_lille.c"
     "${ZS_ASSET_DIR}/zs_ikon_stor.c"
+    # Kun batteriet, og stort. Fejlsiden viser det naar stroemmen er
+    # vaek. En hel ikonskrift i den grad ville koste omkring 370 KB;
+    # ét glyf koster 10. Se build_icons i tools/build-assets.sh.
+    "${ZS_ASSET_DIR}/zs_ikon_kaempe.c"
     "${ZS_ASSET_DIR}/zs_img_zmark.c"
     "${ZS_ASSET_DIR}/zs_img_zmark_pos.c"
     "${ZS_ASSET_DIR}/zs_img_wordmark.c"

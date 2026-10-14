@@ -917,6 +917,15 @@
  * pixels alt under den staar forkert.
  */
 #define ZS_G_FEJL_IKON_GAP      ZS_G_SK(12)
+/*
+ * Luft MELLEM de to linjer i overskriften.
+ *
+ * Overskriften paa stroemsiden er to linjer - hvad der er sket, og hvad
+ * man skal goere. Med line_space 0, som er LVGLs standard, staar de
+ * klos op ad hinanden og laeses som én saetning der er brudt tilfaeldigt.
+ * En fjerdedel af linjehoejden er nok til at de laeses som to ting.
+ */
+#define ZS_G_FEJL_LINJE_LUFT    ZS_G_SK(8)
 #if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
 #define ZS_G_FEJL_IKON_HEIGHT   28        /* zs_ikon_stor paa 480 */
 #else

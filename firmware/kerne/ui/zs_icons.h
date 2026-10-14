@@ -28,6 +28,17 @@
 
 LV_FONT_DECLARE(zs_ikon_lille)
 LV_FONT_DECLARE(zs_ikon_stor)
+/*
+ * Kun batteriet, og stort. Fejlsiden viser det naar stroemmen er
+ * vaek, og dér er det sidens eneste billede.
+ *
+ * Den har ÉT glyf med vilje: zs_ikon_stor er 139 KB i 800-saettet,
+ * og hele saettet i den her grad ville koste omkring 370. Ét glyf
+ * paa 66 px koster 10. Bruger man den til noget andet end
+ * ZS_ICON_BATTERY, kommer der en firkant - se build_icons i
+ * tools/build-assets.sh, hvor omraadet staar.
+ */
+LV_FONT_DECLARE(zs_ikon_kaempe)
 
 /* sun              U+E178  solceller */
 #define ZS_ICON_SUN            "\xEE\x85\xB8"

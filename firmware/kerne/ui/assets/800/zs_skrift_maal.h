@@ -27,4 +27,5 @@
 #define ZS_LH_KB       47
 #define ZS_LH_IKON_LILLE 31
 #define ZS_LH_IKON_STOR 44
+#define ZS_LH_IKON_KAEMPE 40
 #endif /* ZS_SKRIFT_MAAL_INC */

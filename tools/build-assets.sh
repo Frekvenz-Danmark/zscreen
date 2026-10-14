@@ -252,8 +252,13 @@ byg_saet() {
     # til at pege paa hver sit.
     ICONS="$(python3 icons.py --range)" || fail "kunne ikke laese ikonlisten"
 
+    # Tredje argument er et interval, hvis man kun vil have NOGLE
+    # ikoner. Det er ikke en bekvemmelighed: zs_ikon_stor er 139 KB i
+    # 800-saettet, og en hel ikonskrift i en stoerre grad ville koste
+    # omkring 370. Fejlsiden skal have ÉT ikon stort, og ét glyf paa 66
+    # px koster omkring 2 KB.
     build_icons() {
-        local name="$1" size="$2"
+        local name="$1" size="$2" omraade="${3:-${ICONS}}"
         local dst="${OUT}/${name}.c"
         if [ -s "${dst}" ] && [ "${FORCE}" != "--force" ]; then
             ok "${name} findes"
@@ -261,7 +266,7 @@ byg_saet() {
         fi
         ${LVFC} --font "${CACHE}/lucide.ttf" --size "${size}" --bpp 4 --no-compress \
                 --format lvgl --lv-include lvgl.h \
-                --range "${ICONS}" -o "${dst}" >/dev/null
+                --range "${omraade}" -o "${dst}" >/dev/null
         ok "${name} ($(wc -c < "${dst}" | tr -d ' ') bytes C-kode)"
     }
 
@@ -318,7 +323,7 @@ byg_saet() {
         # "hvis den er der". Foerste byg af et nyt saet har dem ikke,
         # og saa skriver den anden koersel dem ind. Det staar i
         # check-byg.py at saettet skal bygges helt.
-        for n in lille stor; do
+        for n in lille stor kaempe; do
             f="${OUT}/zs_ikon_${n}.c"
             [ -f "${f}" ] || continue
             lh=$(grep -o "\.line_height = [0-9]*" "${f}" \
@@ -334,6 +339,10 @@ byg_saet() {
     info "Bygger ikoner"
     build_icons zs_ikon_lille "$(sk 20)"
     build_icons zs_ikon_stor  "$(sk 28)"
+    # Kun batteriet, og stort. Fejlsiden viser det naar stroemmen er
+    # vaek, og dér er det sidens eneste billede - se ZS_G_FEJL_IKON_Y.
+    # 0xE053 er ZS_ICON_BATTERY, se zs_icons.h.
+    build_icons zs_ikon_kaempe "$(sk 40)" "0xE053"
     # zs_icons.h er kodepunkter og ikke pixels, saa den er faelles for
     # begge saet og skrives kun én gang.
     if [ "${SAET_W}" = "${REF_W}" ]; then
