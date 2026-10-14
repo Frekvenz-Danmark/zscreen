@@ -47,6 +47,29 @@ CONFIG_CACHE_L2_CACHE_LINE_128B=y
 CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
 CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y
 
+# OG DEN HER LINJE SKAL MED, ellers er halvdelen af flashen ubrugelig.
+#
+# Maalt paa enheden: ESP-IDF skrev ved opstart
+#
+#   W spi_flash: Detected flash size > 16 MB, but access beyond 16 MB
+#                is not supported for this flash model yet.
+#
+# og SKAR saa stoerrelsen ned til 16 MB i esp_flash_api.c linje 305.
+# Partitionstabellen laa stadig paa 32 MB, saa alt over 0x1000000 -
+# altsaa to tredjedele af storage - ville ikke kunne naas.
+#
+# Grunden er ikke flashen. Chippen er en Winbond (id 0xef 0x4019), og
+# ESP-IDF's Winbond-driver melder netop 32 MB-stoette naar enheds-id'et
+# er 0x19 eller hoejere - se spi_flash_chip_winbond.c linje 143.
+# Driveren var bare SLAAET FRA: CONFIG_SPI_FLASH_SUPPORT_WINBOND_CHIP
+# har "default y if SPI_FLASH_VENDOR_WINBOND_SUPPORTED", og det symbol
+# findes ikke for esp32p4 i v5.4.2, saa den faldt til "default n". Saa
+# tog den generiske driver chippen, og den kan ikke 32-bit adresser.
+#
+# Det er ogsaa derfor Seeeds egen sdkconfig siger 16 MB: med den
+# standard de byggede med, ER der kun 16 MB.
+CONFIG_SPI_FLASH_SUPPORT_WINBOND_CHIP=y
+
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"

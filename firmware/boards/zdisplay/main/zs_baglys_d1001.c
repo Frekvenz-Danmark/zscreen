@@ -22,20 +22,40 @@ static bool s_klar = false;
 bool zs_baglys_init(uint8_t start_pct)
 {
     /*
-     * bsp_display_new() kalder den her i forvejen, og opstarten kalder
-     * lv_port_init() foer zs_display_init(). Den staar alligevel, saa
-     * filen ikke lydloest afhaenger af en raekkefoelge et andet sted:
-     * at saette LEDC op igen er harmloest, og uden den ville et kald i
-     * den modsatte raekkefoelge give et baglys der ikke kunne styres.
+     * HER KALDTE VI bsp_display_brightness_init() FOERST, og det var
+     * forkert.
+     *
+     * Den er allerede kaldt af bsp_display_new() inde i lv_port_init(),
+     * og opstarten kalder lv_port_init() foer zs_display_init(). Mit
+     * ekstra kald var ment som en sikring mod den modsatte
+     * raekkefoelge, men det er ikke harmloest: LEDC saetter de samme
+     * fire ben op igen, og paa enheden gav det fire advarsler i loggen
+     * ved hver opstart:
+     *
+     *   W ledc: GPIO 14 is not usable, maybe conflict with others
+     *   W ledc: GPIO 22 is not usable, maybe conflict with others
+     *   W ledc: GPIO 36 is not usable, maybe conflict with others
+     *   W ledc: GPIO 23 is not usable, maybe conflict with others
+     *
+     * 14 er baglyset, 22, 36 og 23 er den trefarvede lysdiode. Fire
+     * advarsler i et produkt der skal koere i aarevis er fire linjer
+     * man skal laere at se forbi, og det er praecis saadan en rigtig
+     * advarsel bliver overset.
+     *
+     * I stedet spoerger vi bare om lysstyrken KAN saettes.
+     * bsp_display_brightness_set() svarer ESP_FAIL hvis opsaetningen
+     * ikke er sket, saa en forkert raekkefoelge bliver opdaget her - med
+     * en besked der siger hvad der er galt.
      */
-    esp_err_t err = bsp_display_brightness_init();
+    s_klar = true;
+    esp_err_t err = bsp_display_brightness_set((int)start_pct);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "kunne ikke saette baglyset op: %s", esp_err_to_name(err));
+        s_klar = false;
+        ESP_LOGE(TAG, "baglyset svarer ikke (%s). Er lv_port_init() kaldt "
+                      "foer zs_display_init()?", esp_err_to_name(err));
         return false;
     }
 
-    s_klar = true;
-    zs_baglys_set(start_pct);
     ESP_LOGI(TAG, "baglys klar, %u %%", (unsigned)start_pct);
     return true;
 }
