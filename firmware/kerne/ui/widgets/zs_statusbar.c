@@ -28,10 +28,12 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
     lv_obj_clear_flag(sb->bar, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scrollbar_mode(sb->bar, LV_SCROLLBAR_MODE_OFF);
 
-    /* Z-maerket. 26 px hoejt, midt i den 44 px hoeje linje. */
+    /* Z-maerket, lodret midt i linjen. Maalene staar i zs_layout.h,
+     * og midten regnes med logoets EGEN hoejde - se ZS_G_BAR_MIDT. */
     sb->logo = lv_img_create(sb->bar);
     lv_img_set_src(sb->logo, zs_logo_zmark());
-    lv_obj_set_pos(sb->logo, 14, (ZS_BAR_HEIGHT - 26) / 2);
+    lv_obj_set_pos(sb->logo, ZS_G_BAR_LOGO_X,
+                   ZS_G_BAR_MIDT(ZS_G_BAR_LOGO_SIZE));
 
     /*
      * Maerket lige efter logoet.
@@ -46,21 +48,28 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
     zs_style_text(sb->badge, &zs_font_etiket, ZS_C_BADGE_TEXT);
     lv_obj_set_style_text_letter_space(sb->badge, 1, 0);
     lv_obj_set_style_bg_opa(sb->badge, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(sb->badge, 6, 0);
-    lv_obj_set_style_pad_hor(sb->badge, 8, 0);
-    lv_obj_set_style_pad_ver(sb->badge, 3, 0);
-    lv_obj_set_pos(sb->badge, 14 + 26 + 10, (ZS_BAR_HEIGHT - 22) / 2);
+    lv_obj_set_style_radius(sb->badge, ZS_G_BAR_BADGE_RAD, 0);
+    lv_obj_set_style_pad_hor(sb->badge, ZS_G_BAR_BADGE_PADH, 0);
+    lv_obj_set_style_pad_ver(sb->badge, ZS_G_BAR_BADGE_PADV, 0);
+    lv_obj_set_pos(sb->badge, ZS_G_BAR_BADGE_X,
+                   ZS_G_BAR_MIDT(ZS_G_BAR_BADGE_HOEJDE));
 
     sb->time = lv_label_create(sb->bar);
     lv_label_set_text(sb->time, "");
     zs_style_text(sb->time, &zs_font_rad, ZS_C_TEXT_DIM);
-    lv_obj_align(sb->time, LV_ALIGN_TOP_RIGHT, -(ZS_SCR_WIDTH - TIME_RIGHT), 10);
+    /* Lodret midt i linjen, som alt det andet. 10 px stod her foer, og
+     * det var midten af en 44 px linje med en 26 px tekstlinje - altsaa
+     * et tal der kun passede paa den ene skaerm. */
+    lv_obj_align(sb->time, LV_ALIGN_TOP_RIGHT,
+                 -(ZS_SCR_WIDTH - TIME_RIGHT),
+                 ZS_G_BAR_MIDT(ZS_G_BAR_TIME_LINE));
 
     sb->status_icon = lv_label_create(sb->bar);
     lv_label_set_text(sb->status_icon, ZS_ICON_WIFI_OFF);
     lv_obj_set_style_text_font(sb->status_icon, &zs_ikon_lille, 0);
     lv_obj_set_style_text_color(sb->status_icon, lv_color_hex(ZS_C_STALE), 0);
-    lv_obj_set_pos(sb->status_icon, ICON_X, (ZS_BAR_HEIGHT - 20) / 2);
+    lv_obj_set_pos(sb->status_icon, ICON_X,
+                   ZS_G_BAR_MIDT(ZS_G_BAR_ICON_W));
 
     if (gear_cb != NULL) {
         /* Hele knappen er 44 x 44 selvom tandhjulet kun er 20 px.
@@ -68,7 +77,7 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
          * kan man ikke ramme med en tommelfinger. */
         sb->gear = lv_btn_create(sb->bar);
         lv_obj_remove_style_all(sb->gear);
-        lv_obj_set_size(sb->gear, ZS_TOUCH_MIN, ZS_TOUCH_MIN);
+        lv_obj_set_size(sb->gear, ZS_G_BAR_GEAR_SIZE, ZS_G_BAR_GEAR_SIZE);
         lv_obj_set_pos(sb->gear, GEAR_X, 0);
         lv_obj_add_event_cb(sb->gear, gear_cb, LV_EVENT_CLICKED, user_data);
 

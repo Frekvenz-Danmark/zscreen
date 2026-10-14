@@ -74,8 +74,8 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
 
     p->zone = zs_label_create(parent, "");
     lv_obj_set_style_text_align(p->zone, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_width(p->zone, 80);
-    lv_obj_set_pos(p->zone, ZS_SCR_WIDTH - ZS_EDGE - 80, Y_LABEL);
+    lv_obj_set_width(p->zone, ZS_G_SK_WIDTH(80));
+    lv_obj_set_pos(p->zone, ZS_SCR_WIDTH - ZS_EDGE - ZS_G_SK_WIDTH(80), Y_LABEL);
 
     /* Prisen og enheden staar paa samme grundlinje, som paa forsiden. */
     p->value = lv_label_create(parent);
@@ -119,7 +119,7 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
         lv_label_set_text(p->axis[i], "");
         zs_style_text(p->axis[i], &zs_font_etiket, ZS_C_STALE);
         lv_obj_set_style_text_align(p->axis[i], LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_width(p->axis[i], 40);
+        lv_obj_set_width(p->axis[i], ZS_G_SK_WIDTH(40));
         lv_obj_set_y(p->axis[i], Y_AXIS);
     }
 
@@ -151,7 +151,7 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
         lv_obj_set_size(*k[i].kort, CARD_W, CARDS_H);
         lv_obj_set_pos(*k[i].kort, k[i].x, Y_CARDS);
         lv_obj_set_style_pad_all(*k[i].kort, CARD_PAD, 0);
-        lv_obj_set_style_radius(*k[i].kort, 12, 0);
+        lv_obj_set_style_radius(*k[i].kort, ZS_G_SK(12), 0);
 
         lv_obj_t *l = zs_label_create(*k[i].kort, k[i].tekst);
         lv_obj_align(l, LV_ALIGN_TOP_LEFT, 0, y_label);
@@ -182,7 +182,7 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
     lv_obj_set_style_text_align(p->error, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(p->error, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(p->error, ZS_SCR_WIDTH - 4 * ZS_EDGE);
-    lv_obj_set_pos(p->error, 2 * ZS_EDGE, 150);
+    lv_obj_set_pos(p->error, 2 * ZS_EDGE, ZS_G_SK_HEIGHT(150));
     lv_obj_add_flag(p->error, LV_OBJ_FLAG_HIDDEN);
 }
 

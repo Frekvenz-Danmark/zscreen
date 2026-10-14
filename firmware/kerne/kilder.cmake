@@ -100,6 +100,7 @@ set(ZS_FLADE_SRCS
     "${ZS_KERNE_DIR}/ui/zs_theme.c"
     "${ZS_KERNE_DIR}/ui/zs_tilegrid.c"
     "${ZS_KERNE_DIR}/ui/zs_ui.c"
+    "${ZS_KERNE_DIR}/ui/zs_ui_maal.c"
     "${ZS_KERNE_DIR}/ui/zs_screen_home.c"
     "${ZS_KERNE_DIR}/ui/zs_screen_tilmeld.c"
     "${ZS_KERNE_DIR}/ui/zs_screen_fejl.c"

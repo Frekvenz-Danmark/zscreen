@@ -488,7 +488,7 @@ void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
         if (chevron)       { right += 30; }
         if (value != NULL) { right += 100; }
         lv_obj_set_width(out->title,
-                         ZS_CONTENT_WIDTH - 2 * 16 - x - right);
+                         ZS_CONTENT_WIDTH - 2 * ZS_G_SK_WIDTH(16) - x - right);
     }
 
     lv_coord_t rx = 0;
@@ -543,7 +543,7 @@ void zs_page_create(zs_page_t *p, const char *title,
         p->back = lv_btn_create(p->head);
         lv_obj_remove_style_all(p->back);
         lv_obj_set_size(p->back, ZS_TOUCH_MIN, ZS_TOUCH_MIN);
-        lv_obj_set_pos(p->back, 4, (ZS_PAGE_HEAD_HEIGHT - ZS_TOUCH_MIN) / 2);
+        lv_obj_set_pos(p->back, ZS_G_SK_WIDTH(4), (ZS_PAGE_HEAD_HEIGHT - ZS_TOUCH_MIN) / 2);
         lv_obj_add_event_cb(p->back, back_cb, LV_EVENT_CLICKED, user_data);
 
         lv_obj_t *ic = lv_label_create(p->back);
@@ -619,7 +619,7 @@ lv_obj_t *zs_choice_create(lv_obj_t *parent, const char *titel,
     lv_obj_set_pos(b, ZS_EDGE, y);   /* samme kant som alt andet */
     lv_obj_set_style_bg_color(b, lv_color_hex(ZS_C_CARD), 0);
     lv_obj_set_style_bg_opa(b, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(b, 16, 0);
+    lv_obj_set_style_radius(b, ZS_G_SK(16), 0);
 
     /*
      * Det valgte faar en tykkere kant i accentfarven.
@@ -643,15 +643,15 @@ lv_obj_t *zs_choice_create(lv_obj_t *parent, const char *titel,
     lv_obj_t *t = lv_label_create(b);
     lv_label_set_text(t, titel);
     zs_style_text(t, &zs_font_stor, ZS_C_TEXT);
-    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 16, 14);
+    lv_obj_align(t, LV_ALIGN_TOP_LEFT, ZS_G_SK_WIDTH(16), ZS_G_SK_HEIGHT(14));
 
     if (forklaring != NULL && forklaring[0] != '\0') {
         lv_obj_t *f = lv_label_create(b);
         lv_label_set_text(f, forklaring);
         zs_style_text(f, &zs_font_broed, ZS_C_LABEL);
         lv_label_set_long_mode(f, LV_LABEL_LONG_WRAP);
-        lv_obj_set_width(f, ZS_CONTENT_WIDTH - 32);
-        lv_obj_align(f, LV_ALIGN_TOP_LEFT, 16, 50);
+        lv_obj_set_width(f, ZS_CONTENT_WIDTH - ZS_G_SK_WIDTH(32));
+        lv_obj_align(f, LV_ALIGN_TOP_LEFT, ZS_G_SK_WIDTH(16), ZS_G_SK_HEIGHT(50));
     }
     return b;
 }

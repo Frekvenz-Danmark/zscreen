@@ -44,8 +44,8 @@ void zs_step_create(zs_step_t *s, lv_obj_t *forael)
                               LV_PART_MAIN);
     lv_obj_set_style_bg_color(s->bjaelke, lv_color_hex(ZS_C_ACCENT),
                               LV_PART_INDICATOR);
-    lv_obj_set_style_radius(s->bjaelke, 4, LV_PART_MAIN);
-    lv_obj_set_style_radius(s->bjaelke, 4, LV_PART_INDICATOR);
+    lv_obj_set_style_radius(s->bjaelke, ZS_G_SK(4), LV_PART_MAIN);
+    lv_obj_set_style_radius(s->bjaelke, ZS_G_SK(4), LV_PART_INDICATOR);
 
     s->note = lv_label_create(forael);
     lv_label_set_text(s->note, "");

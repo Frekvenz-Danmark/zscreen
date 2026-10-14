@@ -16,6 +16,7 @@
 
 #include "zs_ui.h"
 #include "zs_screen_tilmeld.h"
+#include "zs_ui_maal.h"
 #include "zs_screen_fejl.h"
 #include "zs_theme.h"
 #include "zs_screen_home.h"
@@ -62,12 +63,23 @@ void zs_ui_init(void)
      * offentlige udgave maa ikke kaldes herindefra. */
     show_locked(ZS_SCREEN_WELCOME);
     ESP_LOGI(TAG, "brugerfladen er klar");
+
+    /*
+     * MAAL FLADEN, hver gang.
+     *
+     * Den er tavs naar der ikke er noget at sige, og den koster én
+     * gennemgang af traeet ved opstart. Til gengaeld siger den fra med
+     * tal naar noget stikker ud af sin foraelder eller er for lille at
+     * ramme - og det er praecis de fejl der ellers bliver fundet af en
+     * kunde, fordi de kun KAN ses.
+     */
+    (void)zs_ui_maal_graenser();
 }
 
 /* Alle sidernes rodobjekter, i samme raekkefoelge som zs_screen_id_t.
  * Én liste betyder at der ikke er en switch der kan komme ud af trit
  * med opregningen naar der tilfoejes en side. */
-static lv_obj_t *root_of(zs_screen_id_t id)
+lv_obj_t *zs_ui_root_of(zs_screen_id_t id)
 {
     switch (id) {
     case ZS_SCREEN_WELCOME:       return zs_setup_root_welcome();
@@ -101,7 +113,7 @@ static lv_obj_t *root_of(zs_screen_id_t id)
 static void show_locked(zs_screen_id_t id)
 {
     for (int i = 0; i < SCREEN_COUNT; i++) {
-        lv_obj_t *r = root_of((zs_screen_id_t)i);
+        lv_obj_t *r = zs_ui_root_of((zs_screen_id_t)i);
         if (r == NULL) {
             continue;
         }

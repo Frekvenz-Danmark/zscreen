@@ -162,7 +162,7 @@ void zs_flow_create(zs_flow_t *f, lv_obj_t *parent)
     lv_obj_set_style_radius(f->hub, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(f->hub, lv_color_hex(ZS_C_BG), 0);
     lv_obj_set_style_bg_opa(f->hub, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(f->hub, 3, 0);
+    lv_obj_set_style_border_width(f->hub, ZS_G_SK(3), 0);
     lv_obj_set_style_border_color(f->hub, lv_color_hex(ZS_C_BORDER), 0);
     lv_obj_clear_flag(f->hub, LV_OBJ_FLAG_SCROLLABLE);
 

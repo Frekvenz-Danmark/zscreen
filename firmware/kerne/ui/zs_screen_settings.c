@@ -50,10 +50,10 @@ static void make_switch_row(lv_obj_t *parent, const char *icon,
     zs_row_create(&r, parent, icon, title, NULL, false);
     lv_obj_t *row = r.row;
     lv_obj_set_width(row, ZS_CONTENT_WIDTH);
-    lv_obj_set_height(row, hint != NULL ? 76 : ZS_ROW_HEIGHT);
+    lv_obj_set_height(row, hint != NULL ? ZS_G_SK_HEIGHT(76) : ZS_ROW_HEIGHT);
 
     lv_obj_t *sw = lv_switch_create(row);
-    lv_obj_set_size(sw, 52, 30);
+    lv_obj_set_size(sw, ZS_G_SK_WIDTH(52), ZS_G_SK_HEIGHT(30));
     lv_obj_align(sw, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_bg_color(sw, lv_color_hex(ZS_C_BORDER), LV_PART_MAIN);
     lv_obj_set_style_bg_color(sw, lv_color_hex(ZS_C_ACCENT),
@@ -66,16 +66,16 @@ static void make_switch_row(lv_obj_t *parent, const char *icon,
 
     if (hint != NULL) {
         if (r.title != NULL) {
-            lv_obj_align(r.title, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, -12);
+            lv_obj_align(r.title, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, -ZS_G_SK_HEIGHT(12));
         }
         lv_obj_t *h = lv_label_create(row);
         lv_label_set_text(h, hint);
         zs_style_text(h, &zs_font_broed, ZS_C_LABEL);
         lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
         /* Bredden er raden minus luft, ikonet og kontakten til hoejre. */
-        lv_obj_set_width(h, ZS_CONTENT_WIDTH - 2 * 16
-                            - ZS_ROW_ICON_W - 62);
-        lv_obj_align(h, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, 14);
+        lv_obj_set_width(h, ZS_CONTENT_WIDTH - 2 * ZS_G_SK_WIDTH(16)
+                            - ZS_ROW_ICON_W - ZS_G_SK_WIDTH(62));
+        lv_obj_align(h, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, ZS_G_SK_HEIGHT(14));
     }
 }
 
@@ -91,21 +91,21 @@ static void detail_line(lv_obj_t *parent, const char *label, const char *value)
     lv_obj_t *l = lv_label_create(row);
     lv_label_set_text(l, label);
     zs_style_text(l, &zs_font_broed, ZS_C_LABEL);
-    lv_obj_set_width(l, 170);
+    lv_obj_set_width(l, ZS_G_SK_WIDTH(170));
     lv_obj_align(l, LV_ALIGN_TOP_LEFT, 0, 0);
 
     lv_obj_t *v = lv_label_create(row);
     lv_label_set_text(v, (value != NULL && value[0] != '\0') ? value : "-");
     zs_style_text(v, &zs_font_broed, ZS_C_TEXT);
     lv_label_set_long_mode(v, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(v, ZS_CONTENT_WIDTH - 178);
-    lv_obj_align(v, LV_ALIGN_TOP_LEFT, 178, 0);
+    lv_obj_set_width(v, ZS_CONTENT_WIDTH - ZS_G_SK_WIDTH(178));
+    lv_obj_align(v, LV_ALIGN_TOP_LEFT, ZS_G_SK_WIDTH(178), 0);
 }
 
 static void detail_heading(lv_obj_t *parent, const char *text)
 {
     lv_obj_t *l = zs_label_create(parent, text);
-    lv_obj_set_style_pad_top(l, 14, 0);
+    lv_obj_set_style_pad_top(l, ZS_G_SK_HEIGHT(14), 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -190,7 +190,7 @@ static void build_tema(void)
     zs_style_text(h, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(h, ZS_CONTENT_WIDTH);
-    lv_obj_set_pos(h, ZS_EDGE, 16);
+    lv_obj_set_pos(h, ZS_EDGE, ZS_G_SK_HEIGHT(16));
 
     /*
      * Én knap pr. tema, i den raekkefoelge de staar i opregningen.
@@ -354,12 +354,12 @@ static void on_reset(lv_event_t *e)
     lv_obj_set_height(kort, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(kort, lv_color_hex(ZS_C_CARD), 0);
     lv_obj_set_style_bg_opa(kort, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(kort, 16, 0);
+    lv_obj_set_style_radius(kort, ZS_G_SK(16), 0);
     lv_obj_set_style_border_color(kort, lv_color_hex(ZS_C_BORDER), 0);
     lv_obj_set_style_border_width(kort, 1, 0);
-    lv_obj_set_style_pad_all(kort, ZS_EDGE + 4, 0);
+    lv_obj_set_style_pad_all(kort, ZS_EDGE + ZS_G_SK(4), 0);
     lv_obj_set_flex_flow(kort, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(kort, 12, 0);
+    lv_obj_set_style_pad_row(kort, ZS_G_SK_HEIGHT(12), 0);
     lv_obj_clear_flag(kort, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_center(kort);
 
@@ -479,14 +479,14 @@ static void build_settings(void)
      * rammes uden at sigte. */
     lv_obj_t *brow = lv_obj_create(col);
     lv_obj_remove_style_all(brow);
-    lv_obj_set_size(brow, ZS_CONTENT_WIDTH, 90);
+    lv_obj_set_size(brow, ZS_CONTENT_WIDTH, ZS_G_SK_HEIGHT(90));
     lv_obj_clear_flag(brow, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(brow, lv_color_hex(ZS_C_CARD), 0);
     lv_obj_set_style_bg_opa(brow, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(brow, 14, 0);
+    lv_obj_set_style_radius(brow, ZS_G_SK(14), 0);
     lv_obj_set_style_border_width(brow, 1, 0);
     lv_obj_set_style_border_color(brow, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_set_style_pad_all(brow, 16, 0);
+    lv_obj_set_style_pad_all(brow, ZS_G_SK(16), 0);
 
     lv_obj_t *bl = lv_label_create(brow);
     lv_label_set_text(bl, "Lysstyrke");
@@ -499,13 +499,13 @@ static void build_settings(void)
     lv_obj_align(s_slider_val, LV_ALIGN_TOP_RIGHT, 0, 2);
 
     s_slider = lv_slider_create(brow);
-    lv_obj_set_size(s_slider, ZS_CONTENT_WIDTH - 32, 10);
-    lv_obj_align(s_slider, LV_ALIGN_BOTTOM_LEFT, 0, -6);
+    lv_obj_set_size(s_slider, ZS_CONTENT_WIDTH - ZS_G_SK_WIDTH(32), ZS_G_SK_HEIGHT(10));
+    lv_obj_align(s_slider, LV_ALIGN_BOTTOM_LEFT, 0, -ZS_G_SK_HEIGHT(6));
     lv_slider_set_range(s_slider, 5, 100);
     lv_obj_set_style_bg_color(s_slider, lv_color_hex(ZS_C_BG), LV_PART_MAIN);
     lv_obj_set_style_bg_color(s_slider, lv_color_hex(ZS_C_ACCENT), LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(s_slider, lv_color_hex(ZS_C_TEXT), LV_PART_KNOB);
-    lv_obj_set_style_pad_all(s_slider, 10, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(s_slider, ZS_G_SK(10), LV_PART_KNOB);
     lv_obj_add_event_cb(s_slider, on_brightness, LV_EVENT_VALUE_CHANGED, NULL);
 
     make_switch_row(col, ZS_ICON_POWER, "Dæmp om natten",
@@ -558,8 +558,8 @@ static void build_settings(void)
     snprintf(vtxt, sizeof(vtxt), "%s %s", ZS_PRODUCT_NAME, zs_version());
     lv_label_set_text(ver, vtxt);
     zs_style_text(ver, &zs_font_broed, ZS_C_STALE);
-    lv_obj_set_style_pad_top(ver, 16, 0);
-    lv_obj_set_style_pad_bottom(ver, 16, 0);
+    lv_obj_set_style_pad_top(ver, ZS_G_SK_HEIGHT(16), 0);
+    lv_obj_set_style_pad_bottom(ver, ZS_G_SK_HEIGHT(16), 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -870,7 +870,7 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
      * naar man har rullet helt ned. */
     lv_obj_t *pad = lv_obj_create(s_det_col);
     lv_obj_remove_style_all(pad);
-    lv_obj_set_size(pad, 10, 24);
+    lv_obj_set_size(pad, ZS_G_SK_WIDTH(10), ZS_G_SK_HEIGHT(24));
 }
 
 /*

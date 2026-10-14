@@ -424,15 +424,15 @@ zs_keyboard_t *zs_keyboard_create(lv_obj_t *parent, lv_obj_t *target,
     lv_obj_remove_style_all(kb->matrix);
     lv_obj_set_size(kb->matrix, ZS_SCR_WIDTH, ZS_KB_HEIGHT);
     lv_obj_set_pos(kb->matrix, 0, ZS_SCR_HEIGHT - ZS_KB_HEIGHT);
-    lv_obj_set_style_pad_all(kb->matrix, 6, 0);
-    lv_obj_set_style_pad_gap(kb->matrix, 4, 0);
+    lv_obj_set_style_pad_all(kb->matrix, ZS_G_SK(6), 0);
+    lv_obj_set_style_pad_gap(kb->matrix, ZS_G_SK(4), 0);
     lv_obj_set_style_bg_color(kb->matrix, lv_color_hex(ZS_C_BG), 0);
     lv_obj_set_style_bg_opa(kb->matrix, LV_OPA_COVER, 0);
 
     /* Selve tasterne */
     lv_obj_set_style_bg_color(kb->matrix, lv_color_hex(ZS_C_CARD), LV_PART_ITEMS);
     lv_obj_set_style_bg_opa(kb->matrix, LV_OPA_COVER, LV_PART_ITEMS);
-    lv_obj_set_style_radius(kb->matrix, 8, LV_PART_ITEMS);
+    lv_obj_set_style_radius(kb->matrix, ZS_G_SK(8), LV_PART_ITEMS);
     lv_obj_set_style_text_color(kb->matrix, lv_color_hex(ZS_C_TEXT), LV_PART_ITEMS);
     lv_obj_set_style_text_font(kb->matrix, &zs_font_kb, LV_PART_ITEMS);
     lv_obj_set_style_border_width(kb->matrix, 0, LV_PART_ITEMS);

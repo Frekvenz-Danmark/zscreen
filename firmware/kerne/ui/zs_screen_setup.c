@@ -241,7 +241,7 @@ static void guide_trin(lv_obj_t *forael, const char *nr, const char *tekst)
     lv_obj_set_height(kort, ZS_G_GUIDE_CARD_HEIGHT);
     lv_obj_set_style_bg_color(kort, lv_color_hex(ZS_C_CARD), 0);
     lv_obj_set_style_bg_opa(kort, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(kort, 14, 0);
+    lv_obj_set_style_radius(kort, ZS_G_SK(14), 0);
     lv_obj_set_style_pad_hor(kort, ZS_G_GUIDE_CARD_PAD, 0);
     lv_obj_set_style_pad_column(kort, ZS_G_GUIDE_NUM_GAP, 0);
     /* Indholdet midtstilles LODRET i kortet, saa en tekst der en dag
@@ -356,12 +356,12 @@ static void build_welcome(void)
 
     lv_obj_t *logo = lv_img_create(c);
     lv_img_set_src(logo, zs_logo_wordmark());
-    lv_obj_align(logo, LV_ALIGN_TOP_MID, 0, 90);
+    lv_obj_align(logo, LV_ALIGN_TOP_MID, 0, ZS_G_SK_HEIGHT(90));
 
     lv_obj_t *t = lv_label_create(c);
     lv_label_set_text(t, "Se hvad dit anlæg laver lige nu");
     zs_style_text(t, &zs_font_rad, ZS_C_TEXT);
-    lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 175);
+    lv_obj_align(t, LV_ALIGN_TOP_MID, 0, ZS_G_SK_HEIGHT(175));
 
     lv_obj_t *s = lv_label_create(c);
     lv_label_set_text(s,
@@ -370,7 +370,7 @@ static void build_welcome(void)
     zs_style_text(s, &zs_font_broed, ZS_C_LABEL);
     lv_obj_set_style_text_align(s, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(s, ZS_SCR_WIDTH - 4 * ZS_EDGE);
-    lv_obj_align(s, LV_ALIGN_TOP_MID, 0, 210);
+    lv_obj_align(s, LV_ALIGN_TOP_MID, 0, ZS_G_SK_HEIGHT(210));
 
 #if ZS_DEMO_ENABLED
     /*
@@ -381,7 +381,7 @@ static void build_welcome(void)
      */
     lv_obj_t *demo = zs_btn_secondary_create(c, "Se demo");
     lv_obj_set_width(demo, ZS_CONTENT_WIDTH);
-    lv_obj_align(demo, LV_ALIGN_TOP_MID, 0, 300);
+    lv_obj_align(demo, LV_ALIGN_TOP_MID, 0, ZS_G_SK_HEIGHT(300));
     lv_obj_add_event_cb(demo, on_welcome_demo, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *dh = lv_label_create(c);
@@ -389,7 +389,7 @@ static void build_welcome(void)
     zs_style_text(dh, &zs_font_broed, ZS_C_LABEL);
     lv_obj_set_style_text_align(dh, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_width(dh, ZS_SCR_WIDTH - 4 * ZS_EDGE);
-    lv_obj_align(dh, LV_ALIGN_TOP_MID, 0, 358);
+    lv_obj_align(dh, LV_ALIGN_TOP_MID, 0, ZS_G_SK_HEIGHT(358));
 #endif
 
     lv_obj_t *btn = zs_btn_primary_create(s_welcome.footer, "Kom i gang");
@@ -464,7 +464,7 @@ static void build_wifi(void)
     lv_obj_align(s_wifi_hint, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_EDGE);
 
     s_wifi_list = zs_column_create(s_wifi.content, 8);
-    lv_obj_align(s_wifi_list, LV_ALIGN_TOP_LEFT, ZS_EDGE, 34);
+    lv_obj_align(s_wifi_list, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(34));
 
     s_wifi_rescan = zs_btn_secondary_create(s_wifi.footer, "Søg igen");
     lv_obj_set_width(s_wifi_rescan, ZS_CONTENT_WIDTH);
@@ -541,33 +541,33 @@ static void build_password(void)
     zs_page_create(&s_pass, "Kodeord", on_pass_back, NULL, false);
 
     lv_obj_t *lbl = zs_label_create(s_pass.content, "KODEORD TIL NETVÆRKET");
-    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, 16);
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(16));
 
     /* Indtastningsfeltet. En ramme med teksten i, og et oeje ved siden
      * af til at vise hvad der staar. */
     lv_obj_t *box = lv_obj_create(s_pass.content);
     lv_obj_remove_style_all(box);
-    lv_obj_set_size(box, ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - 8, 56);
-    lv_obj_align(box, LV_ALIGN_TOP_LEFT, ZS_EDGE, 42);
+    lv_obj_set_size(box, ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - ZS_G_SK_WIDTH(8), ZS_G_SK_HEIGHT(56));
+    lv_obj_align(box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(42));
     lv_obj_set_style_bg_color(box, lv_color_hex(ZS_C_CARD), 0);
     lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(box, 14, 0);
+    lv_obj_set_style_radius(box, ZS_G_SK(14), 0);
     lv_obj_set_style_border_width(box, 1, 0);
     lv_obj_set_style_border_color(box, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_set_style_pad_hor(box, 16, 0);
+    lv_obj_set_style_pad_hor(box, ZS_G_SK_WIDTH(16), 0);
     lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
 
     s_pass_field = lv_label_create(box);
     lv_label_set_text(s_pass_field, "");
     zs_style_text(s_pass_field, &zs_font_rad, ZS_C_TEXT);
     lv_label_set_long_mode(s_pass_field, LV_LABEL_LONG_CLIP);
-    lv_obj_set_width(s_pass_field, ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - 8 - 32);
+    lv_obj_set_width(s_pass_field, ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - ZS_G_SK_WIDTH(8) - ZS_G_SK_WIDTH(32));
     lv_obj_align(s_pass_field, LV_ALIGN_LEFT_MID, 0, 0);
 
     s_pass_eye = lv_btn_create(s_pass.content);
     lv_obj_remove_style_all(s_pass_eye);
     lv_obj_set_size(s_pass_eye, ZS_TOUCH_MIN, ZS_TOUCH_MIN);
-    lv_obj_align(s_pass_eye, LV_ALIGN_TOP_RIGHT, -ZS_EDGE, 48);
+    lv_obj_align(s_pass_eye, LV_ALIGN_TOP_RIGHT, -ZS_EDGE, ZS_G_SK_HEIGHT(48));
     lv_obj_add_event_cb(s_pass_eye, on_pass_eye, LV_EVENT_CLICKED, NULL);
 
     s_pass_eye_icon = lv_label_create(s_pass_eye);
@@ -594,7 +594,7 @@ static void build_password(void)
     zs_style_text(hj, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(hj, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(hj, ZS_CONTENT_WIDTH);
-    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, 110);
+    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(110));
 
     /* Tastaturet ligger paa siden selv, ikke i indholdet, saa det
      * bliver staaende naar indholdet rulles. */
@@ -631,8 +631,8 @@ static void build_connecting(void)
     lv_obj_align(s_connect_icon, LV_ALIGN_TOP_MID, 0, ZS_G_WAIT_SPIN_Y);
     lv_obj_set_style_arc_color(s_connect_icon, lv_color_hex(ZS_C_BORDER), LV_PART_MAIN);
     lv_obj_set_style_arc_color(s_connect_icon, lv_color_hex(ZS_C_ACCENT), LV_PART_INDICATOR);
-    lv_obj_set_style_arc_width(s_connect_icon, 5, LV_PART_MAIN);
-    lv_obj_set_style_arc_width(s_connect_icon, 5, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(s_connect_icon, ZS_G_SK(5), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(s_connect_icon, ZS_G_SK(5), LV_PART_INDICATOR);
 
     s_connect_text = lv_label_create(s_connect.content);
     lv_label_set_text(s_connect_text, "Forbinder til netværket ...");
@@ -839,27 +839,27 @@ static void build_manual(void)
     zs_page_create(&s_man, "Find manuelt", on_man_back, NULL, false);
 
     lv_obj_t *lbl = zs_label_create(s_man.content, "INVERTERENS IP-ADRESSE");
-    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, 16);
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(16));
 
     /* Samme felt som kodeordssiden: en ramme med teksten i. To felter der
      * ser ens ud, er to felter montoeren ikke skal laere hver for sig. */
     lv_obj_t *box = lv_obj_create(s_man.content);
     lv_obj_remove_style_all(box);
-    lv_obj_set_size(box, ZS_CONTENT_WIDTH, 56);
-    lv_obj_align(box, LV_ALIGN_TOP_LEFT, ZS_EDGE, 42);
+    lv_obj_set_size(box, ZS_CONTENT_WIDTH, ZS_G_SK_HEIGHT(56));
+    lv_obj_align(box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(42));
     lv_obj_set_style_bg_color(box, lv_color_hex(ZS_C_CARD), 0);
     lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(box, 14, 0);
+    lv_obj_set_style_radius(box, ZS_G_SK(14), 0);
     lv_obj_set_style_border_width(box, 1, 0);
     lv_obj_set_style_border_color(box, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_set_style_pad_hor(box, 16, 0);
+    lv_obj_set_style_pad_hor(box, ZS_G_SK_WIDTH(16), 0);
     lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
 
     s_man_field = lv_label_create(box);
     lv_label_set_text(s_man_field, "");
     zs_style_text(s_man_field, &zs_font_rad, ZS_C_TEXT);
     lv_label_set_long_mode(s_man_field, LV_LABEL_LONG_CLIP);
-    lv_obj_set_width(s_man_field, ZS_CONTENT_WIDTH - 32);
+    lv_obj_set_width(s_man_field, ZS_CONTENT_WIDTH - ZS_G_SK_WIDTH(32));
     lv_obj_align(s_man_field, LV_ALIGN_LEFT_MID, 0, 0);
 
     /* Hvor man finder den. Det er det foerste spoergsmaal der kommer. */
@@ -870,7 +870,7 @@ static void build_manual(void)
     zs_style_text(hj, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(hj, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(hj, ZS_CONTENT_WIDTH);
-    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, 110);
+    lv_obj_align(hj, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(110));
 
     /*
      * FEJLLINJEN HAR SIN EGEN PLADS, OGSAA NAAR DEN ER TOM.
@@ -884,7 +884,7 @@ static void build_manual(void)
     zs_style_text(s_man_fejl, &zs_font_broed, ZS_C_BAD);
     lv_label_set_long_mode(s_man_fejl, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_man_fejl, ZS_CONTENT_WIDTH);
-    lv_obj_align(s_man_fejl, LV_ALIGN_TOP_LEFT, ZS_EDGE, 168);
+    lv_obj_align(s_man_fejl, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(168));
 
     /* Tastaturet ligger paa siden selv og ikke i indholdet, saa det
      * bliver staaende naar indholdet rulles. Som paa kodeordssiden. */
@@ -1150,7 +1150,7 @@ void zs_setup_set_inverter_list(const zs_found_t *list, int n)
         zs_row_t r;
         zs_row_create(&r, s_inv_list, ZS_ICON_PLUG, title, NULL, true);
         lv_obj_set_width(r.row, ZS_CONTENT_WIDTH);
-        lv_obj_set_height(r.row, 72);   /* to linjer: navn og detaljer */
+        lv_obj_set_height(r.row, ZS_G_SK_HEIGHT(72));   /* to linjer: navn og detaljer */
         lv_obj_add_flag(r.row, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_event_cb(r.row, on_inv_pick, LV_EVENT_CLICKED,
                             (void *)(intptr_t)i);
@@ -1169,13 +1169,13 @@ void zs_setup_set_inverter_list(const zs_found_t *list, int n)
         lv_obj_t *sl = lv_label_create(r.row);
         lv_label_set_text(sl, sub);
         zs_style_text(sl, &zs_font_broed, ZS_C_LABEL);
-        lv_obj_align(sl, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, 15);
+        lv_obj_align(sl, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, ZS_G_SK_HEIGHT(15));
 
         /* Ryk navnet op saa de to linjer staar paent under hinanden.
          * 72 px rad, to linjer paa 24 og 18: 12 op og 15 ned lader dem
          * staa symmetrisk om midten. */
         if (r.title != NULL) {
-            lv_obj_align(r.title, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, -12);
+            lv_obj_align(r.title, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W, -ZS_G_SK_HEIGHT(12));
         }
     }
 }

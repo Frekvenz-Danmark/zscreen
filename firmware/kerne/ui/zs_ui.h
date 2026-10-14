@@ -100,4 +100,11 @@ void zs_ui_set_fejl(zs_fejl_type_t type, const char *tid, bool blink);
 }
 #endif
 
+/*
+ * Sidens rodobjekt. Udstillet fordi zs_ui_maal.c skal kunne gaa alle
+ * sider igennem uden at kende dem hver for sig - én liste i zs_ui.c, og
+ * saa kan der ikke komme en side der ikke bliver maalt.
+ */
+lv_obj_t *zs_ui_root_of(zs_screen_id_t id);
+
 #endif /* ZS_UI_H */

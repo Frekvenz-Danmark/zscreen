@@ -247,13 +247,75 @@
 #define ZS_G_BAR_ICON_W     ZS_G_SK(20)    /* statusikonet                     */
 #define ZS_G_BAR_ICON_GAP   ZS_G_SK(10)    /* mellem ikonet og naboen          */
 
-/* Tandhjulet er en hel fingerflade, helt ude i hoejre hjoerne. */
-#define ZS_G_BAR_GEAR_X     (ZS_G_SCR_WIDTH - ZS_G_BAR_EDGE - ZS_G_TOUCH_MIN)
+/*
+ * ── LODRET MIDTE, ÉT STED ─────────────────────────────────────────────
+ *
+ * HVORFOR DEN HER MACRO FINDES.
+ *
+ * I zs_statusbar.c stod der tre gange "(ZS_BAR_HEIGHT - N) / 2", hvor N
+ * var elementets hoejde paa 480 skrevet af i haanden: 26 for logoet, 22
+ * for maerket, 20 for ikonet. Det virkede paa den skaerm tallene blev
+ * skrevet til.
+ *
+ * Paa 800 x 1280 er linjen 73 px og elementerne 1,67 gange stoerre - og
+ * de tre N'er stod stille. Maalt:
+ *
+ *   logoet       y = (73-26)/2 = 23, men det er 43 hoejt -> slutter paa
+ *                66 af 73. Midten ville vaere 15
+ *   statusikonet y = (73-20)/2 = 26, men det er 33 hoejt -> 6 px FOR
+ *                LAVT
+ *   tandhjulet   y = 0 med hoejde 44 i en linje paa 73 -> 29 px tom
+ *                under, altsaa FOR HOEJT
+ *
+ * Derfor: ÉN macro, og den tager elementets EGEN hoejde. Saa kan man
+ * ikke skrive et tal der ikke er elementets.
+ */
+#define ZS_G_BAR_MIDT(h)    ((ZS_G_BAR_HEIGHT - (h)) / 2)
+
+/*
+ * Elementernes maal. De SKAL foelge samme broek som skrifterne og
+ * logoerne, fordi det er de samme tal tools/build-assets.sh regner med
+ * - se "sk()" der. Et logo paa ZS_G_SK(26) px er praecis det logo
+ * build-assets lagde i saettet.
+ */
+#define ZS_G_BAR_LOGO_SIZE  ZS_G_SK(26)    /* z-maerket, kvadratisk    */
+#define ZS_G_BAR_LOGO_X     ZS_G_SK(14)
+#define ZS_G_BAR_BADGE_HOEJDE    ZS_G_SK(22)    /* 16 px linje + 3 px luft  */
+#define ZS_G_BAR_BADGE_GAP  ZS_G_SK(10)
+#define ZS_G_BAR_BADGE_RAD  ZS_G_SK(6)
+#define ZS_G_BAR_BADGE_PADH ZS_G_SK(8)
+#define ZS_G_BAR_BADGE_PADV ZS_G_SK(3)
+#define ZS_G_BAR_TIME_LINE  ZS_G_SK(26)    /* 20 px skrift -> 26 linje */
+
+/*
+ * MAERKET STARTER EFTER LOGOET, og det er et regnestykke og ikke et tal.
+ *
+ * Her stod "14 + 26 + 10" skrevet ud i zs_statusbar.c. De tre tal er
+ * logoets x, logoets bredde og luften imellem - men kun paa 480. Paa 800
+ * fylder logoet 14..57, mens maerket startede paa 50: det OVERLAPPEDE
+ * logoet med 7 px. Det var det foerste man kunne se var galt.
+ */
+#define ZS_G_BAR_BADGE_X    (ZS_G_BAR_LOGO_X + ZS_G_BAR_LOGO_SIZE \
+                             + ZS_G_BAR_BADGE_GAP)
+
+/*
+ * Tandhjulet er en hel fingerflade, helt ude i hoejre hjoerne.
+ *
+ * STOERRELSEN ER LINJENS HOEJDE. Den var ZS_G_TOUCH_MIN, altsaa 44, og
+ * det er praecis linjens hoejde paa 480 - men paa 800 er linjen 73, og
+ * saa sad knappen i toppen med 29 px tom under. Dertil: x blev regnet
+ * med 44 og knappen tegnet med 73, saa den raakte 19 px ud over hoejre
+ * kant (746 + 73 = 819 af 800). Vagten nederst i filen saa det ikke,
+ * fordi den ogsaa regnede med 44.
+ */
+#define ZS_G_BAR_GEAR_SIZE  ZS_G_BAR_HEIGHT
+#define ZS_G_BAR_GEAR_X     (ZS_G_SCR_WIDTH - ZS_G_BAR_EDGE \
+                             - ZS_G_BAR_GEAR_SIZE)
 /* Statusikonet lige til venstre for det. */
 #define ZS_G_BAR_ICON_X     (ZS_G_BAR_GEAR_X - ZS_G_BAR_ICON_GAP \
                              - ZS_G_BAR_ICON_W)
 /* Og klokkeslaettet slutter lige foer ikonet. */
-#define ZS_G_BAR_TIME_RIGHT (ZS_G_BAR_ICON_X - ZS_G_BAR_ICON_GAP - 2)
+#define ZS_G_BAR_TIME_RIGHT (ZS_G_BAR_ICON_X - ZS_G_BAR_ICON_GAP - ZS_G_SK(2))
 
 /* ------------------------------------------------------------------ */
 /* Midterlinjen                                                        */
@@ -606,9 +668,24 @@ _Static_assert(ZS_G_STEP_WIDTH == 432,
 
 /* Og uanset skaermbredde: tandhjulet skal kunne vaere der, og ikke rage
  * ud over kanten. */
-_Static_assert(ZS_G_BAR_GEAR_X + ZS_G_TOUCH_MIN + ZS_G_BAR_EDGE
+/*
+ * HER STOD DER ZS_G_TOUCH_MIN, og det var derfor vagten ikke saa det:
+ * den regnede med 44 mens knappen blev tegnet med linjens hoejde.
+ */
+_Static_assert(ZS_G_BAR_GEAR_X + ZS_G_BAR_GEAR_SIZE + ZS_G_BAR_EDGE
                <= ZS_G_SCR_WIDTH,
                "tandhjulet rager ud over hoejre kant");
+_Static_assert(ZS_G_BAR_GEAR_SIZE >= ZS_G_TOUCH_MIN,
+               "tandhjulet er mindre end en finger");
+/* Alt i linjen skal vaere INDE i linjen. */
+_Static_assert(ZS_G_BAR_MIDT(ZS_G_BAR_LOGO_SIZE) >= 0
+               && ZS_G_BAR_MIDT(ZS_G_BAR_BADGE_HOEJDE) >= 0
+               && ZS_G_BAR_MIDT(ZS_G_BAR_ICON_W) >= 0
+               && ZS_G_BAR_MIDT(ZS_G_BAR_TIME_LINE) >= 0,
+               "noget i statuslinjen er hoejere end linjen selv");
+/* Og maerket maa ikke ligge oven i logoet. */
+_Static_assert(ZS_G_BAR_BADGE_X >= ZS_G_BAR_LOGO_X + ZS_G_BAR_LOGO_SIZE,
+               "maerket overlapper logoet");
 _Static_assert(ZS_G_BAR_TIME_RIGHT > 0,
                "skaermen er for smal til statuslinjens indhold");
 
