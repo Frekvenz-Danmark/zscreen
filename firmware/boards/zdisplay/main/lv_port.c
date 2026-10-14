@@ -186,21 +186,33 @@ static void touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
         return;
     }
 
-    uint16_t x[1] = { 0 }, y[1] = { 0 }, styrke[1] = { 0 };
-    uint8_t  antal = 0;
+    /*
+     * esp_lcd_touch_get_data og IKKE esp_lcd_touch_get_coordinates.
+     *
+     * Den sidste er udfaset i esp_lcd_touch 1.2 og forsvinder i 2.0.
+     * Vi fandt det ved at CI faelder paa advarsler i vores egen kode -
+     * byggeriet gik fint igennem, og advarslen laa midt i tusind linjer
+     * hvor den var nem at se forbi.
+     *
+     * Forskellen er ikke kun navnet: den gamle gav true naar der var
+     * et tryk, den nye giver ESP_OK og saetter antallet til nul. Et
+     * tryk er altsaa ESP_OK OG mindst ét punkt.
+     */
+    esp_lcd_touch_point_data_t punkt[1] = { 0 };
+    uint8_t antal = 0;
 
     esp_lcd_touch_read_data(s_touch);
-    bool rammer = esp_lcd_touch_get_coordinates(s_touch, x, y, styrke, &antal, 1);
+    esp_err_t err = esp_lcd_touch_get_data(s_touch, punkt, &antal, 1);
 
-    bool gyldig = rammer
+    bool gyldig = err == ESP_OK
                && antal > 0
-               && x[0] < ZS_G_SCR_WIDTH
-               && y[0] < ZS_G_SCR_HEIGHT;
+               && punkt[0].x < ZS_G_SCR_WIDTH
+               && punkt[0].y < ZS_G_SCR_HEIGHT;
 
     if (gyldig) {
         data->state   = LV_INDEV_STATE_PR;
-        data->point.x = (lv_coord_t)x[0];
-        data->point.y = (lv_coord_t)y[0];
+        data->point.x = (lv_coord_t)punkt[0].x;
+        data->point.y = (lv_coord_t)punkt[0].y;
         sidste_x = data->point.x;
         sidste_y = data->point.y;
         zs_display_touch_wake();
