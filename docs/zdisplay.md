@@ -94,6 +94,11 @@ passer. Det koster cirka 1,2 MB flash, og det giver én fil at udgive og
 Wifi er stadig **kun 2,4 GHz**. C6'eren er enkeltbånds, så årsag 201 er
 stadig næsten altid et 5 GHz-net. Den fejl flytter med.
 
+**Og én ting fulgte ikke med gratis:** `esp_read_mac(…, ESP_MAC_WIFI_STA)`
+virker ikke, fordi chippen ikke har en wifi-MAC. Det kostede nær at hver
+enkelt ZDisplay meldte sig på flåden under samme navn. Se afsnittet "Og
+det gennemgangen fandt bagefter".
+
 ---
 
 ## Hvad Seeed selv leverer

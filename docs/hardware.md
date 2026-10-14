@@ -1,5 +1,10 @@
 # Hardware og flashning
 
+Den her fil handler om **zScreen** på Seeed SenseCAP Indicator D1. Den
+store skærm, ZDisplay på reTerminal D1001, har sin egen: se
+`docs/zdisplay.md`. Den flashes over USB-C i stedet for UART, bygges med
+en anden ESP-IDF, og har ikke været tændt endnu.
+
 ## Enheden
 
 **Seeed SenseCAP Indicator D1**
