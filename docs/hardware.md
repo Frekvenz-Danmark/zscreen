@@ -166,10 +166,34 @@ Den siger også fra hvis servercertifikatet ikke dækker den adresse du
 giver. Gør det ikke, afviser enheden serveren med en TLS-fejl der ser ud
 som *"EOF occurred in violation of protocol"* og ikke peger nogen steder.
 
+**ADRESSEN ER IKKE DEN SAMME PAA DE TO PRODUKTER**, og det er den slags
+der ikke kan fortrydes:
+
+| Produkt | Chip | NVS ligger paa |
+|---|---|---|
+| zScreen | `esp32s3` | `0x9000` |
+| ZDisplay | `esp32p4` | `0xB000` |
+
 ```bash
+# zScreen
 esptool.py --chip esp32s3 -p /dev/cu.usbmodem* write_flash 0x9000 \
     firmware-filer/nvs/zscreen-<id>-nvs.bin
+
+# ZDisplay — BEMAERK 0xB000, ikke 0x9000
+esptool.py --chip esp32p4 -p /dev/cu.usbmodem* write_flash 0xB000 \
+    firmware-filer/nvs/zdisplay-<id>-nvs.bin
 ```
+
+**Skriver man 0x9000 paa en ZDisplay, rammer man bootloaderen.** Dens
+bootloader ligger paa `0x2000` og partitionstabellen paa `0xA000` —
+`0x9000` er altsaa midt i bootloaderen, og kortet starter ikke op
+bagefter. Det kan rettes med `./tools/flash-firmware.sh zdisplay`, som
+skriver bootloaderen igen, men papirerne er vaek og skal skrives ind
+forfra.
+
+Tallene i tabellen er haandhaevet mod `partitions.csv` af
+`tools/check-dokumentation.py`, saa de ikke kan komme i utakt med
+partitionstabellerne.
 
 **AT FLASHE NVS SLETTER ALT ANDET I NVS:** wifi-navn, kodeord, valgt
 inverter og tema. Det er rigtigt på en ny enhed og forkert på en der står

@@ -210,6 +210,100 @@ def batteritabellen():
     return fejl, len(kode_raekker)
 
 
+# ---------------------------------------------------------------------
+# NVS-ADRESSEN I HARDWARE.MD
+#
+# docs/hardware.md fortaeller hvordan papirerne - certifikat, noegle, CA
+# og serveradresse - skrives ind i en ny enhed med esptool. Adressen er
+# IKKE den samme paa de to produkter:
+#
+#     zScreen   nvs paa 0x9000
+#     ZDisplay  nvs paa 0xB000
+#
+# Skriver man 0x9000 paa en ZDisplay, rammer man bootloaderen - den
+# ligger paa 0x2000 og partitionstabellen paa 0xA000. Kortet starter
+# ikke op bagefter, og det er den slags en forkert linje i et dokument
+# ikke maa kunne koste.
+#
+# Derfor laeses tallene ud af partitions.csv og holdes op mod tabellen i
+# dokumentet.
+# ---------------------------------------------------------------------
+
+NVS_RAEKKE = re.compile(
+    r"^\|\s*(zScreen|ZDisplay)\s*\|\s*`(esp32\w+)`\s*\|\s*`0x([0-9A-Fa-f]+)`",
+    re.M)
+BOARD_AF = {"zScreen": "zscreen", "ZDisplay": "zdisplay"}
+CHIP_AF = {"zscreen": "esp32s3", "zdisplay": "esp32p4"}
+
+
+def nvs_fra_csv(board):
+    """nvs-partitionens adresse, som den staar i partitions.csv."""
+    sti = ROD / f"firmware/boards/{board}/partitions.csv"
+    if not sti.exists():
+        return None
+    for l in sti.read_text(encoding="utf-8").split("\n"):
+        if l.strip().startswith("nvs,"):
+            dele = [d.strip() for d in l.split(",")]
+            if len(dele) >= 4 and dele[3].lower().startswith("0x"):
+                return int(dele[3], 16)
+    return None
+
+
+def tjek_nvs_adresser():
+    sti = ROD / "docs/hardware.md"
+    if not sti.exists():
+        return ["docs/hardware.md findes ikke"]
+    tekst = sti.read_text(encoding="utf-8")
+    fundet = {}
+    for m in NVS_RAEKKE.finditer(tekst):
+        fundet[BOARD_AF[m.group(1)]] = (m.group(2), int(m.group(3), 16))
+
+    ud = []
+    for board in ("zscreen", "zdisplay"):
+        rigtig = nvs_fra_csv(board)
+        if rigtig is None:
+            ud.append(f"kunne ikke laese nvs-adressen i "
+                      f"firmware/boards/{board}/partitions.csv")
+            continue
+        if board not in fundet:
+            ud.append(f"docs/hardware.md har ingen raekke med {board}s "
+                      f"nvs-adresse. Uden den staar der kun ét tal, og "
+                      f"det ene er forkert paa det andet produkt")
+            continue
+        chip, adr = fundet[board]
+        if adr != rigtig:
+            ud.append(f"docs/hardware.md siger at {board}s nvs ligger paa "
+                      f"0x{adr:X}, men partitions.csv siger 0x{rigtig:X}. "
+                      f"Skriver man det forkerte tal, rammer man noget "
+                      f"andet end nvs")
+        if chip != CHIP_AF[board]:
+            ud.append(f"docs/hardware.md siger at {board} er {chip}, men "
+                      f"den er {CHIP_AF[board]}")
+
+    # Og at kommandoerne i dokumentet bruger de samme tal.
+    for board in ("zscreen", "zdisplay"):
+        rigtig = nvs_fra_csv(board)
+        if rigtig is None:
+            continue
+        kommando = f"--chip {CHIP_AF[board]}"
+        for l in tekst.split("\n"):
+            if kommando in l or (board in l and "write_flash" in l):
+                continue
+        # Findes der en write_flash-linje for chippen, skal adressen staa
+        # i den eller paa linjen efter.
+        import re as _re
+        for m in _re.finditer(
+                _re.escape(kommando) + r"[^\n]*(?:\\\n[^\n]*)?", tekst):
+            blok = m.group(0)
+            if "write_flash" not in blok:
+                continue
+            if f"0x{rigtig:X}" not in blok and f"0x{rigtig:x}" not in blok:
+                ud.append(f"kommandoen med --chip {CHIP_AF[board]} i "
+                          f"docs/hardware.md skriver ikke til "
+                          f"0x{rigtig:X}, som er hvor {board}s nvs ligger")
+    return ud
+
+
 def main():
     print("Tjekker at dokumentationen passer med koden ...")
     kon = konstanter()
@@ -263,14 +357,15 @@ def main():
     # 4. Batteritabellen i noterne mod TABEL i koden
     bfejl, braekker = batteritabellen()
     fejl += bfejl
+    fejl += tjek_nvs_adresser()
 
     if fejl:
         for f in fejl:
             print(f"  {ROED}FEJL{SLUT} {f}")
         return 1
     print(f"  {GROEN} OK{SLUT} {raekker} registerrækker, {braekker} "
-          f"batteritilstande, {nk} konstanter og {nf} filhenvisninger "
-          f"passer med koden.")
+          f"batteritilstande, {nk} konstanter, {nf} filhenvisninger og "
+          f"begge nvs-adresser passer med koden.")
     return 0
 
 
