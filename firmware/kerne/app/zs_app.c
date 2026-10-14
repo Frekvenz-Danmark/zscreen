@@ -29,6 +29,7 @@
 #include "zs_price.h"
 #include "zs_screen_setup.h"
 #include "zs_fejl.h"
+#include "zs_stroem.h"
 #include "zs_lyd.h"
 #include "zs_screen_tilmeld.h"
 #include "zs_ota.h"
@@ -1011,6 +1012,14 @@ static void fejl_tik(int64_t nu_ms)
 {
     zs_fejl_ind_t ind;
     memset(&ind, 0, sizeof(ind));
+    /*
+     * Stroemmen. zs_stroem_laes() svarer paa_stroem = sand paa et board
+     * uden batteri, saa zScreen aldrig melder stroemsvigt - se
+     * zs_stroem_ingen.c.
+     */
+    zs_stroem_t stroem;
+    zs_stroem_laes(&stroem);
+    ind.paa_stroem      = stroem.paa_stroem;
     ind.paa_wifi        = (zs_wifi_state() == ZS_WIFI_CONNECTED);
     ind.inverter_svarer = zs_fr_is_connected(&s_fr);
     ind.inverter_opsat  = (s_cfg.inverter_ip[0] != '\0');
@@ -2455,6 +2464,14 @@ bool zs_app_start(void)
      * foer en genstart, og det er rigtigt: hvad der var galt i gaar,
      * siger ingenting om hvad der er galt nu. */
     zs_fejl_init(&s_fejl_vagt);
+
+    /*
+     * Stroemmen. Svarer falsk paa zScreen, som ikke har noget batteri,
+     * og det er ikke en fejl - se zs_stroem.h. Kaldet skriver de maalte
+     * millivolt i loggen, saa graensen for "der er stroem paa" kan
+     * efterproeves paa en rigtig enhed i stedet for gaettes.
+     */
+    (void)zs_stroem_init();
 
     /* Otte pladser er rigeligt: brugeren kan ikke trykke hurtigere end
      * opgaven arbejder, og bliver koen alligevel fuld, er den foerste

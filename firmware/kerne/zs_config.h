@@ -208,6 +208,20 @@
  * kommer frem naar skaermen faktisk har GIVET OP - og ikke mens den
  * stadig er ved at finde en inverter der bare har skiftet adresse.
  */
+/*
+ * STROEMMEN: 30 SEKUNDER.
+ *
+ * Kortere end inverterens to minutter, fordi der ikke er noget at
+ * vente paa - spaendingen paa stikket falder i samme oejeblik kablet
+ * ryger, og der er ingen router der skal finde sig selv igen.
+ *
+ * Men ikke nul. Et kort dyk - en stikdaase der bliver flyttet, en
+ * forsyning der slaar kortvarigt ud - skal ikke blinke og bippe. En
+ * halv time ville vaere for sent: ZDisplay koerer paa batteri og
+ * bliver stille toemt, og den der skal saette kablet i, staar
+ * sandsynligvis i rummet lige nu.
+ */
+#define ZS_FEJL_STROEM_GRAENSE_MS     (30 * 1000)
 #define ZS_FEJL_WIFI_GRAENSE_MS       (20 * 1000)
 #define ZS_FEJL_INVERTER_GRAENSE_MS   (120 * 1000)
 

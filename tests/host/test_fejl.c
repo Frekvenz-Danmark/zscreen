@@ -19,6 +19,16 @@ static zs_fejl_ind_t alt_godt(void)
 {
     zs_fejl_ind_t i;
     memset(&i, 0, sizeof(i));
+    /*
+     * paa_stroem SKAL saettes her.
+     *
+     * Structen memsettes til nul, og nul betyder "ingen stroem". Uden
+     * den her linje ville HVER proeve i filen melde stroemsvigt efter
+     * tredive sekunder - og det er netop derfor feltet er defineret
+     * saadan at sand er "alt er fint": en kalder der glemmer det,
+     * bliver fanget af proeverne med det samme.
+     */
+    i.paa_stroem = true;
     i.paa_wifi = true;
     i.inverter_svarer = true;
     i.inverter_opsat = true;
@@ -217,6 +227,8 @@ void test_fejl(void)
     CHECK("wifi er alvorligt", zs_fejl_alvorlig(ZS_FEJL_WIFI));
     CHECK("en inverter der er vaek er alvorligt",
           zs_fejl_alvorlig(ZS_FEJL_INVERTER));
+    CHECK("ingen stroem er alvorligt",
+          zs_fejl_alvorlig(ZS_FEJL_INGEN_STROEM));
     CHECK("en inverter der SOVER er ikke alvorligt",
           !zs_fejl_alvorlig(ZS_FEJL_INVERTER_SOVER));
     CHECK("ingen fejl er ikke alvorligt", !zs_fejl_alvorlig(ZS_FEJL_INGEN));
@@ -226,8 +238,8 @@ void test_fejl(void)
     {
         bool enige = true;
         const zs_fejl_type_t fire[] = {
-            ZS_FEJL_INGEN, ZS_FEJL_WIFI, ZS_FEJL_INVERTER,
-            ZS_FEJL_INVERTER_SOVER,
+            ZS_FEJL_INGEN, ZS_FEJL_INGEN_STROEM, ZS_FEJL_WIFI,
+            ZS_FEJL_INVERTER, ZS_FEJL_INVERTER_SOVER,
         };
         for (unsigned i = 0; i < sizeof(fire) / sizeof(fire[0]); i++) {
             /* Byg en verden der giver netop den type. */
@@ -235,6 +247,7 @@ void test_fejl(void)
             zs_fejl_init(&w);
             zs_fejl_ind_t ii = alt_godt();
             switch (fire[i]) {
+            case ZS_FEJL_INGEN_STROEM: ii.paa_stroem = false; break;
             case ZS_FEJL_WIFI:   ii.paa_wifi = false; break;
             case ZS_FEJL_INVERTER:
                 ii.inverter_tilstand = 4; break;
@@ -254,8 +267,90 @@ void test_fejl(void)
                 enige = false;
             }
         }
-        CHECK("blinket foelger alvoren for alle fire slags", enige);
+        CHECK("blinket foelger alvoren for alle fem slags", enige);
     }
+
+    /*
+     * ── STROEMMEN ──
+     *
+     * ZDisplay har batteri og bliver derfor ved med at virke naar
+     * stroemmen ryger: wifi er der, inverteren svarer, tallene er
+     * rigtige. Uden den her tilstand ville skaermen melde "alt virker"
+     * hele vejen ned mod sort.
+     */
+    ZS_SUITE("Stroemmen: skaermen koerer paa batteri");
+
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    ud = zs_fejl_tik(&v, &ind, 1000);
+    CHECK("paa stroem: ingen fejl", ud.type == ZS_FEJL_INGEN);
+
+    ind.paa_stroem = false;
+    ud = zs_fejl_tik(&v, &ind, 1000);
+    CHECK("stroemmen lige gaaet: endnu ingen fejl",
+          ud.type == ZS_FEJL_INGEN);
+
+    ud = zs_fejl_tik(&v, &ind, 1000 + ZS_FEJL_STROEM_GRAENSE_MS - 1);
+    CHECK("lige under graensen: stadig ingen fejl",
+          ud.type == ZS_FEJL_INGEN);
+
+    ud = zs_fejl_tik(&v, &ind, 1000 + ZS_FEJL_STROEM_GRAENSE_MS);
+    CHECK("paa graensen: fejlen er stroemmen",
+          ud.type == ZS_FEJL_INGEN_STROEM);
+    CHECK("og den blinker", ud.blink);
+    CHECK("og den bipper med det samme", ud.lyd);
+
+    /*
+     * KABLET SAT I: fejlen skal slippe STRAKS. Der er ingen grund til
+     * at lade en skaerm blinke efter at mennesket har gjort det rigtige
+     * - saa ville man tro at det ikke hjalp.
+     */
+    ind.paa_stroem = true;
+    ud = zs_fejl_tik(&v, &ind, 1000 + ZS_FEJL_STROEM_GRAENSE_MS + 1);
+    CHECK("kablet sat i: fejlen slipper straks",
+          ud.type == ZS_FEJL_INGEN);
+    CHECK("og blinket stopper", !ud.blink);
+
+    /*
+     * STROEMMEN FOERST. Ryger stroemmen OG nettet, er det stroemmen der
+     * skal staa paa skaermen: den er den eneste af de to der ender med
+     * en sort skaerm, og den eneste en kunde kan rette med haenderne.
+     */
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    ind.paa_stroem = false;
+    ind.paa_wifi = false;
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ud = zs_fejl_tik(&v, &ind, 10 * MIN_MS);
+    CHECK("baade stroem og net vaek: stroemmen staar foerst",
+          ud.type == ZS_FEJL_INGEN_STROEM);
+
+    /*
+     * OG EN SKAERM UDEN BATTERI MAA ALDRIG MELDE DET. zScreen svarer
+     * altid paa_stroem = sand, for koerer den, ER der stroem. Proeven
+     * her er paa REGLEN: er flaget sandt, findes fejlen ikke, uanset
+     * hvor laenge der gaar.
+     */
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ud = zs_fejl_tik(&v, &ind, 48 * 60 * MIN_MS);
+    CHECK("to doegn paa stroem: aldrig et stroemsvigt",
+          ud.type == ZS_FEJL_INGEN);
+
+    /* Teksterne skal findes, ellers staar siden tom. */
+    CHECK("stroemfejlen har en titel",
+          zs_fejl_titel(ZS_FEJL_INGEN_STROEM)[0] != '\0');
+    CHECK("og en overskrift",
+          zs_fejl_overskrift(ZS_FEJL_INGEN_STROEM)[0] != '\0');
+    CHECK("og en forklaring",
+          zs_fejl_forklaring(ZS_FEJL_INGEN_STROEM)[0] != '\0');
+    /*
+     * MEN INGEN KNAP. Der er ingenting skaermen kan goere - kablet skal
+     * i. En knap uden handling er vaerre end ingen knap.
+     */
+    CHECK("og INGEN knap, for der er ingenting at trykke paa",
+          zs_fejl_knap(ZS_FEJL_INGEN_STROEM)[0] == '\0');
 
     /* ── NULL maa ikke faa en skaerm til at blinke ── */
     ud = zs_fejl_tik(NULL, &ind, 0);
@@ -649,12 +744,29 @@ void test_fejl_tekster(void)
      * Indstillinger paa ethvert anlaeg uden batteri. Soevn staar nu i
      * statuslinjen i stedet, som ZS_LINK_SOVER.
      */
-    const zs_fejl_type_t alle[] = {
-        ZS_FEJL_WIFI, ZS_FEJL_INVERTER,
+    /*
+     * OG OM DEN HAR EN KNAP.
+     *
+     * Her stod kun typerne, og saa var "hver fejl har en knap" en
+     * paastand om alle fejl med en side. Det holder ikke laengere:
+     * ZS_FEJL_INGEN_STROEM HAR en side - den er alvorlig og blinker -
+     * men den har med vilje ingen knap, for kablet skal i, og det kan
+     * skaermen ikke selv.
+     *
+     * Havde listen bare faaet den nye type med, ville knap-proeven
+     * falde. Havde vi ladet den vaere ude, ville den nye sides TEKSTER
+     * aldrig blive proevet, og en side uden overskrift ser ud som en
+     * skaerm der er i stykker. Derfor staar det nu som en tabel: hver
+     * type MED om den skal have en knap.
+     */
+    const struct { zs_fejl_type_t t; bool knap; } alle[] = {
+        { ZS_FEJL_WIFI,         true  },
+        { ZS_FEJL_INVERTER,     true  },
+        { ZS_FEJL_INGEN_STROEM, false },
     };
 
     for (unsigned i = 0; i < sizeof(alle) / sizeof(alle[0]); i++) {
-        zs_fejl_type_t t = alle[i];
+        zs_fejl_type_t t = alle[i].t;
         CHECK("hver fejl har en titel",
               zs_fejl_titel(t) != NULL && zs_fejl_titel(t)[0] != '\0');
         CHECK("hver fejl har en overskrift",
@@ -662,8 +774,13 @@ void test_fejl_tekster(void)
         CHECK("hver fejl har en forklaring",
               zs_fejl_forklaring(t) != NULL
               && zs_fejl_forklaring(t)[0] != '\0');
-        CHECK("hver fejl har en knap der kan foere videre",
-              zs_fejl_knap(t) != NULL && zs_fejl_knap(t)[0] != '\0');
+        if (alle[i].knap) {
+            CHECK("hver fejl har en knap der kan foere videre",
+                  zs_fejl_knap(t) != NULL && zs_fejl_knap(t)[0] != '\0');
+        } else {
+            CHECK("og den uden handling har INGEN knap",
+                  zs_fejl_knap(t) != NULL && zs_fejl_knap(t)[0] == '\0');
+        }
         CHECK("hver fejl har et navn til loggen",
               zs_fejl_navn(t) != NULL && zs_fejl_navn(t)[0] != '\0');
     }
@@ -676,6 +793,11 @@ void test_fejl_tekster(void)
     CHECK("wifi og inverter siger ikke det samme",
           strcmp(zs_fejl_overskrift(ZS_FEJL_WIFI),
                  zs_fejl_overskrift(ZS_FEJL_INVERTER)) != 0);
+    CHECK("og stroemmen siger noget tredje",
+          strcmp(zs_fejl_overskrift(ZS_FEJL_INGEN_STROEM),
+                 zs_fejl_overskrift(ZS_FEJL_WIFI)) != 0
+          && strcmp(zs_fejl_overskrift(ZS_FEJL_INGEN_STROEM),
+                    zs_fejl_overskrift(ZS_FEJL_INVERTER)) != 0);
     /*
      * Og soevn har INGEN sidetekster. Kommer der tekster paa den igen,
      * er det fordi nogen har givet den en side - og saa skal den ogsaa
@@ -708,10 +830,10 @@ void test_fejl_tekster(void)
         const size_t buffer = 200;
         bool plads = true;
         for (unsigned i = 0; i < sizeof(alle) / sizeof(alle[0]); i++) {
-            size_t n = strlen(zs_fejl_forklaring(alle[i])) + hale + 1;
+            size_t n = strlen(zs_fejl_forklaring(alle[i].t)) + hale + 1;
             if (n > buffer) {
                 ZS_FAIL("forklaringen til %s bliver afkortet: %u bytes af %u",
-                        zs_fejl_navn(alle[i]), (unsigned)n, (unsigned)buffer);
+                        zs_fejl_navn(alle[i].t), (unsigned)n, (unsigned)buffer);
                 plads = false;
             }
         }
@@ -731,8 +853,8 @@ void test_fejl_tekster(void)
     bool rent = true;
     for (unsigned i = 0; i < sizeof(alle) / sizeof(alle[0]); i++) {
         const char *tekster[] = {
-            zs_fejl_titel(alle[i]), zs_fejl_overskrift(alle[i]),
-            zs_fejl_forklaring(alle[i]), zs_fejl_knap(alle[i]),
+            zs_fejl_titel(alle[i].t), zs_fejl_overskrift(alle[i].t),
+            zs_fejl_forklaring(alle[i].t), zs_fejl_knap(alle[i].t),
         };
         for (unsigned j = 0; j < sizeof(tekster) / sizeof(tekster[0]); j++) {
             for (unsigned k = 0; k < sizeof(forbudt) / sizeof(forbudt[0]); k++) {

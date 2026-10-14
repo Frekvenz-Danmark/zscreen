@@ -49,6 +49,16 @@ extern "C" {
  */
 typedef enum {
     ZS_FEJL_INGEN = 0,          /* alt virker                           */
+    /*
+     * Skaermen koerer paa batteri. Kun ZDisplay kan naa den her: den
+     * har et batteri og bliver derfor ved med at vise tal som om alt
+     * var i orden, mens den loeber toer. zScreen melder altid "paa
+     * stroem", for koerer den, ER der stroem - se zs_stroem_ingen.c.
+     *
+     * Den staar FOERST af de alvorlige, fordi den er den eneste der
+     * ender med en sort skaerm hvis ingen gOEr noget.
+     */
+    ZS_FEJL_INGEN_STROEM,
     ZS_FEJL_WIFI,               /* skaermen er ikke paa netvaerket       */
     ZS_FEJL_INVERTER,           /* paa nettet, men anlaegget svarer ikke */
     ZS_FEJL_INVERTER_SOVER,     /* forsvandt mens den selv meldte soevn  */
@@ -97,6 +107,16 @@ typedef enum {
  * bytte plads i et kald.
  */
 typedef struct {
+    /*
+     * Er der stroem paa stikket. Fra zs_stroem_laes().
+     *
+     * SAND betyder "alt er fint", og det er med vilje: et board uden
+     * batteri svarer altid sandt, saa en skaerm der ikke KAN maale,
+     * aldrig kommer til at melde stroemsvigt. Et felt der er nul som
+     * standard ville melde fejl paa hver skaerm den dag nogen glemte at
+     * fylde det.
+     */
+    bool    paa_stroem;
     bool    paa_wifi;           /* zs_wifi_state() == CONNECTED          */
     bool    inverter_svarer;    /* zs_fr_is_connected()                  */
     bool    inverter_opsat;     /* er der overhovedet valgt en inverter  */
@@ -154,6 +174,9 @@ typedef struct {
      * en sentinel der kan forveksles med en rigtig vaerdi er den slags
      * der en dag bliver et rigtigt problem et andet sted.
      */
+    /* Stroemmen: eget ur, samme form som wifi'ets. */
+    bool    stroem_tabt;
+    int64_t stroem_tabt_ms;
     bool    wifi_tabt;
     int64_t wifi_tabt_ms;
     /*

@@ -28,6 +28,7 @@ idf_component_register(
         # Lyden: summeren sidder paa RP2040'eren og kan kun naas med en
         # COBS-pakke over en seriel ledning. Se kerne/hal/zs_lyd.h.
         "zs_lyd.c"
+        "zs_stroem_ingen.c"
 
         # ── Faelles med ZDisplay ───────────────────────────────────────
         ${ZS_MOTOR_SRCS}

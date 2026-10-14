@@ -96,6 +96,14 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
         v->sidste_tilstand = ind->inverter_tilstand;
     }
 
+    /* ── stroemmen: eget ur ── */
+    if (ind->paa_stroem) {
+        v->stroem_tabt = false;
+    } else if (!v->stroem_tabt) {
+        v->stroem_tabt = true;
+        v->stroem_tabt_ms = nu_ms;
+    }
+
     /* ── wifi: eget ur ── */
     if (ind->paa_wifi) {
         v->wifi_tabt = false;
@@ -160,6 +168,8 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
     }
     /* Uden wifi: summen staar stille, men inverteren er stadig vaek. */
 
+    bool stroem_fejl = v->stroem_tabt
+        && (nu_ms - v->stroem_tabt_ms >= ZS_FEJL_STROEM_GRAENSE_MS);
     bool wifi_fejl = v->wifi_tabt
         && (nu_ms - v->wifi_tabt_ms >= ZS_FEJL_WIFI_GRAENSE_MS);
     bool inv_fejl = v->inv_tabt
@@ -167,6 +177,21 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
 
     if (ind->demo) {
         ud.type = ZS_FEJL_INGEN;
+    } else if (stroem_fejl) {
+        /*
+         * STROEMMEN FOERST, FOER WIFI.
+         *
+         * Er stroemmen vaek, er skaermen vaek om nogle timer, og saa er
+         * der ingenting at vise overhovedet. Wifi og inverter kan
+         * fortsaette med at vaere i orden hele vejen ned - ZDisplay har
+         * batteri og bliver paa netvaerket - saa uden den her gren ville
+         * en skaerm paa vej mod sort melde "alt virker" indtil den gik
+         * ud.
+         *
+         * Og det er den ENESTE af de tre en kunde kan rette paa stedet
+         * uden vaerktoej: saet kablet i.
+         */
+        ud.type = ZS_FEJL_INGEN_STROEM;
     } else if (wifi_fejl) {
         /*
          * Wifi foerst. Er nettet vaek, er inverteren det ogsaa, og saa
@@ -266,6 +291,7 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
 const char *zs_fejl_titel(zs_fejl_type_t t)
 {
     switch (t) {
+    case ZS_FEJL_INGEN_STROEM:    return "Ingen strøm";
     case ZS_FEJL_WIFI:
     case ZS_FEJL_INVERTER:        return "Ingen forbindelse";
     case ZS_FEJL_INVERTER_SOVER:
@@ -277,6 +303,7 @@ const char *zs_fejl_titel(zs_fejl_type_t t)
 const char *zs_fejl_overskrift(zs_fejl_type_t t)
 {
     switch (t) {
+    case ZS_FEJL_INGEN_STROEM:    return "Skærmen kører på batteri";
     case ZS_FEJL_WIFI:            return "Skærmen er ikke på netværket";
     case ZS_FEJL_INVERTER:        return "Anlægget svarer ikke";
     case ZS_FEJL_INVERTER_SOVER:
@@ -288,6 +315,9 @@ const char *zs_fejl_overskrift(zs_fejl_type_t t)
 const char *zs_fejl_forklaring(zs_fejl_type_t t)
 {
     switch (t) {
+    case ZS_FEJL_INGEN_STROEM:
+        return "Sæt strømkablet i. Skærmen slukker af sig selv, når "
+               "batteriet er brugt op.";
     case ZS_FEJL_WIFI:
         return "Tallene fra anlægget kan ikke hentes, før skærmen er "
                "på netværket igen.";
@@ -303,6 +333,10 @@ const char *zs_fejl_forklaring(zs_fejl_type_t t)
 const char *zs_fejl_knap(zs_fejl_type_t t)
 {
     switch (t) {
+    /* Ingen knap: der er ingenting skaermen kan goere. Kablet skal
+     * i, og det kan kun et menneske. Knappen skjules, se
+     * zs_screen_fejl.c. */
+    case ZS_FEJL_INGEN_STROEM:    return "";
     case ZS_FEJL_WIFI:            return "Vælg netværk";
     case ZS_FEJL_INVERTER:        return "Søg efter anlægget";
     case ZS_FEJL_INVERTER_SOVER:
@@ -325,6 +359,7 @@ bool zs_fejl_alvorlig(zs_fejl_type_t t)
      * begge spoerger den.
      */
     switch (t) {
+    case ZS_FEJL_INGEN_STROEM:
     case ZS_FEJL_WIFI:
     case ZS_FEJL_INVERTER:        return true;
     case ZS_FEJL_INVERTER_SOVER:
@@ -337,6 +372,7 @@ const char *zs_fejl_navn(zs_fejl_type_t t)
 {
     switch (t) {
     case ZS_FEJL_INGEN:           return "ingen";
+    case ZS_FEJL_INGEN_STROEM:    return "ingen stroem";
     case ZS_FEJL_WIFI:            return "wifi";
     case ZS_FEJL_INVERTER:        return "inverter";
     case ZS_FEJL_INVERTER_SOVER:  return "inverter sover";

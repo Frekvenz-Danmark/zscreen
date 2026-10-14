@@ -27,6 +27,7 @@ idf_component_register(
         "zs_baglys_d1001.c"
         # Hoejttaleren er ikke bygget endnu. Se filen.
         "zs_lyd_d1001.c"
+        "zs_stroem_d1001.c"
 
         # ── Faelles med zScreen ────────────────────────────────────────
         ${ZS_MOTOR_SRCS}

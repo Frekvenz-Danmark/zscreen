@@ -110,6 +110,23 @@ static void skriv_teksten(void)
     if (s_knap_tekst != NULL) {
         lv_label_set_text(s_knap_tekst, zs_fejl_knap(s_type));
     }
+    /*
+     * EN KNAP UDEN HANDLING SKAL IKKE STAA DER.
+     *
+     * "Ingen strøm" har ingen knap: kablet skal i, og det kan kun et
+     * menneske. Teksten blev sat uanset hvad, saa en tom streng gav en
+     * tom roed bjaelke nederst paa siden - og en knap man kan trykke
+     * paa uden at der sker noget, er det der gOEr at man holder op med
+     * at tro paa siden.
+     */
+    if (s_knap != NULL) {
+        const char *k = zs_fejl_knap(s_type);
+        if (k == NULL || k[0] == '\0') {
+            lv_obj_add_flag(s_knap, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_clear_flag(s_knap, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
 
     /*
      * Forklaringen, og klokkeslaettet hvis vi har et.

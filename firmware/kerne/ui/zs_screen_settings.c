@@ -1,6 +1,7 @@
 #include "zs_screen_settings.h"
 #include "zs_ui.h"
 #include "zs_theme.h"
+#include "zs_stroem.h"
 #include "zs_app.h"
 #include "zs_config.h"
 #include "zs_screen_setup.h"
@@ -850,6 +851,50 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
         snprintf(buf, sizeof(buf), "%u min", (unsigned)(oppe_s / 60));
     }
     detail_line(s_det_col, "Oppe i", buf);
+
+    /*
+     * BATTERIET, OG KUN HER.
+     *
+     * Det staar paa Detaljer og ikke paa forsiden, og det er et valg.
+     * Forsiden er kundens fire tal om deres ANLAEG - solceller,
+     * forbrug, batteri og nettet - og "batteri" dér betyder husets
+     * batteri paa flere kilowattimer. Satte vi skaermens eget
+     * knapcellebatteri op ved siden af, ville to vidt forskellige ting
+     * hedde det samme paa den samme flade. Montoeren skal kunne se
+     * det; kunden skal ikke forholde sig til det.
+     *
+     * zScreen har intet batteri, og saa staar linjerne der slet ikke -
+     * se zs_stroem_ingen.c. Det afgoeres af boardet og ikke af en
+     * #ifdef her, saa fladen er den samme kode paa begge produkter.
+     */
+    zs_stroem_t st;
+    zs_stroem_laes(&st);
+    if (st.findes) {
+        if (st.procent >= 0) {
+            snprintf(buf, sizeof(buf), "%d %%", st.procent);
+        } else {
+            /* Maalingen er ikke klar endnu. "0 %" ville se ud som et
+             * doeende batteri; det her siger hvad der er. */
+            snprintf(buf, sizeof(buf), "maaler ...");
+        }
+        detail_line(s_det_col, "Batteri", buf);
+
+        /*
+         * Og hvad den koerer PAA. Det er den linje der betyder noget:
+         * en skaerm paa batteri koerer videre og viser tal som om alt
+         * var i orden, mens den loeber toer.
+         */
+        const char *kilde = st.paa_stroem
+                          ? (st.lader ? "Strøm, lader" : "Strøm")
+                          : "Batteri - ingen strøm";
+        detail_line(s_det_col, "Forsyning", kilde);
+
+        /* De raa millivolt. Til den der skal fejlsoege en daarlig
+         * forsyning og ikke kan naa loggen paa en vaeg. */
+        snprintf(buf, sizeof(buf), "%d mV stik, %d mV batteri",
+                 st.stik_mv, st.batteri_mv);
+        detail_line(s_det_col, "Spænding", buf);
+    }
 
     /*
      * Floedestyringen.
