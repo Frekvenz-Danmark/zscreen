@@ -467,6 +467,15 @@ static esp_err_t esp_lcd_touch_gsl3670_init(esp_lcd_touch_handle_t tp)
     touch_gsl3670_reset(tp);
     esp_lcd_touch_gsl3670_load_fw(tp);
     esp_lcd_touch_gsl3670_startup_chip(tp);
+
+    /*
+     * HER STOD EN MAALING AF 0xb0 FOER DEN ANDEN RESET, og den
+     * var misforstaaet. 0xb0 er nul paa det tidspunkt ogsaa
+     * naar alt lykkes - det er netop den anden reset plus
+     * startup_chip der saetter firmwaren i gang og faar
+     * chippen til at skrive 5a5a5a5a. Maalingen pegede derfor
+     * paa en fejl der ikke var der.
+     */
     touch_gsl3670_reset(tp);
     esp_lcd_touch_gsl3670_startup_chip(tp);
 
@@ -590,6 +599,8 @@ static esp_err_t esp_lcd_touch_gsl3670_load_fw(esp_lcd_touch_handle_t tp)
     unsigned char wrbuf[4];
     uint16_t source_line = 0;
     uint16_t source_len = sizeof(GSLX670_FW) / sizeof(struct fw_data);
+    uint16_t fejl = 0, foerste = 0, foerste_reg = 0;
+    esp_err_t foerste_fejl = ESP_OK;
 
     for(source_line=0;source_line<source_len;source_line++)
     {
@@ -598,13 +609,35 @@ static esp_err_t esp_lcd_touch_gsl3670_load_fw(esp_lcd_touch_handle_t tp)
         wrbuf[1] = (uint8_t)((GSLX670_FW[source_line].val & 0x0000ff00) >> 8);
         wrbuf[2] = (uint8_t)((GSLX670_FW[source_line].val & 0x00ff0000) >> 16);
         wrbuf[3] = (uint8_t)((GSLX670_FW[source_line].val & 0xff000000) >> 24);
+        esp_err_t w;
         if(addr == 0xf0)
-            touch_gsl3670_i2c_write(tp,addr,wrbuf,1);
+            w = touch_gsl3670_i2c_write(tp,addr,wrbuf,1);
         else
-            touch_gsl3670_i2c_write(tp,addr,wrbuf,4);
-        
+            w = touch_gsl3670_i2c_write(tp,addr,wrbuf,4);
+        /*
+         * Her blev svaret smidt vaek, og saa stod der "load fw
+         * success" bagefter uanset hvad. Det er ikke en maaling, det
+         * er en paastand - og det er praecis den slags der goer at man
+         * leder efter fejlen det forkerte sted.
+         */
+        if (w != ESP_OK) {
+            if (fejl == 0) {
+                foerste = source_line;
+                foerste_reg = addr;
+                foerste_fejl = w;
+            }
+            fejl++;
+        }
     }
-    ESP_LOGI(TAG,"load fw success");
+    if (fejl) {
+        ESP_LOGE(TAG, "load fw: %u af %u writes fejlede, foerste paa "
+                      "linje %u (register %x): %s",
+                 (unsigned)fejl, (unsigned)source_len, (unsigned)foerste,
+                 (unsigned)foerste_reg, esp_err_to_name(foerste_fejl));
+        return foerste_fejl;
+    }
+    ESP_LOGI(TAG,"load fw success (%u writes, alle kvitteret)",
+             (unsigned)source_len);
     return ESP_OK;
 }
 
