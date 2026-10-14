@@ -265,6 +265,50 @@ byg_saet() {
         ok "${name} ($(wc -c < "${dst}" | tr -d ' ') bytes C-kode)"
     }
 
+    # ── Skrifternes FAKTISKE linjehoejder ─────────────────────────
+    #
+    # HVORFOR DE SKRIVES UD.
+    #
+    # Layoutet reserverer en hoejde til hver tekstlinje i et kort. De tal
+    # var skaleringer af 480-tallene, og de passede ikke med hvad
+    # skriften faktisk bruger. Maalt paa enheden:
+    #
+    #                reserveret   skriften bruger
+    #   broed  480        18            20      2 px for lidt
+    #   broed  800        30            33      3 px for lidt
+    #
+    # Resultatet var at underteksten stak 5 px ned under kortets
+    # inderkant paa alle fire kort. Maalebaandet i
+    # firmware/kerne/ui/zs_ui_maal.c fandt det paa enheden.
+    #
+    # lv_font_conv skriver selv linjehoejden i den genererede fil. Her
+    # tages den DERFRA og laegges i en header, saa layoutet kan reservere
+    # det der faktisk skal bruges i stedet for at gaette.
+    info "Skriver skrifternes maal"
+    {
+        echo "/* GENERERET af tools/build-assets.sh. Ret den ikke. */"
+        echo "/*"
+        echo " * Linjehoejderne som lv_font_conv selv har regnet dem, for"
+        echo " * saettet til ${SAET_W} px bredde. zs_layout.h reserverer"
+        echo " * plads efter DE HER tal og ikke efter et skaleret"
+        echo " * overslag - se ZS_G_CARD_SUB_HEIGHT."
+        echo " */"
+        echo "/* Guarden slutter paa _INC og ikke _H: et navn der"
+        echo " * slutter paa _H er forbeholdt headere der ligger"
+        echo " * hvor tools/check-headers.sh kigger, og den her"
+        echo " * ligger dybere. Se husreglen i check-headers.sh. */"
+        echo "#ifndef ZS_SKRIFT_MAAL_INC"
+        echo "#define ZS_SKRIFT_MAAL_INC"
+        for n in tal stor rad broed etiket kb; do
+            lh=$(grep -o "\.line_height = [0-9]*" "${OUT}/zs_font_${n}.c" \
+                 | head -1 | grep -o "[0-9]*")
+            [ -n "${lh}" ] || fail "kunne ikke laese linjehoejden i zs_font_${n}.c"
+            printf '#define ZS_LH_%-8s %s\n' "$(echo ${n} | tr a-z A-Z)" "${lh}"
+        done
+        echo "#endif /* ZS_SKRIFT_MAAL_INC */"
+    } > "${OUT}/zs_skrift_maal.h"
+    ok "zs_skrift_maal.h ($(grep -c '^#define' "${OUT}/zs_skrift_maal.h") linjehoejder)"
+
     info "Bygger ikoner"
     build_icons zs_ikon_lille "$(sk 20)"
     build_icons zs_ikon_stor  "$(sk 28)"

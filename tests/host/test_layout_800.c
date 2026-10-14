@@ -88,13 +88,34 @@ void test_layout_800(void)
      * ud paa en vaeg.
      *
      * Nu foelger de skaermens BREDDE, fordi en tekst skal kunne vaere
-     * der i bredden. 800 / 480 giver 1,67, og det kan regnes efter.
+     * der i bredden.
+     *
+     * HER STOD DER FOER at tallet skulle vaere 54 * 800 / 480 = 90.
+     * Det var et overslag, og overslaget var forkert: skriften bliver
+     * bygget af lv_font_conv, og DEN bestemmer hvor hoej en linje er.
+     * Den blev 88 og ikke 90. Reserverede vi 90, stod der 2 px luft
+     * for meget i bunden af kortet; reserverede vi 86, blev linjen
+     * klippet. Derfor kommer tallene nu fra zs_skrift_maal.h, som
+     * build-assets.sh skriver ud fra den skrift der faktisk ligger i
+     * flashen - og proeven spoerger om DET er det der er reserveret.
      */
     CHECK("overskriften er vokset", ZS_G_CARD_HEAD_HEIGHT > 20);
     CHECK("det store tal er vokset", ZS_G_CARD_VALUE_HEIGHT > 54);
     CHECK("underteksten er vokset", ZS_G_CARD_SUB_HEIGHT > 18);
-    CHECK_INT("og tallet er vokset med skaermens bredde",
-              ZS_G_CARD_VALUE_HEIGHT, 54 * 800 / 480);
+    CHECK_INT("der er reserveret praecis det skriften maaler",
+              ZS_G_CARD_VALUE_HEIGHT, ZS_LH_TAL);
+    CHECK_INT("og underteksten ogsaa", ZS_G_CARD_SUB_HEIGHT, ZS_LH_BROED);
+    /*
+     * OG SAA EN VAGT PAA SELVE SKRIFTEN. Tallene ovenfor passer ogsaa
+     * hvis nogen henter saettet til 480 ind paa en 800 px skaerm - saa
+     * ville der staa 54 begge steder, og proeven ville sige ok til en
+     * skaerm med knappenaalsskrift. Overslaget er stadig det rigtige
+     * sted at vaere taet paa, bare ikke praecis: 4 px er et afrundet
+     * skridt i en skriftstoerrelse, 36 px er et forkert saet.
+     */
+    CHECK("og skriften hoerer til DEN HER skaerm, ikke en anden",
+          ZS_G_CARD_VALUE_HEIGHT > 54 * 800 / 480 - 4
+          && ZS_G_CARD_VALUE_HEIGHT < 54 * 800 / 480 + 4);
 
     ZS_SUITE("Layout på 800 x 1280: det der stadig er en designbeslutning");
 
@@ -105,7 +126,7 @@ void test_layout_800(void)
      * boer vaere stoerre end den stoerste af dem. Paa 480 er 33 under
      * 54, og det ser rigtigt ud.
      *
-     * Efter skaleringen er tallet 90 og mellemrummet 175. Altsaa stadig
+     * Efter skaleringen er tallet 88 og mellemrummet 176. Altsaa stadig
      * for tomt - og det kan skaleringen ikke loese, for kortet er 550
      * px hoejt og tre tekstlinjer fylder 153.
      *
@@ -128,5 +149,5 @@ void test_layout_800(void)
           ZS_G_CARD_TEXT_GAP > ZS_G_CARD_VALUE_HEIGHT);
     CHECK_INT("og hvor meget tallet skal vokse for at reglen holder",
               (ZS_G_CARD_IN_HEIGHT - ZS_G_CARD_HEAD_HEIGHT
-               - ZS_G_CARD_SUB_HEIGHT) / 3, 147);
+               - ZS_G_CARD_SUB_HEIGHT) / 3, 146);
 }

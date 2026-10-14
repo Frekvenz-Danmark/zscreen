@@ -253,8 +253,14 @@ def kerne():
             p = pathlib.Path(m)
             if p.exists():
                 kilder.append(p.resolve())
-    stier = [pathlib.Path(m).resolve()
-             for m in re.findall(r'"([^"]+)"', blok_efter(tekst, "ZS_KERNE_INCLUDE_DIRS"))]
+    # ${ZS_ASSET_DIR} udfoldes IKKE her. Den peger paa et forskelligt
+    # sted for hvert board - zScreen laeser saettet til 480 og ZDisplay
+    # det til 800 - saa den bliver staaende som tekst og foerst lavet om
+    # til en sti i tjek_board(), hvor vi ved hvilket saet boardet har
+    # valgt.
+    stier = []
+    for m in re.findall(r'"([^"]+)"', blok_efter(tekst, "ZS_KERNE_INCLUDE_DIRS")):
+        stier.append(m if "${ZS_ASSET_DIR}" in m else pathlib.Path(m).resolve())
     return kilder, stier
 
 
@@ -272,7 +278,24 @@ def tjek_board(navn, cmake, kerne_kilder, kerne_stier):
             rel = cmake.relative_to(ROD).as_posix()
             fejl.append(f"{rel}: SRCS naevner {m}, men filen findes ikke.")
 
-    stier = list(kerne_stier)
+    # Boardets eget saet af skrifttyper. Den staar i samme fil, og
+    # uden den kan vi ikke sige hvor ${ZS_ASSET_DIR} peger - saa vi
+    # siger fra i stedet for at lade som om stien ikke var der.
+    m_saet = re.search(r"set\(ZS_ASSET_SAET\s+(\w+)\)", tekst)
+    asset_dir = None
+    if m_saet:
+        asset_dir = (ROD / "firmware/kerne" / ASSET_ROD / m_saet.group(1)).resolve()
+
+    stier = []
+    for sti in kerne_stier:
+        if isinstance(sti, str):
+            if asset_dir is None:
+                continue        # sagt fra om i tjek_assets()
+            stier.append(pathlib.Path(
+                sti.replace("${ZS_ASSET_DIR}", asset_dir.as_posix())).resolve())
+        else:
+            stier.append(sti)
+
     blok = tekst.split("INCLUDE_DIRS", 1)
     if len(blok) == 2:
         for m in re.findall(r'"([^"$]+)"', blok[1].split("REQUIRES", 1)[0]):

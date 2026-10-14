@@ -172,6 +172,9 @@ set(ZS_ASSET_SRCS
 # boardet ligger: zs_baglys.h, zs_lyd.h og lv_port.h. Et nyt board
 # skriver en fil for hver af de tre, plus sin egen main.c.
 set(ZS_KERNE_INCLUDE_DIRS
+    # Saettets egen mappe: der ligger zs_skrift_maal.h med skrifternes
+    # faktiske linjehoejder, som zs_layout.h reserverer plads efter.
+    "${ZS_ASSET_DIR}"
     "${ZS_KERNE_DIR}/hal"
     "${ZS_KERNE_DIR}"
     "${ZS_KERNE_DIR}/net"

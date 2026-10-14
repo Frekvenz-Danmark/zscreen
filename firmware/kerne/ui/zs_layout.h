@@ -160,8 +160,52 @@
  * det er det foerste der gaar galt den dag skaermen skifter stoerrelse.
  */
 #define ZS_G_CARD_PAD       ZS_G_SK(14)    /* luft inde i kortet               */
-#define ZS_G_CARD_IN_WIDTH  (ZS_G_CARD_WIDTH - 2 * ZS_G_CARD_PAD)
-#define ZS_G_CARD_IN_HEIGHT (ZS_G_CARD_HEIGHT - 2 * ZS_G_CARD_PAD)
+/*
+ * ── KORTETS INDMAD ────────────────────────────────────────────────────
+ *
+ * TO TING VAR GALT, OG BEGGE BLEV MAALT PAA ENHEDEN af maalebaandet i
+ * zs_ui_maal.c. Paa alle fire kort:
+ *
+ *   324 x 90 stikker ud (hoejre 2)
+ *   324 x 33 stikker ud (hoejre 2, ned 5)
+ *
+ * 1. KANTEN BLEV IKKE REGNET MED. Kortets stil har border_width 1 (se
+ *    base_surface i zs_theme.c), og LVGL traekker den fra
+ *    indholdsfladen. Indholdet er altsaa 2 px smallere og 2 px lavere
+ *    end bredden minus polstringen.
+ *
+ * 2. DER BLEV RESERVERET MINDRE END SKRIFTEN BRUGER. Linjehoejderne var
+ *    skaleringer af 480-tallene, og lv_font_conv regner noget andet:
+ *
+ *                 reserveret   skriften bruger
+ *      broed 480       18            20        2 px for lidt
+ *      broed 800       30            33        3 px for lidt
+ *
+ *    Derfor stak underteksten ned under kortets inderkant.
+ *
+ * zSCREEN STAAR STILLE, OG DET ER EN BESLUTNING.
+ *
+ * Begge fejl har vaeret der paa zScreen hele tiden - 2 px, som ingen har
+ * bemaerket. At rette dem ville flytte zScreens korttekst 1 px, og det
+ * er valgt FRA: produktet virker, og en pixel er ikke vaerd at roere et
+ * produkt for. Den store skaerm gjorde fejlen synlig (5 px), den skabte
+ * den ikke.
+ *
+ * Saa paa referenceskaermen staar de gamle tal, ord for ord. Paa alt
+ * andet regnes der rigtigt, og vagten nederst i filen haandhaever at der
+ * aldrig reserveres mindre end skriften bruger.
+ */
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
+#define ZS_G_CARD_KANT      0    /* regnes ikke med, se noten ovenfor */
+#else
+#include "zs_skrift_maal.h"
+#define ZS_G_CARD_KANT      1    /* border_width i kortets stil        */
+#endif
+
+#define ZS_G_CARD_IN_WIDTH  (ZS_G_CARD_WIDTH - 2 * ZS_G_CARD_PAD \
+                             - 2 * ZS_G_CARD_KANT)
+#define ZS_G_CARD_IN_HEIGHT (ZS_G_CARD_HEIGHT - 2 * ZS_G_CARD_PAD \
+                             - 2 * ZS_G_CARD_KANT)
 
 /*
  * HOEJDERNE staar fast. De er skriftstoerrelser, og en skrift bliver ikke
@@ -169,9 +213,17 @@
  * valgt efter hvad man kan laese paa to meters afstand, ikke efter hvor
  * mange pixels der tilfaeldigvis er.
  */
-#define ZS_G_CARD_HEAD_HEIGHT  ZS_G_SK(20)
-#define ZS_G_CARD_VALUE_HEIGHT ZS_G_SK(54)
-#define ZS_G_CARD_SUB_HEIGHT   ZS_G_SK(18)
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
+/* De gamle tal, ord for ord. Se noten ved ZS_G_CARD_KANT. */
+#define ZS_G_CARD_HEAD_HEIGHT  20
+#define ZS_G_CARD_VALUE_HEIGHT 54
+#define ZS_G_CARD_SUB_HEIGHT   18
+#else
+/* Det skriften faktisk bruger, skrevet af lv_font_conv selv. */
+#define ZS_G_CARD_HEAD_HEIGHT  ZS_LH_ETIKET
+#define ZS_G_CARD_VALUE_HEIGHT ZS_LH_TAL
+#define ZS_G_CARD_SUB_HEIGHT   ZS_LH_BROED
+#endif
 
 /*
  * PLACERINGERNE er derimod udregnet, for de afhaenger af kortets hoejde.
@@ -631,6 +683,20 @@ _Static_assert(ZS_G_CARD_TEXT_REST + ZS_G_CARD_HEAD_HEIGHT + ZS_G_CARD_TEXT_GAP
 /* Og at der er plads til teksten overhovedet. */
 _Static_assert(ZS_G_CARD_TEXT_GAP >= 0,
                "kortet er for lavt til de tre tekstlinjer");
+
+/*
+ * DER MAA ALDRIG RESERVERES MINDRE END SKRIFTEN BRUGER.
+ *
+ * Gaelder ikke referenceskaermen: der staar de gamle tal med vilje, og
+ * underteksten har 2 px for lidt. Se noten ved ZS_G_CARD_KANT.
+ */
+#if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT)
+_Static_assert(ZS_G_CARD_HEAD_HEIGHT >= ZS_LH_ETIKET
+               && ZS_G_CARD_VALUE_HEIGHT >= ZS_LH_TAL
+               && ZS_G_CARD_SUB_HEIGHT >= ZS_LH_BROED,
+               "der er reserveret mindre plads til en tekstlinje end "
+               "skriften bruger. Se zs_skrift_maal.h");
+#endif
 
 /*
  * STATUSLINJEN: tallene skal vaere de samme som foer paa 480.

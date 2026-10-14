@@ -43,6 +43,10 @@ CFLAGS=(
     # zs_lyd.h og lv_port.h. test_lyd.c inkluderer zScreens egen
     # zs_lyd.c, og den beder om zs_lyd.h herfra.
     -I../../firmware/kerne/hal
+    # test_layout_800.c saetter 800 x 1280 og henter derfor
+    # skrifternes maal fra DET saet. zs_layout.h henter kun
+    # headeren naar skaermen IKKE er referenceskaermen.
+    -I../../firmware/kerne/ui/assets/800
     -I../../firmware/kerne/app
     -I../../firmware/kerne/net
     -I../../firmware/kerne/ui
