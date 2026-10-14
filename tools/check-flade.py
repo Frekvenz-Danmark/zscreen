@@ -105,6 +105,112 @@ def uden_kommentarer(t):
     return re.sub(r"//[^\n]*", "", t)
 
 
+# ---------------------------------------------------------------------
+# Raa pixeltal der har faaet et NAVN.
+#
+# Vagten ovenfor kigger paa KALDENE. Det lukkede det ene hul og lod det
+# andet staa aabent: et tal der staar i et #define, bliver aldrig set,
+# fordi kaldet jo bruger et navn.
+#
+# Det kostede fire fejl paa ZDisplay, alle fundet paa glasset og ikke
+# her:
+#     ZS_KB_HEIGHT   224  - tastaturet var 224 px paa en 1280 px skaerm
+#     DOT_SIZE        10  - prikkens fingerflade blev 38 px bred
+#     DOT_GAP         30
+#     ZS_INV_LIST_Y   56
+#
+# Reglen: et #define i fladen med et tal i, skal pakke tallet i en af
+# skaleringsmakroerne eller henvise til noget i zs_layout.h. Er tallet
+# ikke pixels, staar navnet i UNDTAGET nedenfor - og saa staar der
+# ogsaa HVORFOR.
+# ---------------------------------------------------------------------
+
+DEFINE = re.compile(r"^#define\s+([A-Z_][A-Z0-9_]*)\s+(-?\d+)\s*(?:/\*|//|$)",
+                    re.M)
+
+# Navne hvor tallet IKKE er pixels. Hver med sin grund, for en liste
+# uden grunde bliver et sted man skriver sig fri.
+UNDTAGET = {
+    "ZS_G_KB_RAEKKER":  "antal raekker paa tastaturet",
+    "ZS_G_CARD_KANT":   "kantens tykkelse i px, og den skalerer ikke",
+    "ZS_G_FIELD_KANT":  "samme",
+    "ZS_G_CHOICE_KANT": "samme",
+    "ZS_G_TOUCH_MIN":   "en finger bliver ikke stoerre af en stoerre skaerm",
+    "ZS_G_REF_WIDTH":   "referenceskaermens maal, selve grundlaget",
+    "ZS_G_REF_HEIGHT":  "samme",
+    "ZS_G_SCR_WIDTH":   "skaermens eget maal",
+    "ZS_G_SCR_HEIGHT":  "samme",
+    "PAGE_COUNT":       "antal sider paa forsiden",
+    "MAKS_DYBDE":       "hvor dybt maalebaandet gaar ned",
+    "ZS_G_GUIDE_CARDS":   "antal kort paa kom-i-gang-siden",
+    "ZS_QR_KANT_MODULER": "QR-moduler, ikke pixels - de bliver pixels "
+                          "naar koden skaleres",
+    "ZS_QR_MAKS_UDGAVE":  "QR-kodens udgavenummer",
+}
+
+
+def referencegrene(tekst):
+    """Hvor i teksten gaelder 'det her er referenceskaermen'.
+
+    zs_layout.h har nogle faa steder formen
+
+        #if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ...
+            <zScreens gamle tal, raa og med vilje>
+        #else
+            <regnestykket>
+        #endif
+
+    Tallene i den foerste gren er de tal zScreen HAR, og de maa ikke
+    laegges om - det er hele grunden til at grenen findes. Vagten ser
+    derfor forbi dem, og kun dem.
+    """
+    ud = []
+    i = 0
+    while True:
+        a = tekst.find("#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH", i)
+        if a < 0:
+            return ud
+        e = tekst.find("#else", a)
+        slut = tekst.find("#endif", a)
+        if e < 0 or (0 <= slut < e):
+            e = slut if slut >= 0 else len(tekst)
+        ud.append((a, e))
+        i = e
+
+
+def tjek_defines():
+    """Raa tal der staar i et #define i stedet for i et kald."""
+    antal = 0
+    for f in sorted(UI.rglob("*.c")) + sorted(UI.rglob("*.h")):
+        if "/assets/" in f.as_posix():
+            continue
+        tekst = f.read_text(encoding="utf-8")
+        fri = referencegrene(tekst)
+        for m in DEFINE.finditer(tekst):
+            navn, vaerdi = m.group(1), int(m.group(2))
+            antal += 1
+            if navn in UNDTAGET or abs(vaerdi) in SMAA:
+                continue
+            # Inde i grenen for referenceskaermen ER et raat tal det
+            # rigtige: det er zScreens gamle tal, skrevet af med vilje
+            # saa fladen ikke flytter sig. Se ZS_G_CARD_KANT.
+            if any(a <= m.start() < b for a, b in fri):
+                continue
+            # Tal der tydeligt ikke er pixels.
+            if any(o in navn for o in ("_MAX", "_MIN", "_MS", "_COUNT",
+                                       "_LEN", "_SEK", "_ANTAL", "_BIT",
+                                       "_OPA", "_ID", "_VER")):
+                continue
+            nr = tekst[:m.start()].count("\n") + 1
+            fejl.append(
+                f"{f.relative_to(ROD)}:{nr}: {navn} er {vaerdi}, et raat "
+                f"pixeltal med et navn paa. Pak det i ZS_G_SK (former), "
+                f"ZS_G_SK_WIDTH (bredder) eller ZS_G_SK_HEIGHT (hoejder) "
+                f"- er det ikke pixels, saa skriv navnet i UNDTAGET i "
+                f"check-flade.py med en grund")
+    return antal
+
+
 def main():
     print("Tjekker at fladen ikke har raa pixeltal ...")
     if not UI.is_dir():
@@ -134,14 +240,17 @@ def main():
                     f"ZS_G_SK_WIDTH (bredder) eller ZS_G_SK_HEIGHT "
                     f"(hoejder) - eller giv dem et navn i zs_layout.h")
 
+    defs = tjek_defines()
+
     if fejl:
         for e in fejl:
             print(f"  {ROED}FEJL{SLUT} {e}")
         print(f"\n  {len(fejl)} steder at rette.")
         return 1
 
-    print(f"  {GROEN} OK{SLUT} {kald} geometri-kald i fladen, ingen af dem "
-          f"har et tal der kun passer paa én skaerm.")
+    print(f"  {GROEN} OK{SLUT} {kald} geometri-kald og {defs} #define i "
+          f"fladen, ingen af dem har et tal der kun passer paa én "
+          f"skaerm.")
     return 0
 
 

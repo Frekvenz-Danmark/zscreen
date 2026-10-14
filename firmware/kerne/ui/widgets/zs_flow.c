@@ -104,8 +104,28 @@ static lv_obj_t *make_text(lv_obj_t *p, const lv_font_t *font, uint32_t color,
     zs_style_text(o, font, color);
     lv_obj_set_style_text_align(o, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(o, LV_LABEL_LONG_DOT);
-    lv_obj_set_width(o, NODE_W);
-    lv_obj_set_pos(o, cx - NODE_W / 2, y);
+    /*
+     * FELTET SKAL KUNNE VAERE PAA SIDEN.
+     *
+     * Her stod NODE_W fast. De to sideknuder staar SIDE_DX fra
+     * midten, og paa 480 betoed det at feltet gik fra -7 til 143:
+     * syv pixels uden for siden. Paa ZDisplay blev det elleve, og
+     * maalebaandet meldte alle fire.
+     *
+     * Det har ikke kunnet SES, fordi teksten er midtstillet i feltet
+     * og kortere end det - blaekket laa paent indenfor. Men et felt
+     * der stikker ud, klipper den dag teksten bliver laengere, og det
+     * er ikke en dag man vil opdage hos en kunde.
+     *
+     * Feltet klemmes derfor om SAMME midterlinje: lige meget plads i
+     * begge sider, saa den midtstillede tekst staar praecis hvor den
+     * stod. Paa 480 giver det 136 i stedet for 150, og blaekket
+     * flytter sig ikke en pixel.
+     */
+    lv_coord_t plads = cx < ZS_SCR_WIDTH - cx ? cx : ZS_SCR_WIDTH - cx;
+    lv_coord_t w = NODE_W < 2 * plads ? NODE_W : 2 * plads;
+    lv_obj_set_width(o, w);
+    lv_obj_set_pos(o, cx - w / 2, y);
     return o;
 }
 
@@ -114,14 +134,15 @@ static lv_obj_t *make_text(lv_obj_t *p, const lv_font_t *font, uint32_t color,
 static lv_obj_t *make_line(lv_obj_t *p, lv_coord_t x, lv_coord_t y,
                            lv_coord_t w, lv_coord_t h)
 {
-    lv_obj_t *o = lv_obj_create(p);
-    lv_obj_remove_style_all(o);
+    /* zs_box_create og ikke lv_obj_create: et almindeligt lv_obj er
+     * trykbart som standard, og saa laa de fire streger som
+     * trykfelter paa 6 x 192 px. Maalebaandet meldte dem alle fire. */
+    lv_obj_t *o = zs_box_create(p);
     lv_obj_set_size(o, w, h);
     lv_obj_set_pos(o, x, y);
     lv_obj_set_style_bg_color(o, lv_color_hex(ZS_C_BORDER), 0);
     lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(o, LINE_W / 2, 0);
-    lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
     return o;
 }
 
@@ -155,8 +176,7 @@ void zs_flow_create(zs_flow_t *f, lv_obj_t *parent)
     f->line_grid  = make_line(parent, HLINE_R_X, HUB_Y - LINE_W / 2, HLINE_R_W, LINE_W);
 
     /* Knudepunktet. Det er husets eltavle, tegnet som en ring. */
-    f->hub = lv_obj_create(parent);
-    lv_obj_remove_style_all(f->hub);
+    f->hub = zs_box_create(parent);
     lv_obj_set_size(f->hub, 2 * HUB_R, 2 * HUB_R);
     lv_obj_set_pos(f->hub, CX - HUB_R, HUB_Y - HUB_R);
     lv_obj_set_style_radius(f->hub, LV_RADIUS_CIRCLE, 0);
@@ -164,7 +184,6 @@ void zs_flow_create(zs_flow_t *f, lv_obj_t *parent)
     lv_obj_set_style_bg_opa(f->hub, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(f->hub, ZS_G_SK(3), 0);
     lv_obj_set_style_border_color(f->hub, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_clear_flag(f->hub, LV_OBJ_FLAG_SCROLLABLE);
 
     f->arrow_sun   = make_arrow(parent, CX, Y_VLINE_TOP + VLINE_TOP_H / 2);
     f->arrow_bat   = make_arrow(parent, CX, Y_VLINE_BOT + VLINE_BOT_H / 2);

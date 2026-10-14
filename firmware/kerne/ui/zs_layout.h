@@ -202,10 +202,26 @@
 #define ZS_G_CARD_KANT      1    /* border_width i kortets stil        */
 #endif
 
-#define ZS_G_CARD_IN_WIDTH  (ZS_G_CARD_WIDTH - 2 * ZS_G_CARD_PAD \
-                             - 2 * ZS_G_CARD_KANT)
-#define ZS_G_CARD_IN_HEIGHT (ZS_G_CARD_HEIGHT - 2 * ZS_G_CARD_PAD \
-                             - 2 * ZS_G_CARD_KANT)
+/*
+ * Inde i et kort af en GIVEN stoerrelse.
+ *
+ * De to herunder er for et kort i gitteret. Prisfladen og detaljerne
+ * laver kort i andre stoerrelser og regnede selv:
+ *     inde = w - 2 * ZS_CARD_PAD
+ * og det glemte kanten. Paa zScreen er kanten 0 og regnestykket
+ * rigtigt; paa ZDisplay er den 1 i hver side, og saa blev tallet og
+ * underteksten 2 px for brede og stak ud over kortets inderkant. Det
+ * er praecis det maalebaandet meldte som "hoejre 2" paa fire kort paa
+ * forsiden.
+ *
+ * Derfor staar regnestykket ÉT sted nu, og de faste to er lavet af
+ * det samme.
+ */
+#define ZS_G_CARD_INDE_WIDTH(w) ((w) - 2 * ZS_G_CARD_PAD - 2 * ZS_G_CARD_KANT)
+#define ZS_G_CARD_INDE_HEIGHT(h) ((h) - 2 * ZS_G_CARD_PAD - 2 * ZS_G_CARD_KANT)
+
+#define ZS_G_CARD_IN_WIDTH  ZS_G_CARD_INDE_WIDTH(ZS_G_CARD_WIDTH)
+#define ZS_G_CARD_IN_HEIGHT ZS_G_CARD_INDE_HEIGHT(ZS_G_CARD_HEIGHT)
 
 /*
  * HOEJDERNE staar fast. De er skriftstoerrelser, og en skrift bliver ikke
@@ -279,6 +295,171 @@
 
 #define ZS_G_GULV(v)        ((v) < ZS_G_TOUCH_MIN ? ZS_G_TOUCH_MIN : (v))
 #define ZS_G_ROW_HEIGHT     ZS_G_GULV(ZS_G_SK(56))
+
+/*
+ * EN LISTERAD PAA TVAERS.
+ *
+ * Her stod der ingenting, og tallene stod i zs_theme.c og zs_theme.h
+ * som faste pixels: ikonpladsen 34, pilen 30 og vaerdien 100. Det er
+ * tal regnet i haanden paa en 480 px skaerm.
+ *
+ * Ikonpladsen var den vaerste. Ikonskriften bygges i ZS_G_SK(20), saa
+ * ikonet er 20 px bredt paa zScreen og 33 px paa ZDisplay - men
+ * pladsen stod paa 34 begge steder. Altsaa var der 14 px luft efter
+ * ikonet paa den lille skaerm og 1 px paa den store, og
+ * netvaerksnavnet klistrede op ad wifi-ikonet paa ZDisplay.
+ *
+ * Derfor regnes pladsen nu som to ting lagt sammen: ikonets EGEN
+ * bredde, og luften efter det. Saa foelger luften ikonet naar
+ * skriften vokser, i stedet for at blive aedt af det.
+ *
+ * ZS_G_SK_WIDTH(20) er samme regnestykke som build-assets.sh bruger
+ * naar den bygger zs_ikon_lille, saa de to kan ikke komme i utakt.
+ */
+/*
+ * ET INDTASTNINGSFELT: EN RAMME MED TEKSTEN I.
+ *
+ * Kodeordssiden og "find manuelt" bygger det samme felt, og de
+ * regnede begge tekstens bredde om fra bunden:
+ *     ZS_CONTENT_WIDTH - ... - ZS_G_SK_WIDTH(32)
+ * Det var ment som "to gange polstringen paa 16", men
+ * ZS_G_SK_WIDTH(32) er 53 og 2 * ZS_G_SK_WIDTH(16) er 52 - og
+ * rammens 1 px i hver side var helt glemt. Teksten blev derfor 1 px
+ * bredere end rammen indeni, paa BEGGE sider. Paa zScreen er den 2
+ * px for bred og har vaeret det hele tiden.
+ *
+ * Det kunne ikke ses, fordi rammen klipper teksten alligevel. Men to
+ * steder der regner det samme forskelligt, bliver ikke rettet samme
+ * dag - saa maalene staar her, og zs_field_create i zs_theme.c
+ * bygger feltet ét sted for begge sider.
+ */
+/*
+ * HOEJDEN FOELGER FORMEN OG IKKE SKAERMENS HOEJDE.
+ *
+ * Her stod ZS_G_SK_HEIGHT(56). Paa ZDisplay er skaermen 2,67 gange
+ * hoejere end referencen, saa feltet blev 149 px hoejt om en
+ * tekstlinje paa 42. Det ser ud som en fejl, og det ER en fejl: en
+ * ramme om én linje tekst skal foelge TEKSTEN, ikke skaermen.
+ * ZS_G_SK giver 93, altsaa 42 px tekst og 25 px luft over og under -
+ * samme forhold som de 56 paa zScreen.
+ */
+#define ZS_G_FIELD_HEIGHT   ZS_G_SK(56)
+#define ZS_G_FIELD_PAD      ZS_G_SK_WIDTH(16)
+#define ZS_G_FIELD_KANT     1
+#define ZS_G_FIELD_RAD      ZS_G_SK(14)
+/* Hvad der er plads til INDE i en ramme der er w bred. */
+#define ZS_G_FIELD_INDE(w)  ((w) - 2 * ZS_G_FIELD_PAD - 2 * ZS_G_FIELD_KANT)
+
+/*
+ * TASTATURET.
+ *
+ * Hoejden stod som ZS_KB_HEIGHT 224 i zs_keyboard.h - et raat tal i
+ * en widget-header, hvor ingen vagt kiggede. Resultatet var at
+ * tastaturet var 224 px paa BEGGE skaerme: paa ZDisplays 1280 px
+ * hoeje skaerm blev det en stribe i bunden med taster paa 56 px i en
+ * flade der er 80 px bred. Det er det brugeren kalder skrumpet.
+ *
+ * Hoejden skalerer nu med ZS_G_SK og ikke med skaermens hoejde, saa
+ * en tast beholder sin FORM: 48 x 56 paa zScreen og 80 x 93 paa
+ * ZDisplay er det samme forhold.
+ */
+#define ZS_G_KB_RAEKKER     4            /* se kortene i zs_keyboard.c */
+#define ZS_G_KB_HOEJDE      ZS_G_SK(224)
+
+/*
+ * ET VALG: ET KORT MED EN TITEL OG EN FORKLARING.
+ *
+ * Her stod afstandene inde i kortet som ZS_G_SK_HEIGHT(14) og
+ * ZS_G_SK_HEIGHT(50), altsaa skaleret med skaermens HOEJDE. Men
+ * kortets egen hoejde er ZS_G_CHOICE_HEIGHT, som skalerer med
+ * ZS_G_SK. Paa en skaerm hvor de to forhold er ens, gaar det godt. Paa
+ * ZDisplay er bredden 1,67 gange og hoejden 2,67 gange, og saa laa
+ * forklaringen 133 px nede i et kort der er 153 px hoejt. Den stak 15
+ * px ud i bunden paa alle tre temakort - maalt paa glasset.
+ *
+ * REGLEN er den samme som alle andre steder i filen: en afstand INDE
+ * i en kasse foelger KASSEN, ikke skaermen. Derfor ZS_G_SK og ikke
+ * ZS_G_SK_HEIGHT.
+ *
+ * Og forklaringen laegges under titlens EGEN linjehoejde i stedet for
+ * under et tal der er gaettet til at passe. Paa referenceskaermen
+ * staar de to gamle tal uberoerte - 14 og 50 - saa zScreen ikke
+ * flytter sig. Samme beslutning som ved ZS_G_CARD_KANT.
+ */
+#define ZS_G_CHOICE_PAD     ZS_G_SK_WIDTH(16)
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
+#define ZS_G_CHOICE_TITLE_Y 14
+#define ZS_G_CHOICE_SUB_Y   50
+#else
+#define ZS_G_CHOICE_TITLE_Y ZS_G_SK(14)
+/* titlens linje plus to pixels luft, maalt og ikke gaettet */
+#define ZS_G_CHOICE_SUB_Y   (ZS_G_CHOICE_TITLE_Y + ZS_LH_STOR + ZS_G_SK(2))
+#endif
+/* Den tykkeste kant: det valgte kort har 2 px, de andre 1. Pladsen
+ * indeni regnes efter den TYKKESTE, ellers stikker teksten ud paa
+ * praecis det kort man har valgt - og det var ogsaa det der skete:
+ * 17 px paa det valgte mod 15 paa de to andre. */
+#define ZS_G_CHOICE_KANT    2
+
+/*
+ * LYSSTYRKESKYDEREN.
+ *
+ * Bredden stod som ZS_G_CONTENT_WIDTH - ZS_G_SK_WIDTH(32), og det
+ * rammer ikke kassens inderkant: kassen har ogsaa 1 px ramme i hver
+ * side, og 2 * ZS_G_SK_WIDTH(16) er 52 hvor ZS_G_SK_WIDTH(32) er 53.
+ * Skyderen stak derfor 1 px ud paa ZDisplay og 2 px paa zScreen -
+ * maalt - og knoppen ved 100 % laa delvist under kassens kant.
+ *
+ * PAA REFERENCESKAERMEN STAAR DET GAMLE TAL. At rette de 2 px flytter
+ * knoppen paa zScreen, og zScreen skal ikke flytte sig. Fejlen er
+ * altsaa stadig der paa den lille skaerm, med vilje og skrevet ned.
+ * Samme beslutning som ved ZS_G_CARD_KANT.
+ *
+ * HOEJDEN er 26 px og skal vaere tynd - en skyder paa 44 px ser ud
+ * som en fejl. Fladen man kan RAMME udvides i stedet, se
+ * ZS_G_SLIDER_EKSTRA.
+ */
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
+#define ZS_G_SLIDER_WIDTH   (ZS_G_CONTENT_WIDTH - ZS_G_SK_WIDTH(32))
+#else
+#define ZS_G_SLIDER_WIDTH   ZS_G_FIELD_INDE(ZS_G_CONTENT_WIDTH)
+#endif
+#define ZS_G_SLIDER_HEIGHT  ZS_G_SK_HEIGHT(10)
+/* Hvor meget klikfladen skal vokse i hver side for at en finger kan
+ * ramme den. Bliver 0 hvis skyderen allerede er tyk nok. */
+#define ZS_G_SLIDER_EKSTRA  (ZS_G_SLIDER_HEIGHT >= ZS_G_TOUCH_MIN ? 0 \
+                             : (ZS_G_TOUCH_MIN - ZS_G_SLIDER_HEIGHT + 1) / 2)
+
+/*
+ * PRIKKERNE NEDERST PAA FORSIDEN.
+ *
+ * Her stod de tre tal i zs_screen_home.c som raa pixels - 10, 30 og
+ * 38 - og de blev ikke fanget af vagten paa fladen, fordi de HAVDE et
+ * navn. Et navn er ikke det samme som et regnestykke.
+ *
+ * Resultatet var at fingerfladen blev 38 px bred paa en 800 px
+ * skaerm, altsaa under de 44 en finger kraever, mens hoejden var
+ * vokset til 47. Maalebaandet meldte "38 x 47" tre gange.
+ *
+ * Afstanden er ikke pynt: fingerfladerne maa ikke overlappe, for saa
+ * rammer et tryk til hoejre for den foerste prik den anden. Vagten
+ * nederst i filen holder det fast, saa regnestykket ikke skal
+ * efterregnes i hovedet naar tallene aendres.
+ */
+#define ZS_G_DOT_SIZE       ZS_G_SK(10)        /* selve prikken      */
+#define ZS_G_DOT_GAP        ZS_G_SK_WIDTH(30)  /* luft imellem       */
+#define ZS_G_DOT_HIT_W      ZS_G_SK_WIDTH(38)  /* fingerfladen       */
+
+#define ZS_G_ROW_ICON_SIZE  ZS_G_SK_WIDTH(20)  /* = zs_ikon_lille   */
+#define ZS_G_ROW_ICON_GAP   ZS_G_SK_WIDTH(14)  /* luft efter ikonet */
+#define ZS_G_ROW_ICON_W     (ZS_G_ROW_ICON_SIZE + ZS_G_ROW_ICON_GAP)
+/* Pilen til hoejre: samme ikonskrift, og luften foer den. */
+#define ZS_G_ROW_CHEV_GAP   ZS_G_SK_WIDTH(10)
+#define ZS_G_ROW_CHEV_W     (ZS_G_ROW_ICON_SIZE + ZS_G_ROW_CHEV_GAP)
+/* Pladsen til vaerdien yderst til hoejre. */
+#define ZS_G_ROW_VALUE_W    ZS_G_SK_WIDTH(100)
+/* Radens egen vandrette luft, den samme i begge sider. */
+#define ZS_G_ROW_PAD        ZS_G_SK_WIDTH(16)
 #define ZS_G_BTN_HEIGHT     ZS_G_GULV(ZS_G_SK(52))
 #define ZS_G_CHOICE_HEIGHT  ZS_G_GULV(ZS_G_SK(92))
 
@@ -685,17 +866,33 @@ _Static_assert(ZS_G_CARD_TEXT_GAP >= 0,
                "kortet er for lavt til de tre tekstlinjer");
 
 /*
- * DER MAA ALDRIG RESERVERES MINDRE END SKRIFTEN BRUGER.
+ * SKRIFTEN SKAL VAERE BYGGET TIL DEN HER SKAERM.
  *
- * Gaelder ikke referenceskaermen: der staar de gamle tal med vilje, og
- * underteksten har 2 px for lidt. Se noten ved ZS_G_CARD_KANT.
+ * HER STOD DER FOER at der aldrig maa reserveres mindre plads end
+ * skriften bruger:
+ *     ZS_G_CARD_SUB_HEIGHT >= ZS_LH_BROED
+ * Det var et tjek der ikke kunne fejle. Uden for referenceskaermen
+ * ER ZS_G_CARD_SUB_HEIGHT jo defineret som ZS_LH_BROED, saa linjen
+ * laeste "88 >= 88". Den saa ud som en vagt og paastod ingenting.
+ *
+ * Det der KAN gaa galt, er at et board peger paa det forkerte saet
+ * af skrifttyper. Saettene hedder 480 og 800 efter den skaermbredde
+ * de er bygget til, og vaelger ZDisplay saettet til 480, bliver al
+ * skrift en tredjedel for lille mens layoutet regner videre paa 800.
+ * Det er ikke en byggefejl, og maalebaandet ser det ikke: alt er
+ * inden for sin kant, der er bare luft overalt. Det ville se ud som
+ * et designvalg.
+ *
+ * Gaelder ikke referenceskaermen, som ikke henter headeren - der er
+ * tallene skrevet i hoejre hand, og zScreens saet tjekkes i stedet af
+ * tools/check-byg.py, som holder ZS_ASSET_SAET op mod ZS_G_SCR_WIDTH
+ * for BEGGE produkter.
  */
 #if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT)
-_Static_assert(ZS_G_CARD_HEAD_HEIGHT >= ZS_LH_ETIKET
-               && ZS_G_CARD_VALUE_HEIGHT >= ZS_LH_TAL
-               && ZS_G_CARD_SUB_HEIGHT >= ZS_LH_BROED,
-               "der er reserveret mindre plads til en tekstlinje end "
-               "skriften bruger. Se zs_skrift_maal.h");
+_Static_assert(ZS_SKRIFT_SAET_WIDTH == ZS_G_SCR_WIDTH,
+               "skrifterne er bygget til en anden skaermbredde end den "
+               "her skaerm har. Boardet peger paa det forkerte "
+               "ZS_ASSET_SAET - se zs_skrift_maal.h");
 #endif
 
 /*
@@ -856,6 +1053,102 @@ _Static_assert(ZS_G_WAIT_TEXT_Y == 160,
                "teksten paa ventesiden er flyttet. Den skal staa paa 160 "
                "som foer, altsaa 26 px under spinderen.");
 #endif
+/*
+ * EN TAST SKAL KUNNE RAMMES, OG TASTATURET SKAL KUNNE VAERE PAA
+ * SKAERMEN.
+ */
+_Static_assert(ZS_G_KB_HOEJDE / ZS_G_KB_RAEKKER >= ZS_G_TOUCH_MIN,
+               "en tast er lavere end en finger. Se ZS_G_KB_HOEJDE");
+_Static_assert(ZS_G_KB_HOEJDE + ZS_G_BAR_HEIGHT < ZS_G_SCR_HEIGHT,
+               "tastaturet og statuslinjen fylder hele skaermen, saa "
+               "der er ikke plads til det man skriver i");
+
+/*
+ * EN RAMME OM ÉN LINJE TEKST SKAL KUNNE RUMME LINJEN.
+ *
+ * Gaelder ikke referenceskaermen, som ikke har skriftens maal: der er
+ * de 56 px om en linje paa 26 regnet efter én gang.
+ */
+#if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT)
+_Static_assert(ZS_G_FIELD_HEIGHT >= ZS_LH_RAD + 2 * ZS_G_FIELD_KANT,
+               "indtastningsfeltet er lavere end den tekstlinje der "
+               "skal staa i det. Se ZS_G_FIELD_HEIGHT");
+#endif
+
+/*
+ * FORKLARINGEN I ET VALG SKAL KUNNE VAERE I KORTET.
+ *
+ * Gaelder ikke referenceskaermen, som ikke har skriftens maal - der
+ * er der 20 px luft tilbage, og det er regnet efter i haanden én
+ * gang: 50 + 20 + 2 = 72 i et kort paa 92.
+ */
+#if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT)
+_Static_assert(ZS_G_CHOICE_SUB_Y + ZS_LH_BROED + ZS_G_CHOICE_KANT
+               <= ZS_G_CHOICE_HEIGHT,
+               "forklaringen i et valg stikker ud under kortet. Se "
+               "ZS_G_CHOICE_SUB_Y");
+_Static_assert(ZS_G_CHOICE_TITLE_Y + ZS_LH_STOR <= ZS_G_CHOICE_SUB_Y,
+               "titlen og forklaringen i et valg ligger oven i "
+               "hinanden");
+#endif
+
+/*
+ * SKYDEREN SKAL KUNNE RAMMES, OGSAA NAAR DEN ER TYND.
+ */
+_Static_assert(ZS_G_SLIDER_HEIGHT + 2 * ZS_G_SLIDER_EKSTRA
+               >= ZS_G_TOUCH_MIN,
+               "skyderens klikflade er lavere end en finger. Se "
+               "ZS_G_SLIDER_EKSTRA");
+/* Og den skal kunne vaere inde i kassen den ligger i. Gaelder ikke
+ * referenceskaermen, hvor de 2 px staar med vilje - se noten. */
+#if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT)
+_Static_assert(ZS_G_SLIDER_WIDTH
+               <= ZS_G_FIELD_INDE(ZS_G_CONTENT_WIDTH),
+               "skyderen er bredere end kassen den ligger i");
+#endif
+
+/*
+ * TO PRIKKERS FINGERFLADER MAA IKKE OVERLAPPE.
+ *
+ * Midterne ligger ZS_G_DOT_SIZE + ZS_G_DOT_GAP fra hinanden, og hver
+ * flade er ZS_G_DOT_HIT_W bred. Er fladen bredere end afstanden,
+ * ligger de oven i hinanden, og den oeverste tager trykket - altsaa
+ * rammer man den forkerte side.
+ */
+_Static_assert(ZS_G_DOT_HIT_W < ZS_G_DOT_SIZE + ZS_G_DOT_GAP,
+               "prikkernes fingerflader overlapper, og saa rammer et "
+               "tryk den forkerte side. Se ZS_G_DOT_GAP");
+/*
+ * HER STOD DER OGSAA at fladen skulle vaere mindst ZS_G_TOUCH_MIN
+ * bred. Den linje var forkert, og den var forkert paa den vaerste
+ * maade: paa zScreen er fladen 38 px med VILJE. Prikkerne er en
+ * genvej, og at traekke siden til side virker altid - det stod
+ * skrevet i zs_screen_home.c, og jeg satte en vagt op der sagde at
+ * det stod galt. zScreen holdt op med at bygge.
+ *
+ * Paa ZDisplay bliver de 38 til 63, og saa er den over graensen af
+ * sig selv. Undtagelsen gaelder altsaa kun referenceskaermen, og den
+ * er maerket med ZS_FLAG_LILLE_MED_VILJE der hvor knappen laves, saa
+ * maalebaandet kan se forskel paa en undtagelse og en fejl.
+ */
+
+/*
+ * DER SKAL VAERE LUFT MELLEM IKONET OG TEKSTEN.
+ *
+ * Den her kunne have fanget fejlen: med ZS_G_ROW_ICON_W paa faste 34
+ * og et ikon paa 33 var der 1 px, og det er det en kunde ser som at
+ * teksten sidder fast i ikonet. Graensen er en tredjedel af ikonet,
+ * altsaa 6 px paa zScreen og 11 paa ZDisplay - mindre end det er
+ * ikke luft, det er et sammenstoed.
+ */
+_Static_assert(ZS_G_ROW_ICON_W - ZS_G_ROW_ICON_SIZE >= ZS_G_ROW_ICON_SIZE / 3,
+               "der er for lidt luft mellem ikonet og teksten i en "
+               "listerad. Se ZS_G_ROW_ICON_GAP");
+/* Og titlen skal have plads tilbage at staa paa. */
+_Static_assert(ZS_G_CONTENT_WIDTH - 2 * ZS_G_ROW_PAD - ZS_G_ROW_ICON_W
+               - ZS_G_ROW_CHEV_W - ZS_G_ROW_VALUE_W > 0,
+               "en listerad med ikon, vaerdi og pil har ingen plads "
+               "tilbage til titlen");
 _Static_assert(ZS_G_WAIT_TEXT_Y + 2 * ZS_G_ROW_HEIGHT <= ZS_G_PAGE_HEIGHT,
                "ventesidens tekst har ikke plads paa siden");
 

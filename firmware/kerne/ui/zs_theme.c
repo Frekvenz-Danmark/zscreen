@@ -433,16 +433,73 @@ lv_obj_t *zs_btn_secondary_create(lv_obj_t *parent, const char *text)
     return make_button(parent, text, &s_btn_secondary, &s_btn_secondary_pressed);
 }
 
+/*
+ * EN REN BEHOLDER.
+ *
+ * lv_obj_create sletter sig selv ikke: den giver objektet LVGLs egen
+ * stil OG flaget LV_OBJ_FLAG_CLICKABLE, for i LVGL 8 er et almindeligt
+ * objekt trykbart som standard. Det betyder at hver kasse der kun er
+ * der for at holde noget andet, ligger og er en knap uden handling.
+ *
+ * Maalebaandet fandt den foerste: listen paa wifi-siden er 760 px bred
+ * og - naar den er tom - 40 px hoej, altsaa et trykfelt under de 44 en
+ * finger kraever. Det er ikke farligt i sig selv, men det er stoej i
+ * maalingen, og stoej i en maaling er det der goer at man holder op med
+ * at laese den.
+ *
+ * De tre linjer stod spredt ud over syvogtyve steder i fladen, og det
+ * ene sted de IKKE stod, var det der blev maalt. Nu staar de ét sted.
+ */
+lv_obj_t *zs_box_create(lv_obj_t *parent)
+{
+    lv_obj_t *o = lv_obj_create(parent);
+    lv_obj_remove_style_all(o);
+    lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(o, LV_OBJ_FLAG_CLICKABLE);
+    return o;
+}
+
+/*
+ * Et indtastningsfelt: en ramme med teksten i.
+ *
+ * Det stod to steder - kodeordssiden og "find manuelt" - og de
+ * regnede tekstens bredde forskelligt. Begge forkert, og paa hver sin
+ * maade. Se noten ved ZS_G_FIELD_INDE i zs_layout.h.
+ *
+ * Teksten klippes og ombrydes ikke: et kodeord der ombrydes, ser ud
+ * som to kodeord.
+ */
+void zs_field_create(zs_field_t *out, lv_obj_t *parent, lv_coord_t w)
+{
+    memset(out, 0, sizeof(*out));
+
+    lv_obj_t *box = zs_box_create(parent);
+    lv_obj_set_size(box, w, ZS_G_FIELD_HEIGHT);
+    lv_obj_set_style_bg_color(box, lv_color_hex(ZS_C_CARD), 0);
+    lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(box, ZS_G_FIELD_RAD, 0);
+    lv_obj_set_style_border_width(box, ZS_G_FIELD_KANT, 0);
+    lv_obj_set_style_border_color(box, lv_color_hex(ZS_C_BORDER), 0);
+    lv_obj_set_style_pad_hor(box, ZS_G_FIELD_PAD, 0);
+    out->box = box;
+
+    lv_obj_t *f = lv_label_create(box);
+    lv_label_set_text(f, "");
+    zs_style_text(f, &zs_font_rad, ZS_C_TEXT);
+    lv_label_set_long_mode(f, LV_LABEL_LONG_CLIP);
+    lv_obj_set_width(f, ZS_G_FIELD_INDE(w));
+    lv_obj_align(f, LV_ALIGN_LEFT_MID, 0, 0);
+    out->field = f;
+}
+
 lv_obj_t *zs_column_create(lv_obj_t *parent, lv_coord_t gap)
 {
-    lv_obj_t *col = lv_obj_create(parent);
-    lv_obj_remove_style_all(col);
+    lv_obj_t *col = zs_box_create(parent);
     lv_obj_set_width(col, ZS_CONTENT_WIDTH);
     lv_obj_set_height(col, LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(col, gap, 0);
     lv_obj_set_style_pad_ver(col, ZS_EDGE, 0);
-    lv_obj_clear_flag(col, LV_OBJ_FLAG_SCROLLABLE);
     return col;
 }
 
@@ -485,10 +542,10 @@ void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
          * venstre, og vaerdien og pilen til hoejre.
          */
         lv_coord_t right = 0;
-        if (chevron)       { right += 30; }
-        if (value != NULL) { right += 100; }
+        if (chevron)       { right += ZS_G_ROW_CHEV_W; }
+        if (value != NULL) { right += ZS_G_ROW_VALUE_W; }
         lv_obj_set_width(out->title,
-                         ZS_CONTENT_WIDTH - 2 * ZS_G_SK_WIDTH(16) - x - right);
+                         ZS_CONTENT_WIDTH - 2 * ZS_G_ROW_PAD - x - right);
     }
 
     lv_coord_t rx = 0;
@@ -498,7 +555,7 @@ void zs_row_create(zs_row_t *out, lv_obj_t *parent, const char *icon,
         lv_obj_set_style_text_font(out->chevron, &zs_ikon_lille, 0);
         lv_obj_set_style_text_color(out->chevron, lv_color_hex(ZS_C_LABEL), 0);
         lv_obj_align(out->chevron, LV_ALIGN_RIGHT_MID, 0, 0);
-        rx = -30;
+        rx = -ZS_G_ROW_CHEV_W;
     }
 
     if (value != NULL) {
@@ -643,15 +700,17 @@ lv_obj_t *zs_choice_create(lv_obj_t *parent, const char *titel,
     lv_obj_t *t = lv_label_create(b);
     lv_label_set_text(t, titel);
     zs_style_text(t, &zs_font_stor, ZS_C_TEXT);
-    lv_obj_align(t, LV_ALIGN_TOP_LEFT, ZS_G_SK_WIDTH(16), ZS_G_SK_HEIGHT(14));
+    lv_obj_align(t, LV_ALIGN_TOP_LEFT, ZS_G_CHOICE_PAD,
+                 ZS_G_CHOICE_TITLE_Y);
 
     if (forklaring != NULL && forklaring[0] != '\0') {
         lv_obj_t *f = lv_label_create(b);
         lv_label_set_text(f, forklaring);
         zs_style_text(f, &zs_font_broed, ZS_C_LABEL);
         lv_label_set_long_mode(f, LV_LABEL_LONG_WRAP);
-        lv_obj_set_width(f, ZS_CONTENT_WIDTH - ZS_G_SK_WIDTH(32));
-        lv_obj_align(f, LV_ALIGN_TOP_LEFT, ZS_G_SK_WIDTH(16), ZS_G_SK_HEIGHT(50));
+        lv_obj_set_width(f, ZS_CONTENT_WIDTH - 2 * ZS_G_CHOICE_PAD);
+        lv_obj_align(f, LV_ALIGN_TOP_LEFT, ZS_G_CHOICE_PAD,
+                     ZS_G_CHOICE_SUB_Y);
     }
     return b;
 }

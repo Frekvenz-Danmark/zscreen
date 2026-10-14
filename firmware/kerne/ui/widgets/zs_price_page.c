@@ -47,13 +47,17 @@
 #define Y_NOTE       ZS_G_PRICE_Y_NOTE
 
 /* Luft mellem de tre linjer inde i et kort. */
-#define CARD_LINE_GAP 4
+#define CARD_LINE_GAP ZS_G_SK(4)
 
-#define BAR_GAP      4
+#define BAR_GAP      ZS_G_SK(4)
 #define BAR_MIN_H    3      /* saa en time til nul kroner stadig kan ses */
 
 #define CARD_W       ((ZS_CONTENT_WIDTH - 12) / 2)
-#define CARD_PAD     12
+/* Luft omkring tekst foelger TEKSTEN, altsaa ZS_G_SK. Tallene stod
+ * raa her, og saa var luften den samme paa en 480 og en 1280 px
+ * hoej skaerm. ZS_G_SK(v) giver praecis v paa 480, saa zScreen
+ * staar stille. */
+#define CARD_PAD     ZS_G_SK(12)
 
 /* Hvad de tre linjer kraever i alt, regnet ud af skrifttyperne selv.
  * Aendrer nogen en skriftstoerrelse, foelger hoejden med. */

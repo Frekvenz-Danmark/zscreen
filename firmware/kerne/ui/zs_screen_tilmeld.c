@@ -63,7 +63,9 @@ static zs_step_t  s_trin;
  * Mindre end det kan ikke anbefales: pladen skal kunne ses som en plade,
  * ellers forsvinder den hvide kant mod en lys baggrund.
  */
-#define PLADE_LUFT_PX     4
+/* QR'en skaleres med lv_img_set_zoom, saa kanten skal skalere
+ * med - ellers bliver den en tynd streg om en stor kode. */
+#define PLADE_LUFT_PX     ZS_G_SK(4)
 
 /*
  * Laerredet er ét pixel per modul. Det vokser IKKE naar QR'en tegnes
@@ -85,12 +87,16 @@ static uint8_t    s_qr_data[ZS_QR_BUF];
  * tallene her er kun LUFTEN imellem. Summen maales ved opstart og
  * skrives i loggen - se maal_stakken().
  */
-#define Y_TOP          8
-#define LUFT_FOER_QR   6
-#define LUFT_FOER_KODE 8
-#define LUFT_FOER_HJ   4
-#define LUFT_FOER_GU   4
-#define Y_BUND         8   /* luft der skal vaere tilbage nederst */
+/* Luft omkring tekst foelger TEKSTEN, altsaa ZS_G_SK. Tallene stod
+ * raa her, og saa var luften den samme paa en 480 og en 1280 px
+ * hoej skaerm. ZS_G_SK(v) giver praecis v paa 480, saa zScreen
+ * staar stille. */
+#define Y_TOP          ZS_G_SK(8)
+#define LUFT_FOER_QR   ZS_G_SK(6)
+#define LUFT_FOER_KODE ZS_G_SK(8)
+#define LUFT_FOER_HJ   ZS_G_SK(4)
+#define LUFT_FOER_GU   ZS_G_SK(4)
+#define Y_BUND         ZS_G_SK(8)   /* luft tilbage nederst */
 
 /*
  * OG DE SAMME, NAAR DER ER PLADS. Se noten i stak().
@@ -99,10 +105,10 @@ static uint8_t    s_qr_data[ZS_QR_BUF];
  * omkring den store linje, mindre omkring forklaringen, og mest igen ned
  * til knappen, saa den ikke ser ud som en del af teksten.
  */
-#define LUFT_LUFTIG_KODE 20
-#define LUFT_LUFTIG_HJ   16
-#define LUFT_LUFTIG_GU   20
-#define LUFT_LUFTIG_KNAP 28
+#define LUFT_LUFTIG_KODE ZS_G_SK(20)
+#define LUFT_LUFTIG_HJ   ZS_G_SK(16)
+#define LUFT_LUFTIG_GU   ZS_G_SK(20)
+#define LUFT_LUFTIG_KNAP ZS_G_SK(28)
 
 /* Hvor tilbage foerer hen. Se headeren: siden naas fra to steder. */
 static zs_screen_id_t s_tilbage_til = ZS_SCREEN_SETTINGS;

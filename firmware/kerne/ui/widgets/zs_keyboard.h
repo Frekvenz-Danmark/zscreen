@@ -28,12 +28,15 @@
 #define ZS_KEYBOARD_H
 
 #include "lvgl.h"
+#include "zs_layout.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define ZS_KB_HEIGHT   224
+/* Stod som 224 her, og det var det samme tal paa en 480 px og en
+ * 1280 px hoej skaerm. Se noten ved ZS_G_KB_HOEJDE i zs_layout.h. */
+#define ZS_KB_HEIGHT   ZS_G_KB_HOEJDE
 
 typedef struct zs_keyboard zs_keyboard_t;
 

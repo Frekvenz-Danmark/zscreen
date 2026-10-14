@@ -25,7 +25,7 @@
  * tal og midtstiller sig, saa der er ikke andet at rette.
  */
 #define PAGE_COUNT   3
-#define DOT_SIZE     10
+#define DOT_SIZE     ZS_G_DOT_SIZE
 /*
  * Afstanden mellem prikkerne er ikke pynt.
  *
@@ -41,8 +41,11 @@
  * acceptabelt her: prikkerne er en genvej, og at traekke siden til
  * side virker altid.
  */
-#define DOT_GAP      30
-#define DOT_HIT_W    38
+/* Tallene staar i zs_layout.h, hvor de skalerer og hvor en vagt
+ * haandhaever at fladerne ikke overlapper. Regnestykkerne ovenfor er
+ * for 480 px skaermen, og de passer stadig der. */
+#define DOT_GAP      ZS_G_DOT_GAP
+#define DOT_HIT_W    ZS_G_DOT_HIT_W
 
 /*
  * Kontrolregning med fire prikker:
@@ -207,6 +210,11 @@ void zs_screen_home_create(lv_event_cb_t gear_cb, void *user_data)
                        ZS_SCR_HEIGHT - ZS_DOTS_HEIGHT);
         lv_obj_add_event_cb(hit, on_dot_clicked, LV_EVENT_CLICKED,
                             (void *)(intptr_t)i);
+        /* Paa 480 er fladen 38 px bred, altsaa under de 44. Det er
+         * bevidst - se noten ved DOT_GAP - og flaget siger det til
+         * maalebaandet i stedet for at lade det melde en fejl man
+         * skal laere at se forbi. */
+        lv_obj_add_flag(hit, ZS_FLAG_LILLE_MED_VILJE);
 
         s_dot[i] = lv_obj_create(s_root);
         lv_obj_remove_style_all(s_dot[i]);

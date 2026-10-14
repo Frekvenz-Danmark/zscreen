@@ -299,6 +299,14 @@ byg_saet() {
         echo " * ligger dybere. Se husreglen i check-headers.sh. */"
         echo "#ifndef ZS_SKRIFT_MAAL_INC"
         echo "#define ZS_SKRIFT_MAAL_INC"
+        echo "/* Hvilken skaermbredde saettet er bygget til. zs_layout.h"
+        echo " * holder den op mod ZS_G_SCR_WIDTH, saa en skaerm der"
+        echo " * peger paa det forkerte saet ikke bygger. Vaelger"
+        echo " * ZDisplay saettet til 480, bliver skriften en tredjedel"
+        echo " * for lille, og INTET andet siger fra: layoutet regner"
+        echo " * videre paa 800, kortene bliver store og tomme, og det"
+        echo " * ser ud som et designvalg. */"
+        printf '#define ZS_SKRIFT_SAET_WIDTH %s\n' "${SAET_W}"
         for n in tal stor rad broed etiket kb; do
             lh=$(grep -o "\.line_height = [0-9]*" "${OUT}/zs_font_${n}.c" \
                  | head -1 | grep -o "[0-9]*")

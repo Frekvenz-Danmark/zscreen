@@ -256,7 +256,11 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
 
 #define ZS_CARD_WIDTH       ZS_G_CARD_WIDTH
 #define ZS_CARD_HEIGHT      ZS_G_CARD_HEIGHT   /* (408 - 12 - 12 - 12) / 2         */
-#define ZS_CARD_RADIUS      18
+/* Luft omkring tekst foelger TEKSTEN, altsaa ZS_G_SK. Tallene stod
+ * raa her, og saa var luften den samme paa en 480 og en 1280 px
+ * hoej skaerm. ZS_G_SK(v) giver praecis v paa 480, saa zScreen
+ * staar stille. */
+#define ZS_CARD_RADIUS      ZS_G_SK(18)
 #define ZS_CARD_PAD         ZS_G_CARD_PAD    /* luft inde i kortet  */
 
 /* Kortets indvendige maal, altsaa det indholdet har at goere godt med.
@@ -318,13 +322,14 @@ const lv_img_dsc_t *zs_logo_wordmark(void);
  * Vi regner det ud paa stedet ud fra skrifttyperne i stedet for at
  * skrive 19 ind, saa det stadig passer hvis en stoerrelse aendres.
  */
-#define ZS_UNIT_GAP         8     /* mellem tallet og enheden         */
+#define ZS_UNIT_GAP         ZS_G_SK(8)     /* mellem tallet og enheden         */
 
 /* ── Andet ────────────────────────────────────────────────────────── */
 #define ZS_ROW_HEIGHT       ZS_G_ROW_HEIGHT  /* hoejde paa en listerad */
 /* Ikonet plus luften efter det. Bruges baade naar raden bygges og naar
- * en kalder skal saette noget ind paa samme lodrette linje som titlen. */
-#define ZS_ROW_ICON_W       34
+ * en kalder skal saette noget ind paa samme lodrette linje som titlen.
+ * Stod som 34 her - se noten ved ZS_G_ROW_ICON_W i zs_layout.h. */
+#define ZS_ROW_ICON_W       ZS_G_ROW_ICON_W
 #define ZS_BTN_HEIGHT       ZS_G_BTN_HEIGHT  /* hoejde paa en knap     */
 #define ZS_PAD_SCREEN       ZS_EDGE
 
@@ -419,13 +424,48 @@ lv_obj_t *zs_choice_create(lv_obj_t *parent, const char *titel,
 
 /* Hoejden paa en valgknap, saa kalderen kan regne y ud. */
 #define ZS_CHOICE_HEIGHT    ZS_G_CHOICE_HEIGHT
-#define ZS_CHOICE_GAP       12
+#define ZS_CHOICE_GAP       ZS_G_SK(12)
 
 /*
  * En beholder der stabler sine boern lodret med lige meget luft
  * imellem. Alle lister bruger den, saa afstanden er den samme paa
  * tvaers af skaermene i stedet for at hver side vaelger sin egen.
  */
+/*
+ * En kasse der kun er der for at holde noget andet: uden LVGLs egen
+ * stil, uden rulning og uden at vaere trykbar. Se noten i zs_theme.c -
+ * et almindeligt lv_obj er trykbart som standard, og det er derfor den
+ * her findes.
+ */
+lv_obj_t *zs_box_create(lv_obj_t *parent);
+
+/*
+ * "Den her er mindre end en finger, og det er med vilje."
+ *
+ * Maalebaandet i zs_ui_maal.c kraever at alt man kan trykke paa er
+ * mindst ZS_G_TOUCH_MIN stort. Der er én begrundet undtagelse -
+ * prikkerne paa forsiden, som er en genvej til noget man ogsaa kan
+ * naa ved at traekke siden til side.
+ *
+ * Undtagelsen staar HER som et flag og ikke som en graense i
+ * maalebaandet, af to grunde: den foelger objektet, saa man kan se
+ * paa stedet at det er bevidst, og maalebaandet taeller dem og siger
+ * hvor mange der var. En undtagelse man ikke kan se, er et hul.
+ */
+#define ZS_FLAG_LILLE_MED_VILJE  LV_OBJ_FLAG_USER_1
+
+/*
+ * Et indtastningsfelt: rammen og teksten i den. Begge ligger i
+ * struct'en, fordi kalderen skal kunne saette teksten senere og
+ * stille noget op ved siden af rammen.
+ */
+typedef struct {
+    lv_obj_t *box;
+    lv_obj_t *field;
+} zs_field_t;
+
+void zs_field_create(zs_field_t *out, lv_obj_t *parent, lv_coord_t w);
+
 lv_obj_t *zs_column_create(lv_obj_t *parent, lv_coord_t gap);
 
 /* Hjaelper: saet skrifttype og farve paa ét kald. */

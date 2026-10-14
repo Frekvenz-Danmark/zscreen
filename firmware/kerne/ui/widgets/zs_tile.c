@@ -103,7 +103,9 @@ void zs_tile_place(zs_tile_t *t, int x, int y, int w, int h)
      * skal foelge med, ellers bliver en bred kasses undertekst afkortet
      * midt i som om den var for lang.
      */
-    lv_coord_t inde = (lv_coord_t)w - 2 * ZS_CARD_PAD;
+    /* Kortets kant skal med. Stod som w - 2 * ZS_CARD_PAD, og saa
+     * blev tallet 2 px for bredt paa ZDisplay. Se ZS_G_CARD_INDE_WIDTH. */
+    lv_coord_t inde = (lv_coord_t)ZS_G_CARD_INDE_WIDTH(w);
     if (t->value_box != NULL) {
         lv_obj_set_width(t->value_box, inde);
     }

@@ -544,25 +544,14 @@ static void build_password(void)
     lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(16));
 
     /* Indtastningsfeltet. En ramme med teksten i, og et oeje ved siden
-     * af til at vise hvad der staar. */
-    lv_obj_t *box = lv_obj_create(s_pass.content);
-    lv_obj_remove_style_all(box);
-    lv_obj_set_size(box, ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - ZS_G_SK_WIDTH(8), ZS_G_SK_HEIGHT(56));
-    lv_obj_align(box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(42));
-    lv_obj_set_style_bg_color(box, lv_color_hex(ZS_C_CARD), 0);
-    lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(box, ZS_G_SK(14), 0);
-    lv_obj_set_style_border_width(box, 1, 0);
-    lv_obj_set_style_border_color(box, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_set_style_pad_hor(box, ZS_G_SK_WIDTH(16), 0);
-    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
-
-    s_pass_field = lv_label_create(box);
-    lv_label_set_text(s_pass_field, "");
-    zs_style_text(s_pass_field, &zs_font_rad, ZS_C_TEXT);
-    lv_label_set_long_mode(s_pass_field, LV_LABEL_LONG_CLIP);
-    lv_obj_set_width(s_pass_field, ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - ZS_G_SK_WIDTH(8) - ZS_G_SK_WIDTH(32));
-    lv_obj_align(s_pass_field, LV_ALIGN_LEFT_MID, 0, 0);
+     * af til at vise hvad der staar. Samme felt som "find manuelt" -
+     * se zs_field_create. Her stod de fjorten linjer der byggede
+     * rammen i haanden, og de regnede tekstens bredde 1 px for bred. */
+    zs_field_t felt;
+    zs_field_create(&felt, s_pass.content,
+                    ZS_CONTENT_WIDTH - ZS_TOUCH_MIN - ZS_G_SK_WIDTH(8));
+    lv_obj_align(felt.box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(42));
+    s_pass_field = felt.field;
 
     s_pass_eye = lv_btn_create(s_pass.content);
     lv_obj_remove_style_all(s_pass_eye);
@@ -735,8 +724,12 @@ static void on_inv_pick(lv_event_t *e)
  * aendrer nogen knaphoejden, skal listen blive kortere af sig selv og
  * ikke loebe ind under dem.
  */
-#define ZS_INV_LIST_Y   56           /* under hjaelpelinjen           */
-#define ZS_INV_BTN_GAP  8            /* mellem de to knapper          */
+/* Luft omkring tekst foelger TEKSTEN, altsaa ZS_G_SK. Tallene stod
+ * raa her, og saa var luften den samme paa en 480 og en 1280 px
+ * hoej skaerm. ZS_G_SK(v) giver praecis v paa 480, saa zScreen
+ * staar stille. */
+#define ZS_INV_LIST_Y   ZS_G_SK(56)  /* under hjaelpelinjen           */
+#define ZS_INV_BTN_GAP  ZS_G_SK(8)   /* mellem de to knapper          */
 /* Plads til: luft, knap, mellemrum, knap, luft. */
 #define ZS_INV_BTNS_HEIGHT   (ZS_EDGE + ZS_BTN_HEIGHT + ZS_INV_BTN_GAP \
                          + ZS_BTN_HEIGHT + ZS_EDGE)
@@ -842,25 +835,12 @@ static void build_manual(void)
     lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(16));
 
     /* Samme felt som kodeordssiden: en ramme med teksten i. To felter der
-     * ser ens ud, er to felter montoeren ikke skal laere hver for sig. */
-    lv_obj_t *box = lv_obj_create(s_man.content);
-    lv_obj_remove_style_all(box);
-    lv_obj_set_size(box, ZS_CONTENT_WIDTH, ZS_G_SK_HEIGHT(56));
-    lv_obj_align(box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(42));
-    lv_obj_set_style_bg_color(box, lv_color_hex(ZS_C_CARD), 0);
-    lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(box, ZS_G_SK(14), 0);
-    lv_obj_set_style_border_width(box, 1, 0);
-    lv_obj_set_style_border_color(box, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_set_style_pad_hor(box, ZS_G_SK_WIDTH(16), 0);
-    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
-
-    s_man_field = lv_label_create(box);
-    lv_label_set_text(s_man_field, "");
-    zs_style_text(s_man_field, &zs_font_rad, ZS_C_TEXT);
-    lv_label_set_long_mode(s_man_field, LV_LABEL_LONG_CLIP);
-    lv_obj_set_width(s_man_field, ZS_CONTENT_WIDTH - ZS_G_SK_WIDTH(32));
-    lv_obj_align(s_man_field, LV_ALIGN_LEFT_MID, 0, 0);
+     * ser ens ud, er to felter montoeren ikke skal laere hver for sig -
+     * og nu er det ogsaa den SAMME kode, saa de ikke kan komme i utakt. */
+    zs_field_t felt;
+    zs_field_create(&felt, s_man.content, ZS_CONTENT_WIDTH);
+    lv_obj_align(felt.box, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK_HEIGHT(42));
+    s_man_field = felt.field;
 
     /* Hvor man finder den. Det er det foerste spoergsmaal der kommer. */
     lv_obj_t *hj = lv_label_create(s_man.content);

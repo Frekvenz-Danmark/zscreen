@@ -11,6 +11,14 @@
  * ligger dybere. Se husreglen i check-headers.sh. */
 #ifndef ZS_SKRIFT_MAAL_INC
 #define ZS_SKRIFT_MAAL_INC
+/* Hvilken skaermbredde saettet er bygget til. zs_layout.h
+ * holder den op mod ZS_G_SCR_WIDTH, saa en skaerm der
+ * peger paa det forkerte saet ikke bygger. Vaelger
+ * ZDisplay saettet til 480, bliver skriften en tredjedel
+ * for lille, og INTET andet siger fra: layoutet regner
+ * videre paa 800, kortene bliver store og tomme, og det
+ * ser ud som et designvalg. */
+#define ZS_SKRIFT_SAET_WIDTH 480
 #define ZS_LH_TAL      54
 #define ZS_LH_STOR     34
 #define ZS_LH_RAD      26

@@ -36,6 +36,10 @@ void zs_step_create(zs_step_t *s, lv_obj_t *forael)
     lv_obj_align(s->tekst, LV_ALIGN_TOP_MID, 0, ZS_G_STEP_BODY_Y);
 
     s->bjaelke = lv_bar_create(forael);
+    /* En fremdriftsbjaelke viser noget, den goer ikke noget. LVGL
+     * giver den LV_OBJ_FLAG_CLICKABLE alligevel, og saa laa der et
+     * trykfelt paa 720 x 13 paa to sider - maalt. */
+    lv_obj_clear_flag(s->bjaelke, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_size(s->bjaelke, ZS_G_STEP_WIDTH, ZS_G_STEP_BAR_HEIGHT);
     lv_obj_align(s->bjaelke, LV_ALIGN_TOP_MID, 0, ZS_G_STEP_BAR_Y);
     lv_bar_set_range(s->bjaelke, 0, 100);

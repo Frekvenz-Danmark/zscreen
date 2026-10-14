@@ -499,7 +499,10 @@ static void build_settings(void)
     lv_obj_align(s_slider_val, LV_ALIGN_TOP_RIGHT, 0, 2);
 
     s_slider = lv_slider_create(brow);
-    lv_obj_set_size(s_slider, ZS_CONTENT_WIDTH - ZS_G_SK_WIDTH(32), ZS_G_SK_HEIGHT(10));
+    lv_obj_set_size(s_slider, ZS_G_SLIDER_WIDTH, ZS_G_SLIDER_HEIGHT);
+    /* Tynd at se paa, men til at ramme: klikfladen vokser, selve
+     * skyderen goer ikke. Se noten ved ZS_G_SLIDER_EKSTRA. */
+    lv_obj_set_ext_click_area(s_slider, ZS_G_SLIDER_EKSTRA);
     lv_obj_align(s_slider, LV_ALIGN_BOTTOM_LEFT, 0, -ZS_G_SK_HEIGHT(6));
     lv_slider_set_range(s_slider, 5, 100);
     lv_obj_set_style_bg_color(s_slider, lv_color_hex(ZS_C_BG), LV_PART_MAIN);
