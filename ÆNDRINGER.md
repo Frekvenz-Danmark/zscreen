@@ -1,3 +1,104 @@
+## 2026-10-14 13:30
+
+### Firmwaren bygger nu til to skærme, og motoren står ét sted
+Vi har fået en Seeed reTerminal D1001: 8 tommer, ESP32-P4, 800 x 1280.
+Internt ZDisplay. Hele forarbejdet — hvad enheden er, hvad der blev
+besluttet, og hvad der endnu ikke er målt — står i `docs/zdisplay.md`.
+Herunder kun hvad der blev lavet i koden.
+
+**Kildelisten flyttede til `firmware/kerne.cmake`.** Begge produkter
+bygger af præcis den samme liste. Det er ikke for pænhedens skyld: stod
+listen to steder, ville en ny fil i `net/` komme med i den ene skærm og
+ikke i den anden, og det ville ikke være en byggefejl. Det ville være en
+funktion der manglede hos en kunde på det ene produkt.
+
+Opdelingen holder: der er **ingen** `bsp_`-kald, ingen `driver/gpio`,
+ingen `driver/i2c` og ingen LVGL i `net/`, `app/`, `util/` eller
+`storage/`. Det er derfor de 16.000 linjer kunne flyttes uden at røre
+dem. `tools/check-byg.py` tjekker nu begge bygninger, og det er ikke
+symmetri: en header kan findes på det ene board og mangle på det andet.
+
+**Baglyset er skilt fra reglerne om baglyset.** `ui/zs_display.c` var 300
+linjer, hvoraf 270 var regler — natdæmpning, hvor længe skærmen lyser op
+efter et tryk, hvordan alarmen pulserer. De sidste 30 var en LEDC-timer
+på GPIO 45, og det tal gælder kun Indicator D1. Reglerne blev ikke rørt;
+hardwaren ligger nu i `ui/zs_baglys_d1.c` bag `ui/zs_baglys.h`, og
+enheden i kontrakten er **procent** og ikke en duty-værdi, fordi en duty
+afhænger af opløsningen og så ville reglerne kende hardwaren igen.
+
+**Seeeds BSP bruges uændret, men med vores egen afhængighedsliste.**
+Deres `bsp_display_start()` returnerer en `lv_display_t *`, som kun
+findes i LVGL 9, og vores flade er 33.000 linjer skrevet til 8.3. Hele
+den del af deres kilde ligger bag `BSP_CONFIG_NO_GRAPHIC_LIB`, så koden
+er ikke problemet — deres `idf_component.yml` er, for den beder om
+`esp_lvgl_port ^2` uanset. Derfor registrerer `zd_bsp` deres fire
+kildefiler direkte fra submodulet med en liste vi selv skriver.
+
+Det er grunden til at vi **ikke** skrev opstarten selv: deres
+`bsp_power_init()` sætter en PMU-spændingsindstilling, holder VDD_3V3 på
+et ben i benudvideren, og **sætter drivestyrken ned på de seks SDIO-ben**
+ud til radiochippen. Det er ikke noget man gætter.
+`tools/check-bsp-zdisplay.py` siger fra hvis Seeed lægger en kildefil
+til. Vagten er prøvet ved at fjerne en fil og se den falde.
+
+### En skærm kunne hente den anden skærms firmware
+`zs_ota.c` tog den **første** fil i udgivelsen der sluttede på `.bin`.
+Med to produkter i samme repo og samme versionsmærke ligger der to, og
+hvilken der kom først afhang af upload-rækkefølgen.
+
+ESP-IDF ville have afvist den — chip-id'et står i billedets hoved — så
+der var ikke fare for at forkert firmware kom til at køre. Men skærmen
+ville hente 2 MB over kundens forbindelse, afvise dem, og prøve igen en
+halv time senere. For evigt, uden at nogen kunne se hvorfor.
+
+Beslutningen ligger nu i `zs_version_asset_passer()`, som er en ren
+funktion og derfor prøves på en Mac — for **begge** produkter, også det
+man ikke bygger, fordi præfikset er en parameter. 19 nye tjek. Teksten
+når det går galt siger produktet med: en udgivelse kan godt have
+firmware til den anden skærm og ingen til den her, og så er "manglede en
+firmware-fil" det forkerte sted at begynde at lede.
+
+Udgivelsen laver i forvejen `zscreen-v0.27.0.bin`, så præfikset passer
+med det der ligger der i dag. `release.yml` er ikke rørt: den skal bygge
+begge, og det arbejde skal laves når nogen sidder og ser på det. Står
+der i `docs/zdisplay.md` sammen med den vigtige detalje om at zScreen
+skal uploades først, så gamle skærme stadig rammer deres egen fil.
+
+### Tre ting der kun kunne findes ved at bygge
+**`esp_phy_init.h` findes slet ikke for esp32p4.** ESP-IDF registrerer
+`esp_phy` som en tom komponent på den chip. `storage/zs_nvs.c` kalder
+`esp_phy_erase_cal_data_in_nvs()` i fabriksnulstillingen, og bygningen
+stoppede. Det er ikke en manglende afhængighed: funktionen er der ikke,
+fordi radioen ikke er der. Den sidder i en ESP32-C6 ved siden af.
+
+Forskellen står nu som `ZS_HAR_LOKAL_RADIO` i `zs_config.h`, sammen med
+produktnavnet og OTA-præfikset, så resten af koden spørger om en
+**egenskab** og ikke om hvilken skærm det er. Og konsekvensen er skrevet
+ned hvor den gør ondt: en fabriksnulstilling på ZDisplay rydder **ikke**
+radioens kalibrering. Det kostede en halv dag på zScreen at finde ud af
+at en dårlig kalibrering ser ud som en søgning der ikke virker.
+
+**Bootloaderen havde 1216 bytes luft.** P4'erens bootloader starter på
+0x2000 mod S3'erens 0x1000, så med partitionstabellen på 0x8000 var der
+5 procent tilbage når den var signeret. En partitionstabel kan ikke
+flyttes på en enhed der er sendt ud, så den ligger nu på 0xA000 fra
+starten. Det koster 8 KB flash ud af 16 MB og giver 29 procent luft.
+
+**Seeeds BSP kalder `esp_timer_get_time()` uden at hente headeren.** Den
+fulgte med gennem `esp_lvgl_port`s headere hos dem. Løst med `-include`
+på netop den komponent, ikke med en rettelse i submodulet, som ville
+være væk ved næste opdatering.
+
+### Tal
+Begge firmwarer bygger og bliver signeret med samme nøgle. ZDisplay er
+1.904.640 bytes med 55 procent plads tilbage. zScreen er 1.642.496 og
+uændret af opsplitningen. 1819 enhedstjek, alle bestået. Alle 11 vagter
+tilfredse. `esp_hosted` 2.13.0 og `esp_wifi_remote` 1.6.5, pinnet
+præcist — 3-serien kræver ESP-IDF 5.5, og vi bygger med 5.4.2, som er
+den Seeed selv prøver deres SDK med.
+
+Skærmen har ikke været tændt.
+
 ## 2026-10-09 21:12
 
 ### Fire fejl i Fase B, fundet ved at laese koden igennem med fjendtlige oejne

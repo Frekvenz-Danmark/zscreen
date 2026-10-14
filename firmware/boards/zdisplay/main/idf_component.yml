@@ -1,0 +1,32 @@
+## ZDisplay - afhaengigheder der hentes fra ESP-IDF's komponentregister.
+##
+## RADIOEN SIDDER I EN ANDEN CHIP. ESP32-P4 har ingen radio; wifi kommer
+## fra en ESP32-C6 over SDIO. De to komponenter herunder er vejen:
+##
+##   esp_wifi_remote  laegger sig bag esp_wifi.h og sender hvert kald
+##                    videre, saa zs_wifi.c ikke behoever at vide det
+##   esp_hosted       selve transporten over SDIO
+##
+## VERSIONEN ER IKKE LIGEGYLDIG. Gammel esp_hosted mister SDIO-
+## forbindelsen og genopretter den ikke: et andet P4-board har maalt
+## wifi der dør efter cirka fire minutter med en 2.3.0-slave, og at der
+## skal 2.9.4 eller nyere til i BEGGE ender. C6'erens egen firmware skal
+## altsaa bygges af samme udgave som den her. Se docs/zdisplay.md.
+## HVORFOR 2.x OG IKKE 3.x: esp_hosted 3.0.0 og nyere kraever ESP-IDF
+## 5.5, og vi bygger med 5.4.2, som er den Seeed selv proever deres SDK
+## med. 2.13.0 er nyeste i 2-serien og ligger godt over de 2.9.4 der
+## skal til. Den dag vi flytter til IDF 5.5, kan 3-serien komme i spil.
+##
+## PINNET PRAECIST og ikke som "^2". Det er samme regel som for ESP-IDF
+## og for submodulerne: den firmware der bliver udgivet, skal kunne
+## bygges igen om et aar med praecis de samme dele. Et interval betyder
+## at en ny udgave kan komme ind mellem to byg uden at nogen har valgt
+## den - og her er "en ny udgave" en radio der skal passe med firmwaren
+## i en HELT anden chip.
+dependencies:
+  idf:
+    version: '>=5.3'
+  espressif/esp_wifi_remote:
+    version: "1.6.5"
+  espressif/esp_hosted:
+    version: "2.13.0"

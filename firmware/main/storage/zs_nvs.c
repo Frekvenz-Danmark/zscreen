@@ -7,7 +7,9 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_wifi.h"       /* esp_wifi_restore */
+#if ZS_HAR_LOKAL_RADIO
 #include "esp_phy_init.h"  /* esp_phy_erase_cal_data_in_nvs */
+#endif
 #include "esp_log.h"
 
 #include <string.h>
@@ -344,6 +346,7 @@ bool zs_nvs_factory_reset(void)
      * flashning, PAA ÉN undtagelse: zsfleet. Og den staar skrevet
      * ovenfor.
      */
+#if ZS_HAR_LOKAL_RADIO
     esp_err_t pe = esp_phy_erase_cal_data_in_nvs();
     if (pe != ESP_OK) {
         /* Ikke faldt over: er der ingen kalibrering gemt, er der heller
@@ -352,6 +355,17 @@ bool zs_nvs_factory_reset(void)
         ESP_LOGW(TAG, "radioens kalibrering kunne ikke ryddes: %s",
                  esp_err_to_name(pe));
     }
+#else
+    /*
+     * ZDisplay: radioen er en anden chip, og dens kalibrering ligger i
+     * DENS flash. Den kan vi ikke naa herfra, saa hele afsnittet
+     * ovenfor gaelder ikke - og det er VAERD at vide, for det var en
+     * svag radio efter en nulstilling der kostede en halv dag paa
+     * zScreen. Sker det samme paa en ZDisplay, er det C6'eren der skal
+     * ses paa, ikke den her funktion. Se ZS_HAR_LOKAL_RADIO.
+     */
+    ESP_LOGI(TAG, "radioens kalibrering ligger i den anden chip og roeres ikke");
+#endif
 
     if (ok) {
         ESP_LOGW(TAG, "alt er slettet: indstillinger, energigrundlag, "

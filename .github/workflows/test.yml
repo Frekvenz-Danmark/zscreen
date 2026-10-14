@@ -17,7 +17,15 @@ jobs:
     # overrasket. Vi flytter naar vi selv vil, og proever foerst.
     runs-on: ubuntu-24.04
     steps:
+      # Submodulerne skal med, ogsaa i det hurtige job.
+      #
+      # tools/check-bsp-zdisplay.py sammenligner vores kildeliste med
+      # Seeeds egen CMakeLists, og den fil ligger i submodulet. Uden den
+      # kan vagten ikke koere, og en vagt der ikke kan koere skal sige
+      # fra - ikke se ud som en der bestod.
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - name: Byg zs-probe
         run: ./tools/zs-probe/build.sh

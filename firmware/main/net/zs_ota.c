@@ -1,5 +1,7 @@
 #include "zs_ota.h"
 #include "zs_version.h"
+/* ZS_OTA_ASSET_PREFIX og ZS_PRODUCT_NAME. Begge er pr. board. */
+#include "zs_config.h"
 
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
@@ -235,8 +237,14 @@ static bool hent_udgivelse(zs_ota_status_t *ud, char *url, size_t url_len,
                     if (!cJSON_IsString(navn) || !cJSON_IsString(link)) {
                         continue;
                     }
-                    size_t n = strlen(navn->valuestring);
-                    if (n > 4 && strcmp(navn->valuestring + n - 4, ".bin") == 0) {
+                    /*
+                     * VORES fil, ikke bare den foerste .bin. Begge
+                     * produkter ligger i samme udgivelse. Reglen er en
+                     * ren funktion, saa den kan proeves - se
+                     * zs_version_asset_passer og ZS_OTA_ASSET_PREFIX.
+                     */
+                    if (zs_version_asset_passer(navn->valuestring,
+                                                ZS_OTA_ASSET_PREFIX)) {
                         snprintf(url, url_len, "%s", link->valuestring);
                         break;
                     }
@@ -246,8 +254,14 @@ static bool hent_udgivelse(zs_ota_status_t *ud, char *url, size_t url_len,
                 snprintf(ud->fejl, sizeof(ud->fejl),
                          "Udgivelsen manglede et versionsnummer");
             } else if (url[0] == '\0') {
+                /*
+                 * Teksten siger PRODUKTET med. En udgivelse kan godt
+                 * have firmware til den anden skaerm og ingen til den
+                 * her, og saa er "manglede en firmware-fil" det
+                 * forkerte sted at begynde at lede.
+                 */
                 snprintf(ud->fejl, sizeof(ud->fejl),
-                         "Udgivelsen manglede en firmware-fil");
+                         "Udgivelsen har ingen firmware til " ZS_PRODUCT_NAME);
             } else {
                 ok = true;
             }

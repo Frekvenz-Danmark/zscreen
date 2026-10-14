@@ -1,0 +1,135 @@
+# ZDisplay - grundopsaetning af ESP-IDF.
+#
+# Startet fra zScreens egen fil, saa de to produkter opfoerer sig ens
+# der hvor de kan, og derefter rettet hvor P4'eren er anderledes. Hver
+# forskel har en begrundelse.
+#
+# HUSK: en ny linje her gaelder ikke for en byggemappe der findes i
+# forvejen. Den genererede sdkconfig skal slettes foerst.
+
+# ── Chip ──────────────────────────────────────────────────────────────
+CONFIG_IDF_TARGET="esp32p4"
+# Kraeves af esp_hosted, som er vejen ud til C6'erens radio.
+CONFIG_IDF_EXPERIMENTAL_FEATURES=y
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# ── PSRAM ─────────────────────────────────────────────────────────────
+# 32 MB. Billedbufferne er store her: 800 x 1280 x 2 bytes = 2 MB
+# stykket, og der er to af dem.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_SPEED_200M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+# Hold en bund af intern hukommelse fri. Uden den kan en stor
+# LVGL-tildeling tage det sidste, og saa fejler en DMA-overfoersel et
+# helt andet sted - de tal er Seeeds egne fra fabriksfirmwaren.
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=8192
+CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=32768
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y
+
+# ── L2-cache ──────────────────────────────────────────────────────────
+# Panelet laeser hele billedet fra PSRAM 60 gange i sekundet. Med en for
+# lille cache bliver billedet revet af ventetid paa hukommelsen.
+CONFIG_CACHE_L2_CACHE_256KB=y
+CONFIG_CACHE_L2_CACHE_LINE_128B=y
+
+# ── Flash ─────────────────────────────────────────────────────────────
+# 16 MB indtil det er maalt paa enheden. Se partitions.csv.
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
+# 0xA000 og ikke 0x8000: P4'erens bootloader starter paa 0x2000 og har
+# ellers kun 5 procent luft tilbage naar den er signeret. Se
+# partitions.csv.
+CONFIG_PARTITION_TABLE_OFFSET=0xA000
+
+# ── FreeRTOS ──────────────────────────────────────────────────────────
+CONFIG_FREERTOS_HZ=1000
+
+# ── Skaerm ────────────────────────────────────────────────────────────
+# To billedbuffere, saa der kan tegnes i den ene mens den anden vises.
+CONFIG_BSP_LCD_DPI_BUFFER_NUMS=2
+# 16 bit pr. pixel. Fladen er skrevet til RGB565, og 24 bit ville goere
+# hver buffer 3 MB i stedet for 2 uden at vise andet.
+CONFIG_BSP_LCD_COLOR_FORMAT_RGB565=y
+
+# ── Radioen i den anden chip ──────────────────────────────────────────
+#
+# P4'eren har ingen radio. Wifi gaar over SDIO til en ESP32-C6, og
+# benene herunder er Seeeds egne fra fabriksfirmwaren.
+#
+# C6'erens EGEN firmware skal passe til den esp_hosted vi bygger med
+# her. Gammel firmware i C6'eren giver wifi der dør efter faa minutter,
+# og det ser ud som et daarligt net. Se docs/zdisplay.md.
+CONFIG_SLAVE_IDF_TARGET_ESP32C6=y
+CONFIG_ESP_HOSTED_SDIO_GPIO_RESET_SLAVE=13
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_CLK_SLOT_1=11
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_CMD_SLOT_1=6
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_D0_SLOT_1=7
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_D1_4BIT_BUS_SLOT_1=8
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_D2_4BIT_BUS_SLOT_1=9
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_D3_4BIT_BUS_SLOT_1=10
+
+# ── LVGL ──────────────────────────────────────────────────────────────
+# Praecis som zScreen. Samme LVGL 8.3.1, samme flade.
+CONFIG_LV_MEM_CUSTOM=y
+CONFIG_LV_TXT_ENC_UTF8=y
+CONFIG_LV_FONT_DEFAULT_MONTSERRAT_14=y
+CONFIG_LV_FONT_MONTSERRAT_14=y
+CONFIG_LV_FONT_UNSCII_8=n
+
+# ── Bluetooth ─────────────────────────────────────────────────────────
+# Slaaet fra. Skaermen bruger kun wifi.
+CONFIG_BT_ENABLED=n
+
+# ── Netvaerk ──────────────────────────────────────────────────────────
+# Samme tal som zScreen. Inverter-soegningen aabner tolv sockets paa én
+# gang, og standardens 10 er for lidt.
+CONFIG_LWIP_MAX_SOCKETS=16
+CONFIG_LWIP_SO_RCVBUF=y
+CONFIG_LWIP_SO_LINGER=y
+CONFIG_LWIP_SNTP_MAX_SERVERS=2
+
+# ── Vagthund ──────────────────────────────────────────────────────────
+# En skaerm paa en vaeg skal komme sig selv. PANIC og ikke kun advarsel,
+# af samme grund som paa zScreen.
+CONFIG_ESP_TASK_WDT_EN=y
+CONFIG_ESP_TASK_WDT_INIT=y
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=30
+CONFIG_ESP_INT_WDT=y
+CONFIG_ESP_TASK_WDT_PANIC=y
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y
+
+# ── Signeret firmware ─────────────────────────────────────────────────
+#
+# SAMME noegle som zScreen, og det er med vilje: der er én noegle at
+# passe paa i stedet for to, og en skaerm kan alligevel ikke komme til
+# at tage det forkerte produkts firmware - chip-id'et staar i billedets
+# hoved, og ESP-IDF afviser et billede til en anden chip.
+#
+# Hele begrundelsen for ordningen, og hvorfor noeglen ikke kan skiftes
+# over luften, staar i firmware/sdkconfig.defaults og i
+# .github/workflows/release.yml. Laes den foer du roerer noeglen.
+CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
+CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
+CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y
+CONFIG_SECURE_BOOT_SIGNING_KEY="../../../secure/zscreen-signing.pem"
+
+# ── Opdatering over netvaerket ────────────────────────────────────────
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
+CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# ── Log ───────────────────────────────────────────────────────────────
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LOG_MAXIMUM_LEVEL_DEBUG=y
+
+# ── Konsollen ─────────────────────────────────────────────────────────
+# Modsat zScreen: her ER der et USB-stik paa chippens egne USB-ben, og
+# enheden flashes og overvaages over det. Ingen UART-konsol noedvendig.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y

@@ -359,5 +359,54 @@ void test_version_maal(void)
     CHECK_INT("målet er altid afsluttet med nul", uafsluttet, 0);
 }
 
+/*
+ * Hvilken fil i udgivelsen er VORES.
+ *
+ * To produkter udgives fra samme repo med samme versionsmaerke, saa der
+ * ligger to .bin-filer i hver udgivelse. Reglen blev foer afgjort af
+ * hvilken af dem der tilfaeldigvis laa foerst, og det er praecis den
+ * slags der ikke kan proeves uden en server - derfor er den flyttet ud
+ * i en ren funktion.
+ *
+ * Begge produkter proeves her, ogsaa det der IKKE bygges, fordi
+ * praefikset er en parameter.
+ */
+void test_version_asset(void)
+{
+    ZS_SUITE("Udgivelsens filer: hvilken er vores");
 
+    struct { const char *navn; const char *praefiks; bool ja; const char *hvad; } t[] = {
+        /* Det der SKAL siges ja til. Navnene er dem
+         * .github/workflows/release.yml faktisk laver. */
+        { "zscreen-v0.28.0.bin",  "zscreen-",  true,  "zScreens egen" },
+        { "zdisplay-v0.28.0.bin", "zdisplay-", true,  "ZDisplays egen" },
+        { "zscreen-0.28.0.bin",   "zscreen-",  true,  "uden v" },
+        { "zscreen-x.bin",        "zscreen-",  true,  "ét tegn er nok" },
 
+        /* Den fejl det hele handler om: den anden skaerms firmware. */
+        { "zdisplay-v0.28.0.bin", "zscreen-",  false, "den andens, set fra zScreen" },
+        { "zscreen-v0.28.0.bin",  "zdisplay-", false, "den andens, set fra ZDisplay" },
+
+        /* Og alt det andet der kan ligge i en udgivelse. */
+        { "zscreen-.bin",         "zscreen-",  false, "intet mellem praefiks og .bin" },
+        { "zscreen-v0.28.0.bin.sha256", "zscreen-", false, "en checksum" },
+        { "min-zscreen-v1.bin",   "zscreen-",  false, "praefikset skal staa FOERST" },
+        { "zscreen-v1.BIN",       "zscreen-",  false, "stort BIN" },
+        { "zscreen-v1.elf",       "zscreen-",  false, "en elf-fil" },
+        { "firmware.bin",         "zscreen-",  false, "uden praefiks" },
+        { ".bin",                 "zscreen-",  false, "kun endelsen" },
+        { "",                     "zscreen-",  false, "tomt navn" },
+        { "zscreen-",             "zscreen-",  false, "kun praefikset" },
+        { "zscreen-v1.bin",       "",          false, "tomt praefiks siger nej til alt" },
+    };
+
+    for (size_t i = 0; i < sizeof t / sizeof *t; i++) {
+        CHECK(t[i].hvad,
+              zs_version_asset_passer(t[i].navn, t[i].praefiks) == t[i].ja);
+    }
+
+    /* NULL maa ikke vaelte noget. Begge veje. */
+    CHECK("NULL-navn", !zs_version_asset_passer(NULL, "zscreen-"));
+    CHECK("NULL-praefiks", !zs_version_asset_passer("zscreen-v1.bin", NULL));
+    CHECK("NULL begge", !zs_version_asset_passer(NULL, NULL));
+}

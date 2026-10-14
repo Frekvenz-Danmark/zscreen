@@ -147,6 +147,32 @@ typedef struct {
 
 zs_maal_t zs_version_vaelg_maal(const char *nuvaerende, const char *oensket);
 
+/*
+ * Er den her fil i udgivelsen firmware til DET HER produkt?
+ *
+ * HVORFOR DET ER ET SPOERGSMAAL.
+ *
+ * zScreen og ZDisplay udgives fra samme repo med samme versionsmaerke,
+ * saa hver udgivelse har to .bin-filer: "zscreen-v0.28.0.bin" og
+ * "zdisplay-v0.28.0.bin". Koden tog foer den foerste der sluttede paa
+ * ".bin", og hvilken af de to det var, afhang af hvilken raekkefoelge de
+ * blev lagt op i. Se ZS_OTA_ASSET_PREFIX for hvad det kostede.
+ *
+ * LIGGER HER og ikke i zs_ota.c af samme grund som zs_version_tekst_404:
+ * zs_ota.c kan ikke oversaettes paa en almindelig maskine, den haenger
+ * paa esp_http_client. Her kan reglen proeves - ogsaa for det produkt
+ * man IKKE bygger, fordi praefikset er en parameter og ikke en konstant
+ * hentet inde i funktionen.
+ *
+ * Siger ja til: praefikset foerst, mindst ét tegn derefter, og ".bin"
+ * til sidst. Altsaa ikke "zscreen-.bin", ikke "zdisplay-v1.bin" naar vi
+ * er en zScreen, ikke "zscreen-v1.bin.sha256", og ikke
+ * "min-zscreen-v1.bin".
+ *
+ * navn og praefiks maa vaere NULL; saa er svaret nej.
+ */
+bool zs_version_asset_passer(const char *navn, const char *praefiks);
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,3 +2,7 @@
 	path = firmware/vendor/SenseCAP_Indicator_ESP32
 	url = https://github.com/Seeed-Solution/SenseCAP_Indicator_ESP32.git
 	branch = main
+[submodule "firmware/vendor/reTerminal_D1001"]
+	path = firmware/vendor/reTerminal_D1001
+	url = https://github.com/Seeed-Studio/reTerminal-D1001.git
+	branch = main

@@ -1,0 +1,340 @@
+/*
+ * ZDisplay - LVGL 8.3 oven paa et MIPI-DSI-panel.
+ *
+ * Samme kontrakt som zScreens lv_port.c (se firmware/main/lv_port.h):
+ * lv_port_init(), og en rekursiv laas om alt der roerer LVGL. Men
+ * hardwaren under den er en anden, og derfor er filen sin egen.
+ *
+ * HVAD DER ER FORSKELLEN.
+ *
+ * Paa zScreen sidder panelet paa en RGB-bus, hvor ESP32'en selv klokker
+ * hver pixel ud, og Seeeds bsp_lcd styrer det. Her er panelet paa
+ * MIPI-DSI: P4'eren skriver ind i en billedbuffer i PSRAM, og en
+ * selvstaendig blok laeser den buffer ud til skaermen 60 gange i
+ * sekundet uden at spoerge om lov.
+ *
+ * Det betyder at "flush" ikke er en udsendelse, men en KOPI ind i den
+ * buffer. Kopien laves af DMA2D og er derfor ikke faerdig naar
+ * esp_lcd_panel_draw_bitmap() returnerer. Vi faar besked i
+ * on_color_trans_done, og det er FOERST der at LVGL maa bruge sin
+ * tegnebuffer igen.
+ *
+ * Det er maalt i ESP-IDF's egen kilde, ikke gaettet:
+ * components/esp_lcd/dsi/esp_lcd_panel_dpi.c kalder on_color_trans_done
+ * med det samme naar kopien laves af CPU'en, og fra DMA'ens egen
+ * kvittering naar den laves af DMA2D. Seeeds panelopsaetning saetter
+ * flags.use_dma2d = true, saa det er den sidste vej der gaelder. Kaldte
+ * vi lv_disp_flush_ready() selv lige efter draw_bitmap, ville LVGL
+ * begynde at tegne oven i en buffer der stadig blev laest ud af DMA'en,
+ * og billedet ville rive i vilkaarlige striber.
+ */
+
+#include "esp_heap_caps.h"
+#include "esp_err.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+
+#include "esp_lcd_panel_ops.h"
+#include "esp_lcd_mipi_dsi.h"
+#include "esp_lcd_touch.h"
+
+#include "lvgl.h"
+#include "lv_port.h"
+
+#include "esp32_p4_re_terminal_d1001.h"
+#include "display.h"
+#include "touch.h"
+
+#include "zs_display.h"
+#include "zs_layout.h"
+
+static const char *TAG = "lvgl_port";
+
+/*
+ * Tegnebufferens hoejde i linjer.
+ *
+ * 120 linjer x 800 px x 2 bytes = 192 KB, og der er to af dem i PSRAM.
+ *
+ * HVORFOR IKKE HELE SKAERMEN. En fuld buffer er 800 x 1280 x 2 = 2 MB,
+ * og to af dem 4 MB. Der er 32 MB PSRAM, saa det KAN betales - men
+ * hverken fladen eller tallene paa den aendrer sig en hel skaerm ad
+ * gangen. Et nyt tal i et kort er nogle faa linjer, og saa er en kopi
+ * paa 2 MB spildt arbejde 60 gange i sekundet.
+ *
+ * To buffere og ikke én, saa LVGL kan tegne i den ene mens DMA2D
+ * kopierer den anden.
+ */
+#define BUF_LINJER      120
+#define BUF_PIXELS      (ZS_G_SCR_WIDTH * BUF_LINJER)
+
+/*
+ * FLADEN OG PANELET SKAL VAERE ENIGE OM STOERRELSEN.
+ *
+ * ZS_G_SCR_WIDTH kommer fra byggeriet (se projektets CMakeLists), og
+ * BSP_LCD_H_RES kommer fra Seeeds display.h. De to tal bruges til hver
+ * sin ting: vores til at regne hele fladen ud, deres til at saette
+ * touchens maksimum i bsp_touch_new().
+ *
+ * Og deres tal er BETINGET:
+ *
+ *     #if CONFIG_BSP_LCD_TYPE_1024_600   ->  1024 x 600
+ *     #else                              ->   800 x 1280
+ *
+ * Den konstant findes ikke i deres Kconfig i dag, saa vi faar 800 x
+ * 1280. Men tilfoejer Seeed det valg i en opdatering af submodulet, og
+ * giver det en standard, saa flytter panelet sig under os: fladen ville
+ * stadig regne i 800 x 1280, touchen ville blive skaleret til 1024 x
+ * 600, og hvert tryk ville ramme et andet sted end der blev trykket.
+ * Intet af det ville vaere en byggefejl.
+ *
+ * Derfor staar det her. Flytter tallene sig, falder byggeriet.
+ */
+_Static_assert(ZS_G_SCR_WIDTH == BSP_LCD_H_RES,
+               "fladens bredde og panelets bredde er ikke den samme. "
+               "Se CONFIG_BSP_LCD_TYPE_1024_600 i Seeeds display.h");
+_Static_assert(ZS_G_SCR_HEIGHT == BSP_LCD_V_RES,
+               "fladens hoejde og panelets hoejde er ikke den samme. "
+               "Se CONFIG_BSP_LCD_TYPE_1024_600 i Seeeds display.h");
+
+#define TASK_DELAY_MS   5
+
+#ifndef CONFIG_LCD_TASK_PRIORITY
+#define CONFIG_LCD_TASK_PRIORITY    5
+#endif
+
+static lv_disp_drv_t            disp_drv;
+static esp_lcd_panel_handle_t   s_panel = NULL;
+static esp_lcd_touch_handle_t   s_touch = NULL;
+static SemaphoreHandle_t        lvgl_mutex = NULL;
+static TaskHandle_t             lvgl_task_handle = NULL;
+
+/* Kvitteringen fra DMA2D: nu maa LVGL bruge tegnebufferen igen. */
+static bool flush_faerdig(esp_lcd_panel_handle_t panel,
+                          esp_lcd_dpi_panel_event_data_t *edata,
+                          void *user_ctx)
+{
+    (void)panel; (void)edata; (void)user_ctx;
+    lv_disp_flush_ready(&disp_drv);
+    /* Ingen opgave af hoejere prioritet er vaekket herinde. */
+    return false;
+}
+
+static void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p)
+{
+    (void)drv;
+    /*
+     * Bemaerk at der IKKE kaldes lv_disp_flush_ready() i det gode
+     * tilfaelde. Det sker i flush_faerdig naar kopien er ovre. Se noten
+     * oeverst i filen.
+     */
+    esp_err_t err = esp_lcd_panel_draw_bitmap(s_panel,
+                                              area->x1, area->y1,
+                                              area->x2 + 1, area->y2 + 1,
+                                              (const void *)color_p);
+    if (err != ESP_OK) {
+        /*
+         * HVORFOR DER KVITTERES HER ALLIGEVEL.
+         *
+         * Gaar kopien ikke i gang, bliver on_color_trans_done aldrig
+         * kaldt - og saa venter LVGL paa en kvittering der ikke kommer.
+         * Ikke i et sekund: for altid. Skaermen staar med det billede
+         * der var, uret gaar i staa, og alt andet i firmwaren koerer
+         * videre som om intet var haendt. Det er den vaerste slags fejl
+         * paa en vaeg: enheden ser taendt ud og viser gamle tal.
+         *
+         * ESP-IDF's dpi-panel afviser netop en tegning hvis den
+         * FORRIGE kopi ikke er faerdig (ESP_ERR_INVALID_STATE,
+         * esp_lcd_panel_dpi.c). Det skal ikke kunne ske, fordi LVGL
+         * foerst tegner igen efter en kvittering - men "skal ikke kunne
+         * ske" er ikke det samme som "kan ikke ske", og prisen for at
+         * tage fejl er en frossen skaerm.
+         *
+         * Derfor kvitterer vi selv. Rammen gaar tabt, og den naeste
+         * bliver tegnet. Et glip paa ét billede ser ingen; en frossen
+         * skaerm ser alle.
+         */
+        ESP_LOGW(TAG, "en ramme kunne ikke sendes til skaermen: %s",
+                 esp_err_to_name(err));
+        lv_disp_flush_ready(&disp_drv);
+    }
+}
+
+/*
+ * Beroeringen.
+ *
+ * Tjekket paa at koordinaterne ligger INDEN FOR skaermen er ikke
+ * paranoia. Det er maalt paa zScreen: touch-kredsen der svarede 12204
+ * og 65531 lige efter opstart, blev regnet om til et negativt tal, foldt
+ * rundt i LVGL's int16, og landede som et tryk paa et vilkaarligt sted
+ * paa skaermen. Skaermen startede demoen af sig selv halvandet sekund
+ * efter opstart. Se den lange note i firmware/main/lv_port.c.
+ *
+ * Kredsen er en anden her (GSL3670 i stedet for FT5x06), og den har ikke
+ * vist den opfoersel. Men prisen for tjekket er to sammenligninger, og
+ * prisen for at mangle det er et tryk ingen har lavet.
+ */
+static void touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
+{
+    (void)drv;
+    static lv_coord_t sidste_x = 0, sidste_y = 0;
+
+    if (s_touch == NULL) {
+        data->state = LV_INDEV_STATE_REL;
+        return;
+    }
+
+    uint16_t x[1] = { 0 }, y[1] = { 0 }, styrke[1] = { 0 };
+    uint8_t  antal = 0;
+
+    esp_lcd_touch_read_data(s_touch);
+    bool rammer = esp_lcd_touch_get_coordinates(s_touch, x, y, styrke, &antal, 1);
+
+    bool gyldig = rammer
+               && antal > 0
+               && x[0] < ZS_G_SCR_WIDTH
+               && y[0] < ZS_G_SCR_HEIGHT;
+
+    if (gyldig) {
+        data->state   = LV_INDEV_STATE_PR;
+        data->point.x = (lv_coord_t)x[0];
+        data->point.y = (lv_coord_t)y[0];
+        sidste_x = data->point.x;
+        sidste_y = data->point.y;
+        zs_display_touch_wake();
+    } else {
+        data->state   = LV_INDEV_STATE_REL;
+        data->point.x = sidste_x;
+        data->point.y = sidste_y;
+    }
+}
+
+static void lv_port_disp_init(void)
+{
+    static lv_disp_draw_buf_t disp_buf;
+
+    const bsp_display_config_t cfg = { 0 };
+    esp_lcd_panel_io_handle_t io = NULL;
+    ESP_ERROR_CHECK(bsp_display_new(&cfg, &s_panel, &io));
+
+    const esp_lcd_dpi_panel_event_callbacks_t cbs = {
+        .on_color_trans_done = flush_faerdig,
+    };
+    ESP_ERROR_CHECK(esp_lcd_dpi_panel_register_event_callbacks(s_panel, &cbs, NULL));
+
+    /*
+     * Bufferne skal ligge i PSRAM, og de skal vaere linjejusterede.
+     *
+     * DMA2D laeser dem direkte, og cache-synkroniseringen i ESP-IDF
+     * arbejder i hele cache-linjer. En buffer der starter midt i en
+     * linje kan tage naboens data med over, og det ses som en stribe
+     * skrald i kanten af det der blev tegnet. heap_caps_aligned_alloc
+     * med cache-linjens stoerrelse fjerner det.
+     */
+    size_t bytes = BUF_PIXELS * sizeof(lv_color_t);
+    void *buf1 = heap_caps_aligned_alloc(128, bytes, MALLOC_CAP_SPIRAM);
+    void *buf2 = heap_caps_aligned_alloc(128, bytes, MALLOC_CAP_SPIRAM);
+    assert(buf1 && buf2);
+
+    lv_disp_draw_buf_init(&disp_buf, buf1, buf2, BUF_PIXELS);
+
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.hor_res  = ZS_G_SCR_WIDTH;
+    disp_drv.ver_res  = ZS_G_SCR_HEIGHT;
+    disp_drv.flush_cb = disp_flush;
+    disp_drv.draw_buf = &disp_buf;
+    lv_disp_drv_register(&disp_drv);
+
+    ESP_LOGI(TAG, "skaerm klar, %d x %d, to buffere paa %u KB",
+             (int)ZS_G_SCR_WIDTH, (int)ZS_G_SCR_HEIGHT,
+             (unsigned)(bytes / 1024));
+}
+
+static void lv_port_indev_init(void)
+{
+    static lv_indev_drv_t indev_drv;
+
+    const bsp_touch_config_t cfg = { 0 };
+    esp_err_t err = bsp_touch_new(&cfg, &s_touch);
+    if (err != ESP_OK) {
+        /*
+         * En skaerm uden touch er ikke en doed skaerm: den viser stadig
+         * de fire tal, og det er det vigtigste den laver. Derfor
+         * standser opstarten ikke her.
+         */
+        ESP_LOGE(TAG, "touch svarede ikke (%s), skaermen kan kun ses",
+                 esp_err_to_name(err));
+        s_touch = NULL;
+        return;
+    }
+
+    lv_indev_drv_init(&indev_drv);
+    indev_drv.type    = LV_INDEV_TYPE_POINTER;
+    indev_drv.read_cb = touchpad_read;
+    lv_indev_drv_register(&indev_drv);
+}
+
+static void lv_tick_inc_cb(void *data)
+{
+    uint32_t ms = *((uint32_t *)data);
+    lv_tick_inc(ms);
+}
+
+static void lv_port_tick_init(void)
+{
+    static uint32_t tick_ms = 2;
+    const esp_timer_create_args_t args = {
+        .callback = lv_tick_inc_cb,
+        .name = "lv_tick",
+        .arg = &tick_ms,
+        .dispatch_method = ESP_TIMER_TASK,
+        .skip_unhandled_events = true,
+    };
+    esp_timer_handle_t t;
+    ESP_ERROR_CHECK(esp_timer_create(&args, &t));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(t, tick_ms * 1000));
+}
+
+static void lvgl_task(void *args)
+{
+    (void)args;
+    for (;;) {
+        xSemaphoreTakeRecursive(lvgl_mutex, portMAX_DELAY);
+        lv_task_handler();
+        xSemaphoreGiveRecursive(lvgl_mutex);
+        vTaskDelay(pdMS_TO_TICKS(TASK_DELAY_MS));
+    }
+}
+
+void lv_port_init(void)
+{
+    lv_init();
+    lv_port_disp_init();
+    lv_port_indev_init();
+    lv_port_tick_init();
+
+    /* Rekursiv, af samme grund som paa zScreen: app_main tager laasen
+     * og kalder zs_ui_init(), som inde i sig tager den igen. Med en
+     * almindelig mutex venter opgaven paa sig selv, og skaermen staar
+     * stille uden en eneste fejlmeddelelse. */
+    lvgl_mutex = xSemaphoreCreateRecursiveMutex();
+    assert(lvgl_mutex);
+    xTaskCreate(lvgl_task, "lvgl_task", 4096 * 4, NULL,
+                CONFIG_LCD_TASK_PRIORITY, &lvgl_task_handle);
+}
+
+void lv_port_sem_take(void)
+{
+    if (lvgl_task_handle != xTaskGetCurrentTaskHandle()) {
+        xSemaphoreTakeRecursive(lvgl_mutex, portMAX_DELAY);
+    }
+}
+
+void lv_port_sem_give(void)
+{
+    if (lvgl_task_handle != xTaskGetCurrentTaskHandle()) {
+        xSemaphoreGiveRecursive(lvgl_mutex);
+    }
+}

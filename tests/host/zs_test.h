@@ -82,6 +82,7 @@ void test_sunspec(void);
 void test_format(void);
 void test_fronius(void);
 void test_version(void);
+void test_version_asset(void);
 void test_tilegrid(void);
 void test_demo(void);
 void test_fleet(void);

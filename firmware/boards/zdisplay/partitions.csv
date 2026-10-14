@@ -1,0 +1,39 @@
+# ZDisplay - partitionstabel til 16 MB flash
+#
+# 16 MB OG IKKE 32, selvom Seeeds wiki siger 32 MB. Deres egen
+# sdkconfig.defaults til fabriksfirmwaren saetter
+# CONFIG_ESPTOOLPY_FLASHSIZE_16MB, og de to passer ikke sammen. Tabellen
+# ligger fast paa en enhed der er sendt til en kunde, saa den skrives
+# ikke efter et tal vi ikke har maalt. Maal med:
+#
+#     esptool.py --port /dev/cu.usbmodemXXXX flash_id
+#
+# Viser den 32 MB, kan storage vokse. ota_0 og ota_1 skal IKKE vokse
+# bagefter: de to skal vaere lige store og kan ikke flyttes paa en enhed
+# der er ude.
+#
+# 4 MB pr. app-plads, hvor zScreen har 3.
+#
+# Ikke fordi programmet er stoerre i dag - det er omkring 2 MB - men
+# fordi C6'erens egen firmware skal med INDE i vores program, saa den
+# arver underskriften. Den fylder cirka 1,2 MB. Se docs/zdisplay.md.
+#
+# TABELLEN LIGGER PAA 0xA000 OG IKKE 0x8000, som paa zScreen.
+#
+# ESP32-P4's bootloader starter paa 0x2000, hvor S3'erens starter paa
+# 0x1000. Med tabellen paa 0x8000 har bootloaderen altsaa 0x6000 at
+# vaere i, og den SIGNEREDE bootloader fylder 0x5b40 - 1216 bytes fri,
+# altsaa 5 procent. Det er ikke nok luft: en opdatering af ESP-IDF der
+# laegger 1,5 KB til bootloaderen ville saa ikke kunne bygges, og
+# tabellen kan ikke flyttes paa en enhed der er sendt ud.
+#
+# Paa 0xA000 har den 0x8000, altsaa 9,4 KB fri. Det koster 8 KB flash
+# ud af 16 MB.
+#
+# Navn      Type  Undertype Offset    Stoerrelse
+nvs,        data, nvs,      0xB000,   0x6000
+otadata,    data, ota,      0x11000,  0x2000
+phy_init,   data, phy,      0x13000,  0x1000
+ota_0,      app,  ota_0,    0x20000,  0x400000
+ota_1,      app,  ota_1,    ,         0x400000
+storage,    data, spiffs,   ,         0x7E0000

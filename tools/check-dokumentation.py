@@ -61,7 +61,15 @@ UDENFOR = ("DESIGN.txt", "modbus_controller.py",
            "ca-ny-enhed.sh", "enhed-nvs.py", "servercert-ny.sh",
            "online.py", "papirer.py",
            # ESP-IDF's egne vaerktoejer.
-           "nvs_tool.py", "nvs_partition_gen.py", "esptool.py")
+           "nvs_tool.py", "nvs_partition_gen.py", "esptool.py",
+           # ESP-IDF's egne headere. docs/zdisplay.md naevner dem fordi
+           # de er grunden til at noget skulle laves anderledes paa
+           # ESP32-P4: esp_phy_init.h findes slet ikke for den chip, og
+           # esp_timer.h skal tvinges ind i Seeeds BSP.
+           "esp_timer.h", "esp_phy_init.h",
+           # ESP-IDF's eget opsaetningsscript, som README og
+           # docs/zdisplay.md beder folk om at hente.
+           "export.sh")
 
 
 def konstanter():

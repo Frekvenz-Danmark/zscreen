@@ -7,10 +7,17 @@ HVORFOR DEN FINDES.
 Koden bliver bygget fire steder, og hver af dem har sin egen liste over
 kilder og sine egne include-stier:
 
-    firmware/main/CMakeLists.txt    firmwaren til skaermen
+    firmware/main/CMakeLists.txt    zScreen, altsaa ESP32-S3
+    firmware/boards/zdisplay/...     ZDisplay, altsaa ESP32-P4
     tests/host/run.sh               enhedstestene paa en almindelig maskine
     tools/zs-probe/build.sh         fejlsoegningsvaerktoejet
     tests/fuzz/koer.sh              fuzzerne
+
+De to firmwarer deler kildelisten i firmware/kerne.cmake og laegger hver
+sine tre-fire board-filer oveni. Begge bliver tjekket, og det er ikke
+for symmetriens skyld: en header kan findes paa det ene board og mangle
+paa det andet. Det ER sket - storage/zs_nvs.c bad om esp_phy_init.h, som
+slet ikke findes for esp32p4, fordi radioen sidder i en anden chip.
 
 Da util/zs_tekst.c blev lagt ind, blev den foejet til de to foerste og
 glemt i den tredje. Enhedstestene var groenne, og saa faldt bygningen af
@@ -138,28 +145,95 @@ def kilder_og_stier_fra_fuzz():
     return kilder, stier
 
 
-def tjek_cmake():
-    cmake = SRC / "CMakeLists.txt"
-    tekst = cmake.read_text(encoding="utf-8")
+def udfold(tekst):
+    """Erstatter de to cmake-variabler kerne.cmake bruger i stierne."""
+    return (tekst.replace("${ZS_MAIN_DIR}", (ROD / "firmware/main").as_posix())
+                 .replace("${ZS_VENDOR_DIR}", (ROD / "firmware/vendor").as_posix()))
 
-    # Regel 1: hver .c skal vaere med.
-    alle = []
+
+def blok_efter(tekst, navn):
+    """Indholdet af et set(NAVN ... ) i en cmake-fil."""
+    m = re.search(r"set\(" + re.escape(navn) + r"\b(.*?)\)", tekst, re.S)
+    return m.group(1) if m else ""
+
+
+def kerne():
+    """Kilder og include-stier fra firmware/kerne.cmake.
+
+    Den fil findes fordi to produkter skal bygge af SAMME liste. Stod
+    listen to steder, ville en ny fil i net/ komme med i den ene skaerm
+    og ikke i den anden - og det ville ikke vaere en byggefejl, men en
+    manglende funktion hos en kunde.
+    """
+    tekst = udfold((ROD / "firmware/kerne.cmake").read_text(encoding="utf-8"))
+    kilder = []
+    for navn in ("ZS_MOTOR_SRCS", "ZS_FLADE_SRCS", "ZS_ASSET_SRCS"):
+        for m in re.findall(r'"([^"]+\.c)"', blok_efter(tekst, navn)):
+            p = pathlib.Path(m)
+            if p.exists():
+                kilder.append(p.resolve())
+    stier = [pathlib.Path(m).resolve()
+             for m in re.findall(r'"([^"]+)"', blok_efter(tekst, "ZS_KERNE_INCLUDE_DIRS"))]
+    return kilder, stier
+
+
+def tjek_board(navn, cmake, kerne_kilder, kerne_stier):
+    """Ét produkts bygning: dens egne filer plus motoren."""
+    tekst = cmake.read_text(encoding="utf-8")
+    base = cmake.parent
+
+    egne = []
+    for m in re.findall(r'"([^"$]+\.c)"', tekst):
+        p = (base / m).resolve()
+        if p.exists():
+            egne.append(p)
+        else:
+            rel = cmake.relative_to(ROD).as_posix()
+            fejl.append(f"{rel}: SRCS naevner {m}, men filen findes ikke.")
+
+    stier = list(kerne_stier)
+    blok = tekst.split("INCLUDE_DIRS", 1)
+    if len(blok) == 2:
+        for m in re.findall(r'"([^"$]+)"', blok[1].split("REQUIRES", 1)[0]):
+            stier.append((base / m).resolve())
+
+    tjek_bygning(navn, egne + kerne_kilder, stier)
+    return egne
+
+
+def tjek_cmake():
+    kerne_kilder, kerne_stier = kerne()
+    if not kerne_kilder:
+        fejl.append("firmware/kerne.cmake: fandt ingen kilder. Er listen skrevet om?")
+        return
+
+    s3 = tjek_board("zScreen", SRC / "CMakeLists.txt", kerne_kilder, kerne_stier)
+    p4_cmake = ROD / "firmware/boards/zdisplay/main/CMakeLists.txt"
+    p4 = []
+    if p4_cmake.exists():
+        p4 = tjek_board("ZDisplay", p4_cmake, kerne_kilder, kerne_stier)
+
+    # Regel 1: hver .c under firmware/main skal bygges af MINDST ét
+    # produkt. Ellers bliver den slet ikke oversat, uden en advarsel
+    # nogen steder.
+    bygget = set(kerne_kilder) | set(s3) | set(p4)
     for c in sorted(SRC.rglob("*.c")):
         rel = c.relative_to(SRC).as_posix()
-        if any(rel.startswith(s) for s in SPRING_OVER):
+        if any(rel.startswith(x) for x in SPRING_OVER):
             continue
-        alle.append(c)
-        if f'"{rel}"' not in tekst:
-            fejl.append(f"firmware/main/CMakeLists.txt: {rel} findes, men staar "
-                        f"ikke i SRCS. Den bliver aldrig oversat til skaermen.")
+        if c.resolve() not in bygget:
+            fejl.append(f"firmware/main/{rel} findes, men staar hverken i "
+                        f"kerne.cmake eller i et boards CMakeLists. Den bliver "
+                        f"aldrig oversat.")
 
-    # Og at firmwaren selv kan finde sine headere.
-    blok = tekst.split("INCLUDE_DIRS", 1)
-    stier = []
-    if len(blok) == 2:
-        for m in re.findall(r'"([^"]+)"', blok[1].split("REQUIRES", 1)[0]):
-            stier.append((SRC / m).resolve())
-    tjek_bygning("firmwaren", alle, stier)
+    # Og samme regel for ZDisplays egne filer.
+    p4_dir = p4_cmake.parent
+    if p4_cmake.exists():
+        for c in sorted(p4_dir.rglob("*.c")):
+            if c.resolve() not in bygget:
+                rel = c.relative_to(ROD).as_posix()
+                fejl.append(f"{rel} findes, men staar ikke i SRCS. Den bliver "
+                            f"aldrig oversat til ZDisplay.")
 
 
 def main():
@@ -187,7 +261,7 @@ def main():
         print(f"\n  {len(fejl)} ting at rette.")
         return 1
 
-    print("  alle kilder er med, og alle fire bygninger kan finde det de beder om")
+    print("  alle kilder er med, og alle seks bygninger kan finde det de beder om")
     return 0
 
 

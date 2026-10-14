@@ -1,7 +1,8 @@
 #include "zs_display.h"
 #include "zs_config.h"
 
-#include "driver/ledc.h"
+#include "zs_baglys.h"
+
 #include "esp_log.h"
 #include "esp_timer.h"
 
@@ -9,17 +10,8 @@
 
 static const char *TAG = "display";
 
-/* Baglyset paa SenseCAP Indicator D1. GPIO og opsaetning er den samme
- * som i Seeeds eget eksempel, saa vi ved den passer til hardwaren. */
-#define BL_GPIO         45
-#define BL_MODE         LEDC_LOW_SPEED_MODE
-#define BL_TIMER        LEDC_TIMER_0
-#define BL_CHANNEL      LEDC_CHANNEL_0
-#define BL_RES          LEDC_TIMER_13_BIT
-#define BL_MAX_DUTY     ((1 << 13) - 1)
-/* 5 kHz. Hoejt nok til at oejet ikke ser flimmer, lavt nok til at
- * LEDC'en kan levere fuld 13-bit oploesning. */
-#define BL_FREQ_HZ      5000
+/* Benet og PWM'en ligger i zs_baglys_<board>.c. Her er der kun
+ * procenter, saa de her regler kan koere paa enhver skaerm. */
 
 #define BRIGHTNESS_MIN  5
 
@@ -79,9 +71,7 @@ static void apply_duty(uint8_t pct)
     if (pct == s_applied) {
         return;   /* undgaa unoedig I/O paa hvert tick */
     }
-    uint32_t duty = (uint32_t)BL_MAX_DUTY * pct / 100u;
-    ledc_set_duty(BL_MODE, BL_CHANNEL, duty);
-    ledc_update_duty(BL_MODE, BL_CHANNEL);
+    zs_baglys_set(pct);
     s_applied = pct;
 }
 
@@ -143,29 +133,10 @@ void zs_display_init(uint8_t start_pct)
     if (start_pct > 100)            { start_pct = 100; }
     s_brightness = start_pct;
 
-    ledc_timer_config_t timer = {
-        .speed_mode      = BL_MODE,
-        .timer_num       = BL_TIMER,
-        .duty_resolution = BL_RES,
-        .freq_hz         = BL_FREQ_HZ,
-        .clk_cfg         = LEDC_AUTO_CLK,
-    };
-    if (ledc_timer_config(&timer) != ESP_OK) {
-        ESP_LOGE(TAG, "kunne ikke saette PWM-timer op til baglyset");
-        return;
-    }
-
-    ledc_channel_config_t ch = {
-        .speed_mode = BL_MODE,
-        .channel    = BL_CHANNEL,
-        .timer_sel  = BL_TIMER,
-        .intr_type  = LEDC_INTR_DISABLE,
-        .gpio_num   = BL_GPIO,
-        .duty       = (uint32_t)BL_MAX_DUTY * start_pct / 100u,
-        .hpoint     = 0,
-    };
-    if (ledc_channel_config(&ch) != ESP_OK) {
-        ESP_LOGE(TAG, "kunne ikke saette PWM-kanal op til baglyset");
+    if (!zs_baglys_init(start_pct)) {
+        /* Boardet har selv logget hvad der gik galt. s_ready bliver
+         * staaende paa false, saa ingen af reglerne herunder roerer et
+         * baglys der ikke svarer. */
         return;
     }
 
@@ -176,7 +147,7 @@ void zs_display_init(uint8_t start_pct)
      * pulsere op til 80 selvom kunden havde valgt 20. */
     s_want    = start_pct;
     s_last_touch_us = esp_timer_get_time();
-    ESP_LOGI(TAG, "baglys klar paa GPIO %d, %u %%", BL_GPIO, s_brightness);
+    ESP_LOGI(TAG, "lysstyrken styres, start %u %%", s_brightness);
 }
 
 void zs_display_set_brightness(uint8_t pct)

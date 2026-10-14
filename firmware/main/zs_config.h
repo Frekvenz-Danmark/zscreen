@@ -20,7 +20,61 @@
  *
  * Brug zs_version() fra zs_app.h.
  */
+/* ── Hvilket board ─────────────────────────────────────────────────── */
+/*
+ * To produkter deler den her fil. Det der er FORSKELLIGT staar her, og
+ * kun her, saa resten af koden kan spoerge om en egenskab i stedet for
+ * at spoerge hvilken skaerm det er.
+ *
+ * ZS_BOARD_D1001 saettes fra byggeriet i
+ * firmware/boards/zdisplay/CMakeLists.txt, ikke fra en header. Samme
+ * grund som skaermens maal i ui/zs_layout.h: fra byggeriet gaelder det
+ * for ALT der oversaettes, og saa kan en fil ikke komme til at
+ * oversaette med det forkerte board fordi nogen glemte en include.
+ *
+ * zScreen er standarden naar intet er sat. Det er med vilje:
+ * tests/host bygger uden boardvalg, og den skaerm der staar paa
+ * skrivebordet i dag er en D1.
+ */
+#if defined(ZS_BOARD_D1001)
+#define ZS_PRODUCT_NAME      "ZDisplay"
+/*
+ * RADIOEN SIDDER IKKE I CHIPPEN.
+ *
+ * ESP32-P4 har ingen radio. Wifi kommer fra en ESP32-C6 over SDIO, og
+ * kalibreringstallene til den radio ligger i C6'erens EGEN flash.
+ *
+ * To steder betyder det noget:
+ *
+ *   1. esp_phy_init.h findes slet ikke for esp32p4. ESP-IDF registrerer
+ *      esp_phy som en TOM komponent paa den chip, saa det er ikke en
+ *      manglende afhaengighed - funktionen er der ikke.
+ *   2. En fabriksnulstilling kan derfor ikke rydde radioens
+ *      kalibrering. Den rydder P4'erens NVS, og C6'eren staar med det
+ *      den havde. Se docs/zdisplay.md.
+ */
+#define ZS_HAR_LOKAL_RADIO   0
+/*
+ * Navnet paa firmware-filen i en udgivelse paa GitHub.
+ *
+ * De to produkter udgives fra SAMME repo med samme versionsmaerke, saa
+ * der ligger to .bin-filer i hver udgivelse. En skaerm skal tage SIN.
+ *
+ * Det gjorde den ikke foer: zs_ota tog den FOERSTE fil der sluttede paa
+ * ".bin". ESP-IDF ville have afvist den - chip-id'et staar i billedets
+ * hoved - saa der var ikke fare for at en ZDisplay-firmware kom til at
+ * koere paa en zScreen. Men skaermen ville hente 2 MB over kundens
+ * forbindelse, afvise dem, og proeve igen en halv time senere. For evigt.
+ *
+ * Praefikset skal passe med hvad .github/workflows/release.yml laegger
+ * op.
+ */
+#define ZS_OTA_ASSET_PREFIX  "zdisplay-"
+#else
 #define ZS_PRODUCT_NAME      "zScreen"
+#define ZS_HAR_LOKAL_RADIO   1
+#define ZS_OTA_ASSET_PREFIX  "zscreen-"
+#endif
 
 /* ── Skaerm ────────────────────────────────────────────────────────── */
 /*

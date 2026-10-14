@@ -32,6 +32,7 @@ int main(int argc, char **argv)
     test_format();
     test_fronius();
     test_version();
+    test_version_asset();
     test_tilegrid();
     test_demo();
     test_fleet();

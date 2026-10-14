@@ -7,6 +7,11 @@ Hardware: **Seeed SenseCAP Indicator D1**, en 4 tommer touchskærm med
 ESP32-S3. Skærmen kobles på samme wifi som inverteren og læser direkte
 fra den over Modbus TCP. Ingen cloud, ingen konto, ingen app.
 
+Der er en større udgave på vej, **ZDisplay** på Seeed reTerminal D1001:
+8 tommer, 800 x 1280, ESP32-P4. Den bygger af samme kode — kun skærmen,
+lyden, uret og opstarten er forskellige. Den har ikke været tændt endnu.
+Se `docs/zdisplay.md`.
+
 ## Hvad den viser
 
 ```
@@ -91,6 +96,18 @@ idf.py build
 idf.py -p /dev/cu.usbmodemXXXX flash monitor
 ```
 
+ZDisplay kræver ESP-IDF v5.4.2, fordi ESP32-P4 ikke kan bygges med
+v5.1. De to kan stå ved siden af hinanden; det er hvilken `export.sh`
+man har hentet i terminalen der afgør hvilken der bruges.
+
+```bash
+export PATH=/usr/bin:$PATH
+source ~/esp/esp-idf-5.4.2/export.sh
+cd firmware/boards/zdisplay
+idf.py set-target esp32p4
+idf.py build
+```
+
 ## Test uden hardware
 
 ```bash
@@ -124,6 +141,9 @@ brand/          logoer og farver, ikke i git
 secure/         signeringsnøglen, ikke i git. Se afsnittet ovenfor
 docs/           registerkort, designsystem, hardware, testplan
 firmware/       koden der kører på skærmen
+firmware/kerne.cmake      motoren og fladen, delt af begge produkter
+firmware/main/            zScreen: opstart, LVGL-port, baglys, lyd
+firmware/boards/zdisplay/ ZDisplay: det samme for den store skærm
 tools/          værktøjskæde, simulator, zs-probe, vagtscripts
 tests/host/     enhedstest der kører på en Mac
 tests/e2e/      hele datavejen mod en simuleret Fronius

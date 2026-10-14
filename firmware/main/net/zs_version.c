@@ -160,3 +160,30 @@ bool zs_version_tag_ok(const char *version)
     /* Tom streng, ogsaa "v" alene, falder her: tal og cifre er nul. */
     return tal == 2 && cifre > 0;
 }
+
+bool zs_version_asset_passer(const char *navn, const char *praefiks)
+{
+    if (navn == NULL || praefiks == NULL) {
+        return false;
+    }
+
+    size_t pl = strlen(praefiks);
+    if (pl == 0) {
+        /* Et tomt praefiks ville sige ja til hver eneste .bin-fil,
+         * altsaa praecis den fejl der skulle vaek. */
+        return false;
+    }
+    if (strncmp(navn, praefiks, pl) != 0) {
+        return false;
+    }
+
+    static const char ENDE[] = ".bin";
+    const size_t el = sizeof(ENDE) - 1;
+
+    size_t nl = strlen(navn);
+    /* Der skal vaere plads til praefikset, mindst ét tegn, og ".bin". */
+    if (nl < pl + 1 + el) {
+        return false;
+    }
+    return strcmp(navn + nl - el, ENDE) == 0;
+}

@@ -1,0 +1,11 @@
+# Seeeds egne BSP-valg, hentet ind fra submodulet.
+#
+# De SKAL vaere med: deres kilde bruger CONFIG_BSP_ERROR_CHECK,
+# CONFIG_BSP_DISPLAY_BRIGHTNESS_LEDC_CH, CONFIG_BSP_LCD_DPI_BUFFER_NUMS
+# og et par mere. Uden dem er de macroer udefinerede, og saa fejler
+# oversaettelsen et sted hvor det ikke er til at se hvorfor.
+#
+# "rsource" er relativ til DENNE fil. Vi henter deres fil i stedet for
+# at kopiere valgene ind, saa et nyt valg hos Seeed kommer med af sig
+# selv naar submodulet opdateres.
+rsource "../../../../vendor/reTerminal_D1001/components/esp32_p4_re_terminal_d1001/Kconfig"
