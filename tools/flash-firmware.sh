@@ -81,7 +81,7 @@ if [ -z "${PORT}" ]; then
         echo "      Eller sig porten selv: $0 ${BOARD} <port>"
         exit 1
     fi
-    echo "  fandt ${BOARD} paa ${PORT}"
+    echo "  fandt ${NAVN} paa ${PORT}"
 fi
 if [ ! -e "${PORT}" ]; then
     echo "FEJL: ${PORT} findes ikke."

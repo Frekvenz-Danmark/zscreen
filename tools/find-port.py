@@ -32,10 +32,15 @@ import plistlib
 import subprocess
 import sys
 
-# Hvad hver skaerm melder sig som. Navnet er USB Product Name.
+# Hvad hver skaerm melder sig som, og hvad den HEDDER.
+#
+# Noeglen er den man skriver paa kommandolinjen, og den er med smaa
+# bogstaver fordi den ogsaa er mappenavnet under firmware/boards/.
+# Produktnavnet er det mennesker bruger, og det er DET der skrives i
+# udskriften - "zscreen" er en mappe, "zScreen" er en skaerm.
 SKAERME = {
-    "zdisplay": ("Espressif", "USB JTAG/serial debug unit"),
-    "zscreen":  ("Seeed",     "INDICATOR RP2040"),
+    "zdisplay": ("ZDisplay", "Espressif", "USB JTAG/serial debug unit"),
+    "zscreen":  ("zScreen",  "Seeed",     "INDICATOR RP2040"),
 }
 
 
@@ -81,9 +86,9 @@ def main():
             return 1
         for port, v, p in sorted(alle):
             hvem = ""
-            for navn, (vv, pp) in SKAERME.items():
+            for noegle, (produkt, vv, pp) in SKAERME.items():
                 if v == vv and p == pp:
-                    hvem = f"  <- {navn}"
+                    hvem = f"  <- {produkt}  ({noegle})"
             print(f"  {port:28} {v or '?':12} {p or '?'}{hvem}")
         return 0
 
@@ -93,17 +98,17 @@ def main():
               f"{', '.join(sorted(SKAERME))}")
         return 2
 
-    vendor, produkt = SKAERME[board]
-    traef = [port for port, v, p in alle if v == vendor and p == produkt]
+    navn, vendor, usbnavn = SKAERME[board]
+    traef = [port for port, v, p in alle if v == vendor and p == usbnavn]
 
     if not traef:
-        print(f"FEJL: fandt ingen {board}. Den melder sig som "
-              f"{vendor} \"{produkt}\".", file=sys.stderr)
+        print(f"FEJL: fandt ingen {navn}. Den melder sig som "
+              f"{vendor} \"{usbnavn}\".", file=sys.stderr)
         print(f"      Se hvad der sidder i:  {sys.argv[0]} --vis",
               file=sys.stderr)
         return 1
     if len(traef) > 1:
-        print(f"FEJL: der sidder {len(traef)} {board} i:", file=sys.stderr)
+        print(f"FEJL: der sidder {len(traef)} {navn} i:", file=sys.stderr)
         for t in sorted(traef):
             print(f"        {t}", file=sys.stderr)
         print(f"      Sig hvilken i haanden.", file=sys.stderr)
