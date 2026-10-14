@@ -41,18 +41,34 @@
 static const char *TAG = "stroem";
 
 /*
- * GRAENSEN FOR "DER ER STROEM PAA".
+ * ER DER NOGET I STIKKET. Det er hele spoergsmaalet.
  *
- * USB er 5 V, altsaa omkring 5000 mV, og uden noget i stikket laeser
- * ADC'en naer nul. Graensen er sat lavt med vilje: et langt eller
- * tyndt kabel giver et spaendingsfald, og en skaerm der melder
- * stroemsvigt fordi kablet er daarligt, er vaerre end en der ikke
- * melder det. 3500 mV ligger langt under enhver fungerende USB og
- * langt over et tomt stik.
+ * HER STOD 3500 mV, og det var forkert taenkt: det laeste som en
+ * indstillet graense, altsaa et tal nogen skulle vedligeholde og som
+ * kunne vaere forkert paa den naeste enhed. Reglen er ikke "hvor hoej
+ * er spaendingen" - reglen er "er kablet i", og hvor laenge det har
+ * vaeret ude. Tiden staar i ZS_FEJL_STROEM_GRAENSE_MS, og DEN er
+ * beslutningen.
  *
- * Tallet er efterproevet paa enheden - se zs_stroem_log.
+ * Tallet herunder er ikke indstillet, og der er ikke noget at
+ * indstille. Maalt paa enheden:
+ *
+ *     kabel i:   4650 mV
+ *     kabel ude: naer nul
+ *
+ * Der er altsaa ingen vaerdier i naerheden af hinanden, og enhver
+ * graense mellem de to opfoerer sig ens. 1000 mV er valgt fordi det
+ * ligger langt fra begge. Seeed bruger selv et spring paa 2000 mV til
+ * at se at stikket har aendret sig, se loekken i
+ * bsp_battery_manage_start.
+ *
+ * GRUNDEN TIL AT DER STAAR ET TAL HER OVERHOVEDET: benet er
+ * BSP_USB_INSERT_DET, GPIO 17, og det er det SAMME ben som
+ * ADC1_CHANNEL_1. Det er en spaendingsdeler og ikke en digital linje,
+ * saa der er ikke et ja/nej at laese. Havde der vaeret, stod der
+ * ingen millivolt her.
  */
-#define STIK_GRAENSE_MV  3500
+#define STIK_TOMT_MV  1000
 
 bool zs_stroem_init(void)
 {
@@ -81,7 +97,7 @@ void zs_stroem_laes(zs_stroem_t *ud)
     ud->stik_mv    = bsp_usb_voltage_read();
     ud->batteri_mv = bsp_battery_voltage_read();
     ud->lader      = bsp_battery_charge_status_read();
-    ud->paa_stroem = (ud->stik_mv >= STIK_GRAENSE_MV);
+    ud->paa_stroem = (ud->stik_mv >= STIK_TOMT_MV);
 
     /*
      * Procenten er -1 indtil der er maalt. BSP'ens

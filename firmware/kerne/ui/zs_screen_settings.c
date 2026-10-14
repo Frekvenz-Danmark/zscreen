@@ -21,6 +21,8 @@ static zs_row_t  s_row_inv;
 static lv_obj_t *s_slider;
 static lv_obj_t *s_slider_val;
 static lv_obj_t *s_sw_night;
+static lv_obj_t *s_sw_alarm;
+static zs_page_t s_avan;
 static lv_obj_t *s_sw_meter;
 static lv_obj_t *s_det_col;
 static zs_row_t  s_row_demo;
@@ -119,6 +121,11 @@ static void on_set_back(lv_event_t *e)  { (void)e; zs_ui_show(ZS_SCREEN_HOME); }
 static void on_det_back(lv_event_t *e)  { (void)e; zs_ui_show(ZS_SCREEN_SETTINGS); }
 
 static void on_open_details(lv_event_t *e) { (void)e; zs_ui_show(ZS_SCREEN_DETAILS); }
+static void on_open_avanceret(lv_event_t *e)
+{
+    (void)e;
+    zs_ui_show(ZS_SCREEN_AVANCERET);
+}
 
 static void on_change_wifi(lv_event_t *e)
 {
@@ -454,6 +461,19 @@ static void build_settings(void)
     lv_obj_add_flag(det.row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(det.row, on_open_details, LV_EVENT_CLICKED, NULL);
 
+    /*
+     * Avancerede indstillinger, lige under Detaljer og med samme slags
+     * raekke. Den staar her og ikke i SKAERM-afsnittet, fordi den ikke
+     * er et valg om skaermens udseende: den samler det man kun skal
+     * finde hvis man LEDER efter det.
+     */
+    zs_row_t avan;
+    zs_row_create(&avan, col, ZS_ICON_SETTINGS, "Avancerede indstillinger",
+                  NULL, true);
+    lv_obj_set_width(avan.row, ZS_CONTENT_WIDTH);
+    lv_obj_add_flag(avan.row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(avan.row, on_open_avanceret, LV_EVENT_CLICKED, NULL);
+
     detail_heading(col, "SKÆRM");
 
     /* Tema. Ligger foerst i SKAERM, fordi det aendrer hele skaermens
@@ -482,14 +502,14 @@ static void build_settings(void)
      * rammes uden at sigte. */
     lv_obj_t *brow = lv_obj_create(col);
     lv_obj_remove_style_all(brow);
-    lv_obj_set_size(brow, ZS_CONTENT_WIDTH, ZS_G_SK_HEIGHT(90));
+    lv_obj_set_size(brow, ZS_CONTENT_WIDTH, ZS_G_BRIGHT_HEIGHT);
     lv_obj_clear_flag(brow, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(brow, lv_color_hex(ZS_C_CARD), 0);
     lv_obj_set_style_bg_opa(brow, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(brow, ZS_G_SK(14), 0);
     lv_obj_set_style_border_width(brow, 1, 0);
     lv_obj_set_style_border_color(brow, lv_color_hex(ZS_C_BORDER), 0);
-    lv_obj_set_style_pad_all(brow, ZS_G_SK(16), 0);
+    lv_obj_set_style_pad_all(brow, ZS_G_BRIGHT_PAD, 0);
 
     lv_obj_t *bl = lv_label_create(brow);
     lv_label_set_text(bl, "Lysstyrke");
@@ -506,7 +526,7 @@ static void build_settings(void)
     /* Tynd at se paa, men til at ramme: klikfladen vokser, selve
      * skyderen goer ikke. Se noten ved ZS_G_SLIDER_EKSTRA. */
     lv_obj_set_ext_click_area(s_slider, ZS_G_SLIDER_EKSTRA);
-    lv_obj_align(s_slider, LV_ALIGN_BOTTOM_LEFT, 0, -ZS_G_SK_HEIGHT(6));
+    lv_obj_align(s_slider, LV_ALIGN_BOTTOM_LEFT, 0, -ZS_G_SLIDER_BUND);
     lv_slider_set_range(s_slider, 5, 100);
     lv_obj_set_style_bg_color(s_slider, lv_color_hex(ZS_C_BG), LV_PART_MAIN);
     lv_obj_set_style_bg_color(s_slider, lv_color_hex(ZS_C_ACCENT), LV_PART_INDICATOR);
@@ -581,11 +601,85 @@ static void build_details(void)
 
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Avancerede indstillinger                                            */
+/* ------------------------------------------------------------------ */
+
+static void on_avan_tilbage(lv_event_t *e)
+{
+    (void)e;
+    zs_ui_show(ZS_SCREEN_SETTINGS);
+}
+
+static void on_alarm(lv_event_t *e)
+{
+    bool til = lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
+    zs_cmd_t c;
+    memset(&c, 0, sizeof(c));
+    c.type = ZS_CMD_SET_ALARM;
+    c.flag = til;
+    zs_app_send(&c);
+}
+
+/*
+ * SIDEN TIL DET MAN SKAL LEDE EFTER.
+ *
+ * Alarmen staar foerst, fordi den er den eneste her der gaelder noget
+ * en kunde kan opleve som generende: en skaerm i en stue der blinker
+ * roedt og bipper om aftenen. Hun skal kunne slaa DEN fra uden at
+ * skulle ringe nogen op.
+ *
+ * Og hun kan ikke slaa BESKEDEN fra. Fejlsiden og statuslinjen bliver,
+ * saa en skaerm med alarmen slaaet fra stadig siger hvad der er galt -
+ * ellers havde vi lavet en knap der skjuler fejl, og den ville blive
+ * brugt den dag nogen blev traet af en rigtig fejl.
+ */
+static void build_avanceret(void)
+{
+    zs_page_create(&s_avan, "Avanceret", on_avan_tilbage, NULL, false);
+
+    lv_obj_t *h = lv_label_create(s_avan.content);
+    lv_label_set_text(h, "Indstillinger man sjældent skal ændre.");
+    zs_style_text(h, &zs_font_broed, ZS_C_LABEL);
+    lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(h, ZS_CONTENT_WIDTH);
+    lv_obj_set_pos(h, ZS_EDGE, ZS_G_SK_HEIGHT(16));
+
+    lv_obj_t *col = zs_column_create(s_avan.content, ZS_CHOICE_GAP);
+    lv_obj_align(col, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK(56));
+
+    make_switch_row(col, ZS_ICON_ALERT, "Alarm",
+                    "Skærmen blinker og bipper, når noget er galt. "
+                    "Beskeden bliver vist uanset hvad.",
+                    on_alarm, &s_sw_alarm);
+}
+
+lv_obj_t *zs_avanceret_root(void) { return s_avan.root; }
+
+void zs_avanceret_set_alarm(bool til)
+{
+    if (s_sw_alarm == NULL) {
+        return;
+    }
+    /*
+     * Uden LV_EVENT_VALUE_CHANGED. add_state sender ikke et event i
+     * LVGL 8, saa der kommer ingen kommando tilbage - men den linje
+     * staar her som en note, for det er netop den slags der giver en
+     * uendelig runde mellem flade og motor den dag nogen skifter kald.
+     */
+    if (til) {
+        lv_obj_add_state(s_sw_alarm, LV_STATE_CHECKED);
+    } else {
+        lv_obj_clear_state(s_sw_alarm, LV_STATE_CHECKED);
+    }
+}
+
 void zs_settings_create(void)
 {
     build_settings();
     build_details();
     build_tema();
+    build_avanceret();
 }
 
 lv_obj_t *zs_settings_root(void) { return s_set.root; }
@@ -630,6 +724,10 @@ void zs_settings_update(const zs_settings_t *s, const char *ip)
     } else {
         lv_obj_clear_state(s_sw_night, LV_STATE_CHECKED);
     }
+    /* Alarmen staar paa den avancerede side, men den fyldes HERFRA:
+     * motoren sender hele indstillingen over i hver runde, og saa er
+     * der ét sted der ved hvad der staar i vippen. */
+    zs_avanceret_set_alarm(s->alarm_til);
     /* Kontakten hedder "Byt køb og salg", saa den er slaaet TIL naar
      * fortegnet IKKE er standard. */
     if (!s->meter_import_positive) {
@@ -931,7 +1029,7 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
  */
 void zs_settings_destroy(void)
 {
-    zs_page_t *sider[] = { &s_set, &s_det, &s_tema };
+    zs_page_t *sider[] = { &s_set, &s_det, &s_tema, &s_avan };
     for (size_t i = 0; i < sizeof(sider) / sizeof(sider[0]); i++) {
         if (sider[i]->root != NULL) {
             lv_obj_del(sider[i]->root);
@@ -948,6 +1046,7 @@ void zs_settings_destroy(void)
     s_slider     = NULL;
     s_slider_val = NULL;
     s_sw_night   = NULL;
+    s_sw_alarm   = NULL;
     s_sw_meter   = NULL;
     s_det_col    = NULL;
 }

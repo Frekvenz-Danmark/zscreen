@@ -39,6 +39,7 @@ typedef enum {
     ZS_SCREEN_HOME,          /* de fire kort                        */
     ZS_SCREEN_SETTINGS,      /* indstillinger                       */
     ZS_SCREEN_DETAILS,       /* detaljer om anlægget                */
+    ZS_SCREEN_AVANCERET,     /* avancerede indstillinger            */
     ZS_SCREEN_THEME,         /* vælg tema                           */
     ZS_SCREEN_TILMELD,       /* tilmeld anlægget til en kunde        */
     ZS_SCREEN_FEJL,          /* noget er væk, siden pulserer         */

@@ -1020,6 +1020,7 @@ static void fejl_tik(int64_t nu_ms)
     zs_stroem_t stroem;
     zs_stroem_laes(&stroem);
     ind.paa_stroem      = stroem.paa_stroem;
+    ind.alarm_fra       = !s_cfg.alarm_til;
     ind.paa_wifi        = (zs_wifi_state() == ZS_WIFI_CONNECTED);
     ind.inverter_svarer = zs_fr_is_connected(&s_fr);
     ind.inverter_opsat  = (s_cfg.inverter_ip[0] != '\0');
@@ -1738,6 +1739,12 @@ static void handle_cmd(const zs_cmd_t *c)
             zs_ui_set_wifi_scanning(false);
             zs_ui_set_wifi_list(s_aps, n < 0 ? 0 : n);
         }
+        break;
+
+    case ZS_CMD_SET_ALARM:
+        s_cfg.alarm_til = c->flag;
+        ESP_LOGI(TAG, "alarmen er %s", c->flag ? "til" : "fra");
+        gem_snart();
         break;
 
     case ZS_CMD_SET_NIGHT_DIM:

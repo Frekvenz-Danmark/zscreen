@@ -55,6 +55,7 @@ typedef enum {
      */
     ZS_CMD_SETUP_CANCEL,
     ZS_CMD_SET_NIGHT_DIM,     /* flag                               */
+    ZS_CMD_SET_ALARM,         /* flag: maa den blinke og bippe      */
     ZS_CMD_SET_METER_SIGN,    /* flag: positiv betyder køb          */
     ZS_CMD_SET_THEME,         /* u8 er zs_theme_mode_t              */
     ZS_CMD_DEMO_START,        /* vis hovedskærmen med opdigtede tal */

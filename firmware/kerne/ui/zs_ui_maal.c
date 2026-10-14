@@ -35,6 +35,7 @@ static const char *side_navn(zs_screen_id_t id)
     case ZS_SCREEN_HOME:            return "forsiden";
     case ZS_SCREEN_SETTINGS:        return "indstillinger";
     case ZS_SCREEN_DETAILS:         return "detaljer";
+    case ZS_SCREEN_AVANCERET:       return "avanceret";
     case ZS_SCREEN_THEME:           return "tema";
     case ZS_SCREEN_TILMELD:         return "tilmelding";
     case ZS_SCREEN_FEJL:            return "fejlsiden";

@@ -24,6 +24,14 @@ void zs_settings_create(void);
 
 lv_obj_t *zs_settings_root(void);
 lv_obj_t *zs_details_root(void);
+/*
+ * Avancerede indstillinger. Siden ligger under Detaljer i
+ * Indstillinger, og det der staar paa den, er valg man ikke skal
+ * moede paa vej til noget andet - foerst alarmen.
+ */
+lv_obj_t *zs_avanceret_root(void);
+/* Saetter vippen paa siden uden at sende en kommando tilbage. */
+void zs_avanceret_set_alarm(bool til);
 
 void zs_settings_update(const zs_settings_t *s, const char *ip);
 

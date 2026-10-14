@@ -458,6 +458,32 @@
 #define ZS_G_KB_HOEJDE      ZS_G_SK(224)
 
 /*
+ * LYSSTYRKE-KASSEN.
+ *
+ * Hoejden stod som ZS_G_SK_HEIGHT(90) og blev 240 px paa ZDisplay om
+ * en etiket paa 42 og en skyder paa 16. Resten var luft.
+ *
+ * Nu regnes den af det der ER i den: polstring, etikettens linje,
+ * luft, skyderen, og den smule skyderen staar over bunden.
+ *
+ * REGNESTYKKET GIVER PRAECIS 90 PAA 480, og det er beviset for at det
+ * er det rigtige regnestykke:
+ *
+ *     2*16 + 26 + 16 + 10 + 6 = 90
+ *
+ * Referenceskaermen bruger alligevel tallet 90 skrevet af, fordi den
+ * ikke henter skriftens maal - se noten ved ZS_G_CARD_KANT.
+ */
+#define ZS_G_BRIGHT_PAD     ZS_G_SK(16)
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
+#define ZS_G_BRIGHT_HEIGHT  90
+#else
+#define ZS_G_BRIGHT_HEIGHT  (2 * ZS_G_BRIGHT_PAD + ZS_LH_RAD \
+                             + ZS_G_SK(16) + ZS_G_SLIDER_HEIGHT \
+                             + ZS_G_SLIDER_BUND)
+#endif
+
+/*
  * ET VALG: ET KORT MED EN TITEL OG EN FORKLARING.
  *
  * Her stod afstandene inde i kortet som ZS_G_SK_HEIGHT(14) og
@@ -515,7 +541,16 @@
 #else
 #define ZS_G_SLIDER_WIDTH   ZS_G_FIELD_INDE(ZS_G_CONTENT_WIDTH)
 #endif
-#define ZS_G_SLIDER_HEIGHT  ZS_G_SK_HEIGHT(10)
+/*
+ * Hoejden foelger FORMEN. Stod som ZS_G_SK_HEIGHT(10) og blev 26 px
+ * paa ZDisplay - en tyk stribe paa en skaerm hvor alt andet er
+ * skaleret 1,67. ZS_G_SK giver 16, altsaa samme forhold til bredden
+ * som de 10 har paa zScreen. Klikfladen er stadig 44, se
+ * ZS_G_SLIDER_EKSTRA.
+ */
+#define ZS_G_SLIDER_HEIGHT  ZS_G_SK(10)
+/* Hvor hoejt over kassens inderkant skyderen staar. */
+#define ZS_G_SLIDER_BUND    ZS_G_SK(6)
 /* Hvor meget klikfladen skal vokse i hver side for at en finger kan
  * ramme den. Bliver 0 hvis skyderen allerede er tyk nok. */
 #define ZS_G_SLIDER_EKSTRA  (ZS_G_SLIDER_HEIGHT >= ZS_G_TOUCH_MIN ? 0 \
@@ -1251,6 +1286,17 @@ _Static_assert(ZS_G_CHOICE_SUB_Y + ZS_LH_BROED + ZS_G_CHOICE_KANT
 _Static_assert(ZS_G_CHOICE_TITLE_Y + ZS_LH_STOR <= ZS_G_CHOICE_SUB_Y,
                "titlen og forklaringen i et valg ligger oven i "
                "hinanden");
+#endif
+
+/*
+ * OG ALT I LYSSTYRKE-KASSEN SKAL KUNNE VAERE I DEN.
+ *
+ * Gaelder ikke referenceskaermen, hvor de 90 er regnet efter i haanden.
+ */
+#if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT)
+_Static_assert(2 * ZS_G_BRIGHT_PAD + ZS_LH_RAD + ZS_G_SLIDER_HEIGHT
+               + ZS_G_SLIDER_BUND <= ZS_G_BRIGHT_HEIGHT,
+               "etiketten og skyderen fylder mere end lysstyrke-kassen");
 #endif
 
 /*

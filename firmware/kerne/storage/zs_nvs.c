@@ -33,6 +33,7 @@ static const char *TAG = "nvs";
 #define K_ZONE      "pris_zone"
 #define K_BRIGHT    "bright"
 #define K_NIGHT     "night"
+#define K_ALARM     "alarm"
 #define K_THEME     "theme"
 #define K_CONF      "configured"
 
@@ -47,6 +48,7 @@ void zs_nvs_defaults(zs_settings_t *s)
     s->meter_import_positive = true;
     s->brightness = ZS_BRIGHTNESS_DEFAULT;
     s->night_dimming = true;
+    s->alarm_til     = true;
     s->theme = 0;               /* moerkt */
     s->configured = false;
 }
@@ -114,6 +116,7 @@ bool zs_nvs_load(zs_settings_t *s)
     get_str(h, K_ZONE, s->price_zone, sizeof(s->price_zone));
     get_u8(h, K_BRIGHT, &s->brightness);
     get_bool(h, K_NIGHT, &s->night_dimming);
+    get_bool(h, K_ALARM, &s->alarm_til);
     get_u8(h, K_THEME, &s->theme);
     get_bool(h, K_CONF,  &s->configured);
 
@@ -202,6 +205,7 @@ bool zs_nvs_save(const zs_settings_t *s)
     ok &= nvs_set_str(h, K_ZONE, s->price_zone) == ESP_OK;
     ok &= nvs_set_u8(h,  K_BRIGHT, s->brightness) == ESP_OK;
     ok &= nvs_set_u8(h,  K_NIGHT, s->night_dimming ? 1 : 0) == ESP_OK;
+    ok &= nvs_set_u8(h,  K_ALARM, s->alarm_til ? 1 : 0) == ESP_OK;
     ok &= nvs_set_u8(h,  K_THEME, s->theme) == ESP_OK;
 
     /*

@@ -223,6 +223,20 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
     ud.blink = zs_fejl_alvorlig(ud.type);
 
     /*
+     * Og saa kunden selv. Har hun slaaet alarmen fra, blinker og
+     * bipper det ikke - men ud.type staar uroert, saa fejlsiden og
+     * statuslinjen stadig siger hvad der er galt.
+     *
+     * Det staar HER og ikke ude i app-loekken, fordi lyden nedenfor
+     * foelger blinket. Slog vi den fra to steder, ville en af dem en
+     * dag blive glemt, og saa bippede en skaerm med alarmen slaaet
+     * fra.
+     */
+    if (ind->alarm_fra) {
+        ud.blink = false;
+    }
+
+    /*
      * ── lyden ──
      *
      * Natten tier HELT. Ogsaa naar vi ikke ved om inverteren sov:

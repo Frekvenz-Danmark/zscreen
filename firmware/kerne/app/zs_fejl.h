@@ -141,6 +141,21 @@ typedef struct {
      * begynde at bippe foran en kunde.
      */
     bool    demo;
+    /*
+     * Kunden har slaaet alarmen fra i Avancerede indstillinger.
+     *
+     * FELTET HEDDER "FRA" OG IKKE "TIL", og det er med vilje. Structen
+     * memsettes til nul hos kalderne, og nul skal betyde NORMAL. Hed
+     * det alarm_til, ville en glemt linje goere hver skaerm i marken
+     * tavs - og en alarm der er slaaet fra ved et uheld, opdages
+     * foerst den dag den skulle have lydt. Det modsatte, en alarm der
+     * lyder for meget, opdages med det samme.
+     *
+     * Den slaar KUN blinket og lyden fra. ud.type bliver som den er,
+     * saa fejlsiden og statuslinjen stadig siger hvad der er galt -
+     * ellers havde vi lavet en knap der skjuler fejl.
+     */
+    bool    alarm_fra;
 } zs_fejl_ind_t;
 
 /* Hvad skaermen skal goere. */

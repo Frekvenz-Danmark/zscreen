@@ -77,6 +77,15 @@ typedef struct {
 
     uint8_t  brightness;        /* 5 til 100                          */
     bool     night_dimming;
+    /*
+     * Maa skaermen blinke og bippe. Standard SAND.
+     *
+     * Den slaar kun ALARMEN fra - blinket og lyden - og ikke
+     * beskeden. Fejlsiden og statuslinjen bliver, saa en skaerm med
+     * alarmen fra stadig siger hvad der er galt. Ellers havde vi lavet
+     * en knap der skjuler fejl, og den ville blive brugt.
+     */
+    bool     alarm_til;
 
     /* 0 er moerkt, 1 er lyst. Gemt som tal og ikke som zs_theme_mode_t,
      * saa lageret ikke afhaenger af brugerfladens opregning. */

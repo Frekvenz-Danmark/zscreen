@@ -93,6 +93,7 @@ lv_obj_t *zs_ui_root_of(zs_screen_id_t id)
     case ZS_SCREEN_HOME:          return zs_screen_home_root();
     case ZS_SCREEN_SETTINGS:      return zs_settings_root();
     case ZS_SCREEN_DETAILS:       return zs_details_root();
+    case ZS_SCREEN_AVANCERET:     return zs_avanceret_root();
     case ZS_SCREEN_THEME:         return zs_theme_page_root();
     case ZS_SCREEN_TILMELD:       return zs_tilmeld_page_root();
     case ZS_SCREEN_FEJL:          return zs_fejl_page_root();
