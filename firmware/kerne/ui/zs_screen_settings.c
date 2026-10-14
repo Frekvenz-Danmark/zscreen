@@ -639,7 +639,20 @@ static void build_avanceret(void)
     zs_page_create(&s_avan, "Avanceret", on_avan_tilbage, NULL, false);
 
     lv_obj_t *h = lv_label_create(s_avan.content);
-    lv_label_set_text(h, "Indstillinger man sjældent skal ændre.");
+    /*
+     * Underteksten siger hvad knappen GOER og hvad den ikke gOEr.
+     *
+     * Her stod "Indstillinger man sjaeldent skal aendre", og det
+     * fortaeller ingenting om hvad man kan komme til. Forklaringen stod
+     * i stedet nede i kortet, hvor den gjorde raden dobbelt saa hoej -
+     * og en forklaring der staar under den kontakt den handler om,
+     * laeses foerst efter man har trykket.
+     *
+     * Maalt med tools/maal-tekst.py: 697 og 269 px paa ZDisplays 760,
+     * 429 og 165 paa zScreens 456. To linjer paa begge.
+     */
+    lv_label_set_text(h, "Skærmen blinker og bipper, når strømmen "
+                         "ryger. Beskeden bliver vist uanset hvad.");
     zs_style_text(h, &zs_font_broed, ZS_C_LABEL);
     lv_label_set_long_mode(h, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(h, ZS_CONTENT_WIDTH);
@@ -648,9 +661,21 @@ static void build_avanceret(void)
     lv_obj_t *col = zs_column_create(s_avan.content, ZS_CHOICE_GAP);
     lv_obj_align(col, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK(56));
 
-    make_switch_row(col, ZS_ICON_ALERT, "Alarm",
-                    "Skærmen blinker og bipper, når noget er galt. "
-                    "Beskeden bliver vist uanset hvad.",
+    /*
+     * "Batteri-alarm" og ikke "Alarm", OG kontakten styrer kun
+     * stroemalarmen.
+     *
+     * De to ting hoerer sammen. Hed den "Alarm" mens den slog ALT fra,
+     * var navnet for bredt; hed den "Batteri-alarm" mens den slog alt
+     * fra, var navnet en loegn - man slaar den fra for batteriet og
+     * hoerer saa aldrig om en doed inverter. Nu passer navnet med hvad
+     * den gOEr: se ind.alarm_fra i zs_app.c, som kun daemper
+     * ZS_FEJL_INGEN_STROEM.
+     *
+     * Ingen undertekst. Forklaringen staar i sidens undertekst
+     * ovenfor, saa raden er ÉN linje hoej som alle andre raekker.
+     */
+    make_switch_row(col, ZS_ICON_BATTERY, "Batteri-alarm", NULL,
                     on_alarm, &s_sw_alarm);
 }
 

@@ -232,7 +232,7 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
      * dag blive glemt, og saa bippede en skaerm med alarmen slaaet
      * fra.
      */
-    if (ind->alarm_fra) {
+    if (ind->alarm_fra && ud.type == ZS_FEJL_INGEN_STROEM) {
         ud.blink = false;
     }
 
@@ -330,8 +330,15 @@ const char *zs_fejl_forklaring(zs_fejl_type_t t)
 {
     switch (t) {
     case ZS_FEJL_INGEN_STROEM:
-        return "Sæt strømkablet i. Skærmen slukker af sig selv, når "
-               "batteriet er brugt op.";
+        /*
+         * MAALT MED tools/maal-tekst.py, saa "to linjer" ikke er
+         * oejemaal: 675 og 619 px paa ZDisplays 760, 415 og 381 paa
+         * zScreens 456. To naesten lige linjer paa BEGGE skaerme, fordi
+         * baade skriften og bredden skalerer ens.
+         */
+        return "Sæt venligst strømkablet i igen. Skærmen kører videre "
+               "på batteriet, men slukker af sig selv, når det er "
+               "brugt op.";
     case ZS_FEJL_WIFI:
         return "Tallene fra anlægget kan ikke hentes, før skærmen er "
                "på netværket igen.";
@@ -378,6 +385,44 @@ bool zs_fejl_alvorlig(zs_fejl_type_t t)
     case ZS_FEJL_INVERTER:        return true;
     case ZS_FEJL_INVERTER_SOVER:
     case ZS_FEJL_INGEN:           break;
+    }
+    return false;
+}
+
+zs_fejl_ikon_t zs_fejl_ikon(zs_fejl_type_t t)
+{
+    switch (t) {
+    /* Et batteri, fordi det er det skaermen koerer PAA lige nu - og
+     * det er den oplysning der gOEr at man rejser sig. */
+    case ZS_FEJL_INGEN_STROEM:    return ZS_FEJL_IKON_BATTERI;
+    /*
+     * De to andre har ikke noget. Et ikon der ikke siger mere end
+     * overskriften gOEr, er pynt paa en alarmside - og de to sider har
+     * staaet i marken uden, saa der er ingen grund til at flytte dem.
+     */
+    case ZS_FEJL_WIFI:
+    case ZS_FEJL_INVERTER:
+    case ZS_FEJL_INVERTER_SOVER:
+    case ZS_FEJL_INGEN:           break;
+    }
+    return ZS_FEJL_IKON_INTET;
+}
+
+bool zs_fejl_tal_staar_stille(zs_fejl_type_t t)
+{
+    switch (t) {
+    /*
+     * Stroemsvigt er IKKE frosne tal. Skaermen koerer videre paa
+     * batteriet, er paa netvaerket og laeser inverteren - tallene er
+     * friske. Halen om at de staar stille var derfor det eneste
+     * forkerte paa siden.
+     */
+    case ZS_FEJL_INGEN_STROEM:
+    case ZS_FEJL_INVERTER_SOVER:
+    case ZS_FEJL_INGEN:           break;
+    /* Her er de frosne, og DET er det kunden skal vide. */
+    case ZS_FEJL_WIFI:
+    case ZS_FEJL_INVERTER:        return true;
     }
     return false;
 }

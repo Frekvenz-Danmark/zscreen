@@ -307,16 +307,58 @@ static void lv_port_indev_init(void)
 {
     static lv_indev_drv_t indev_drv;
 
+    /*
+     * TRE FORSOEG, OG DET ER MAALT AT DET HJAELPER.
+     *
+     * GSL3670'eren tager ikke altid sin firmware i foerste forsoeg.
+     * Den svarer paa I2C, alle 4356 firmware-writes bliver kvitteret,
+     * og register 0xb0 - som chippen SELV skriver 5a5a5a5a i naar den
+     * koerer koden - staar alligevel paa nul. Saa er skaermen doev:
+     * fladen tegner alt rigtigt, men der kommer ingen tryk ind. Den ser
+     * frossen ud.
+     *
+     * Maalt 14. oktober 2026, to gange:
+     *
+     *   * Én mislykket init lige efter en flashning. De fire naeste
+     *     opstarter virkede alle. Altsaa periodisk, og et forsoeg mere
+     *     havde klaret den.
+     *   * Og én gang hvor chippen havde LAAST sig: seks nulstillinger
+     *     i traek fejlede, og kun en stroemafbrydelse ryddede det.
+     *     Reset-benet gOEr det ikke - kortet holder sin egen 3V3 via
+     *     BSP_PWR_HOLD og har batteri.
+     *
+     * Et forsoeg mere koster omkring 4,3 sekunder, og KUN naar det
+     * ellers var gaaet galt. En doev skaerm koster et besoeg.
+     *
+     * Hjaelper tre forsoeg ikke, er det den laaste tilstand, og den
+     * kan firmwaren ikke komme ud af. Derfor siger beskeden hvad man
+     * saa skal goere, i stedet for bare at sige at det gik galt.
+     */
     const bsp_touch_config_t cfg = { 0 };
-    esp_err_t err = bsp_touch_new(&cfg, &s_touch);
+    esp_err_t err = ESP_FAIL;
+    for (int forsoeg = 1; forsoeg <= 3; forsoeg++) {
+        err = bsp_touch_new(&cfg, &s_touch);
+        if (err == ESP_OK) {
+            if (forsoeg > 1) {
+                ESP_LOGW(TAG, "touch kom op i forsoeg %d af 3", forsoeg);
+            }
+            break;
+        }
+        s_touch = NULL;     /* driveren skriver en frigjort pegepind */
+        ESP_LOGW(TAG, "touch svarede ikke i forsoeg %d af 3 (%s)",
+                 forsoeg, esp_err_to_name(err));
+    }
     if (err != ESP_OK) {
         /*
          * En skaerm uden touch er ikke en doed skaerm: den viser stadig
          * de fire tal, og det er det vigtigste den laver. Derfor
          * standser opstarten ikke her.
          */
-        ESP_LOGE(TAG, "touch svarede ikke (%s), skaermen kan kun ses",
-                 esp_err_to_name(err));
+        ESP_LOGE(TAG, "touch svarede ikke i tre forsoeg, skaermen kan kun "
+                      "ses. Chippen er sandsynligvis laast: hold "
+                      "taend-knappen inde i 3 sekunder, traek USB ud, "
+                      "vent 10 sekunder og taend igen. En nulstilling "
+                      "alene rydder det IKKE.");
         s_touch = NULL;
         return;
     }

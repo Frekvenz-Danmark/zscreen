@@ -18,6 +18,7 @@ static lv_obj_t    *s_over;      /* den store linje                    */
 static lv_obj_t    *s_under;     /* forklaringen                       */
 static lv_obj_t    *s_knap;
 static lv_obj_t    *s_knap_tekst;
+static lv_obj_t    *s_ikon;
 
 static zs_fejl_type_t s_type = ZS_FEJL_WIFI;
 /*
@@ -93,6 +94,17 @@ static bool           s_puls;    /* koerer animationen                  */
  * ville betyde at en side bygget forfra efter et temaskift kunne komme
  * til at staa med noget andet end den samme side gjorde et sekund foer.
  */
+/* Fejlens ikon som en streng. Opregningen bor i motoren, strengene
+ * her - se noten ved zs_fejl_ikon_t. */
+static const char *ikonet(zs_fejl_type_t t)
+{
+    switch (zs_fejl_ikon(t)) {
+    case ZS_FEJL_IKON_BATTERI: return ZS_ICON_BATTERY;
+    case ZS_FEJL_IKON_INTET:   break;
+    }
+    return "";
+}
+
 static void skriv_teksten(void)
 {
     if (s_over == NULL) {
@@ -135,7 +147,19 @@ static void skriv_teksten(void)
      * aldrig har haft internet, har et ur der staar i 1970, og "fra kl.
      * 01:00" ville vaere det eneste forkerte paa hele siden.
      */
-    if (s_tid[0] != '\0') {
+    /*
+     * HALEN HOERER IKKE TIL PAA HVER FEJL.
+     *
+     * Her stod den paa alle: "Tallene paa forsiden er fra kl. X og
+     * staar stille." Paa stroemsvigt er det ikke sandt - skaermen
+     * koerer videre paa batteriet, er paa netvaerket og laeser
+     * inverteren, saa tallene er friske. Den ene saetning var det
+     * eneste forkerte paa hele siden, og den stod der fordi halen var
+     * skrevet ind ét sted for alle.
+     *
+     * Nu spoerger vi fejlen selv, se zs_fejl_tal_staar_stille.
+     */
+    if (s_tid[0] != '\0' && zs_fejl_tal_staar_stille(s_type)) {
         char t[200];
         snprintf(t, sizeof(t),
                  "%s Tallene på forsiden er fra kl. %s og står stille.",
@@ -144,6 +168,27 @@ static void skriv_teksten(void)
     } else {
         lv_label_set_text(s_under, zs_fejl_forklaring(s_type));
     }
+
+    /*
+     * Og hele blokken flytter sig, for en side MED ikon er hoejere end
+     * en uden - og begge skal staa midt paa siden. Tallene er to saet i
+     * zs_layout.h, saa der ikke regnes her.
+     */
+    const char *ik = ikonet(s_type);
+    bool har_ikon = (ik != NULL && ik[0] != '\0');
+    if (s_ikon != NULL) {
+        lv_label_set_text(s_ikon, har_ikon ? ik : "");
+        if (har_ikon) {
+            lv_obj_clear_flag(s_ikon, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_align(s_ikon, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_IKON_Y);
+        } else {
+            lv_obj_add_flag(s_ikon, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    lv_obj_align(s_over, LV_ALIGN_TOP_MID, 0,
+                 har_ikon ? ZS_G_FEJL_ITOP : ZS_G_FEJL_TOP);
+    lv_obj_align(s_under, LV_ALIGN_TOP_MID, 0,
+                 har_ikon ? ZS_G_FEJL_IBODY_Y : ZS_G_FEJL_BODY_Y);
 }
 
 /*
@@ -334,6 +379,21 @@ void zs_fejl_page_create(void)
      * der et klokkeslaet, ved hun ogsaa HVOR gammelt det hun lige
      * kiggede paa, var.
      */
+    /*
+     * Ikonet mellem overskriften og forklaringen. Kun nogle fejl har
+     * et - se zs_fejl_ikon - og har den ikke, skjules labelet og
+     * blokken staar hvor den altid har staaet. Tallene er regnet i
+     * zs_layout.h, med vagter paa at ikonet ligger MELLEM de to og at
+     * hele blokken kan vaere paa siden.
+     */
+    s_ikon = lv_label_create(s_side.content);
+    lv_label_set_text(s_ikon, ikonet(s_type));
+    lv_obj_set_style_text_font(s_ikon, &zs_ikon_stor, 0);
+    lv_obj_set_style_text_color(s_ikon, lv_color_hex(ZS_C_ALARM_TEKST), 0);
+    lv_obj_set_style_text_align(s_ikon, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_width(s_ikon, ZS_CONTENT_WIDTH);
+    lv_obj_align(s_ikon, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_IKON_Y);
+
     s_under = lv_label_create(s_side.content);
     lv_label_set_text(s_under, zs_fejl_forklaring(s_type));
     /*
@@ -428,6 +488,7 @@ void zs_fejl_page_destroy(void)
     s_over = NULL;
     s_under = NULL;
     s_knap = NULL;
+    s_ikon = NULL;
     s_knap_tekst = NULL;
     s_vist = false;
     /*

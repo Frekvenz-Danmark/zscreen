@@ -25,4 +25,6 @@
 #define ZS_LH_BROED    33
 #define ZS_LH_ETIKET   29
 #define ZS_LH_KB       47
+#define ZS_LH_IKON_LILLE 31
+#define ZS_LH_IKON_STOR 44
 #endif /* ZS_SKRIFT_MAAL_INC */

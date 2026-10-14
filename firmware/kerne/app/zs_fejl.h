@@ -142,7 +142,13 @@ typedef struct {
      */
     bool    demo;
     /*
-     * Kunden har slaaet alarmen fra i Avancerede indstillinger.
+     * Kunden har slaaet BATTERI-ALARMEN fra i Avancerede
+     * indstillinger.
+     *
+     * DEN GAELDER KUN ZS_FEJL_INGEN_STROEM. Foerst slog den alt fra, og
+     * saa var kontaktens navn en loegn: man slaar "Batteri-alarm" fra
+     * og hoerer derefter aldrig om en doed inverter. Wifi og inverter
+     * blinker videre uanset hvad.
      *
      * FELTET HEDDER "FRA" OG IKKE "TIL", og det er med vilje. Structen
      * memsettes til nul hos kalderne, og nul skal betyde NORMAL. Hed
@@ -293,6 +299,35 @@ void zs_fejl_glem_inverteren(zs_fejl_vagt_t *v);
  * med at se paa.
  */
 bool zs_fejl_alvorlig(zs_fejl_type_t t);
+
+/*
+ * Hvilket ikon der hoerer til fejlen.
+ *
+ * Det er en OPREGNING og ikke en ikonstreng, fordi strengene bor i
+ * ui/zs_icons.h, som henter lvgl.h - og motoren skal kunne oversaettes
+ * uden LVGL. Proeverne paa vaerten bygger netop uden den, og de
+ * faldt med "lvgl.h: file not found" da ikonet var en streng her.
+ *
+ * Hvad der VISES, er altsaa fladens opslag; HVILKET, er fejlens
+ * egenskab - paa samme maade som titlen.
+ */
+typedef enum {
+    ZS_FEJL_IKON_INTET = 0,
+    ZS_FEJL_IKON_BATTERI,
+} zs_fejl_ikon_t;
+
+zs_fejl_ikon_t zs_fejl_ikon(zs_fejl_type_t t);
+
+/*
+ * Betyder fejlen at tallene paa forsiden er FROSNE.
+ *
+ * Fejlsiden saetter ellers "Tallene paa forsiden er fra kl. X og staar
+ * stille." paa hver fejl, og paa stroemsvigt er det ikke sandt: skaermen
+ * koerer videre paa batteriet, laeser inverteren og viser friske tal.
+ * Den ene saetning er altsaa det eneste forkerte paa hele siden - og
+ * den stod der, fordi halen var skrevet ind ÉT sted for alle.
+ */
+bool zs_fejl_tal_staar_stille(zs_fejl_type_t t);
 
 /* Til loggen. Kort og paa dansk. */
 const char *zs_fejl_navn(zs_fejl_type_t t);

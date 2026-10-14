@@ -352,6 +352,68 @@ void test_fejl(void)
     CHECK("og INGEN knap, for der er ingenting at trykke paa",
           zs_fejl_knap(ZS_FEJL_INGEN_STROEM)[0] == '\0');
 
+    /*
+     * ── BATTERI-ALARMEN KAN SLAAS FRA, OG KUN DEN ──
+     *
+     * Kontakten i Avancerede indstillinger hedder "Batteri-alarm".
+     * Slog den ALT fra, var navnet en loegn: man slaar den fra for
+     * batteriet og hoerer derefter aldrig om en doed inverter.
+     */
+    ZS_SUITE("Batteri-alarmen slaaet fra");
+
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    ind.alarm_fra = true;
+    ind.paa_stroem = false;
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ud = zs_fejl_tik(&v, &ind, ZS_FEJL_STROEM_GRAENSE_MS);
+    CHECK("fejlen er der stadig", ud.type == ZS_FEJL_INGEN_STROEM);
+    CHECK("men den blinker ikke", !ud.blink);
+    CHECK("og den bipper ikke", !ud.lyd);
+
+    /* Og de to andre blinker videre, uanset kontakten. */
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    ind.alarm_fra = true;
+    ind.paa_wifi = false;
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ud = zs_fejl_tik(&v, &ind, 10 * MIN_MS);
+    CHECK("wifi-fejlen melder stadig", ud.type == ZS_FEJL_WIFI);
+    CHECK("og den blinker STADIG - kontakten er kun batteriets",
+          ud.blink);
+
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    ind.alarm_fra = true;
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ind.inverter_svarer = false;
+    (void)zs_fejl_tik(&v, &ind, 1000);
+    ud = zs_fejl_tik(&v, &ind, 10 * MIN_MS);
+    CHECK("inverter-fejlen melder stadig", ud.type == ZS_FEJL_INVERTER);
+    CHECK("og den blinker ogsaa stadig", ud.blink);
+
+    /*
+     * ── HVAD SIDEN SKAL SIGE OM TALLENE ──
+     *
+     * Fejlsiden saetter "Tallene paa forsiden er fra kl. X og staar
+     * stille." under forklaringen. Paa stroemsvigt er det ikke sandt:
+     * skaermen koerer videre paa batteriet og viser friske tal.
+     */
+    CHECK("stroemsvigt: tallene staar IKKE stille",
+          !zs_fejl_tal_staar_stille(ZS_FEJL_INGEN_STROEM));
+    CHECK("wifi: tallene staar stille",
+          zs_fejl_tal_staar_stille(ZS_FEJL_WIFI));
+    CHECK("inverter: tallene staar stille",
+          zs_fejl_tal_staar_stille(ZS_FEJL_INVERTER));
+
+    /* Og ikonet. Kun stroemsvigt har et. */
+    CHECK("stroemsvigt har batteri-ikonet",
+          zs_fejl_ikon(ZS_FEJL_INGEN_STROEM) == ZS_FEJL_IKON_BATTERI);
+    CHECK("wifi har intet ikon",
+          zs_fejl_ikon(ZS_FEJL_WIFI) == ZS_FEJL_IKON_INTET);
+    CHECK("inverter har intet ikon",
+          zs_fejl_ikon(ZS_FEJL_INVERTER) == ZS_FEJL_IKON_INTET);
+
     /* ── NULL maa ikke faa en skaerm til at blinke ── */
     ud = zs_fejl_tik(NULL, &ind, 0);
     CHECK("NULL-vagt: ingen fejl og intet blink",

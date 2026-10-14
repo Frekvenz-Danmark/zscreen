@@ -900,6 +900,42 @@
                                  + ZS_G_FEJL_GAP)
 
 /*
+ * ET IKON MELLEM OVERSKRIFTEN OG FORKLARINGEN.
+ *
+ * Kun nogle fejl har et - stroemsvigt har et batteri, se zs_fejl_ikon.
+ * Derfor er der TO blokke her: én med ikon og én uden. Begge er
+ * midtstillet lodret i indholdet, saa en side uden ikon staar hvor den
+ * altid har staaet, og en side med ikon ogsaa staar i midten.
+ *
+ * Luften om ikonet foelger FORMEN og ikke skaermens hoejde: det er luft
+ * om blaek. ZS_G_FEJL_GAP ovenfor er skaermens hoejde, og det er
+ * rigtigt DER - den skiller to tekstblokke paa en ellers tom side.
+ *
+ * Hoejden er skriftens EGEN, fra zs_skrift_maal.h, og ikke ZS_G_SK(28).
+ * De to er ikke det samme: lv_font_conv gav 44 px hvor overslaget
+ * siger 46, og to pixels i en lodret stak man har midtstillet, er to
+ * pixels alt under den staar forkert.
+ */
+#define ZS_G_FEJL_IKON_GAP      ZS_G_SK(12)
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
+#define ZS_G_FEJL_IKON_HEIGHT   28        /* zs_ikon_stor paa 480 */
+#else
+#define ZS_G_FEJL_IKON_HEIGHT   ZS_LH_IKON_STOR
+#endif
+
+#define ZS_G_FEJL_IBLOK_HEIGHT  (ZS_G_FEJL_HEAD_HEIGHT \
+                                 + ZS_G_FEJL_IKON_GAP \
+                                 + ZS_G_FEJL_IKON_HEIGHT \
+                                 + ZS_G_FEJL_IKON_GAP \
+                                 + ZS_G_FEJL_BODY_HEIGHT)
+#define ZS_G_FEJL_ITOP          ((ZS_G_FEJL_CONTENT_HEIGHT \
+                                  - ZS_G_FEJL_IBLOK_HEIGHT) / 2)
+#define ZS_G_FEJL_IKON_Y        (ZS_G_FEJL_ITOP + ZS_G_FEJL_HEAD_HEIGHT \
+                                 + ZS_G_FEJL_IKON_GAP)
+#define ZS_G_FEJL_IBODY_Y       (ZS_G_FEJL_IKON_Y + ZS_G_FEJL_IKON_HEIGHT \
+                                 + ZS_G_FEJL_IKON_GAP)
+
+/*
  * Her stod maalet paa en RAMME langs kanten, som pulserede. Den er vaek:
  * en seks pixels kant kan ikke ses fra den anden ende af et koekken, og
  * det var hele formaalet. Nu flasher HELE fladen roedt, og en flade har
@@ -1160,6 +1196,24 @@ _Static_assert(ZS_G_FEJL_BODY_Y > ZS_G_FEJL_TOP + ZS_G_FEJL_HEAD_HEIGHT,
 _Static_assert(ZS_G_FEJL_HEAD_HEIGHT >= 2 * 32,
                "fejlsiden: der er ikke plads til to linjer 28 px i "
                "overskriften");
+/*
+ * BLOKKEN MED IKON SKAL OGSAA KUNNE VAERE DER, og den er hoejere.
+ */
+_Static_assert(ZS_G_FEJL_IBLOK_HEIGHT < ZS_G_FEJL_CONTENT_HEIGHT,
+               "blokken med ikon fylder mere end fejlsiden");
+_Static_assert(ZS_G_FEJL_ITOP >= ZS_G_EDGE,
+               "blokken med ikon staar for taet paa sidehovedet");
+_Static_assert(ZS_G_FEJL_IBODY_Y + ZS_G_FEJL_BODY_HEIGHT
+               <= ZS_G_FEJL_CONTENT_HEIGHT,
+               "forklaringen under ikonet gaar ud over fejlsiden");
+/* Og ikonet skal ligge MELLEM de to, ikke oven i nogen af dem. */
+_Static_assert(ZS_G_FEJL_IKON_Y
+               >= ZS_G_FEJL_ITOP + ZS_G_FEJL_HEAD_HEIGHT,
+               "ikonet ligger oven i overskriften");
+_Static_assert(ZS_G_FEJL_IBODY_Y
+               >= ZS_G_FEJL_IKON_Y + ZS_G_FEJL_IKON_HEIGHT,
+               "forklaringen ligger oven i ikonet");
+
 _Static_assert(ZS_G_FEJL_BODY_HEIGHT >= 3 * 24,
                "fejlsiden: der er ikke plads til tre linjer 16 px i "
                "forklaringen");
