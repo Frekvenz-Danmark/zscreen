@@ -48,7 +48,23 @@ static const char *side_navn(zs_screen_id_t id)
  */
 static void maal_et(const char *side, lv_obj_t *o, int dybde)
 {
-    if (dybde > MAKS_DYBDE || lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) {
+    /*
+     * SKJULTE OBJEKTER MAALES OGSAA, og det er hele pointen.
+     *
+     * Her stod "|| lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)", og det
+     * virkede fornuftigt: hvorfor maale noget man ikke kan se? Fordi
+     * TRETTEN AF FJORTEN SIDER er skjulte ved opstart - kun den der
+     * vises lige nu, er synlig. Maaleren gik derfor kun velkomstsiden
+     * igennem og skrev "intet stikker ud" om de andre tretten.
+     *
+     * Det blev fanget ved at FLYTTE tandhjulet 200 px ud over kanten og
+     * se at maaleren stadig sagde at alt var i orden. En maaler der
+     * ikke kan fejle, maaler ingenting.
+     *
+     * En skjult side bliver vist et oejeblik senere, og saa er fejlen
+     * der. Den skal findes nu.
+     */
+    if (dybde > MAKS_DYBDE) {
         return;
     }
 
