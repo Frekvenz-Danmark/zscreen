@@ -270,6 +270,20 @@ byg_saet() {
         ok "${name} ($(wc -c < "${dst}" | tr -d ' ') bytes C-kode)"
     }
 
+    info "Bygger ikoner"
+    build_icons zs_ikon_lille "$(sk 20)"
+    build_icons zs_ikon_stor  "$(sk 28)"
+    # Kun batteriet, og stort. Fejlsiden viser det naar stroemmen er
+    # vaek, og dér er det sidens eneste billede - se ZS_G_FEJL_IKON_Y.
+    # 0xE053 er ZS_ICON_BATTERY, se zs_icons.h.
+    build_icons zs_ikon_kaempe "$(sk 40)" "0xE053"
+    # zs_icons.h er kodepunkter og ikke pixels, saa den er faelles for
+    # begge saet og skrives kun én gang.
+    if [ "${SAET_W}" = "${REF_W}" ]; then
+        python3 icons.py --header "../firmware/kerne/ui/zs_icons.h" \
+            || fail "kunne ikke skrive zs_icons.h"
+    fi
+
     # ── Skrifternes FAKTISKE linjehoejder ─────────────────────────
     #
     # HVORFOR DE SKRIVES UD.
@@ -318,37 +332,31 @@ byg_saet() {
             [ -n "${lh}" ] || fail "kunne ikke laese linjehoejden i zs_font_${n}.c"
             printf '#define ZS_LH_%-8s %s\n' "$(echo ${n} | tr a-z A-Z)" "${lh}"
         done
-        # Ikonskrifterne med. De bygges EFTER det her afsnit, saa
-        # filerne findes kun ved en gentagen koersel - derfor
-        # "hvis den er der". Foerste byg af et nyt saet har dem ikke,
-        # og saa skriver den anden koersel dem ind. Det staar i
-        # check-byg.py at saettet skal bygges helt.
+        # Ikonskrifterne med, og de SKAL vaere der.
+        #
+        # Her stod "[ -f ... ] || continue", fordi ikonerne blev bygget
+        # EFTER det her afsnit. Det gav to fejl der begge var tavse:
+        # foerste byg af et nyt saet skrev headeren UDEN
+        # ZS_LH_IKON_*, saa ZDisplay ikke kunne oversaettes - og en
+        # koersel med --force og en ny ikonstoerrelse beholdt forrige
+        # koersels tal, saa layoutet reserverede en forkert hoejde
+        # indtil nogen tilfaeldigvis byggede to gange.
+        #
+        # Ikonerne bygges nu foerst, saa filerne er der, og saa maa
+        # loekken kraeve dem i stedet for at se forbi.
         for n in lille stor kaempe; do
             f="${OUT}/zs_ikon_${n}.c"
-            [ -f "${f}" ] || continue
+            [ -f "${f}" ] || fail "${f} blev ikke bygget - uden den kan"\
+" zs_layout.h ikke reservere plads til ikonet"
             lh=$(grep -o "\.line_height = [0-9]*" "${f}" \
                  | head -1 | grep -o "[0-9]*")
-            [ -n "${lh}" ] || continue
+            [ -n "${lh}" ] || fail "kunne ikke laese linjehoejden i ${f}"
             printf '#define ZS_LH_IKON_%-3s %s\n' \
                 "$(echo ${n} | tr a-z A-Z)" "${lh}"
         done
         echo "#endif /* ZS_SKRIFT_MAAL_INC */"
     } > "${OUT}/zs_skrift_maal.h"
     ok "zs_skrift_maal.h ($(grep -c '^#define' "${OUT}/zs_skrift_maal.h") linjehoejder)"
-
-    info "Bygger ikoner"
-    build_icons zs_ikon_lille "$(sk 20)"
-    build_icons zs_ikon_stor  "$(sk 28)"
-    # Kun batteriet, og stort. Fejlsiden viser det naar stroemmen er
-    # vaek, og dér er det sidens eneste billede - se ZS_G_FEJL_IKON_Y.
-    # 0xE053 er ZS_ICON_BATTERY, se zs_icons.h.
-    build_icons zs_ikon_kaempe "$(sk 40)" "0xE053"
-    # zs_icons.h er kodepunkter og ikke pixels, saa den er faelles for
-    # begge saet og skrives kun én gang.
-    if [ "${SAET_W}" = "${REF_W}" ]; then
-        python3 icons.py --header "../firmware/kerne/ui/zs_icons.h" \
-            || fail "kunne ikke skrive zs_icons.h"
-    fi
 
     # ---------------------------------------------------------------------
     # Logoer
