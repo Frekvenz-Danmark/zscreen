@@ -336,7 +336,13 @@ def tjek_zscreen_staar_stille():
         return
     tekst = f.read_text(encoding="utf-8")
     kode = uden_kommentarer(tekst)
-    if "ZS_G_FEJL_MAAL_STAK" not in kode:
+    # DEN NEGEREDE FORM, og ikke bare navnet et sted i filen.
+    #
+    # Foerste udgave ledte efter "ZS_G_FEJL_MAAL_STAK". En mutation der
+    # skiftede "#if !ZS_G_FEJL_MAAL_STAK" ud med "#if 0" slap igennem,
+    # fordi navnet stadig stod i filen et andet sted. Det er GRENEN der
+    # skal vaere der, og den kendes paa udraabstegnet.
+    if "#if !ZS_G_FEJL_MAAL_STAK" not in kode:
         fejl.append(
             f"{f.relative_to(ROD)}: opstillingen af fejlsiden spoerger "
             f"ikke laengere paa ZS_G_FEJL_MAAL_STAK. Uden den gren "
