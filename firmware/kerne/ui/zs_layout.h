@@ -926,12 +926,15 @@
  * En fjerdedel af linjehoejden er nok til at de laeses som to ting.
  */
 #define ZS_G_FEJL_LINJE_LUFT    ZS_G_SK(8)
+/*
+ * KUN REFERENCESKAERMEN. Her stod ZS_LH_IKON_STOR paa de andre, og det
+ * var den forkerte skrift: labelet tegnes med zs_ikon_kaempe. Tallet
+ * blev aldrig brugt dér - de skaerme maaler ikonets hoejde af LVGL -
+ * saa det var et forkert tal ingen laeste, hvilket er vaerre end ingen
+ * tal: det ser ud som om nogen har maalt.
+ */
 #if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
 #define ZS_G_FEJL_IKON_HEIGHT   28        /* zs_ikon_stor paa 480 */
-#else
-#define ZS_G_FEJL_IKON_HEIGHT   ZS_LH_IKON_STOR
-#endif
-
 #define ZS_G_FEJL_IBLOK_HEIGHT  (ZS_G_FEJL_HEAD_HEIGHT \
                                  + ZS_G_FEJL_IKON_GAP \
                                  + ZS_G_FEJL_IKON_HEIGHT \
@@ -943,6 +946,39 @@
                                  + ZS_G_FEJL_IKON_GAP)
 #define ZS_G_FEJL_IBODY_Y       (ZS_G_FEJL_IKON_Y + ZS_G_FEJL_IKON_HEIGHT \
                                  + ZS_G_FEJL_IKON_GAP)
+#endif
+
+/*
+ * MAALES STAKKEN, ELLER STAAR DEN FAST?
+ *
+ * Den maalte er rigtigere. Tallene ovenfor reserverer en KASSE til hver
+ * tekst - 80 px til overskriften, 96 til forklaringen - og er teksten
+ * kortere end kassen, ligger luften inde i den. Saa maales afstanden
+ * ned til ikonet fra en kant man ikke kan se, og ikonet ender for langt
+ * nede selvom begge mellemrum er det samme tal. Paa ZDisplay var
+ * kassen 213 px om en overskrift paa 60.
+ *
+ * MEN DEN FLYTTER zScreen. Paa 480 staar overskriften i dag paa y=78 og
+ * forklaringen paa y=174. Maalt med tools/maal-tekst.py bliver den
+ * maalte stak 110 px hoej, og saa rykker overskriften til y=119 og
+ * forklaringen til y=169 - 41 px paa hver skaerm der staar ude hos en
+ * kunde.
+ *
+ * Yassin har sagt nej til at flytte zScreens flade, ogsaa naar det
+ * gamle tal er maalt forkert. Derfor: referenceskaermen beholder sine
+ * faste tal, alt andet maaler.
+ *
+ * FIKSTUREN KAN IKKE SE DET HER. tests/fixtures/layout-480.h fanger
+ * MAKROER, og opstillingen er C-kode i zs_screen_fejl.c:stak_op(). Det
+ * er derfor flytningen slap igennem i foerste omgang. Vagten er i
+ * stedet tjek_zscreen_staar_stille() i tools/check-flade.py, som
+ * tjekker at grenen ER der og at de gamle tal stadig laeses.
+ */
+#if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
+#define ZS_G_FEJL_MAAL_STAK     0
+#else
+#define ZS_G_FEJL_MAAL_STAK     1
+#endif
 
 /*
  * Her stod maalet paa en RAMME langs kanten, som pulserede. Den er vaek:
@@ -1207,7 +1243,14 @@ _Static_assert(ZS_G_FEJL_HEAD_HEIGHT >= 2 * 32,
                "overskriften");
 /*
  * BLOKKEN MED IKON SKAL OGSAA KUNNE VAERE DER, og den er hoejere.
+ *
+ * VAGTERNE HER STAAR KUN HVOR TALLENE BRUGES. ZS_G_FEJL_ITOP, _IKON_Y
+ * og _IBODY_Y laeses af zs_screen_fejl.c paa REFERENCESKAERMEN - de
+ * andre skaerme maaler stakken i stedet, se ZS_G_FEJL_MAAL_STAK. Stod
+ * vagterne udenfor, ville de passe uden at betyde noget: en vagt der
+ * ikke KAN fejle, faar man til at stole paa.
  */
+#if !ZS_G_FEJL_MAAL_STAK
 _Static_assert(ZS_G_FEJL_IBLOK_HEIGHT < ZS_G_FEJL_CONTENT_HEIGHT,
                "blokken med ikon fylder mere end fejlsiden");
 _Static_assert(ZS_G_FEJL_ITOP >= ZS_G_EDGE,
@@ -1222,6 +1265,25 @@ _Static_assert(ZS_G_FEJL_IKON_Y
 _Static_assert(ZS_G_FEJL_IBODY_Y
                >= ZS_G_FEJL_IKON_Y + ZS_G_FEJL_IKON_HEIGHT,
                "forklaringen ligger oven i ikonet");
+#else
+/*
+ * DEN MAALTE STAK KAN IKKE EFTERSES HER - hoejderne kommer fra LVGL
+ * naar teksten staar der. Det der KAN efterses, er at den mindst
+ * mulige stak er plads til: én linje overskrift, ikonet, én linje
+ * forklaring og luften imellem. Er DEN for hoej, er siden for lav til
+ * fejlsiden overhovedet, og saa hjaelper ingen maaling.
+ *
+ * Ikonet maales med zs_ikon_kaempe, som er den skrift labelet FAKTISK
+ * tegnes med. Her stod ZS_LH_IKON_STOR, en anden skrift - og de to er
+ * ikke engang i samme retning: kaempe har line_height 40 hvor stor har
+ * 44, fordi lv_font_conv regner den af de tegn der er med.
+ */
+_Static_assert(ZS_LH_STOR + ZS_G_FEJL_IKON_GAP + ZS_LH_IKON_KAEMPE
+               + ZS_G_FEJL_IKON_GAP + ZS_LH_BROED
+               < ZS_G_FEJL_CONTENT_HEIGHT,
+               "fejlsiden kan ikke rumme én linje overskrift, ikonet og "
+               "én linje forklaring - saa er skaermen for lav til siden");
+#endif
 
 _Static_assert(ZS_G_FEJL_BODY_HEIGHT >= 3 * 24,
                "fejlsiden: der er ikke plads til tre linjer 16 px i "

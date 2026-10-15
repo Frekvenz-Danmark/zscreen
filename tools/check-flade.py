@@ -264,6 +264,45 @@ def tjek_defines():
     return antal
 
 
+def tjek_zscreen_staar_stille():
+    """Fejlsidens opstilling skal stadig have referencegrenen.
+
+    HVORFOR DEN HER VAGT IKKE KAN VAERE EN _Static_assert ELLER EN
+    FIKSTUR.
+
+    Opstillingen af fejlsiden er C-kode i stak_op(), ikke en makro.
+    tests/fixtures/layout-480.h fanger MAKROER, saa da overskriften blev
+    lavet om fra en fast y til en maalt stak, flyttede zScreens
+    overskrift 41 px uden at én eneste proeve sagde fra - de gamle tal
+    stod der jo stadig, de blev bare ikke laest laengere.
+
+    Her tjekkes derfor at grenen ER der. Forsvinder den, maaler
+    referenceskaermen med, og saa flytter hver skaerm i marken sig.
+    """
+    f = UI / "zs_screen_fejl.c"
+    if not f.exists():
+        fejl.append("tools/check-flade.py: zs_screen_fejl.c findes ikke "
+                    "laengere - flyt vagten med, eller tag den ud")
+        return
+    tekst = f.read_text(encoding="utf-8")
+    kode = uden_kommentarer(tekst)
+    if "ZS_G_FEJL_MAAL_STAK" not in kode:
+        fejl.append(
+            f"{f.relative_to(ROD)}: opstillingen af fejlsiden spoerger "
+            f"ikke laengere paa ZS_G_FEJL_MAAL_STAK. Uden den gren "
+            f"maaler ogsaa referenceskaermen, og zScreens overskrift "
+            f"flytter sig 41 px paa hver skaerm der staar hos en kunde")
+        return
+    # Og de gamle tal skal stadig LAESES et sted, ellers er grenen tom.
+    for navn in ("ZS_G_FEJL_TOP", "ZS_G_FEJL_BODY_Y", "ZS_G_FEJL_ITOP",
+                 "ZS_G_FEJL_IKON_Y", "ZS_G_FEJL_IBODY_Y"):
+        if navn not in kode:
+            fejl.append(
+                f"{f.relative_to(ROD)}: {navn} laeses ikke laengere. "
+                f"Det er zScreens gamle plads, og bliver den ikke brugt, "
+                f"staar tallet der kun for at se rigtigt ud")
+
+
 def main():
     print("Tjekker at fladen ikke har raa pixeltal ...")
     if not UI.is_dir():
@@ -295,6 +334,7 @@ def main():
                     f"(hoejder) - eller giv dem et navn i zs_layout.h")
 
     defs = tjek_defines()
+    tjek_zscreen_staar_stille()
 
     if fejl:
         for e in fejl:

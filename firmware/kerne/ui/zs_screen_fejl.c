@@ -143,6 +143,25 @@ static void stak_op(void)
         }
     }
 
+#if !ZS_G_FEJL_MAAL_STAK
+    /*
+     * REFERENCESKAERMEN STAAR STILLE.
+     *
+     * De faste tal er maalt forkert - kassen er hoejere end blaekket,
+     * se noten ved ZS_G_FEJL_MAAL_STAK - men zScreens flade maa ikke
+     * flytte sig. Her staar derfor praecis det der stod foer: faste
+     * hoejder og faste y'er, og to blokke alt efter om der er et ikon.
+     */
+    if (har_ikon && s_ikon != NULL) {
+        lv_obj_align(s_over, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_ITOP);
+        lv_obj_align(s_ikon, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_IKON_Y);
+        lv_obj_align(s_under, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_IBODY_Y);
+    } else {
+        lv_obj_align(s_over, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_TOP);
+        lv_obj_align(s_under, LV_ALIGN_TOP_MID, 0, ZS_G_FEJL_BODY_Y);
+    }
+    return;
+#else
     /* Uden den her er hoejderne fra FOER teksten blev sat. */
     lv_obj_update_layout(s_side.content);
 
@@ -172,6 +191,7 @@ static void stak_op(void)
         y += h_ikon + luft;
     }
     lv_obj_align(s_under, LV_ALIGN_TOP_MID, 0, y);
+#endif /* ZS_G_FEJL_MAAL_STAK */
 }
 
 static void skriv_teksten(void)
@@ -429,10 +449,23 @@ void zs_fejl_page_create(void)
      * og saa kan stakken stilles op efter det man kan SE. Den regnes i
      * stak_op() nedenfor.
      */
+#if ZS_G_FEJL_MAAL_STAK
     lv_obj_set_height(s_over, LV_SIZE_CONTENT);
+#else
+    /* Referenceskaermen beholder den reserverede kasse - det er den
+     * der giver de gamle y'er. Se ZS_G_FEJL_MAAL_STAK. */
+    lv_obj_set_height(s_over, ZS_G_FEJL_HEAD_HEIGHT);
+#endif
+#if ZS_G_FEJL_MAAL_STAK
     /* Luft mellem de to linjer i overskriften. Uden den klistrer
-     * "Tilslut den igen." op under linjen over. */
+     * "Tilslut den igen." op under linjen over.
+     *
+     * OGSAA EN FLYTNING AF zScreen, og den stod der ikke foer. "Skaermen
+     * er ikke paa netvaerket" bryder i to linjer paa 480, saa de 8 px
+     * ville skubbe anden linje ned paa hver skaerm i marken. Derfor kun
+     * paa de andre - se ZS_G_FEJL_MAAL_STAK. */
     lv_obj_set_style_text_line_space(s_over, ZS_G_FEJL_LINJE_LUFT, 0);
+#endif
     lv_obj_set_style_text_align(s_over, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     /* Placeringen saettes af stak_op() nedenfor, naar teksten er
      * paa plads og hoejderne kan maales. */
@@ -476,7 +509,11 @@ void zs_fejl_page_create(void)
     zs_style_text(s_under, &zs_font_broed, ZS_C_ALARM_TEKST);
     lv_label_set_long_mode(s_under, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_under, ZS_CONTENT_WIDTH);
+#if ZS_G_FEJL_MAAL_STAK
     lv_obj_set_height(s_under, LV_SIZE_CONTENT);   /* se noten ovenfor */
+#else
+    lv_obj_set_height(s_under, ZS_G_FEJL_BODY_HEIGHT);
+#endif
     lv_obj_set_style_text_align(s_under, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
 
 
