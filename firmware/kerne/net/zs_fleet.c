@@ -1584,7 +1584,30 @@ void zs_fleet_publish_tilmeld(const char *kode)
      */
     char krop[ZS_TILMELD_KODE_LEN + 3];
     snprintf(krop, sizeof(krop), "\"%s\"", kode);
-    esp_mqtt_client_publish(s_klient, emne, krop, 0, 0, 0);
+    /*
+     * SVARET SKAL BRUGES, for markeringen er allerede sat.
+     *
+     * zs_tilmeld_skal_sende saetter s->sagt = true FOER vi sender.
+     * Gik udsendelsen galt, stod koden derefter som "serveren ved
+     * det", og der blev aldrig proevet igen. Falder forbindelsen,
+     * retter det sig selv - saa bliver klar falsk og markeringen
+     * nulstillet ovenfor - men en udsendelse kan ogsaa fejle MENS vi
+     * er forbundet, hvis klientens udbakke er fuld. Saa var koden
+     * vaek for altid.
+     *
+     * Og det er praecis det symptom noten i zs_app.c tilmeld_tik
+     * beskriver: en skaerm der viser en kode serveren aldrig fik, og
+     * en montoer der leder efter fejlen i Frekvenz' app hvor den ikke
+     * er. Samme fejl, anden doer.
+     *
+     * tilmeld_tik koerer i hovedloekken, saa en nulstilling her
+     * betyder bare at naeste tik proever igen.
+     */
+    if (esp_mqtt_client_publish(s_klient, emne, krop, 0, 0, 0) < 0) {
+        zs_tilmeld_sendt_nulstil(&s_sendt);
+        ESP_LOGW(TAG, "tilmeldingskoden kunne ikke sendes, proever igen");
+        return;
+    }
     if (kode[0] == '\0') {
         ESP_LOGI(TAG, "tilmeldingskoden er ryddet");
     } else {
@@ -1632,7 +1655,15 @@ void zs_fleet_publish_inverter(bool online)
     /* SMAA bogstaver. Maalt mod serveren: "True" med stort bliver TAVST
      * ingenting, feltet staar tomt og der kommer ingen fejl nogen steder. */
     const char *krop = online ? "true" : "false";
-    esp_mqtt_client_publish(s_klient, emne, krop, 0, 0, 0);
+    /* Samme som ved tilmeldingskoden: s_inv.sagt er sat foer vi
+     * sender, saa en mislykket udsendelse skal glemmes igen - ellers
+     * staar serveren med den forrige tilstand for altid. */
+    if (esp_mqtt_client_publish(s_klient, emne, krop, 0, 0, 0) < 0) {
+        s_inv.sagt = false;
+        ESP_LOGW(TAG, "inverterens tilstand kunne ikke sendes, "
+                      "proever igen");
+        return;
+    }
     ESP_LOGI(TAG, "inverteren er %s", online ? "online" : "offline");
 }
 
