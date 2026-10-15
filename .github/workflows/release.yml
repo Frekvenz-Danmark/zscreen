@@ -217,3 +217,44 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: zdisplay-*.bin
+
+      # ------------------------------------------------------------
+      # RAEKKEFOELGEN EFTERPROEVES, DEN ANTAGES IKKE.
+      #
+      # Skaerme paa v0.27.0 og aeldre tager den FOERSTE .bin i
+      # udgivelsen, uanset hvad den hedder - se zs_ota.c. "needs:
+      # release" goer at zScreen laegges op foerst, og hele
+      # beskyttelsen hviler derfor paa at GitHub giver filerne
+      # tilbage i den raekkefoelge de blev lagt op.
+      #
+      # DET STAAR INGEN STEDER AT DE GOER. Web-fladen sorterer efter
+      # navn, og "zdisplay-" kommer foer "zscreen-" i alfabetet.
+      # Skiftede API'et til det, ville hver gammel zScreen i marken
+      # hente ESP32-P4-firmware og afvise den for evigt - praecis det
+      # needs skulle forhindre.
+      #
+      # Derfor spoerges API'et bagefter. Er den foerste .bin ikke
+      # zScreens, stopper jobbet og siger hvad der skal goeres. Det er
+      # det eneste vi KAN: raekkefoelgen kan ikke saettes, kun maales.
+      - name: Efterprøv at zScreen ligger først i udgivelsen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          FOERSTE="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" \
+                      --jq '[.assets[].name | select(endswith(".bin"))][0]')"
+          echo "Første .bin i udgivelsen: ${FOERSTE:-ingen}"
+          case "${FOERSTE:-}" in
+            zscreen-*) echo "OK - gamle skærme henter zScreens firmware." ;;
+            *)
+              echo "::error::Den første .bin er \"${FOERSTE:-ingen}\" og ikke"
+              echo "::error::zScreens. Skærme på v0.27.0 og ældre tager den"
+              echo "::error::første fil de finder, så de ville hente forkert"
+              echo "::error::firmware og afvise den for evigt."
+              echo "::error::Fjern ZDisplay-filen fra udgivelsen NU:"
+              echo "::error::  gh release delete-asset ${GITHUB_REF_NAME} zdisplay-${GITHUB_REF_NAME}.bin"
+              echo "::error::og læg den op igen når zScreens fil ligger først."
+              exit 1
+              ;;
+          esac

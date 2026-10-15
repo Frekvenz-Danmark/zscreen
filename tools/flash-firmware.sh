@@ -92,30 +92,47 @@ echo "Flasher ${NAVN} paa ${PORT}"
 
 # ── byg foerst, saa de to ting er adskilt ──
 echo "  bygger ..."
+# Logfilerne ryddes op uanset hvordan vi gaar herfra. Her stod et
+# "rm -f" til sidst i hver blok, og det blev sprunget over hver gang
+# noget fejlede - saa laa der en /tmp-fil tilbage netop de gange man
+# havde brug for at kigge i den og ikke vidste hvor den var.
 UD="$(mktemp)"
+FLASH_LOG="$(mktemp)"
+trap 'rm -f "${UD}" "${FLASH_LOG}"' EXIT
+
 if ! ( cd "firmware/boards/${BOARD}" \
        && export PATH="/usr/bin:${PATH}" \
        && . "${IDF}" >/dev/null 2>&1 \
        && idf.py build ) > "${UD}" 2>&1; then
     echo "  KUNNE IKKE BYGGES. Sidste linjer:"
     tail -25 "${UD}" | sed 's/^/    /'
+    # Byggeloggen SKAL blive liggende her - det er den man skal kigge
+    # i. Faelden tages af for den ene fil, saa resten stadig ryddes.
     echo "  hele udskriften: ${UD}"
+    trap 'rm -f "${FLASH_LOG}"' EXIT
     exit 1
 fi
-grep -E "${BOARD}\.bin binary size" "${UD}" | tail -1 | sed 's/^/  /'
-rm -f "${UD}"
+
+# "|| true" ER NOEDVENDIG, og det er ikke sjusk.
+#
+# Scriptet koerer med "set -euo pipefail". Finder grep ingenting - og
+# det goer den naar bygget var helt cachet, saa linjen om stoerrelsen
+# ikke bliver skrevet igen - saa fejler roerledningen, og set -e
+# stopper scriptet HER. Altsaa lige efter "bygger ..." og FOER der er
+# flashet noget. Man saa en bygge-linje og en tom afslutning, og
+# troede skaermen var flashet.
+grep -E "${BOARD}\.bin binary size" "${UD}" | tail -1 | sed 's/^/  /' || true
 
 # ── og saa flashningen ──
 echo "  skriver til flashen. Tag ikke ledningen ud."
 if ! ( cd "firmware/boards/${BOARD}" \
        && export PATH="/usr/bin:${PATH}" \
        && . "${IDF}" >/dev/null 2>&1 \
-       && idf.py -p "${PORT}" flash ) > "${UD:=$(mktemp)}" 2>&1; then
+       && idf.py -p "${PORT}" flash ) > "${FLASH_LOG}" 2>&1; then
     echo "  FLASHNINGEN MISLYKKEDES. Sidste linjer:"
-    tail -25 "${UD}" | sed 's/^/    /'
+    tail -25 "${FLASH_LOG}" | sed 's/^/    /'
     exit 1
 fi
-rm -f "${UD}"
 
 echo "  ${NAVN} er flashet."
 echo
