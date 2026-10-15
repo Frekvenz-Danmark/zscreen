@@ -345,6 +345,28 @@ static void lv_port_indev_init(void)
             break;
         }
         s_touch = NULL;     /* driveren skriver en frigjort pegepind */
+        /*
+         * ET MISLYKKET FORSOEG LAEKKER ET I2C-HAANDTAG, og det er
+         * maalt - ikke en formodning.
+         *
+         * bsp_touch_new laver selv et esp_lcd_new_panel_io_i2c og
+         * giver det videre til esp_lcd_touch_new_i2c_gsl3670. Gaar DEN
+         * galt, frigiver driveren kun sin egen struct, og BSP'ens
+         * panel-io-haandtag gaar ud af skop uden at blive slettet.
+         * To mislykkede forsoeg foer et der lykkes efterlader derfor
+         * to forladte i2c-enheder paa samme adresse, kortet ud.
+         *
+         * DET BREMSER IKKE FORSOEGENE. Spurgt i IDF 5.4.2:
+         * i2c_master_bus_add_device tjekker IKKE om adressen allerede
+         * er i brug - den efterser kun bussen, konfigurationen og
+         * frekvensen. Forsoeg to og tre virker altsaa.
+         *
+         * Lappen hoerer hjemme i bsp_touch_new, som er Seeeds kode.
+         * Den er IKKE forket - kun touch-driveren er, se
+         * zd_touch/. At forke en BSP-fil mere er en beslutning, ikke
+         * en rettelse, saa den staar her i stedet for at blive gjort
+         * i stilhed.
+         */
         ESP_LOGW(TAG, "touch svarede ikke i forsoeg %d af 3 (%s)",
                  forsoeg, esp_err_to_name(err));
     }

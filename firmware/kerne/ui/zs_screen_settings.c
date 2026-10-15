@@ -67,6 +67,26 @@ static void make_switch_row(lv_obj_t *parent, const char *icon,
         *out_sw = sw;
     }
 
+    /*
+     * TITLEN SKAL OGSAA VIGE FOR KONTAKTEN.
+     *
+     * zs_row_create regner titlens bredde af hvad der staar til
+     * HOEJRE - en vaerdi eller en pil. Her er der ingen af delene,
+     * saa den fik hele resten af raekken. Men der ER noget til
+     * hoejre: kontakten, som laegges paa bagefter.
+     *
+     * Hjaelpeteksten nedenfor trak den plads fra, titlen gjorde ikke.
+     * Paa raekken "Batteri-alarm" - den foerste uden hjaelpetekst - er
+     * titlens kasse derfor 652 px paa ZDisplay og gaar ind under
+     * kontaktens 86. Ordet er kort nok i dag, men en laengere
+     * overskrift eller en oversaettelse ville blive tegnet UNDER
+     * kontakten i stedet for at faa sine tre prikker.
+     */
+    if (r.title != NULL) {
+        lv_obj_set_width(r.title, ZS_CONTENT_WIDTH - 2 * ZS_G_ROW_PAD
+                                  - ZS_ROW_ICON_W - ZS_G_SWITCH_PLADS);
+    }
+
     if (hint != NULL) {
         if (r.title != NULL) {
             lv_obj_align(r.title, LV_ALIGN_LEFT_MID, ZS_ROW_ICON_W,
@@ -658,8 +678,30 @@ static void build_avanceret(void)
     lv_obj_set_width(h, ZS_CONTENT_WIDTH);
     lv_obj_set_pos(h, ZS_EDGE, ZS_G_SK_HEIGHT(16));
 
+    /*
+     * SOEJLEN LIGGER UNDER UNDERTEKSTENS BLAEK, IKKE PAA ET TAL.
+     *
+     * Her stod ZS_G_SK(56). Underteksten ovenfor staar paa
+     * ZS_G_SK_HEIGHT(16). De to skalerer forskelligt - den ene efter
+     * formen, den anden efter hoejden - og paa ZDisplay betyder det at
+     * underteksten slutter paa 108 mens soejlen begynder paa 93.
+     * Altsaa 15 px OVEN I hinanden, hvor zScreen har de to lige efter
+     * hinanden.
+     *
+     * Maalt med tools/maal-tekst.py: underteksten er to linjer paa
+     * begge skaerme, 40 px paa 480 og 66 paa 800.
+     *
+     * Nu spoerges LVGL hvor blaekket slutter. Paa zScreen giver det
+     * 16 + 40 = 56, altsaa praecis det tal der stod der - fladen
+     * flytter sig ikke. Og bliver teksten tre linjer paa et andet
+     * sprog, flytter soejlen med i stedet for at blive skrevet hen
+     * over.
+     */
+    lv_obj_update_layout(s_avan.content);
+    lv_coord_t under_y = lv_obj_get_y(h) + lv_obj_get_height(h);
+
     lv_obj_t *col = zs_column_create(s_avan.content, ZS_CHOICE_GAP);
-    lv_obj_align(col, LV_ALIGN_TOP_LEFT, ZS_EDGE, ZS_G_SK(56));
+    lv_obj_align(col, LV_ALIGN_TOP_LEFT, ZS_EDGE, under_y);
 
     /*
      * "Batteri-alarm" og ikke "Alarm", OG kontakten styrer kun

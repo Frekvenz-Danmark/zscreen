@@ -465,7 +465,30 @@ static esp_err_t esp_lcd_touch_gsl3670_init(esp_lcd_touch_handle_t tp)
     ESP_LOGI(TAG,"start init");
     esp_lcd_touch_gsl3670_clear_reg(tp);
     touch_gsl3670_reset(tp);
-    esp_lcd_touch_gsl3670_load_fw(tp);
+    /*
+     * LOAD_FW'S SVAR ER EN OPLYSNING, IKKE EN DOM - og det er med
+     * vilje.
+     *
+     * Den skriver 4356 registre. Fejler ét af dem, er det ikke givet
+     * at firmwaren ikke kom ind, og en skaerm der ville have virket,
+     * ville saa blive meldt doed. Det der FAKTISK beviser at
+     * firmwaren koerer, er read_ram_fw: chippen skriver 5a5a5a5a paa
+     * 0xb0 naar den er oppe, og den maaling ligger efter den anden
+     * reset og startup_chip - se noten nedenfor og kaldet i
+     * esp_lcd_touch_new_i2c_gsl3670.
+     *
+     * Svaret blev foer smidt vaek uden et ord, saa en fejl undervejs
+     * var usynlig. Nu staar den i loggen, og saa kan man se den naar
+     * 0xb0 bagefter er forkert.
+     */
+    esp_err_t fw = esp_lcd_touch_gsl3670_load_fw(tp);
+    if (fw != ESP_OK) {
+        ESP_LOGW(TAG, "firmwaren til touch-chippen blev ikke skrevet "
+                      "helt (%s). Det afgoer ikke noget her - 0xb0 "
+                      "efter opstarten er beviset - men staar den "
+                      "forkert bagefter, er det sandsynligvis hvorfor.",
+                 esp_err_to_name(fw));
+    }
     esp_lcd_touch_gsl3670_startup_chip(tp);
 
     /*
