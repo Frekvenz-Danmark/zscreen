@@ -126,4 +126,47 @@ SRC=(
 echo "Oversaetter ..."
 "${CC}" "${CFLAGS[@]}" "${SRC[@]}" -lm -o "${OUT}/run"
 echo "Kører ..."
-exec "${OUT}/run" "$@"
+
+# ── EN PROEVE DER HAENGER SKAL FEJLE, IKKE VENTE ─────────────────────
+#
+# Her stod "exec ${OUT}/run". Alle proever ligger i ÉN binaer, saa
+# haenger én af dem, haenger hele koerslen - uden en linje udskrift,
+# fordi den sidste proeve aldrig bliver faerdig.
+#
+# MAALT 15. OKTOBER 2026. En mutation i zs_tilmeld.c der gjorde
+# "n >= sizeof(s->sidst)" til "n > sizeof", altsaa et overloeb paa én
+# byte, fik koerslen til at haenge i over 40 MINUTTER. To gange i
+# traek. En ren koersel tager 5 sekunder.
+#
+# Og det er den værste slags: en koersel der haenger ser ud som en der
+# ikke er faerdig endnu. Man venter, man venter laengere, og saa gaar
+# man i gang med noget andet - i stedet for at se at der ER en fejl.
+#
+# "timeout" findes ikke paa en Mac, saa graensen staar her i haanden.
+# ZS_PROEVE_GRAENSE kan saette den, hvis en langsom maskine har brug
+# for mere.
+GRAENSE="${ZS_PROEVE_GRAENSE:-60}"
+"${OUT}/run" "$@" &
+PID=$!
+I=0
+while kill -0 "${PID}" 2>/dev/null && [ "${I}" -lt "$(( GRAENSE * 10 ))" ]; do
+    sleep 0.1
+    I=$(( I + 1 ))
+done
+if kill -0 "${PID}" 2>/dev/null; then
+    echo
+    echo "  PROEVERNE HAENGER. Over ${GRAENSE} sekunder, og en ren"
+    echo "  koersel tager under ti. Noget loeber i ring, eller venter"
+    echo "  paa noget der ikke kommer."
+    echo
+    echo "  Udskriften ovenfor stopper ved den proeve der haenger."
+    kill -9 "${PID}" 2>/dev/null
+    # "|| true" fordi scriptet koerer med set -e: wait giver 137 efter
+    # et SIGKILL, og uden den her slutter scriptet DER - med 137 i
+    # stedet for den 1 vi vil sige. Begge er en fejl, men 1 er den
+    # der kan laeses.
+    wait "${PID}" 2>/dev/null || true
+    exit 1
+fi
+wait "${PID}"
+exit $?
