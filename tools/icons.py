@@ -85,6 +85,23 @@ HEADER_TOP = '''/*
 
 LV_FONT_DECLARE(zs_ikon_lille)
 LV_FONT_DECLARE(zs_ikon_stor)
+/*
+ * Kun batteriet, og stort. Fejlsiden viser det naar stroemmen er
+ * vaek, og dér er det sidens eneste billede.
+ *
+ * Den har ÉT glyf med vilje: zs_ikon_stor er 139 KB i 800-saettet,
+ * og hele saettet i den her grad ville koste omkring 370. Ét glyf
+ * paa 66 px koster 10. Bruger man den til noget andet end
+ * ZS_ICON_BATTERY, kommer der en firkant - se build_icons i
+ * tools/build-assets.sh, hvor omraadet staar.
+ *
+ * DEN HER ERKLAERING STOD HAANDSKREVET I zs_icons.h, og filen er
+ * GENERERET. Foerste gang scriptet skrev den igen, var linjen vaek, og
+ * saa kunne ingen af de to kort oversaettes. En rettelse i en
+ * genereret fil lever indtil naeste koersel - den skal staa i det der
+ * skriver filen.
+ */
+LV_FONT_DECLARE(zs_ikon_kaempe)
 '''
 
 

@@ -178,9 +178,24 @@ static void stak_op(void)
      * Midt paa siden. Bliver stakken hoejere end siden - en meget lang
      * forklaring paa en meget lav skaerm - laegges den oeverst i stedet
      * for at blive skubbet op over sidehovedet.
+     *
+     * OG SAA SIGES DET HOEJT. Her stod bare klipningen, og det var en
+     * fejl der ikke kunne ses nogen steder: teksten blev tegnet ned
+     * under foden, _Static_assert kan ikke regne paa en hoejde LVGL
+     * foerst kender naar teksten staar der, og maalebaandet ser forbi
+     * siden fordi den maa rulle. Tre steder hvor den kunne vaere
+     * fanget, og ingen af dem kan.
+     *
+     * Loggen kan. En linje her er det eneste der er tilbage, og
+     * zs_selftest tegner hver fejlside - saa den kommer frem paa
+     * bordet og ikke hos en kunde.
      */
     lv_coord_t top = (ZS_G_FEJL_CONTENT_HEIGHT - stak) / 2;
     if (top < 0) {
+        ESP_LOGW(TAG, "fejlsiden: teksten fylder %d px i en side paa %d, "
+                     "saa %d px bliver tegnet under foden. Fejl %d",
+                (int)stak, (int)ZS_G_FEJL_CONTENT_HEIGHT,
+                (int)(stak - ZS_G_FEJL_CONTENT_HEIGHT), (int)s_type);
         top = 0;
     }
 
