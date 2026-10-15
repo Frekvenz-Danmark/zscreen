@@ -450,7 +450,12 @@ static void lv_port_indev_init(void)
             }
             break;
         }
-        s_touch = NULL;     /* driveren skriver en frigjort pegepind */
+        /* Driveren skrev FOER en frigjort pegepind ud paa fejlvejen;
+         * det er rettet i vores kopi (se *out_touch = NULL dér), saa
+         * den her linje er et baelte ud over seler. Den bliver staaende
+         * fordi touch_ny ogsaa kan fejle FOER driveren naas, og saa har
+         * ingen sat pegepinden. */
+        s_touch = NULL;
         /* Forsoeget laekker ingenting: touch_ny ovenfor sletter
          * panel-io-haandtaget naar driveren fejler. Det er grunden
          * til at der overhovedet kan proeves igen uden at samle

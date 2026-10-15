@@ -72,6 +72,18 @@ def main():
         ("tjekket af laesefejlen",  "if (err != ESP_OK) {"),
         ("graensen paa ti fingre",  "if (Finger_num > 10) {"),
         ("graensen paa XY-feltet",  "if (Finger_num > MAX_FINGER_NUM) {"),
+        # De tre her kom til 15. oktober 2026. Alle tre handler om det
+        # samme: en fejl der blev tiet ned.
+        ("at load_fw's fejl stopper opstarten",
+         "ESP_RETURN_ON_ERROR(esp_lcd_touch_gsl3670_load_fw"),
+        ("at init's svar bliver tjekket",
+         "ESP_GOTO_ON_ERROR(esp_lcd_touch_gsl3670_init"),
+        # Den vaerste af dem: err-labelen frigav tp'en og skrev
+        # DEREFTER pegepinden ud i *out_touch. Kalderen fik altsaa en
+        # pegepind til frigivet hukommelse sammen med et svar der sagde
+        # fejl.
+        ("at en frigjort pegepind ikke gaar ud af doeren",
+         "*out_touch = NULL;"),
     ) if v not in vores]
     if mangler:
         for m in mangler:
@@ -111,7 +123,7 @@ def main():
                   f"ejerskabet af i2c-haandtaget ikke paa plads")
             return 1
 
-    print(f"  {GROEN} OK{SLUT} kopien er rettet paa fire punkter, Seeeds "
+    print(f"  {GROEN} OK{SLUT} kopien er rettet paa syv punkter, Seeeds "
           f"original er uaendret siden vi forkede, og vi ejer selv "
           f"touchens i2c-haandtag.")
     return 0

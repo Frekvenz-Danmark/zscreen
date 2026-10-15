@@ -250,7 +250,10 @@ esp_err_t esp_lcd_touch_new_i2c_gsl3670(esp_lcd_panel_io_handle_t io, const esp_
     /* Read status and config info */
     ESP_LOGI(TAG,"init gls3670");
     touch_gsl3670_read_cfg(esp_lcd_touch_gsl3670);
-    esp_lcd_touch_gsl3670_init(esp_lcd_touch_gsl3670);
+    /* ESP_GOTO og ikke ESP_RETURN: err-labelen nedenfor frigiver
+     * tp'en, og et return her ville laekke den. */
+    ESP_GOTO_ON_ERROR(esp_lcd_touch_gsl3670_init(esp_lcd_touch_gsl3670),
+                      err, TAG, "init failed");
     ret = esp_lcd_touch_gsl3670_read_ram_fw(esp_lcd_touch_gsl3670);
     // touch_gsl3670_read_cfg(esp_lcd_touch_gsl3670);
 
@@ -276,6 +279,21 @@ err:
         if (esp_lcd_touch_gsl3670) {
             esp_lcd_touch_gsl3670_del(esp_lcd_touch_gsl3670);
         }
+        /*
+         * OG SAA *IKKE* PEGEPINDEN UD AF DOEREN.
+         *
+         * Her stod "*out_touch = esp_lcd_touch_gsl3670" UDEN for
+         * if'en, altsaa ogsaa efter at _del havde frigivet den.
+         * Kalderen fik en pegepind til frigivet hukommelse og et
+         * svar der sagde fejl - og brugte man den, laeste man i noget
+         * der var givet tilbage til bunken.
+         *
+         * lv_port.c forsvarer sig allerede med "s_touch = NULL" efter
+         * en fejl, men det er den forkerte ende at rette det i: hver
+         * kommende kalder skulle huske det samme.
+         */
+        *out_touch = NULL;
+        return ret;
     }
 
     *out_touch = esp_lcd_touch_gsl3670;
@@ -481,14 +499,27 @@ static esp_err_t esp_lcd_touch_gsl3670_init(esp_lcd_touch_handle_t tp)
      * var usynlig. Nu staar den i loggen, og saa kan man se den naar
      * 0xb0 bagefter er forkert.
      */
-    esp_err_t fw = esp_lcd_touch_gsl3670_load_fw(tp);
-    if (fw != ESP_OK) {
-        ESP_LOGW(TAG, "firmwaren til touch-chippen blev ikke skrevet "
-                      "helt (%s). Det afgoer ikke noget her - 0xb0 "
-                      "efter opstarten er beviset - men staar den "
-                      "forkert bagefter, er det sandsynligvis hvorfor.",
-                 esp_err_to_name(fw));
-    }
+    /*
+     * LOAD_FW'S FEJL STOPPER OPSTARTEN. Svaret blev foer smidt vaek.
+     *
+     * HVORFOR DET ER DEN RIGTIGE VEJ, og ikke bare en log.
+     *
+     * load_fw svarer kun fejl naar en I2C-skrivning IKKE BLEV
+     * KVITTERET - den taeller dem og giver den foerste fejl videre.
+     * En ukvitteret skrivning betyder at chippen ikke lytter, ikke at
+     * en enkelt byte var uheldig. Saa er firmwaren i chippen ufuldstaendig,
+     * og en halvt indlaest firmware er vaerre end ingen: chippen kan
+     * svare paa 0xb0 og alligevel pege forkert.
+     *
+     * Og der ER en vej tilbage. lv_port.c proever tre gange, og hvert
+     * forsoeg nulstiller chippen og skriver forfra. At sige fra her
+     * STARTER den gendannelse - at tie den ned springer den over.
+     *
+     * Hjaelper tre forsoeg ikke, boeter skaermen stadig: touch er
+     * valgfrit, og lv_port.c siger hvad man skal goere.
+     */
+    ESP_RETURN_ON_ERROR(esp_lcd_touch_gsl3670_load_fw(tp), TAG,
+                        "firmwaren til touch-chippen blev ikke skrevet helt");
     esp_lcd_touch_gsl3670_startup_chip(tp);
 
     /*
