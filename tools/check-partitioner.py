@@ -76,11 +76,27 @@ def laes_tabel(sti):
             fejl.append(f"{sti.name}: {navn} har intet offset, og der er "
                         f"ingen partition foer den")
             continue
-        # App-pladser skal ligge paa 64 KB. ESP-IDF kraever det, men
-        # fejlen kommer sent og er svaer at laese.
-        if typ == "app" and off % 0x10000:
+        # JUSTERINGEN, OG DEN GAELDER BEGGE SLAGS.
+        #
+        # Her stod kun app-pladserne. Men IDF kraever ogsaa 4 KB af
+        # DATA-partitioner - slaaet op i deres egen tabel, ALIGNMENT i
+        # components/partition_table/gen_esp32part.py:
+        #
+        #     app   0x10000     data/bootloader/tabel   0x1000
+        #
+        # Og det er ikke kun bygget der falder over en skaev nvs:
+        # lokalt/nulstil.sh laeser adressen HERFRA og SLETTER paa den,
+        # laenge foer nogen har bygget. En nvs paa 0xB001 ville saa
+        # blive slettet skaevt - og 4 KB er flashens mindste
+        # sletteenhed, saa naboen ryger med.
+        #
+        # ESP-IDF siger selv fra, men foerst sent og med en besked der
+        # er svaer at laese. Derfor ogsaa her.
+        kraev = 0x10000 if typ == "app" else 0x1000
+        if off % kraev:
             fejl.append(f"{sti.name}: {navn} ligger paa 0x{off:x}, og "
-                        f"app-pladser skal ligge paa en 64 KB-graense")
+                        f"{'app-pladser' if typ == 'app' else 'data-partitioner'} "
+                        f"skal ligge paa en {kraev // 1024} KB-graense")
         ud.append((navn, typ, undertyp, off, stoer))
         naeste = off + stoer
     return ud

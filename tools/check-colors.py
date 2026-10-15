@@ -200,8 +200,22 @@ for f in sorted(UI.rglob("*.c")) + sorted(UI.rglob("*.h")):
     if "assets" in f.parts or f.name in ("zs_theme.c", "zs_theme.h"):
         continue
     for nr, linje in enumerate(f.read_text().splitlines(), 1):
-        if re.search(r"lv_color_hex\s*\(\s*0x[0-9a-fA-F]{6}", linje) \
-           or re.search(r"lv_color_make\s*\(", linje):
+        # ALLE MAADER EN FARVE KAN KOMME UDENOM PALETTEN.
+        #
+        # Her stod kun lv_color_hex og lv_color_make. Maalt 15. oktober
+        # 2026: lv_color_hex3(0xF00) og lv_palette_main(LV_PALETTE_RED)
+        # slap begge igennem, og begge giver praecis det vagten findes
+        # for at forhindre - en farve der ikke skifter med temaet, og
+        # som en kunde opdager foerst.
+        #
+        # lv_color_white og lv_color_black staar IKKE her, og det er
+        # med vilje. QR-koden i zs_screen_tilmeld.c SKAL vaere sort paa
+        # hvid for at kunne skannes; det er funktion og ikke tema. De
+        # to bruges fire steder i dag - se efter, hvis listen vokser.
+        if re.search(r"lv_color_hex3?\s*\(\s*0x[0-9a-fA-F]{3,6}", linje) \
+           or re.search(r"lv_color_make\s*\(", linje) \
+           or re.search(r"lv_palette_(main|lighten|darken)\s*\(", linje) \
+           or re.search(r"lv_color_chroma_key\s*\(", linje):
             raa.append(f"{f.relative_to(ROD)}:{nr}: {linje.strip()}")
 if raa:
     fejl.append("raa farvekoder udenfor paletten:\n      "

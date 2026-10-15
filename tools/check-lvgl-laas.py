@@ -127,6 +127,35 @@ def main():
                         f"sted(er) uden at tage laasen, og kaldes fra "
                         f"{', '.join(kaldt[navn])}")
 
+    # ── OG MOTOREN ROERER SLET IKKE LVGL ────────────────────────────
+    #
+    # Reglen ovenfor gaelder funktioner i ui/ der kaldes udefra. Men
+    # app/, net/, storage/ og hal/ kan jo ogsaa bare kalde lv_* selv -
+    # og saa er der ingen ui-funktion at stille krav til. Den vej var
+    # ikke lukket.
+    #
+    # Den er tom i dag, maalt 15. oktober 2026: nul direkte lv_*-kald i
+    # de fire mapper. Netop derfor koster det ingenting at laase den
+    # fast nu. Den dag nogen skriver det foerste, skal det vaere et
+    # VALG og ikke noget der bare sker.
+    #
+    # Fladen naas gennem zs_ui_*, som selv tager laasen.
+    for mappe in ("app", "net", "storage", "hal"):
+        d = ROD / "firmware/kerne" / mappe
+        if not d.is_dir():
+            continue
+        for f in sorted(d.rglob("*.c")):
+            tekst = uden_kommentarer(f.read_text(encoding="utf-8"))
+            for nr, linje in enumerate(tekst.splitlines(), 1):
+                m = LV_KALD.search(linje)
+                if m is None:
+                    continue
+                fejl.append(
+                    f"{f.relative_to(ROD)}:{nr} kalder {m.group(0)[:-1]} "
+                    f"direkte. Motoren maa ikke roere LVGL - den koerer "
+                    f"i sin egen opgave, og saa er der ingen laas. Gaa "
+                    f"gennem zs_ui_*, som selv tager den")
+
     if fejl:
         for linje in fejl:
             print(f"  {ROED}FEJL{SLUT} {linje}")
