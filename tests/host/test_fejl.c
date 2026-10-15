@@ -394,6 +394,55 @@ void test_fejl(void)
     CHECK("og den blinker ogsaa stadig", ud.blink);
 
     /*
+     * ── OG BEGGE PAA ÉN GANG. DET ER DEN ALMINDELIGE. ──
+     *
+     * De to proever ovenfor koerer hver for sig, med stroemmen i
+     * orden. Men et stroemsvigt i huset tager BAADE skaermens
+     * stroemforsyning og routeren - saa de to fejl kommer naesten
+     * altid sammen.
+     *
+     * Her var hullet: stroemmen vinder forrangen, saa hele siden blev
+     * sat til INGEN_STROEM, og kontakten slog derefter blinket fra
+     * for det hele. En skaerm uden net, tavs, fordi nogen havde slaaet
+     * BATTERIets alarm fra.
+     *
+     * Nu nedprioriterer kontakten stroemfejlen i stedet.
+     */
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    ind.alarm_fra = true;
+    ind.paa_stroem = false;
+    ind.paa_wifi = false;
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ud = zs_fejl_tik(&v, &ind, 10 * MIN_MS);
+    CHECK("stroem OG wifi vaek med alarmen fra: wifi melder",
+          ud.type == ZS_FEJL_WIFI);
+    CHECK("og den blinker - kontakten er kun batteriets", ud.blink);
+
+    /* Med alarmen SLAAET TIL vinder stroemmen stadig, som foer. */
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    ind.alarm_fra = false;
+    ind.paa_stroem = false;
+    ind.paa_wifi = false;
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ud = zs_fejl_tik(&v, &ind, 10 * MIN_MS);
+    CHECK("med alarmen til vinder stroemmen stadig",
+          ud.type == ZS_FEJL_INGEN_STROEM);
+    CHECK("og den blinker", ud.blink);
+
+    /* Og er stroemmen det ENESTE, vises siden stadig - bare stille. */
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    ind.alarm_fra = true;
+    ind.paa_stroem = false;
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ud = zs_fejl_tik(&v, &ind, ZS_FEJL_STROEM_GRAENSE_MS);
+    CHECK("kun stroemmen vaek: siden vises stadig",
+          ud.type == ZS_FEJL_INGEN_STROEM);
+    CHECK("men stille", !ud.blink && !ud.lyd);
+
+    /*
      * ── HVAD SIDEN SKAL SIGE OM TALLENE ──
      *
      * Fejlsiden saetter "Tallene paa forsiden er fra kl. X og staar

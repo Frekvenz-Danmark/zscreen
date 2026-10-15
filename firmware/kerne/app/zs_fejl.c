@@ -175,9 +175,29 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
     bool inv_fejl = v->inv_tabt
         && (v->inv_vaek_ms >= ZS_FEJL_INVERTER_GRAENSE_MS);
 
+    /*
+     * ALARMEN SLAAET FRA NEDPRIORITERER STROEMFEJLEN - DEN TIER IKKE
+     * DE ANDRE.
+     *
+     * Stroemmen vinder over wifi nedenfor. Havde kunden slaaet
+     * "Batteri-alarm" fra, blev blinket derfor slaaet fra for HELE
+     * siden, ogsaa naar wifi samtidig var vaek - og det er ikke en
+     * sjaelden sammenfald: et stroemsvigt i huset tager baade skaermens
+     * stroemforsyning OG routeren. Saa stod der en skaerm uden net, der
+     * hverken blinkede eller bippede, fordi nogen havde slaaet
+     * BATTERIets alarm fra.
+     *
+     * "Batteri-alarm" slaar batteriets alarm fra. Derfor faar
+     * stroemfejlen kun forrangen naar alarmen er slaaet til. Er den
+     * ikke, falder vi igennem til wifi og inverter - og er der ikke
+     * andet galt, vises stroemsiden stadig, bare stille. Se blinket
+     * nedenfor.
+     */
+    bool stroem_foerst = stroem_fejl && !ind->alarm_fra;
+
     if (ind->demo) {
         ud.type = ZS_FEJL_INGEN;
-    } else if (stroem_fejl) {
+    } else if (stroem_foerst) {
         /*
          * STROEMMEN FOERST, FOER WIFI.
          *
@@ -213,6 +233,14 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
         bool for_laenge = (v->inv_vaek_ms >= ZS_FEJL_SOVER_MAKS_MS);
         ud.type = (sover(v->sidste_tilstand) && !for_laenge)
                 ? ZS_FEJL_INVERTER_SOVER : ZS_FEJL_INVERTER;
+    } else if (stroem_fejl) {
+        /*
+         * Alarmen er slaaet fra, og der er ikke andet galt. Siden
+         * vises stadig - kunden skal kunne se HVORFOR skaermen gaar ud
+         * om nogle timer - men den blinker og bipper ikke. Se
+         * stroem_foerst ovenfor.
+         */
+        ud.type = ZS_FEJL_INGEN_STROEM;
     } else {
         ud.type = ZS_FEJL_INGEN;
     }
