@@ -371,13 +371,12 @@ def tjek_zscreen_staar_stille():
 # stilling til, i stedet for at vaere et hul man ikke kan se. En ny
 # side kommer ikke ind her af sig selv - den faar proeven til at falde,
 # og det er meningen.
-UDEN_SELVTEST = {
-    # Spoergsmaalet er stillet 15. oktober 2026 og ikke besvaret endnu.
-    "ZS_SCREEN_GUIDE": "ingen har sagt hvorfor",
-    "ZS_SCREEN_INVERTER_MANUAL": "ingen har sagt hvorfor",
-    "ZS_SCREEN_THEME": "ingen har sagt hvorfor",
-    "ZS_SCREEN_TILMELD": "ingen har sagt hvorfor",
-}
+# ALLE SIDER TEGNES NU. Her stod fire navne med "ingen har sagt
+# hvorfor" - GUIDE, INVERTER_MANUAL, THEME og TILMELD. Svaret blev
+# fundet 15. oktober 2026: der VAR ingen grund, listen var bare
+# haandholdt. De er med nu, og ordbogen staar tom med vilje: skal en
+# side undtages, skal der staa hvorfor.
+UDEN_SELVTEST = {}
 
 
 def tjek_alle_sider():

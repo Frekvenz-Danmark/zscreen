@@ -42,6 +42,27 @@ static const zs_screen_id_t ALLE[] = {
     ZS_SCREEN_CONNECTING, ZS_SCREEN_INVERTER_SCAN, ZS_SCREEN_INVERTER_LIST,
     ZS_SCREEN_HOME, ZS_SCREEN_SETTINGS,
     ZS_SCREEN_DETAILS,
+    /*
+     * DE FIRE HER HAR ALDRIG VAERET MED, og der stod ingen grund
+     * nogen steder. Listen er haandholdt, saa en side kommer ikke ind
+     * af sig selv - det var ogsaa saadan Avanceret blev glemt.
+     *
+     * Alle fire er rigtige sider med et rodobjekt i zs_ui_root_of, saa
+     * der er intet der siger de ikke kan tegnes.
+     *
+     * Og det koster ingenting at proeve: ZS_SELFTEST er 0 i alt der
+     * sendes ud, saa det her oversaettes helt vaek paa en kundeskaerm.
+     * Styrter én af dem naar nogen slaar testen til, er DET fundet -
+     * og det er bedre end at siden aldrig bliver tegnet.
+     *
+     * Tilmeldingssiden tegner en QR-kode, temasiden skifter tema midt
+     * i en temaproeve, og inverter-i-haanden har et tastatur. Netop
+     * derfor er de vaerd at have med.
+     */
+    ZS_SCREEN_GUIDE,
+    ZS_SCREEN_INVERTER_MANUAL,
+    ZS_SCREEN_THEME,
+    ZS_SCREEN_TILMELD,
     /* Avancerede indstillinger. Den blev glemt da siden kom til - og
      * listen her er haandholdt, saa en ny side er IKKE med af sig
      * selv. Vagten mod det er tjek_alle_sider() i tools/check-flade.py,
