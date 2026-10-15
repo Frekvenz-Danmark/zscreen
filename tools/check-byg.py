@@ -41,6 +41,7 @@ advarsel nogen steder.
 Koeres af tests/run-all.sh, saa den ikke kan glemmes.
 """
 import pathlib
+import os
 import re
 import sys
 
@@ -305,6 +306,46 @@ def tjek_board(navn, cmake, kerne_kilder, kerne_stier):
     return egne
 
 
+def tjek_genererede():
+    """En genereret fil skal vaere den scriptet ville skrive.
+
+    HVORFOR DEN FINDES.
+
+    LV_FONT_DECLARE(zs_ikon_kaempe) blev tilfoejet direkte i
+    firmware/kerne/ui/zs_icons.h. Den fil SKRIVER tools/icons.py, og
+    foerste gang scriptet koerte igen, var linjen vaek - saa kunne
+    ingen af de to kort oversaettes.
+
+    En rettelse i en genereret fil lever indtil naeste koersel, og dét
+    kan ingen se paa filen: den ser ud som alle andre headere. Derfor
+    skrives filen her igen til et midlertidigt sted og sammenlignes.
+    """
+    import subprocess
+    import tempfile
+
+    script = ROD / "tools" / "icons.py"
+    maal = ROD / "firmware/kerne/ui/zs_icons.h"
+    if not script.exists() or not maal.exists():
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        ud = os.path.join(tmp, "zs_icons.h")
+        r = subprocess.run([sys.executable, script.name, "--header", ud],
+                           cwd=script.parent, capture_output=True, text=True)
+        if r.returncode != 0:
+            fejl.append(f"tools/icons.py kunne ikke skrive headeren: "
+                        f"{(r.stderr or r.stdout).strip()[:200]}")
+            return
+        nu = maal.read_text(encoding="utf-8")
+        skulle = open(ud, encoding="utf-8").read()
+    if nu != skulle:
+        fejl.append(
+            "firmware/kerne/ui/zs_icons.h er ikke den tools/icons.py "
+            "ville skrive. Enten er den rettet i haanden - og saa gaar "
+            "rettelsen tabt naeste gang scriptet koerer - eller ogsaa "
+            "er icons.py aendret uden at headeren er skrevet igen. Koer: "
+            "cd tools && python3 icons.py --header ../firmware/kerne/ui/zs_icons.h")
+
+
 def tjek_assets():
     """Hvert saet af skrifttyper skal staa helt i listen, og hvert board
     skal vaelge et saet der findes."""
@@ -402,6 +443,7 @@ def main():
     print("Tjekker at hver bygning kan finde sine headere ...")
     tjek_cmake()
     tjek_assets()
+    tjek_genererede()
     tjek_motoren()
     for navn, sti in (("enhedstestene", ROD / "tests/host/run.sh"),
                       ("vaerktoejet", ROD / "tools/zs-probe/build.sh")):
