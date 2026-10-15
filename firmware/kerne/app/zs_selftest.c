@@ -42,6 +42,11 @@ static const zs_screen_id_t ALLE[] = {
     ZS_SCREEN_CONNECTING, ZS_SCREEN_INVERTER_SCAN, ZS_SCREEN_INVERTER_LIST,
     ZS_SCREEN_HOME, ZS_SCREEN_SETTINGS,
     ZS_SCREEN_DETAILS,
+    /* Avancerede indstillinger. Den blev glemt da siden kom til - og
+     * listen her er haandholdt, saa en ny side er IKKE med af sig
+     * selv. Vagten mod det er tjek_alle_sider() i tools/check-flade.py,
+     * som holder listen op mod zs_screen_id_t. */
+    ZS_SCREEN_AVANCERET,
     /* Fejlsiden er med fordi den TAENDER OG SLUKKER en LVGL-animation
      * naar den vises og forlades. Bliver animationen ikke ryddet,
      * vokser hukommelsen for hver gennemgang - og vaerre: den bliver ved
@@ -149,10 +154,23 @@ void zs_selftest_run(void)
              * ingen animation, og animationen er det proeven er her for.
              */
             if (ALLE[i] == ZS_SCREEN_FEJL) {
+                /*
+                 * HVER SLAGS SKAL TEGNES, og "runde % 2" naaede kun de
+                 * to foerste uanset hvor mange der stod i listen.
+                 * ZS_FEJL_INGEN_STROEM kom aldrig frem - og det er den
+                 * eneste side med et ikonlabel, en overskrift paa to
+                 * linjer, en skjult knap i foden og den maalte
+                 * opstilling i stak_op(). Altsaa alt det nye, aldrig
+                 * tegnet.
+                 *
+                 * Nu er det listens egen laengde, saa en slags mere
+                 * kommer med af sig selv.
+                 */
                 static const zs_fejl_type_t slags[] = {
-                    ZS_FEJL_WIFI, ZS_FEJL_INVERTER,
+                    ZS_FEJL_WIFI, ZS_FEJL_INVERTER, ZS_FEJL_INGEN_STROEM,
                 };
-                zs_ui_set_fejl(slags[runde % 2], "14:05", true);
+                const unsigned antal = sizeof(slags) / sizeof(slags[0]);
+                zs_ui_set_fejl(slags[(unsigned)runde % antal], "14:05", true);
             }
             zs_ui_show(ALLE[i]);
             /* Lang nok til at LVGL naar at tegne siden faerdig. Sker

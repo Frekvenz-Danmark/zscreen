@@ -303,6 +303,70 @@ def tjek_zscreen_staar_stille():
                 f"staar tallet der kun for at se rigtigt ud")
 
 
+# SIDER SELVTESTEN MED VILJE IKKE TEGNER.
+#
+# Listen ALLE[] i zs_selftest.c er haandholdt. Da Avancerede
+# indstillinger kom til, blev den glemt - saa den nye side blev hverken
+# bygget, tegnet eller maalt for laekager i de seks temaskift, og
+# INGENTING sagde fra.
+#
+# De fire her stod heller ikke paa listen, og der staar ingen grund
+# nogen steder. De er skrevet op saa manglen er SYNLIG og kan tages
+# stilling til, i stedet for at vaere et hul man ikke kan se. En ny
+# side kommer ikke ind her af sig selv - den faar proeven til at falde,
+# og det er meningen.
+UDEN_SELVTEST = {
+    # Spoergsmaalet er stillet 15. oktober 2026 og ikke besvaret endnu.
+    "ZS_SCREEN_GUIDE": "ingen har sagt hvorfor",
+    "ZS_SCREEN_INVERTER_MANUAL": "ingen har sagt hvorfor",
+    "ZS_SCREEN_THEME": "ingen har sagt hvorfor",
+    "ZS_SCREEN_TILMELD": "ingen har sagt hvorfor",
+}
+
+
+def tjek_alle_sider():
+    """Hver side i zs_screen_id_t skal tegnes af selvtesten."""
+    enum_fil = UI / "zs_ui.h"
+    test_fil = ROD / "firmware/kerne/app/zs_selftest.c"
+    if not enum_fil.exists() or not test_fil.exists():
+        return
+    enum_tekst = enum_fil.read_text(encoding="utf-8")
+    m = re.search(r"typedef\s+enum\s*\{(.*?)\}\s*zs_screen_id_t",
+                  enum_tekst, re.S)
+    if m is None:
+        fejl.append("tools/check-flade.py: kunne ikke finde "
+                    "zs_screen_id_t i zs_ui.h - er den skrevet om?")
+        return
+    sider = re.findall(r"^\s*(ZS_SCREEN_[A-Z_0-9]+)", m.group(1), re.M)
+    if not sider:
+        fejl.append("tools/check-flade.py: zs_screen_id_t ser tom ud")
+        return
+
+    test_kode = uden_kommentarer(test_fil.read_text(encoding="utf-8"))
+    mm = re.search(r"ALLE\[\]\s*=\s*\{(.*?)\};", test_kode, re.S)
+    if mm is None:
+        fejl.append("firmware/kerne/app/zs_selftest.c: fandt ikke ALLE[]")
+        return
+    paa_listen = set(re.findall(r"ZS_SCREEN_[A-Z_0-9]+", mm.group(1)))
+
+    for side in sider:
+        if side in paa_listen or side in UDEN_SELVTEST:
+            continue
+        fejl.append(
+            f"firmware/kerne/app/zs_selftest.c: {side} staar i "
+            f"zs_screen_id_t men ikke i ALLE[], saa selvtesten bygger "
+            f"den aldrig - hverken for tegnefejl eller for laekager "
+            f"efter et temaskift. Tilfoej den, eller skriv den i "
+            f"UDEN_SELVTEST i check-flade.py med en grund")
+    # Og en side der er fjernet fra enummet skal ud af undtagelserne
+    # igen, ellers vokser listen med navne der ikke findes.
+    for navn in sorted(UDEN_SELVTEST):
+        if navn not in sider:
+            fejl.append(
+                f"tools/check-flade.py: UDEN_SELVTEST naevner {navn}, "
+                f"som ikke findes i zs_screen_id_t laengere. Tag den ud")
+
+
 def main():
     print("Tjekker at fladen ikke har raa pixeltal ...")
     if not UI.is_dir():
@@ -335,6 +399,7 @@ def main():
 
     defs = tjek_defines()
     tjek_zscreen_staar_stille()
+    tjek_alle_sider()
 
     if fejl:
         for e in fejl:
