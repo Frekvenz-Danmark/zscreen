@@ -455,6 +455,30 @@ lv_obj_t *zs_box_create(lv_obj_t *parent);
 #define ZS_FLAG_LILLE_MED_VILJE  LV_OBJ_FLAG_USER_1
 
 /*
+ * STIKKER UD AF SIN FORAELDER MED VILJE - fordi der RULLES.
+ *
+ * Forsiden er tre sider side om side i en beholder man traekker i:
+ * side to ligger 800 px ude og side tre 1600. Soejlen i
+ * indstillingerne er hoejere end siden, og man ruller ned i den. Det
+ * er ikke fejl, det er maaden de virker paa.
+ *
+ * HER STOD INGENTING, og maalebaandet saa i stedet paa om FORAELDEREN
+ * kunne rulle den vej. Det lyder rimeligt og var et hul: hver eneste
+ * side i appen har en beholder der kan rulle lodret - den laves
+ * saadan i zs_page_create - saa alt hvad der stak ud NEDAD, nogen
+ * steder i hele fladen, blev tiet ihjel. Det var netop den slags fund
+ * baandet blev bygget til: tekst der loeber ud over bunden paa den
+ * hoeje skaerm. Og en beholder der er rullbar uden at nogen har sagt
+ * hvilken vej, har LVGLs standard LV_DIR_ALL, saa dér var alle fire
+ * retninger vaek.
+ *
+ * Nu skal undtagelsen saettes PAA det objekt der stikker ud. Saa er
+ * der tre steder i koden hvor nogen har taget stilling, i stedet for
+ * én regel der rammer alt.
+ */
+#define ZS_FLAG_UDENFOR_MED_VILJE  LV_OBJ_FLAG_USER_2
+
+/*
  * Et indtastningsfelt: rammen og teksten i den. Begge ligger i
  * struct'en, fordi kalderen skal kunne saette teksten senere og
  * stille noget op ved siden af rammen.

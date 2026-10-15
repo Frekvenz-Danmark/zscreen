@@ -500,6 +500,14 @@ lv_obj_t *zs_column_create(lv_obj_t *parent, lv_coord_t gap)
     lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(col, gap, 0);
     lv_obj_set_style_pad_ver(col, ZS_EDGE, 0);
+    /*
+     * SOEJLEN MAA VAERE HOEJERE END SIDEN - det er den man ruller i.
+     * Indstillingerne er 2030 px i en side paa 1131. Undtagelsen staar
+     * paa objektet og ikke som en regel i maalebaandet, saa den gaelder
+     * soejlen og ikke alt andet paa siden. Se
+     * ZS_FLAG_UDENFOR_MED_VILJE.
+     */
+    lv_obj_add_flag(col, ZS_FLAG_UDENFOR_MED_VILJE);
     return col;
 }
 

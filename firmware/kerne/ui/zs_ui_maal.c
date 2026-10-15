@@ -184,23 +184,32 @@ static void maal_et(const char *side, lv_obj_t *o, int dybde,
         int ud_n = (int)(b.y2 - f.y2);
 
         /*
-         * NOGET STIKKER UD MED VILJE, OG DET ER DER DER RULLES.
+         * NOGET STIKKER UD MED VILJE, OG DET SKAL VAERE MAERKET.
          *
-         * Forsiden er tre sider side om side i en beholder man
-         * traekker i vandret. Side to ligger derfor 800 px ude og side
-         * tre 1600 px ude - det er ikke en fejl, det er hele maaden
-         * den virker paa. Det samme gaelder indstillingerne, hvor
-         * soejlen er 2030 px hoej i en side paa 1131 og man ruller
-         * ned i den.
+         * Forsidens tre sider ligger side om side i en beholder man
+         * traekker i, og soejlen i indstillingerne er hoejere end
+         * siden. Det er ikke fejl.
          *
-         * Maalebaandet meldte fire fund paa det, og fire fund man skal
-         * lære at se forbi, er praecis hvad der gør at man holder op
-         * med at laese resten. Nu spoerger den LVGL hvilken vej
-         * foraelderen kan rulle, og ser forbi netop den vej. Kan den
-         * ikke rulle, gaelder graensen som foer.
+         * HER STOD: "kan foraelderen rulle den vej, saa se forbi".
+         * Det var et hul. zs_page_create giver HVER side en beholder
+         * der kan rulle lodret, saa alt hvad der stak ud nedad i hele
+         * fladen blev tiet ihjel - og tekst der loeber ud over bunden
+         * paa den hoeje skaerm er lige praecis det baandet findes for.
+         * En beholder uden et valgt rul har desuden LVGLs standard
+         * LV_DIR_ALL, saa dér faldt alle fire retninger vaek.
+         *
+         * Nu skal undtagelsen staa PAA objektet, som
+         * ZS_FLAG_UDENFOR_MED_VILJE. Og den gaelder kun den vej
+         * foraelderen faktisk kan rulle: en side der stikker ud til
+         * hoejre i en beholder der kun ruller lodret, er stadig en
+         * fejl - dér kan man ikke naa den.
          */
-        lv_dir_t rul = lv_obj_has_flag(far, LV_OBJ_FLAG_SCROLLABLE)
-                       ? lv_obj_get_scroll_dir(far) : LV_DIR_NONE;
+        lv_dir_t rul = LV_DIR_NONE;
+        if (lv_obj_has_flag(o, ZS_FLAG_UDENFOR_MED_VILJE)
+            && lv_obj_has_flag(far, LV_OBJ_FLAG_SCROLLABLE)) {
+            rul = lv_obj_get_scroll_dir(far);
+            s_undtaget++;
+        }
         if (rul & LV_DIR_HOR) {
             ud_v = 0;
             ud_h = 0;

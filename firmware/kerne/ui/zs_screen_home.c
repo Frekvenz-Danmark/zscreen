@@ -174,6 +174,10 @@ void zs_screen_home_create(lv_event_cb_t gear_cb, void *user_data)
         /* Uden dette klipper flex-beholderen siderne smallere for at
          * faa dem til at passe, og saa staar kortene skaevt. */
         lv_obj_set_style_flex_grow(s_page[i], 0, 0);
+        /* Side to ligger en skaermbredde ude og side tre to. Det er
+         * ikke en fejl, man traekker sig derhen - se
+         * ZS_FLAG_UDENFOR_MED_VILJE. */
+        lv_obj_add_flag(s_page[i], ZS_FLAG_UDENFOR_MED_VILJE);
     }
 
     /* Side 1: de fire kasser */
