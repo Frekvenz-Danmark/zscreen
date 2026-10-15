@@ -142,6 +142,19 @@ def uden_kommentarer(t):
 DEFINE = re.compile(r"^#define\s+([A-Z_][A-Z0-9_]*)\s+(-?\d+)\s*(?:/\*|//|$)",
                     re.M)
 
+# ET RAAT TAL INDE I ET REGNESTYKKE.
+#
+# DEFINE ovenfor rammer kun "#define NAVN <bart tal>". Derfor slap
+#
+#     #define CARD_W  ((ZS_CONTENT_WIDTH - 12) / 2)
+#
+# igennem: de to priskort stod 12 px fra hinanden paa BEGGE skaerme,
+# mens hvert andet par kort paa enheden bruger ZS_G_GRID_GAP, som er
+# 20 paa ZDisplay. Det var den eneste af sin slags tilbage i fladen,
+# og den laa i en fil der lige var gennemgaaet.
+DEFINE_UDTRYK = re.compile(
+    r"^#define\s+([A-Z_][A-Z0-9_]*)\s+(\(.*)$", re.M)
+
 # Navne hvor tallet IKKE er pixels. Hver med sin grund, for en liste
 # uden grunde bliver et sted man skriver sig fri.
 UNDTAGET = {
@@ -261,6 +274,43 @@ def tjek_defines():
                 f"ZS_G_SK_WIDTH (bredder) eller ZS_G_SK_HEIGHT (hoejder) "
                 f"- er det ikke pixels, saa skriv navnet i UNDTAGET i "
                 f"check-flade.py med en grund")
+
+        # Og de samme tal, men inde i et regnestykke.
+        for m in DEFINE_UDTRYK.finditer(tekst):
+            navn, udtryk = m.group(1), m.group(2)
+            if navn in UNDTAGET:
+                continue
+            if any(a <= m.start() < b for a, b in fri):
+                continue
+            if any(o in navn for o in ("_MAX", "_MIN", "_MS", "_COUNT",
+                                       "_LEN", "_SEK", "_ANTAL", "_BIT",
+                                       "_OPA", "_ID", "_VER")):
+                continue
+            # HVAD DER ER PIXELS OG HVAD DER ER ET ANTAL.
+            #
+            # "/ 2" deler i to spalter og "3 * ZS_G_GRID_GAP" er tre
+            # mellemrum - ingen af dem er en afstand. Kun et tal der
+            # laegges til eller traekkes fra OG ikke selv ganger noget,
+            # er pixels:
+            #
+            #   (ZS_CONTENT_WIDTH - 12) / 2        12 er pixels
+            #   (ZS_G_PAGE_RAA - 3 * ZS_G_GRID_GAP)  3 er et antal
+            #
+            # Foerste udgave af den her vagt tog begge, og meldte tre
+            # fund der alle var antal. En vagt der melder forkert, bliver
+            # slaaet fra.
+            raa = sorted({int(d) for d in
+                          re.findall(r"[-+]\s*(\d+)(?!\s*[*\d])", udtryk)}
+                         - SMAA)
+            if not raa:
+                continue
+            nr = tekst[:m.start()].count("\n") + 1
+            fejl.append(
+                f"{f.relative_to(ROD)}:{nr}: {navn} laegger til eller "
+                f"traekker fra med {raa}, altsaa raa pixels inde i et "
+                f"regnestykke. Pak dem i ZS_G_SK (former), "
+                f"ZS_G_SK_WIDTH (bredder) eller ZS_G_SK_HEIGHT "
+                f"(hoejder) - eller giv dem et navn i zs_layout.h")
     return antal
 
 

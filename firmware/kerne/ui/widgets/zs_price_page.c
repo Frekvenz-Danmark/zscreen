@@ -52,7 +52,20 @@
 #define BAR_GAP      ZS_G_SK(4)
 #define BAR_MIN_H    3      /* saa en time til nul kroner stadig kan ses */
 
-#define CARD_W       ((ZS_CONTENT_WIDTH - 12) / 2)
+/*
+ * De to kort med luft imellem. Her stod 12 raat, og det var den samme
+ * 12 px paa begge skaerme - mens hvert ANDET par kort paa enheden
+ * bruger ZS_G_GRID_GAP, som er 20 paa ZDisplay. De to prissider stod
+ * derfor synligt taettere end de fire kort paa forsiden lige ved
+ * siden af.
+ *
+ * ZS_G_GRID_GAP er 12 paa 480, saa zScreen staar stille.
+ *
+ * Vagten saa det ikke: tjek_defines() i check-flade.py matchede kun
+ * "#define NAVN <tal>", altsaa et bart tal, og her laa det inde i et
+ * regnestykke. Det er den udvidet med nu.
+ */
+#define CARD_W       ((ZS_CONTENT_WIDTH - ZS_G_GRID_GAP) / 2)
 /* Luft omkring tekst foelger TEKSTEN, altsaa ZS_G_SK. Tallene stod
  * raa her, og saa var luften den samme paa en 480 og en 1280 px
  * hoej skaerm. ZS_G_SK(v) giver praecis v paa 480, saa zScreen

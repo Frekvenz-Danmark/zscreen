@@ -286,14 +286,24 @@ def tjek_nvs_adresser():
         if rigtig is None:
             continue
         kommando = f"--chip {CHIP_AF[board]}"
-        for l in tekst.split("\n"):
-            if kommando in l or (board in l and "write_flash" in l):
-                continue
-        # Findes der en write_flash-linje for chippen, skal adressen staa
-        # i den eller paa linjen efter.
-        import re as _re
-        for m in _re.finditer(
-                _re.escape(kommando) + r"[^\n]*(?:\\\n[^\n]*)?", tekst):
+        # HER STOD EN LOEKKE HVIS KROP VAR ET BART "continue".
+        #
+        # Den loeb hver linje i dokumentet igennem og gjorde
+        # ingenting. Den LIGNEDE et tjek af at kommandoen og boardet
+        # hoerte sammen, og den efterproevede ikke noget som helst -
+        # og det er vaerre end ingen linje, for den der laeser filen
+        # taeller den med.
+        #
+        # Og "import re as _re" hentede modulet der allerede er
+        # importeret oeverst, under et andet navn, brugt to steder. To
+        # navne for det samme er to steder en rettelse kan glemme det
+        # ene.
+        #
+        # Findes der en write_flash-linje for chippen, skal adressen
+        # staa i den eller paa linjen efter. Det er tjekket, og nu er
+        # det det eneste der staar her.
+        for m in re.finditer(
+                re.escape(kommando) + r"[^\n]*(?:\\\n[^\n]*)?", tekst):
             blok = m.group(0)
             if "write_flash" not in blok:
                 continue
