@@ -46,6 +46,9 @@
 
 #include "esp32_p4_re_terminal_d1001.h"
 #include "display.h"
+#include "esp_lcd_panel_io.h"
+#include "esp_lcd_touch_gsl3670.h"
+#include "driver/gpio.h"
 #include "touch.h"
 
 #include "zs_display.h"
@@ -303,6 +306,110 @@ static void lv_port_disp_init(void)
              (unsigned)(bytes / 1024));
 }
 
+/*
+ * TOUCH LAVES HER, OG IKKE MED bsp_touch_new.
+ *
+ * HVAD DER VAR GALT MED DERES.
+ *
+ * bsp_touch_new laver selv et I2C-panel-io og giver det videre til
+ * esp_lcd_touch_new_i2c_gsl3670. Gaar DEN galt, frigiver driveren kun
+ * sin egen struct - esp_lcd_touch_del kalder bare tp->del, og vores
+ * del laver et free(tp) og ikke andet - og panel-io-haandtaget gaar ud
+ * af skop uden at blive slettet. Med IDF 5.4 er det ogsaa en
+ * i2c_master-enhed registreret paa bussen.
+ *
+ * Det er IKKE en smagssag hvem der skulle have ryddet op. Driveren tog
+ * ikke haandtaget, for den fejlede - saa ejer kalderen det stadig. Det
+ * er ESP-IDF's konvention for hele esp_lcd_touch-familien: kalderen
+ * laver io'et, kalderen sletter det.
+ *
+ * HVORFOR DET ER RETTET HER OG IKKE I DERES FIL.
+ *
+ * To grunde, og ingen af dem er bekvemmelighed:
+ *
+ *   1. Et submodul skal kunne opdateres med én kommando. Retter vi i
+ *      deres fil, skal rettelsen baeres videre hver gang - og
+ *      zd_bsp/CMakeLists.txt findes netop for at vi IKKE skal det.
+ *
+ *   2. Den der proever igen, skal eje det der skal ryddes op.
+ *      Loekken nedenfor proever tre gange. Laa oprydningen i deres
+ *      funktion, ville vi stadig ikke have haandtaget at rydde op
+ *      efter. En lap i deres fil ville flytte fejlen, ikke fjerne
+ *      den.
+ *
+ * Og den kan ikke ligge i komponenten zd_touch: den skal have
+ * bsp_i2c_0_get_handle fra zd_bsp, og zd_bsp bygger Seeeds BSP som
+ * selv kalder touch-driveren. Det ville vaere en rundkreds.
+ *
+ * Maalt i IDF 5.4.2: i2c_master_bus_add_device tjekker IKKE om
+ * adressen allerede er i brug, saa de forladte haandtag bremsede ikke
+ * forsoegene. De laa der bare, kortet ud.
+ */
+static esp_err_t touch_ny(esp_lcd_touch_handle_t *ud)
+{
+    *ud = NULL;
+
+    const esp_lcd_touch_config_t tp_cfg = {
+        /*
+         * MAALENE ER VORES EGNE, og det er ikke en rettelse af deres.
+         *
+         * Seeed satte BSP_LCD_H_RES x BSP_LCD_V_RES. De to er
+         * BETINGEDE i deres display.h - 1024x600 eller 800x1280 - og
+         * i vores byg er de 800x1280, holdt fast af _Static_assert
+         * oeverst i filen. Deres tal var altsaa rigtige.
+         *
+         * Vi skriver vores egne alligevel, fordi fladen regner i dem,
+         * og asserten holder de to i takt. Driveren LAESER dem ikke i
+         * dag, saa de er doed opsaetning - men en nyere driver ville
+         * bruge dem.
+         */
+        .x_max = ZS_G_SCR_WIDTH,
+        .y_max = ZS_G_SCR_HEIGHT,
+        /*
+         * 12 OG IKKE BSP_LCD_TOUCH_RST. Konstanten er en MASKE,
+         * (1ULL << 12), og driveren laver selv 1 << rst_gpio_num naar
+         * den taler med benudvideren. Skrev vi konstanten her, ville
+         * den skifte med bit 4096. Benet hedder EXP_PIN_NUM_12.
+         */
+        .rst_gpio_num = 12,
+        .int_gpio_num = GPIO_NUM_NC,
+        .levels = {
+            .reset = 0,
+            .interrupt = 0,
+        },
+        .flags = {
+            .swap_xy = 0,
+            .mirror_x = 1,
+            .mirror_y = 1,
+        },
+    };
+
+    esp_lcd_panel_io_i2c_config_t io_cfg =
+        ESP_LCD_TOUCH_IO_I2C_GSL3670_CONFIG();
+    io_cfg.scl_speed_hz = 400000;
+
+    esp_lcd_panel_io_handle_t io = NULL;
+    esp_err_t err = esp_lcd_new_panel_io_i2c(bsp_i2c_0_get_handle(),
+                                             &io_cfg, &io);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = esp_lcd_touch_new_i2c_gsl3670(io, &tp_cfg, ud);
+    if (err != ESP_OK) {
+        /* HER ER HELE POINTEN. Driveren fejlede, saa den tog ikke
+         * haandtaget - og saa er det vores at slette. */
+        esp_lcd_panel_io_del(io);
+        *ud = NULL;
+        return err;
+    }
+    /* Lykkedes det, holder driveren io'et i tp->io. Vi river aldrig
+     * touch ned igen mens enheden koerer, saa der er ingen vej hvor
+     * det skal slettes - og skal der nogensinde vaere det, er det
+     * esp_lcd_touch_del FULGT AF esp_lcd_panel_io_del(tp->io). */
+    return ESP_OK;
+}
+
 static void lv_port_indev_init(void)
 {
     static lv_indev_drv_t indev_drv;
@@ -334,10 +441,9 @@ static void lv_port_indev_init(void)
      * kan firmwaren ikke komme ud af. Derfor siger beskeden hvad man
      * saa skal goere, i stedet for bare at sige at det gik galt.
      */
-    const bsp_touch_config_t cfg = { 0 };
     esp_err_t err = ESP_FAIL;
     for (int forsoeg = 1; forsoeg <= 3; forsoeg++) {
-        err = bsp_touch_new(&cfg, &s_touch);
+        err = touch_ny(&s_touch);
         if (err == ESP_OK) {
             if (forsoeg > 1) {
                 ESP_LOGW(TAG, "touch kom op i forsoeg %d af 3", forsoeg);
@@ -345,28 +451,10 @@ static void lv_port_indev_init(void)
             break;
         }
         s_touch = NULL;     /* driveren skriver en frigjort pegepind */
-        /*
-         * ET MISLYKKET FORSOEG LAEKKER ET I2C-HAANDTAG, og det er
-         * maalt - ikke en formodning.
-         *
-         * bsp_touch_new laver selv et esp_lcd_new_panel_io_i2c og
-         * giver det videre til esp_lcd_touch_new_i2c_gsl3670. Gaar DEN
-         * galt, frigiver driveren kun sin egen struct, og BSP'ens
-         * panel-io-haandtag gaar ud af skop uden at blive slettet.
-         * To mislykkede forsoeg foer et der lykkes efterlader derfor
-         * to forladte i2c-enheder paa samme adresse, kortet ud.
-         *
-         * DET BREMSER IKKE FORSOEGENE. Spurgt i IDF 5.4.2:
-         * i2c_master_bus_add_device tjekker IKKE om adressen allerede
-         * er i brug - den efterser kun bussen, konfigurationen og
-         * frekvensen. Forsoeg to og tre virker altsaa.
-         *
-         * Lappen hoerer hjemme i bsp_touch_new, som er Seeeds kode.
-         * Den er IKKE forket - kun touch-driveren er, se
-         * zd_touch/. At forke en BSP-fil mere er en beslutning, ikke
-         * en rettelse, saa den staar her i stedet for at blive gjort
-         * i stilhed.
-         */
+        /* Forsoeget laekker ingenting: touch_ny ovenfor sletter
+         * panel-io-haandtaget naar driveren fejler. Det er grunden
+         * til at der overhovedet kan proeves igen uden at samle
+         * forladte i2c-enheder op paa bussen. */
         ESP_LOGW(TAG, "touch svarede ikke i forsoeg %d af 3 (%s)",
                  forsoeg, esp_err_to_name(err));
     }

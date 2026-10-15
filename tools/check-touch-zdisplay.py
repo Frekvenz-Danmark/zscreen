@@ -78,8 +78,42 @@ def main():
             print(f"  {ROED}FEJL{SLUT} kopien mangler {m}")
         return 1
 
-    print(f"  {GROEN} OK{SLUT} kopien er rettet paa fire punkter, og Seeeds "
-          f"original er uaendret siden vi forkede.")
+    # ── OG VI BRUGER IKKE SEEEDS bsp_touch_new ─────────────────────
+    #
+    # Deres funktion laver et I2C-panel-io og giver det til driveren.
+    # Fejler driveren, tager den ikke haandtaget - og saa er det
+    # kalderens at slette, men kalderen har det ikke. Hvert mislykket
+    # forsoeg efterlod altsaa en forladt i2c-enhed paa bussen, og
+    # loekken i lv_port.c proever tre gange.
+    #
+    # Derfor laver lv_port.c det selv, ejer io'et og sletter det paa
+    # fejlvejen. Se noten ved touch_ny. Kommer bsp_touch_new tilbage,
+    # kommer laekagen med den.
+    port = ROD / "firmware/boards/zdisplay/main/lv_port.c"
+    if not port.exists():
+        print(f"  {ROED}FEJL{SLUT} {port.name} findes ikke - flyt tjekket "
+              f"med, eller tag det ud")
+        return 1
+    kode = "\n".join(l for l in port.read_text(encoding="utf-8").splitlines()
+                      if not l.lstrip().startswith(("*", "/*", "//")))
+    if "bsp_touch_new" in kode:
+        print(f"  {ROED}FEJL{SLUT} lv_port.c kalder bsp_touch_new igen. "
+              f"Den laekker et i2c-haandtag hver gang driveren fejler, "
+              f"og loekken proever tre gange. Brug touch_ny, som ejer "
+              f"haandtaget og sletter det paa fejlvejen")
+        return 1
+    for hvad, hvad_der_mangler in (
+            ("laver panel-io'et selv", "esp_lcd_new_panel_io_i2c"),
+            ("og sletter det igen",    "esp_lcd_panel_io_del")):
+        if hvad_der_mangler not in kode:
+            print(f"  {ROED}FEJL{SLUT} lv_port.c {hvad} ikke "
+                  f"({hvad_der_mangler} mangler). Uden begge to er "
+                  f"ejerskabet af i2c-haandtaget ikke paa plads")
+            return 1
+
+    print(f"  {GROEN} OK{SLUT} kopien er rettet paa fire punkter, Seeeds "
+          f"original er uaendret siden vi forkede, og vi ejer selv "
+          f"touchens i2c-haandtag.")
     return 0
 
 
