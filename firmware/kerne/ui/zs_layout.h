@@ -792,6 +792,28 @@
  * zs_theme.h er nu alias, som den er for resten.
  */
 #define ZS_G_PAGE_HEAD_HEIGHT  ZS_G_SK_HEIGHT(56)
+
+/*
+ * SIDEHOVEDET: tilbage-knappen og hvor titlen begynder.
+ *
+ * De tre tal stod raa i zs_theme.c, og det gik galt paa den
+ * kedelige maade: knappens x blev pakket i ZS_G_SK_WIDTH, og to
+ * linjer laengere ned stod "title_x = 4 + ZS_TOUCH_MIN + 8" med de
+ * samme tal UPAKKEDE. De to skred fra hinanden paa ZDisplay - knappen
+ * til 6, titlen regnet fra 4 - saa luften mellem pil og titel blev
+ * mindre i stedet for stoerre.
+ *
+ * Nu staar de ÉT sted, og titlen regnes af knappens egne tal.
+ * ZS_G_TOUCH_MIN skalerer ikke: en finger bliver ikke stoerre af en
+ * stoerre skaerm.
+ */
+#define ZS_G_HEAD_BACK_X        ZS_G_SK_WIDTH(4)
+#define ZS_G_HEAD_TITLE_GAP     ZS_G_SK(8)
+#define ZS_G_HEAD_TITLE_X       (ZS_G_HEAD_BACK_X + ZS_G_TOUCH_MIN \
+                                 + ZS_G_HEAD_TITLE_GAP)
+
+/* Rullebjaelken. Smal med vilje - den skal kunne ses uden at fylde. */
+#define ZS_G_SCROLLBAR_W        ZS_G_SK(4)
 #define ZS_G_PAGE_FOOT_HEIGHT  ZS_G_SK_HEIGHT(76)
 
 /* ------------------------------------------------------------------ */

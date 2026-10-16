@@ -515,6 +515,12 @@ void zs_style_text(lv_obj_t *obj, const lv_font_t *font, uint32_t color);
 /* Alias, som resten af layoutet. Tallene og vagterne staar i
  * zs_layout.h, hvor guide-sidens regnestykke kan naa dem. */
 #define ZS_PAGE_HEAD_HEIGHT   ZS_G_PAGE_HEAD_HEIGHT
+/* Tilbage-knappen og hvor titlen begynder. Titlen regnes af knappens
+ * egne tal, saa de to ikke kan skride fra hinanden - se noten ved
+ * ZS_G_HEAD_TITLE_X. */
+#define ZS_HEAD_BACK_X        ZS_G_HEAD_BACK_X
+#define ZS_HEAD_TITLE_X       ZS_G_HEAD_TITLE_X
+#define ZS_SCROLLBAR_W        ZS_G_SCROLLBAR_W
 #define ZS_PAGE_FOOT_HEIGHT   ZS_G_PAGE_FOOT_HEIGHT
 
 typedef struct {

@@ -208,15 +208,30 @@ static void maal_et(const char *side, lv_obj_t *o, int dybde,
         if (lv_obj_has_flag(o, ZS_FLAG_UDENFOR_MED_VILJE)
             && lv_obj_has_flag(far, LV_OBJ_FLAG_SCROLLABLE)) {
             rul = lv_obj_get_scroll_dir(far);
-            s_undtaget++;
         }
-        if (rul & LV_DIR_HOR) {
+        /*
+         * TAELLEREN TAELLER BRUGTE UNDTAGELSER, IKKE MAERKEDE OBJEKTER.
+         *
+         * Her stod s_undtaget++ sammen med opslaget ovenfor, altsaa for
+         * hvert maerket objekt uanset om det stak ud. zs_column_create
+         * saetter maerket paa HVER soejle i appen, saa linjen til sidst
+         * sagde "intet stikker ud (12 begrundede undtagelser)" hvor 12
+         * var antallet af soejler - ikke antallet af undtagelser der
+         * blev brugt til noget.
+         *
+         * Og det er stik imod hvorfor den taelles: en undtagelse man
+         * ikke kan se, er et hul. Et tal der altid er tolv, kan man
+         * ikke se noget i.
+         */
+        if ((rul & LV_DIR_HOR) && (ud_v > 0 || ud_h > 0)) {
             ud_v = 0;
             ud_h = 0;
+            s_undtaget++;
         }
-        if (rul & LV_DIR_VER) {
+        if ((rul & LV_DIR_VER) && (ud_o > 0 || ud_n > 0)) {
             ud_o = 0;
             ud_n = 0;
+            s_undtaget++;
         }
         if (ud_v > 0 || ud_h > 0 || ud_o > 0 || ud_n > 0) {
             ZS_LOGW(TAG, "%s: %s, %d x %d, stikker ud "

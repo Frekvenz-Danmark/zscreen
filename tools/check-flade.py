@@ -46,6 +46,13 @@ KALD = re.compile(
     r"|lv_obj_set_style_radius|lv_obj_set_style_border_width"
     r"|lv_obj_set_style_translate_\w+|lv_obj_set_style_size"
     r"|lv_obj_set_style_line_width|lv_obj_set_style_outline_width"
+    # OG DE TO HELT ALMINDELIGE. Listen havde _radius, _border_width,
+    # _line_width, _outline_width, _max_width og _min_width - men ikke
+    # det bare _width og _height den sad lige ved siden af. Resultatet
+    # var en scrollbar paa 4 raa pixels i zs_theme.c, som blev 4 paa en
+    # 800x1280 skaerm hvor alt andet var skaleret med 1,67 - og vagten
+    # meldte "ingen af dem har et tal der kun passer paa én skaerm".
+    r"|lv_obj_set_style_width|lv_obj_set_style_height"
     # Dertil de maal der ogsaa er pixels, og som blev glemt foerste
     # gang: buens tykkelse paa en spinder, skyggen, afstanden mellem
     # bogstaver og mellem linjer, og graenserne for et objekts stoerrelse.
@@ -193,14 +200,36 @@ UNDTAGET = {
 # maal - der er ikke andet det kan vaere.
 # ---------------------------------------------------------------------
 
-COORD = re.compile(r"\blv_coord_t\s+\w+\s*=\s*([^;]+);")
+# To moenstre, og det andet kom til fordi det foerste kun saa
+# ERKLAERINGER.
+#
+#     lv_coord_t title_x = ZS_EDGE + ZS_G_SK(4);   <- blev set
+#     title_x = 4 + ZS_TOUCH_MIN + 8;              <- blev IKKE set
+#
+# De to linjer stod to linjer fra hinanden i zs_theme.c. Den foerste
+# blev pakket i ZS_G_SK, den anden beholdt sine raa tal - og vagten der
+# var lavet til netop den fejl, kunne ikke se den.
+#
+# Gentildelingen kendes paa navnet: vi samler navnene paa alle
+# lv_coord_t i filen og leder efter "navn = ..." uden type foran.
+COORD = re.compile(r"\blv_coord_t\s+(\w+)\s*=\s*([^;]+);")
+COORD_NAVNE = re.compile(r"\blv_coord_t\s+(\w+)")
 
 
 def tjek_coord(tekst, fil):
-    """Raa tal der tildeles en lv_coord_t."""
+    """Raa tal der tildeles en lv_coord_t - ogsaa ved gentildeling."""
     ud = []
-    for m in COORD.finditer(tekst):
-        udtryk = m.group(1)
+    navne = set(COORD_NAVNE.findall(tekst))
+    traef = list(COORD.finditer(tekst))
+    # Gentildelinger: "navn = ..." uden en type foran. Kun navne vi
+    # VED er lv_coord_t i den her fil, saa et tilfaeldigt "i = 4" ikke
+    # taeller med.
+    if navne:
+        mellem = "|".join(re.escape(n) for n in sorted(navne))
+        gen = re.compile(rf"^\s*({mellem})\s*=\s*([^;]+);", re.M)
+        traef += [m for m in gen.finditer(tekst)]
+    for m in traef:
+        udtryk = m.group(2)
         rest = udtryk
         for r in FRI:
             rest = r.sub("", rest)

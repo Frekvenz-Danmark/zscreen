@@ -608,7 +608,8 @@ void zs_page_create(zs_page_t *p, const char *title,
         p->back = lv_btn_create(p->head);
         lv_obj_remove_style_all(p->back);
         lv_obj_set_size(p->back, ZS_TOUCH_MIN, ZS_TOUCH_MIN);
-        lv_obj_set_pos(p->back, ZS_G_SK_WIDTH(4), (ZS_PAGE_HEAD_HEIGHT - ZS_TOUCH_MIN) / 2);
+        lv_obj_set_pos(p->back, ZS_HEAD_BACK_X,
+                         (ZS_PAGE_HEAD_HEIGHT - ZS_TOUCH_MIN) / 2);
         lv_obj_add_event_cb(p->back, back_cb, LV_EVENT_CLICKED, user_data);
 
         lv_obj_t *ic = lv_label_create(p->back);
@@ -617,7 +618,9 @@ void zs_page_create(zs_page_t *p, const char *title,
         lv_obj_set_style_text_color(ic, lv_color_hex(ZS_C_TEXT), 0);
         lv_obj_center(ic);
 
-        title_x = 4 + ZS_TOUCH_MIN + 8;
+        /* Regnet af knappens EGNE tal, saa de ikke kan skride fra
+         * hinanden. Se ZS_G_HEAD_TITLE_X i zs_layout.h. */
+        title_x = ZS_HEAD_TITLE_X;
     }
 
     p->title = lv_label_create(p->head);
@@ -658,7 +661,7 @@ void zs_page_create(zs_page_t *p, const char *title,
     /* Rullebjaelken skal kunne ses paa den moerke bund uden at fylde. */
     lv_obj_set_style_bg_color(p->content, lv_color_hex(ZS_C_BORDER), LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_opa(p->content, LV_OPA_60, LV_PART_SCROLLBAR);
-    lv_obj_set_style_width(p->content, 4, LV_PART_SCROLLBAR);
+    lv_obj_set_style_width(p->content, ZS_SCROLLBAR_W, LV_PART_SCROLLBAR);
     lv_obj_set_style_radius(p->content, 2, LV_PART_SCROLLBAR);
 }
 
