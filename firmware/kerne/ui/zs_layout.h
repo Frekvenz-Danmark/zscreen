@@ -949,14 +949,30 @@
  */
 #define ZS_G_FEJL_LINJE_LUFT    ZS_G_SK(8)
 /*
- * KUN REFERENCESKAERMEN. Her stod ZS_LH_IKON_STOR paa de andre, og det
- * var den forkerte skrift: labelet tegnes med zs_ikon_kaempe. Tallet
- * blev aldrig brugt dér - de skaerme maaler ikonets hoejde af LVGL -
- * saa det var et forkert tal ingen laeste, hvilket er vaerre end ingen
- * tal: det ser ud som om nogen har maalt.
+ * KUN REFERENCESKAERMEN, og hoejden er SKRIFTENS EGEN.
+ *
+ * Her stod 28 - zs_ikon_stor's linjehoejde - men labelet tegnes med
+ * zs_ikon_kaempe, som er 24 paa 480-saettet. Ikonet fik altsaa 28 px
+ * reserveret og fylder 24, saa der blev 12 px over det og 16 under:
+ * hele stakken stod 4 px skaevt. Det er praecis den fejl den maalte
+ * gren blev skrevet for at fjerne, og vagterne nedenfor lod den passere
+ * fordi de maalte paa den samme forkerte skrift.
+ *
+ * FIKSTUREN AENDRER SIG HER, og det er med vilje. Siden med ikon er
+ * ZS_FEJL_INGEN_STROEM, som er helt ny og aldrig har staaet hos en
+ * kunde - der er ingen flade at holde stille. Og zScreen har slet
+ * ikke batteri (se zs_stroem_ingen.c), saa den viser aldrig siden;
+ * tallene skal alligevel vaere rigtige, for de staar i vagterne.
  */
 #if ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT
-#define ZS_G_FEJL_IKON_HEIGHT   28        /* zs_ikon_stor paa 480 */
+/*
+ * 24 OG IKKE ZS_LH_IKON_KAEMPE. Den generede header inkluderes IKKE
+ * paa referenceskaermen - se noten ved ZS_G_CARD_KANT - saa tallet
+ * skal staa skrevet. Det er zs_ikon_kaempe's linjehoejde i
+ * assets/480/zs_skrift_maal.h, og tjek_480_skriftmaal() i
+ * tools/check-flade.py holder de to sammen.
+ */
+#define ZS_G_FEJL_IKON_HEIGHT   24
 #define ZS_G_FEJL_IBLOK_HEIGHT  (ZS_G_FEJL_HEAD_HEIGHT \
                                  + ZS_G_FEJL_IKON_GAP \
                                  + ZS_G_FEJL_IKON_HEIGHT \

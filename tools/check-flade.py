@@ -408,6 +408,52 @@ def tjek_zscreen_staar_stille():
 UDEN_SELVTEST = {}
 
 
+def tjek_480_skriftmaal():
+    """Raa skriftmaal i referencegrenen skal passe med 480-saettet.
+
+    HVORFOR DEN FINDES.
+
+    zs_skrift_maal.h inkluderes IKKE paa referenceskaermen - de frosne
+    tal skal staa alene, se noten ved ZS_G_CARD_KANT. Saa en
+    linjehoejde dér er et tal skrevet i haanden, og et skrevet tal kan
+    vaere skrevet af den forkerte skrift.
+
+    DET VAR DET. ZS_G_FEJL_IKON_HEIGHT stod 28, altsaa zs_ikon_stor's
+    hoejde - men ikonet tegnes med zs_ikon_kaempe, som er 24. Ikonet
+    fik 28 px reserveret og fylder 24, saa stakken stod 4 px skaevt.
+    Og vagterne i zs_layout.h lod det passere, fordi de maalte paa
+    samme forkerte tal.
+
+    Her sammenlignes de skrevne tal med den GENEREREDE header for 480.
+    """
+    lay = UI / "zs_layout.h"
+    maal = UI / "assets/480/zs_skrift_maal.h"
+    if not lay.exists() or not maal.exists():
+        return
+    genereret = dict(re.findall(r"^#define\s+(ZS_LH_\w+)\s+(\d+)",
+                                maal.read_text(encoding="utf-8"), re.M))
+    tekst = lay.read_text(encoding="utf-8")
+    # (makro i zs_layout.h, hvilken skrift den SKAL vaere)
+    PAR = (("ZS_G_FEJL_IKON_HEIGHT", "ZS_LH_IKON_KAEMPE"),)
+    for makro, skrift in PAR:
+        m = re.search(rf"^#define\s+{makro}\s+(\d+)", tekst, re.M)
+        if m is None:
+            continue                  # staar som et udtryk, ikke et tal
+        skrevet, rigtigt = int(m.group(1)), genereret.get(skrift)
+        if rigtigt is None:
+            fejl.append(f"tools/check-flade.py: {skrift} findes ikke i "
+                        f"480-saettets zs_skrift_maal.h")
+            continue
+        if skrevet != int(rigtigt):
+            nr = tekst[:m.start()].count("\n") + 1
+            fejl.append(
+                f"firmware/kerne/ui/zs_layout.h:{nr}: {makro} er "
+                f"{skrevet}, men {skrift} er {rigtigt} i 480-saettet. "
+                f"Referencegrenen inkluderer ikke den genererede "
+                f"header, saa tallet staar skrevet - og et skrevet tal "
+                f"kan vaere skrevet af den forkerte skrift")
+
+
 def tjek_alle_sider():
     """Hver side i zs_screen_id_t skal tegnes af selvtesten."""
     enum_fil = UI / "zs_ui.h"
@@ -484,6 +530,7 @@ def main():
     defs = tjek_defines()
     tjek_zscreen_staar_stille()
     tjek_alle_sider()
+    tjek_480_skriftmaal()
 
     if fejl:
         for e in fejl:
