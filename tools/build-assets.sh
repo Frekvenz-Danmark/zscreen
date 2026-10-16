@@ -304,6 +304,10 @@ byg_saet() {
     # tages den DERFRA og laegges i en header, saa layoutet kan reservere
     # det der faktisk skal bruges i stedet for at gaette.
     info "Skriver skrifternes maal"
+    # Nabofilen ryddes op hvis vi falder undervejs. Uden den her laa
+    # der et zs_skrift_maal.h.ny tilbage i asset-mappen efter hver
+    # mislykket koersel - harmloest, men affald man skal gaette paa.
+    trap 'rm -f "${OUT}/zs_skrift_maal.h.ny"' EXIT
     {
         echo "/* GENERERET af tools/build-assets.sh. Ret den ikke. */"
         echo "/*"
@@ -355,8 +359,27 @@ byg_saet() {
                 "$(echo ${n} | tr a-z A-Z)" "${lh}"
         done
         echo "#endif /* ZS_SKRIFT_MAAL_INC */"
-    } > "${OUT}/zs_skrift_maal.h"
-    ok "zs_skrift_maal.h ($(grep -c '^#define' "${OUT}/zs_skrift_maal.h") linjehoejder)"
+    } > "${OUT}/zs_skrift_maal.h.ny"
+    #
+    # SKREVET TIL NABOFILEN OG BYTTET TIL SIDST.
+    #
+    # Her blev der skrevet direkte i zs_skrift_maal.h. Omdirigeringen
+    # TOMMER filen foer det foerste echo, og loekkerne ovenfor kalder
+    # fail naar en linjehoejde ikke kan laeses eller en ikonfil
+    # mangler. En koersel der faldt dér, efterlod altsaa en HALV
+    # header - og fordi kilder.cmake laegger ${ZS_ASSET_DIR} paa
+    # include-stien, finder naeste ZDisplay-byg den, mangler
+    # ZS_LH_IKON_KAEMPE og falder langt inde i zs_layout.h.
+    #
+    # Det er praecis den fejl noten ovenfor siger blev rettet. Den var
+    # flyttet, ikke fjernet: raekkefoelgen gjorde den sjaeldnere, men
+    # en manglende ikonfil udloeser den stadig.
+    mv -f "${OUT}/zs_skrift_maal.h.ny" "${OUT}/zs_skrift_maal.h" \
+        || fail "kunne ikke bytte zs_skrift_maal.h paa plads"
+    trap - EXIT
+    # Tallet er LINJEHOEJDER og ikke alle #define. Guarden og
+    # saetbredden er ogsaa #define, saa "grep -c" meldte to for mange.
+    ok "zs_skrift_maal.h ($(grep -c '^#define ZS_LH_' "${OUT}/zs_skrift_maal.h") linjehoejder)"
 
     # ---------------------------------------------------------------------
     # Logoer
