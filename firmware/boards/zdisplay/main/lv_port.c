@@ -290,7 +290,32 @@ static void lv_port_disp_init(void)
     size_t bytes = BUF_PIXELS * sizeof(lv_color_t);
     void *buf1 = heap_caps_aligned_alloc(128, bytes, MALLOC_CAP_SPIRAM);
     void *buf2 = heap_caps_aligned_alloc(128, bytes, MALLOC_CAP_SPIRAM);
-    assert(buf1 && buf2);
+    /*
+     * HER STOD assert(buf1 && buf2), OG DEN ER EN INDSTILLING.
+     *
+     * assert() forsvinder hvis CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS
+     * bliver slaaet fra. I dag er den slaaet TIL (niveau 2, efterset
+     * 16. oktober 2026), saa det virker - men at skaermen overhovedet
+     * kan tegnes, maa ikke hvile paa en byggeindstilling nogen kan
+     * aendre uden at vide det. Sker det, gaar en NULL-buffer videre
+     * til lv_disp_draw_buf_init, og saa tegner LVGL i adresse nul.
+     *
+     * Den ene frigives hvis den anden mangler. Vi standser alligevel,
+     * saa det er ikke for hukommelsens skyld - det er for at loggen
+     * ikke skal lyve om hvad der er i brug naar nogen kigger paa
+     * heap-tallene bagefter.
+     */
+    if (buf1 == NULL || buf2 == NULL) {
+        ESP_LOGE(TAG, "der er ikke plads til skaermbufferne (2 x %u KB "
+                      "i SPIRAM, fik %s og %s). Uden dem kan der ikke "
+                      "tegnes, saa der er ingen vej frem herfra.",
+                 (unsigned)(bytes / 1024),
+                 buf1 ? "den ene" : "ingen",
+                 buf2 ? "den anden" : "ingen");
+        free(buf1);
+        free(buf2);
+        abort();
+    }
 
     lv_disp_draw_buf_init(&disp_buf, buf1, buf2, BUF_PIXELS);
 

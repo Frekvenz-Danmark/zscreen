@@ -242,7 +242,27 @@ static void lv_port_disp_init(void)
 #else
     buffer_size = brd->LCD_WIDTH * LV_PORT_BUFFER_HEIGHT;
     buf1 = heap_caps_malloc(buffer_size * sizeof(lv_color_t), LV_PORT_BUFFER_MALLOC);
-    assert(buf1);
+    /*
+     * HER STOD assert(buf1), OG DEN ER EN INDSTILLING.
+     *
+     * assert() forsvinder hvis CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS
+     * bliver slaaet fra. I dag er den slaaet TIL paa begge kort
+     * (niveau 2, efterset 16. oktober 2026), saa det virker - men at
+     * skaermen overhovedet kan tegnes, maa ikke hvile paa en
+     * byggeindstilling nogen kan aendre uden at vide det. Sker det,
+     * gaar en NULL-buffer videre til lv_disp_draw_buf_init, og saa
+     * tegner LVGL i adresse nul.
+     *
+     * Og assert siger kun fil og linje. Her staar HVAD der skete og
+     * hvorfor det ikke kan fortsaette.
+     */
+    if (buf1 == NULL) {
+        ESP_LOGE(TAG, "der er ikke plads til skaermbufferen (%d px, "
+                      "%u bytes). Uden den kan der ikke tegnes, saa "
+                      "der er ingen vej frem herfra.",
+                 buffer_size, (unsigned)(buffer_size * sizeof(lv_color_t)));
+        abort();
+    }
 #endif
     // initialize LVGL draw buffers
     lv_disp_draw_buf_init(&disp_buf, buf1, buf2, buffer_size);
