@@ -148,11 +148,28 @@ echo "Kører ..."
 GRAENSE="${ZS_PROEVE_GRAENSE:-60}"
 "${OUT}/run" "$@" &
 PID=$!
-I=0
-while kill -0 "${PID}" 2>/dev/null && [ "${I}" -lt "$(( GRAENSE * 10 ))" ]; do
-    sleep 0.1
-    I=$(( I + 1 ))
+
+# CTRL-C SKAL NAA PROEVEN, og ikke kun indpakningen.
+#
+# Foerste udgave havde kun "&" og en loekke. Det flytter proeven ud af
+# terminalens forgrundsgruppe, saa SIGINT gik til wrapper-shellen
+# alene: den doede, og proeven koerte videre som en forladt proces der
+# stadig skrev i terminalen. Den gamle "exec"-form doede MED
+# terminalen.
+trap 'kill -TERM "${PID}" 2>/dev/null' INT TERM
+
+# GRAENSEN MAALES PAA URET, ikke i antal gennemloeb.
+#
+# Foerste udgave taalte til GRAENSE * 10 og sov 0,1 sek imellem. Men
+# hver gennemloeb koster ogsaa en fork til "kill -0" og en til "sleep",
+# saa 60 blev et godt stykke over 60 sekunder i virkeligheden. Et tal
+# der ikke betyder hvad det siger, er vaerre end intet tal.
+SLUT=$(( $(date +%s) + GRAENSE ))
+while kill -0 "${PID}" 2>/dev/null; do
+    [ "$(date +%s)" -ge "${SLUT}" ] && break
+    sleep 0.2
 done
+
 if kill -0 "${PID}" 2>/dev/null; then
     echo
     echo "  PROEVERNE HAENGER. Over ${GRAENSE} sekunder, og en ren"
@@ -168,5 +185,9 @@ if kill -0 "${PID}" 2>/dev/null; then
     wait "${PID}" 2>/dev/null || true
     exit 1
 fi
+
+trap - INT TERM
+# set -e gOEr resten: giver proeven en fejl, stopper scriptet her med
+# den samme kode. Her stod ogsaa "exit $?" bagefter, og den linje kunne
+# aldrig naas - den saa ud som om den gjorde arbejdet.
 wait "${PID}"
-exit $?
