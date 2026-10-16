@@ -2202,12 +2202,21 @@ static void app_task(void *arg)
                     vis.info = s_demo_info;
                     snprintf(vis.host, sizeof(vis.host), "demo");
                     vis.port = 502;
-                    zs_ui_set_details(&vis, "demo", -55);
+                    /* Demo har ingen hardware at laese. */
+                    zs_ui_set_details(&vis, "demo", -55, NULL);
                 } else
 #endif
                 {
                     zs_wifi_get_ip(ip, sizeof(ip));
-                    zs_ui_set_details(&s_fr, ip, zs_wifi_rssi());
+                    /*
+                     * Stroemmen laeses HER, i motorens opgave, og gives
+                     * videre. Fladen skal ikke ned i HAL'en fra
+                     * LVGL-opgaven - se noten i zs_details_update.
+                     */
+                    zs_stroem_t stroem;
+                    zs_stroem_laes(&stroem);
+                    zs_ui_set_details(&s_fr, ip, zs_wifi_rssi(),
+                                      stroem.findes ? &stroem : NULL);
                 }
             }
         }

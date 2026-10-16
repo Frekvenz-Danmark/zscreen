@@ -326,11 +326,12 @@ void zs_ui_set_price(const zs_price_day_t *d)
     lv_port_sem_give();
 }
 
-void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi)
+void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi,
+                       const zs_stroem_t *stroem)
 {
     if (!s_ready) { return; }
     lv_port_sem_take();
-    zs_details_update(fr, own_ip, rssi);
+    zs_details_update(fr, own_ip, rssi, stroem);
     lv_port_sem_give();
 }
 

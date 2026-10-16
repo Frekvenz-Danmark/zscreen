@@ -11,6 +11,7 @@
 #define ZS_SCREEN_SETTINGS_H
 
 #include "lvgl.h"
+#include "zs_stroem.h"   /* zs_stroem_t i zs_details_update */
 #include "zs_theme.h"
 #include "zs_nvs.h"
 #include "zs_fronius.h"
@@ -40,7 +41,15 @@ void zs_settings_set_demo(bool demo);
 
 /* Opdaterer raden om software. */
 void zs_settings_set_ota(const zs_ota_status_t *o);
-void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi);
+/*
+ * stroem maa vaere NULL paa et board uden batteri - saa staar
+ * linjerne der ikke. Den kommer UDEFRA og laeses ikke her: fladen
+ * koerer i LVGL-opgaven, og stroemtallene skrives af en anden
+ * opgave. Alt andet paa siden kommer ogsaa som argument, og det er
+ * det der goer siden proevbar.
+ */
+void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi,
+                       const zs_stroem_t *stroem);
 
 
 /* River Indstillinger og Detaljer ned. Se noten ved

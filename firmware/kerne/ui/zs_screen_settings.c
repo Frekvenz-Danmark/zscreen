@@ -864,7 +864,8 @@ void zs_settings_set_demo(bool demo)
 #endif
 }
 
-void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
+void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi,
+                       const zs_stroem_t *stroem)
 {
     if (s_det_col == NULL) {
         return;
@@ -1032,8 +1033,23 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi)
      * se zs_stroem_ingen.c. Det afgoeres af boardet og ikke af en
      * #ifdef her, saa fladen er den samme kode paa begge produkter.
      */
+    /*
+     * FLADEN LAESER IKKE HARDWAREN. Her stod zs_stroem_laes(&st),
+     * altsaa et kald fra LVGL-opgaven ned i HAL'en - og BSP'ens
+     * batteriopgave skriver de samme tal samtidig. Alt andet paa siden
+     * kommer som argument, og det er det der goer siden proevbar og
+     * holder LVGL-opgaven fri af hardwaren.
+     *
+     * NULL betyder "det board har ikke batteri", og saa staar
+     * linjerne der ikke - samme svar som findes=false gav foer.
+     */
     zs_stroem_t st;
-    zs_stroem_laes(&st);
+    if (stroem != NULL) {
+        st = *stroem;
+    } else {
+        memset(&st, 0, sizeof(st));
+        st.procent = -1;
+    }
     if (st.findes) {
         if (st.procent >= 0) {
             snprintf(buf, sizeof(buf), "%d %%", st.procent);

@@ -545,10 +545,16 @@ void zs_fejl_page_create(void)
      * en label som eneste barn. */
     s_knap_tekst = lv_obj_get_child(s_knap, 0);
 
-    /* Og saa stilles de tre ting op efter deres MAALTE hoejder. Den
-     * samme funktion koerer igen hver gang teksten skifter. */
-    stak_op();
-
+    /*
+     * HER STOD stak_op(), OG DEN VAR DOBBELT.
+     *
+     * skriv_teksten() nedenfor saetter begge labelers tekst og kalder
+     * stak_op() selv - saa opstillingen blev regnet to gange, og
+     * foerste resultat blev skrevet over med det samme. To
+     * lv_obj_update_layout-gennemloeb af hele siden og to saet
+     * lv_obj_align, hver gang siden bygges. Selvtesten bygger den seks
+     * gange pr. tema.
+     */
 
     /*
      * Og saa den besked der stod paa siden foer den blev revet ned.

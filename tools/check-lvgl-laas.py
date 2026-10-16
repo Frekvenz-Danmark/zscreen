@@ -156,6 +156,53 @@ def main():
                     f"i sin egen opgave, og saa er der ingen laas. Gaa "
                     f"gennem zs_ui_*, som selv tager den")
 
+    # ── OG FLADEN LAESER IKKE HARDWARE ──────────────────────────────
+    #
+    # Spejlet af reglen ovenfor. Motoren maa ikke roere LVGL; fladen
+    # maa ikke LAESE hardwaren.
+    #
+    # Hvorfor netop LAESE: zs_details_update kaldte zs_stroem_laes fra
+    # LVGL-opgaven, mens BSP'ens batteriopgave skrev de samme tal. To
+    # opgaver om det samme felt, og en side hvis indhold ingen kalder
+    # kunne give den - altsaa heller ikke proeve. Alt andet paa siden
+    # kom som argument. Nu kommer stroemmen ogsaa.
+    #
+    # AT SKRIVE ER EN ANDEN SAG, og baglyset staar derfor paa listen
+    # over undtagelser: lysstyrkeskyderens hele formaal ER at saette
+    # baglyset, det er en kommando og ikke en tilstand nogen anden
+    # opgave skriver i. Der er ingen at kappes med.
+    SKRIV_OK = {
+        "zs_baglys_init": "lysstyrken saettes af skyderen selv",
+        "zs_baglys_set":  "samme",
+        "zs_lyd_bip":     "et bip er en kommando, ikke en tilstand",
+        "zs_lyd_init":    "samme",
+        "zs_lyd_pakke":   "samme",
+        "zs_lyd_findes":  "svarer paa boardet, ikke paa hardwaren",
+    }
+    hal = ROD / "firmware/kerne/hal"
+    if hal.is_dir():
+        navne = set()
+        for h in sorted(hal.glob("*.h")):
+            navne |= set(re.findall(r"\bzs_[a-z0-9_]+(?=\s*\()",
+                                    h.read_text(encoding="utf-8")))
+        for f in sorted((ROD / "firmware/kerne/ui").rglob("*.c")):
+            if "/assets/" in f.as_posix():
+                continue
+            kode = uden_kommentarer(f.read_text(encoding="utf-8"))
+            for navn in sorted(navne):
+                if navn in SKRIV_OK:
+                    continue
+                for nr, linje in enumerate(kode.splitlines(), 1):
+                    if re.search(rf"\b{navn}\s*\(", linje):
+                        fejl.append(
+                            f"{f.relative_to(ROD)}:{nr} kalder {navn} "
+                            f"direkte. Fladen koerer i LVGL-opgaven, og "
+                            f"hardwarens tal skrives af en anden - saa "
+                            f"det er et kaploeb, og siden kan ikke "
+                            f"proeves. Tag vaerdien ind som argument, "
+                            f"saadan som zs_details_update faar "
+                            f"zs_stroem_t")
+
     if fejl:
         for linje in fejl:
             print(f"  {ROED}FEJL{SLUT} {linje}")

@@ -11,6 +11,7 @@
 #define ZS_UI_H
 
 #include <stdbool.h>
+#include "zs_stroem.h"   /* zs_stroem_t i zs_details_update */
 #include <stdint.h>
 
 #include "zs_wifi.h"
@@ -84,7 +85,8 @@ void zs_ui_set_settings(const zs_settings_t *s, const char *ip);
 void zs_ui_set_demo(bool demo);
 void zs_ui_set_price(const zs_price_day_t *d);
 void zs_ui_set_ota(const zs_ota_status_t *o);
-void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi);
+void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi,
+                       const zs_stroem_t *stroem);
 
 /* Tilmeldingssiden. Se zs_screen_tilmeld.h for hvorfor der er en stand
  * og ikke bare en kode. */
