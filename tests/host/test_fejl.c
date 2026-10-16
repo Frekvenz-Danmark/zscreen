@@ -446,15 +446,65 @@ void test_fejl(void)
      * ── HVAD SIDEN SKAL SIGE OM TALLENE ──
      *
      * Fejlsiden saetter "Tallene paa forsiden er fra kl. X og staar
-     * stille." under forklaringen. Paa stroemsvigt er det ikke sandt:
-     * skaermen koerer videre paa batteriet og viser friske tal.
+     * stille." under forklaringen, og den saetning skal vaere sand.
+     *
+     * HER STOD TRE PROEVER DER SPURGTE FEJLTYPEN:
+     *
+     *     !zs_fejl_tal_staar_stille(ZS_FEJL_INGEN_STROEM)
+     *      zs_fejl_tal_staar_stille(ZS_FEJL_WIFI)
+     *
+     * De bestod, og reglen var alligevel forkert. Stroemsvigt ALENE
+     * fryser ikke tallene - skaermen koerer paa batteriet, er paa
+     * nettet og laeser inverteren. Men et stroemsvigt i huset tager
+     * ogsaa routeren, og saa ER de frosne. Stroemfejlen vinder
+     * forrangen, saa siden tiede om det ene sande om dataen netop naar
+     * det gjaldt. Proeverne daekkede hver fejl for sig og ikke
+     * sammenfaldet - igen.
+     *
+     * Reglen spoerger nu uret, og proeverne spoerger den om tid.
      */
-    CHECK("stroemsvigt: tallene staar IKKE stille",
-          !zs_fejl_tal_staar_stille(ZS_FEJL_INGEN_STROEM));
-    CHECK("wifi: tallene staar stille",
-          zs_fejl_tal_staar_stille(ZS_FEJL_WIFI));
-    CHECK("inverter: tallene staar stille",
-          zs_fejl_tal_staar_stille(ZS_FEJL_INVERTER));
+    ZS_SUITE("Staar forsidens tal stille");
+
+    CHECK("friske tal: nej",
+          !zs_fejl_tal_staar_stille(100000, 100000));
+    CHECK("et sekund gamle: stadig nej",
+          !zs_fejl_tal_staar_stille(101000, 100000));
+    CHECK("praecis paa graensen: nej",
+          !zs_fejl_tal_staar_stille(100000 + ZS_STALE_AFTER_MS, 100000));
+    CHECK("ét ms over graensen: ja",
+          zs_fejl_tal_staar_stille(100001 + ZS_STALE_AFTER_MS, 100000));
+    /*
+     * ALDRIG NOGEN TAL ER OGSAA "STAAR STILLE". En skaerm der lige er
+     * startet og ikke har naaet inverteren, viser nuller - og de
+     * nuller staar stille. Var svaret "friske", ville siden love at
+     * nullerne var rigtige.
+     */
+    CHECK("aldrig nogen tal: ja", zs_fejl_tal_staar_stille(100000, 0));
+    /*
+     * OG LIGE EFTER OPSTART, hvor uret stadig er lavt. DET er det
+     * tilfaelde vagten findes for.
+     *
+     * Proeven ovenfor med nu_ms = 100000 fanger den ikke: uden
+     * vagten bliver regnestykket 100000 - 0 > 10000, altsaa "staar
+     * stille" alligevel - det rigtige svar ad en forkert vej. Maalt
+     * med en mutation: "sidst_gode_ms <= 0" lavet til "< 0" slap
+     * igennem.
+     *
+     * Fem sekunder efter opstart giver 5000 - 0 > 10000, altsaa
+     * falsk, og saa ville siden love at nullerne var friske tal.
+     */
+    CHECK("fem sekunder efter opstart, aldrig nogen tal: ja",
+          zs_fejl_tal_staar_stille(5000, 0));
+    CHECK("og et negativt tidsstempel ogsaa",
+          zs_fejl_tal_staar_stille(100000, -5));
+    /*
+     * OG DET SAMMENFALD DER VAR HULLET: stroem og wifi vaek paa én
+     * gang. Reglen kender ikke fejltypen laengere, saa den kan ikke
+     * tie om det - men proeven staar her, fordi det var DEN vej fejlen
+     * kom ind.
+     */
+    CHECK("stroem OG wifi vaek, tallene er gamle: ja",
+          zs_fejl_tal_staar_stille(200000, 100000));
 
     /* Og ikonet. Kun stroemsvigt har et. */
     CHECK("stroemsvigt har batteri-ikonet",

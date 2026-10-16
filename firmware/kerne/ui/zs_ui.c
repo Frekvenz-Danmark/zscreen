@@ -334,11 +334,12 @@ void zs_ui_set_details(const zs_fr_t *fr, const char *own_ip, int rssi)
     lv_port_sem_give();
 }
 
-void zs_ui_set_fejl(zs_fejl_type_t type, const char *tid, bool blink)
+void zs_ui_set_fejl(zs_fejl_type_t type, const char *tid, bool blink,
+                    bool tal_staar_stille)
 {
     if (!s_ready) { return; }
     lv_port_sem_take();
-    zs_fejl_page_update(type, tid, blink);
+    zs_fejl_page_update(type, tid, blink, tal_staar_stille);
     lv_port_sem_give();
 }
 

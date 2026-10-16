@@ -61,7 +61,8 @@ lv_obj_t *zs_fejl_page_root(void);
  *
  * Skal kaldes med LVGL-laasen taget, som de andre update-funktioner.
  */
-void zs_fejl_page_update(zs_fejl_type_t type, const char *tid, bool blink);
+void zs_fejl_page_update(zs_fejl_type_t type, const char *tid, bool blink,
+                         bool tal_staar_stille);
 
 /*
  * Siger om siden vises lige nu.

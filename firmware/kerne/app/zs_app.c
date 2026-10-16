@@ -791,9 +791,13 @@ static void publish_home(void)
     }
     s_home.demo = false;
 
-    int64_t age = now_ms() - s_last_good_ms;
-
-    s_home.stale = (s_last_good_ms == 0) || (age > ZS_STALE_AFTER_MS);
+    /*
+     * SAMME REGEL SOM FEJLSIDEN. Den stod skrevet ud her og blev
+     * udledt af fejltypen dér, saa de to kunne svare forskelligt paa
+     * det samme spoergsmaal. Nu er der ét sted, og det er proevet -
+     * se zs_fejl_tal_staar_stille.
+     */
+    s_home.stale = zs_fejl_tal_staar_stille(now_ms(), s_last_good_ms);
     s_home.has_meter   = s_fr.info.has_meter;
     s_home.has_battery = s_fr.info.has_battery;
     s_home.rssi = zs_wifi_rssi();
@@ -1166,7 +1170,15 @@ static void fejl_tik(int64_t nu_ms)
         s_fejl_sendt_blink = ud.blink;
         zs_ui_set_fejl(ud.type,
                        s_fejl_sendt_tid[0] != '\0' ? s_fejl_sendt_tid : NULL,
-                       ud.blink);
+                       ud.blink,
+                       /*
+                        * MAALT HER, saa fladen ikke skal udlede det af
+                        * hvilken fejl der vandt forrangen. Samme regel
+                        * som forsidens s_home.stale, og det er
+                        * meningen: de to maa ikke kunne blive uenige
+                        * om det samme tal.
+                        */
+                       zs_fejl_tal_staar_stille(nu_ms, s_last_good_ms));
     }
 
     if (zs_ui_current() == ZS_SCREEN_HOME) {

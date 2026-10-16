@@ -98,7 +98,8 @@ void zs_ui_set_tilmeld(zs_tilmeld_stand_t stand, const char *kode);
  * zs_fejl_tik og besluttes ikke i brugerfladen: reglen om at en
  * inverter der sover ikke skal blinke, skal kun staa ét sted.
  */
-void zs_ui_set_fejl(zs_fejl_type_t type, const char *tid, bool blink);
+void zs_ui_set_fejl(zs_fejl_type_t type, const char *tid, bool blink,
+                    bool tal_staar_stille);
 
 #ifdef __cplusplus
 }

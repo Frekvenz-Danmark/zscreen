@@ -456,23 +456,17 @@ zs_fejl_ikon_t zs_fejl_ikon(zs_fejl_type_t t)
     return ZS_FEJL_IKON_INTET;
 }
 
-bool zs_fejl_tal_staar_stille(zs_fejl_type_t t)
+bool zs_fejl_tal_staar_stille(int64_t nu_ms, int64_t sidst_gode_ms)
 {
-    switch (t) {
     /*
-     * Stroemsvigt er IKKE frosne tal. Skaermen koerer videre paa
-     * batteriet, er paa netvaerket og laeser inverteren - tallene er
-     * friske. Halen om at de staar stille var derfor det eneste
-     * forkerte paa siden.
+     * Aldrig nogen tal er ogsaa "staar stille". En skaerm der lige er
+     * startet og ikke har naaet inverteren, viser nuller - og de
+     * nuller staar stille.
      */
-    case ZS_FEJL_INGEN_STROEM:
-    case ZS_FEJL_INVERTER_SOVER:
-    case ZS_FEJL_INGEN:           break;
-    /* Her er de frosne, og DET er det kunden skal vide. */
-    case ZS_FEJL_WIFI:
-    case ZS_FEJL_INVERTER:        return true;
+    if (sidst_gode_ms <= 0) {
+        return true;
     }
-    return false;
+    return (nu_ms - sidst_gode_ms) > ZS_STALE_AFTER_MS;
 }
 
 const char *zs_fejl_navn(zs_fejl_type_t t)

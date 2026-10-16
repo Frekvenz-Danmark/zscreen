@@ -319,15 +319,26 @@ typedef enum {
 zs_fejl_ikon_t zs_fejl_ikon(zs_fejl_type_t t);
 
 /*
- * Betyder fejlen at tallene paa forsiden er FROSNE.
+ * Staar tallene paa forsiden stille? MAALT, ikke udledt af fejltypen.
  *
- * Fejlsiden saetter ellers "Tallene paa forsiden er fra kl. X og staar
- * stille." paa hver fejl, og paa stroemsvigt er det ikke sandt: skaermen
- * koerer videre paa batteriet, laeser inverteren og viser friske tal.
- * Den ene saetning er altsaa det eneste forkerte paa hele siden - og
- * den stod der, fordi halen var skrevet ind ÉT sted for alle.
+ * Fejlsiden saetter "Tallene paa forsiden er fra kl. X og staar
+ * stille." under forklaringen, og den saetning skal vaere sand.
+ *
+ * FOERSTE UDGAVE SPURGTE FEJLTYPEN, og det var forkert i det
+ * almindelige tilfaelde. Stroemsvigt alene fryser ikke tallene -
+ * skaermen koerer paa batteriet, er paa nettet og laeser inverteren -
+ * saa typen ZS_FEJL_INGEN_STROEM svarede "nej". Men et stroemsvigt i
+ * huset tager ogsaa routeren, og saa ER tallene frosne. Stroemfejlen
+ * vinder forrangen, saa siden tiede om det ene sande om dataen netop
+ * naar det gjaldt.
+ *
+ * Nu spoerges uret: hvornaar kom der sidst friske tal. Det svar er
+ * rigtigt uanset hvilken fejl der tilfaeldigvis vandt.
+ *
+ * sidst_gode_ms er 0 hvis der aldrig er kommet tal - og det er
+ * "staar stille", ikke "friske".
  */
-bool zs_fejl_tal_staar_stille(zs_fejl_type_t t);
+bool zs_fejl_tal_staar_stille(int64_t nu_ms, int64_t sidst_gode_ms);
 
 /* Til loggen. Kort og paa dansk. */
 const char *zs_fejl_navn(zs_fejl_type_t t);

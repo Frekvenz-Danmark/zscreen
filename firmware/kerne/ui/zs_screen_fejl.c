@@ -13,6 +13,10 @@
 
 static const char *TAG = "fejl";
 
+/* Staar forsidens tal stille? App'en maaler det, se
+ * zs_fejl_tal_staar_stille. Fladen gemmer svaret og gaetter ikke. */
+static bool s_stille;
+
 static zs_page_t    s_side;
 static lv_obj_t    *s_over;      /* den store linje                    */
 static lv_obj_t    *s_under;     /* forklaringen                       */
@@ -263,7 +267,7 @@ static void skriv_teksten(void)
      *
      * Nu spoerger vi fejlen selv, se zs_fejl_tal_staar_stille.
      */
-    if (s_tid[0] != '\0' && zs_fejl_tal_staar_stille(s_type)) {
+    if (s_tid[0] != '\0' && s_stille) {
         char t[200];
         snprintf(t, sizeof(t),
                  "%s Tallene på forsiden er fra kl. %s og står stille.",
@@ -559,7 +563,8 @@ lv_obj_t *zs_fejl_page_root(void)
     return s_side.root;
 }
 
-void zs_fejl_page_update(zs_fejl_type_t type, const char *tid, bool blink)
+void zs_fejl_page_update(zs_fejl_type_t type, const char *tid, bool blink,
+                         bool tal_staar_stille)
 {
     if (s_over == NULL) {
         return;                 /* ikke bygget endnu */
@@ -567,6 +572,16 @@ void zs_fejl_page_update(zs_fejl_type_t type, const char *tid, bool blink)
 
     s_type  = type;
     s_blink = blink;
+    /*
+     * FLADEN FAAR SVARET, den regner det ikke ud.
+     *
+     * Her stod zs_fejl_tal_staar_stille(s_type), altsaa udledt af
+     * hvilken fejl der vandt forrangen. Det var forkert i det
+     * almindelige tilfaelde: et stroemsvigt i huset tager ogsaa
+     * routeren, stroemfejlen vinder, og saa tiede siden om at
+     * tallene stod stille - netop naar de gjorde.
+     */
+    s_stille = tal_staar_stille;
     snprintf(s_tid, sizeof(s_tid), "%s", tid != NULL ? tid : "");
 
     skriv_teksten();

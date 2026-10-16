@@ -191,7 +191,11 @@ void zs_selftest_run(void)
                     ZS_FEJL_WIFI, ZS_FEJL_INVERTER, ZS_FEJL_INGEN_STROEM,
                 };
                 const unsigned antal = sizeof(slags) / sizeof(slags[0]);
-                zs_ui_set_fejl(slags[(unsigned)runde % antal], "14:05", true);
+                /* Sidste true: selvtesten vil SE halen om at tallene
+                 * staar stille, for den er en del af siden der skal
+                 * kunne tegnes. */
+                zs_ui_set_fejl(slags[(unsigned)runde % antal], "14:05",
+                               true, true);
             }
             zs_ui_show(ALLE[i]);
             /* Lang nok til at LVGL naar at tegne siden faerdig. Sker
