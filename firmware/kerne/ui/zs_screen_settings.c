@@ -1099,8 +1099,12 @@ void zs_details_update(const zs_fr_t *fr, const char *own_ip, int rssi,
 
     /* Lidt luft i bunden, saa den sidste linje ikke klistrer til kanten
      * naar man har rullet helt ned. */
-    lv_obj_t *pad = lv_obj_create(s_det_col);
-    lv_obj_remove_style_all(pad);
+    /* zs_box_create og ikke lv_obj_create: en ren beholder i LVGL 8
+     * er TRYKBAR som standard, og den her er 10 x 24 - altsaa en
+     * tryk-flade under de 44 px, uden en handler bag. Maalebaandet
+     * melder den, og fund man skal laere at se forbi, er det der
+     * faar folk til at holde op med at laese resten. */
+    lv_obj_t *pad = zs_box_create(s_det_col);
     lv_obj_set_size(pad, ZS_G_SK_WIDTH(10), ZS_G_SK_HEIGHT(24));
 }
 

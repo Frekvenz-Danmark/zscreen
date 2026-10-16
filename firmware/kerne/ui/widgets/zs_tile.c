@@ -49,11 +49,9 @@ void zs_tile_create(zs_tile_t *t, lv_obj_t *parent,
     lv_obj_align(t->head_icon, LV_ALIGN_TOP_RIGHT, 0, ZS_CARD_HEAD_Y);
 
     /* ── stort tal og enhed ── */
-    t->value_box = lv_obj_create(t->card);
-    lv_obj_remove_style_all(t->value_box);
+    t->value_box = zs_box_create(t->card);
     lv_obj_set_size(t->value_box, ZS_CARD_IN_WIDTH, ZS_CARD_VALUE_HEIGHT);
     lv_obj_align(t->value_box, LV_ALIGN_TOP_LEFT, 0, ZS_CARD_VALUE_Y);
-    lv_obj_clear_flag(t->value_box, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scrollbar_mode(t->value_box, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_flex_flow(t->value_box, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(t->value_box, LV_FLEX_ALIGN_START,

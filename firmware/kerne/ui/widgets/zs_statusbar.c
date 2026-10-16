@@ -21,11 +21,9 @@ void zs_statusbar_create(zs_statusbar_t *sb, lv_obj_t *parent,
 {
     memset(sb, 0, sizeof(*sb));
 
-    sb->bar = lv_obj_create(parent);
-    lv_obj_remove_style_all(sb->bar);
+    sb->bar = zs_box_create(parent);
     lv_obj_set_size(sb->bar, ZS_SCR_WIDTH, ZS_BAR_HEIGHT);
     lv_obj_set_pos(sb->bar, 0, 0);
-    lv_obj_clear_flag(sb->bar, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scrollbar_mode(sb->bar, LV_SCROLLBAR_MODE_OFF);
 
     /* Z-maerket, lodret midt i linjen. Maalene staar i zs_layout.h,

@@ -450,6 +450,35 @@ lv_obj_t *zs_btn_secondary_create(lv_obj_t *parent, const char *text)
  * De tre linjer stod spredt ud over syvogtyve steder i fladen, og det
  * ene sted de IKKE stod, var det der blev maalt. Nu staar de ét sted.
  */
+/*
+ * HVILKE BEHOLDERE DEN ER TIL - OG HVILKE DEN IKKE ER.
+ *
+ * Den er til PYNT: en kasse der kun er der for at holde noget andet
+ * paa plads. Den rydder CLICKABLE, og en ren lv_obj er trykbar som
+ * standard i LVGL 8, saa uden den staar der falske tryk-flader som
+ * maalebaandet melder - og fund man skal laere at se forbi, er det
+ * der faar folk til at holde op med at laese resten.
+ *
+ * MAALT 17. oktober 2026: 16 rene beholdere var stadig trykbare uden
+ * en handler bag. Fem af dem er pynt og er lagt om: afstandsklodsen i
+ * Detaljer (10 x 24, altsaa under de 44 px), priskortet og dets
+ * soejler, kortets vaerdikasse og statuslinjens bjaelke. Ingen af dem
+ * har nogensinde haft en handler - efterset i hele filen, ikke kun
+ * naermeste linjer.
+ *
+ * DE ELLEVE ANDRE ER MED VILJE IKKE LAGT OM, og det er ikke dovenskab:
+ *
+ *   zs_page_create's content RULLER, og den her rydder SCROLLABLE.
+ *   root, head og footer baerer sider og kan faa handlere.
+ *   raekkerne i zs_theme og zs_screen_settings FAAR en handler, men
+ *   laengere ned i filen end et vindue naar.
+ *   nulstillingsdialogen skal sluge tryk, saa man ikke rammer det
+ *   der ligger under den.
+ *
+ * Saa taellingen "7 af 29" siger ikke noget i sig selv: de 29 er ikke
+ * den samme slags. Spoerg om beholderen har en handler og om den skal
+ * kunne rulle - er svaret nej til begge, hoerer den her.
+ */
 lv_obj_t *zs_box_create(lv_obj_t *parent)
 {
     lv_obj_t *o = lv_obj_create(parent);

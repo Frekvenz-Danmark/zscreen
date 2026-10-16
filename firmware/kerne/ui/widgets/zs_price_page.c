@@ -115,18 +115,16 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
     lv_obj_set_pos(p->word, ZS_EDGE, Y_WORD);
 
     /* ── soejlerne ── */
-    p->chart = lv_obj_create(parent);
-    lv_obj_remove_style_all(p->chart);
+    /* zs_box_create rydder ogsaa CLICKABLE og SCROLLABLE - se noten
+     * ved den. Hverken kortet eller soejlerne har en handler. */
+    p->chart = zs_box_create(parent);
     lv_obj_set_size(p->chart, ZS_SCR_WIDTH, CHART_H);
     lv_obj_set_pos(p->chart, 0, Y_CHART);
-    lv_obj_clear_flag(p->chart, LV_OBJ_FLAG_SCROLLABLE);
 
     for (int i = 0; i < ZS_PRICE_BARS; i++) {
-        p->bar[i] = lv_obj_create(p->chart);
-        lv_obj_remove_style_all(p->bar[i]);
+        p->bar[i] = zs_box_create(p->chart);
         lv_obj_set_style_radius(p->bar[i], 2, 0);
         lv_obj_set_style_bg_opa(p->bar[i], LV_OPA_COVER, 0);
-        lv_obj_clear_flag(p->bar[i], LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_add_flag(p->bar[i], LV_OBJ_FLAG_HIDDEN);
     }
 
