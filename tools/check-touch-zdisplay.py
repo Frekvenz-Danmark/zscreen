@@ -84,6 +84,18 @@ def main():
         # fejl.
         ("at en frigjort pegepind ikke gaar ud af doeren",
          "*out_touch = NULL;"),
+        # Og DEN RIGTIGE ROD bag den. Foerste rettelse nulstillede kun
+        # kalderens kopi; den globale pegepind stod stadig og pegede
+        # paa frigivet hukommelse resten af enhedens levetid.
+        ("at ogsaa den globale pegepind nulstilles",
+         "esp_lcd_touch_gsl3670 = NULL;"),
+        ("at den globale ikke kan naas udefra",
+         "static esp_lcd_touch_handle_t esp_lcd_touch_gsl3670;"),
+        # En funktion der FAAR et haandtag, skal bruge det. De to
+        # hjaelpere laeste den globale i stedet, saa de kunne roere
+        # frigivet hukommelse selv om de havde et gyldigt tp i haanden.
+        ("at hjaelperne bruger deres eget tp",
+         "1 << tp->config.rst_gpio_num"),
     ) if v not in vores]
     if mangler:
         for m in mangler:
@@ -123,7 +135,7 @@ def main():
                   f"ejerskabet af i2c-haandtaget ikke paa plads")
             return 1
 
-    print(f"  {GROEN} OK{SLUT} kopien er rettet paa syv punkter, Seeeds "
+    print(f"  {GROEN} OK{SLUT} kopien er rettet paa ti punkter, Seeeds "
           f"original er uaendret siden vi forkede, og vi ejer selv "
           f"touchens i2c-haandtag.")
     return 0

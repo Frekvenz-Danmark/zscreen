@@ -170,7 +170,13 @@ unsigned int gsl_config_data_id[] =
 
 // static TG_STATE_E tpc_gesture_id = TG_UNKNOWN_STATE;
 static XY_DATA_T XY_Coordinate[MAX_FINGER_NUM]={0};
-esp_lcd_touch_handle_t esp_lcd_touch_gsl3670;
+/*
+ * STATIC. Headeren erklaerer den ikke, og ingen anden fil laeser den -
+ * efterset. Uden static er den et navn hele linkeren kan naa, og saa
+ * kan nogen komme til at bruge den efter en mislykket opstart, hvor
+ * den peger paa frigivet hukommelse.
+ */
+static esp_lcd_touch_handle_t esp_lcd_touch_gsl3670;
 
 static uint8_t Finger_num = 0;
 static TP_STATE_E tp_event = TP_PEN_NONE;
@@ -293,6 +299,20 @@ err:
          * kommende kalder skulle huske det samme.
          */
         *out_touch = NULL;
+        /*
+         * OG DEN GLOBALE MED.
+         *
+         * _del frigav den, og pegepinden stod der stadig. lv_port.c
+         * proever tre gange; fejlede alle tre, laa der en global
+         * pegepind til frigivet hukommelse resten af enhedens levetid.
+         *
+         * Det er grunden til at de to hjaelpere nedenfor nu bruger
+         * deres eget tp og ikke den her: en funktion der FAAR et
+         * haandtag, skal bruge det. Men nulstillingen skal ogsaa staa
+         * her, for der er ingen garanti for at ingen nogensinde laeser
+         * den igen.
+         */
+        esp_lcd_touch_gsl3670 = NULL;
         return ret;
     }
 
@@ -543,9 +563,9 @@ static esp_err_t touch_gsl3670_reset(esp_lcd_touch_handle_t tp)
     uint8_t addr;
     assert(tp != NULL);
 
-    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, 1 << esp_lcd_touch_gsl3670->config.rst_gpio_num, 0), TAG, "GPIO set level error!");
+    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, 1 << tp->config.rst_gpio_num, 0), TAG, "GPIO set level error!");
     vTaskDelay(pdMS_TO_TICKS(20));
-    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, 1 << esp_lcd_touch_gsl3670->config.rst_gpio_num, 1), TAG, "GPIO set level error!");
+    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, 1 << tp->config.rst_gpio_num, 1), TAG, "GPIO set level error!");
     vTaskDelay(pdMS_TO_TICKS(20));
 
     // addr = 0xe0;
@@ -704,9 +724,9 @@ static esp_err_t esp_lcd_touch_gsl3670_clear_reg(esp_lcd_touch_handle_t tp)
     // addr = 0xe0;
     // wrbuf[0] = 0x88;
     // touch_gsl3670_i2c_write(tp,addr,wrbuf,1);
-    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, 1 << esp_lcd_touch_gsl3670->config.rst_gpio_num, 0), TAG, "GPIO set level error!");
+    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, 1 << tp->config.rst_gpio_num, 0), TAG, "GPIO set level error!");
     vTaskDelay(pdMS_TO_TICKS(20));
-    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, 1 << esp_lcd_touch_gsl3670->config.rst_gpio_num, 1), TAG, "GPIO set level error!");
+    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, 1 << tp->config.rst_gpio_num, 1), TAG, "GPIO set level error!");
     vTaskDelay(pdMS_TO_TICKS(20));
     
     addr = 0x88;
