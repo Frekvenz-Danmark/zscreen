@@ -82,16 +82,16 @@ def tjek_praefikser(release_tekst):
         ud.append(f"to produkter leder efter det SAMME navn: "
                   f"{sorted(praefikser)}. Saa kan en skaerm hente den "
                   f"andens firmware")
-    for pre in praefikser:
-        if pre in release_tekst:
-            continue
-        if pre in IKKE_UDGIVET_ENDNU:
-            print(f"  {GROEN}note{SLUT} {pre}* bliver ikke udgivet endnu: "
-                  f"{IKKE_UDGIVET_ENDNU[pre]}")
-            continue
-        ud.append(f"en skaerm leder efter {pre}*.bin, men release.yml "
-                  f"laegger ikke en fil op med det navn. Saa henter den "
-                  f"ingenting og proever igen hver halve time, for evigt")
+    # HER STOD EN LOEKKE DER SPURGTE "staar praefikset nogen steder i
+    # release.yml". Den kunne ikke fejle: "zscreen-" staar i
+    # secure/zscreen-signing.pem, saa den var tilfreds uanset om der
+    # blev udgivet en fil med det navn.
+    #
+    # Det rigtige spoergsmaal - hedder filen i "files:" det samme som
+    # skaermen leder efter - bliver stillet ÉT sted, i
+    # tjek_filnavnene. To funktioner der svarer paa det samme, hvor den
+    # ene ikke kan fejle, er vaerre end én: en fremtidig aendring bliver
+    # meldt af den ene og vinket igennem af den anden.
     return ud
 
 
@@ -111,8 +111,19 @@ FOERST = "zscreen-"
 
 
 def jobbene(tekst):
-    """Deler release.yml op i job. Tekst, ikke YAML - stdlib kun."""
+    """Deler release.yml op i job. Tekst, ikke YAML - stdlib kun.
+
+    KUN DET DER STAAR UNDER "jobs:". Moensteret rammer en noegle med to
+    mellemrum foran, og det goer "push:" under "on:" ogsaa. Foerste
+    udgave gav derfor et spoegelsesjob "push", hvis krop var filens
+    forord. Det gik godt alene fordi det forord ikke indeholder en
+    "files:"-linje - altsaa et held, ikke en regel.
+    """
     ud = {}
+    m = re.search(r"^jobs:\s*$", tekst, re.M)
+    if m is None:
+        return ud
+    tekst = tekst[m.end():]
     traef = list(JOB.finditer(tekst))
     for i, m in enumerate(traef):
         slut = traef[i + 1].start() if i + 1 < len(traef) else len(tekst)
@@ -168,12 +179,62 @@ def tjek_raekkefoelgen(tekst):
     return ud
 
 
+def tjek_container_vaerktoej(tekst):
+    """Et job i en container maa ikke bruge runnerens vaerktoej.
+
+    HVORFOR DEN FINDES.
+
+    Kontrollen af udgivelsens raekkefoelge laa foerst som sidste trin i
+    release-zdisplay, som koerer i container: espressif/idf:v5.4.2. Den
+    kaldte gh.
+
+    Et container-job faar sit vaerktoej fra BILLEDET og ikke fra
+    runneren. gh, jq og aws ligger paa runneren. Trinnet ville derfor
+    doe paa "gh: command not found" ved HVER udgivelse - efter at begge
+    binaere var lagt op - og operatoeren ville se en shell-fejl i
+    stedet for den besked der var skrevet til ham. Vagten der skulle
+    bevise raekkefoelgen, maalte ingenting.
+
+    Det er ikke en byggefejl, og intet i repoet sagde fra. Det her
+    goer.
+    """
+    ud = []
+    # Vaerktoej der ligger paa runneren og IKKE i espressif/idf.
+    RUNNER_VAERKTOEJ = ("gh", "jq", "aws", "docker")
+    for navn, krop in jobbene(tekst).items():
+        # KOMMENTARER TAELLER IKKE MED. Foerste udgave af vagten faldt
+        # paa noten der forklarer hvorfor gh ikke maa staa i en
+        # container - ordet "gh" stod i prosaen. Og en kommentarblok
+        # FOER et job tilregnes det forrige job, saa noten til det ene
+        # job landede i kroppen af det andet.
+        krop = "\n".join(l for l in krop.splitlines()
+                         if not l.lstrip().startswith("#"))
+        if not re.search(r"^\s+container:", krop, re.M):
+            continue
+        for v in RUNNER_VAERKTOEJ:
+            # Kun som kommando i starten af et ord, saa "github" og
+            # "jquery" ikke taeller med.
+            if re.search(rf"(^|[|&;(\s]){v}\s", krop):
+                ud.append(
+                    f"jobbet {navn} koerer i en container OG bruger "
+                    f"{v}. Det vaerktoej ligger paa runneren, ikke i "
+                    f"billedet, saa trinnet doer paa "
+                    f"\"{v}: command not found\". Laeg trinnet i et "
+                    f"eget job uden container, eller installer {v} i "
+                    f"trinnet")
+    return ud
+
+
 def tjek_filnavnene(tekst, praefikser):
     """Hedder filen i 'files:' det samme som skaermen leder efter."""
     ud = []
     udgivet = set(re.findall(r"^\s*files:\s*(\S+)", tekst, re.M))
     for pre in praefikser:
         if pre in IKKE_UDGIVET_ENDNU:
+            # Noten stod foer i tjek_praefikser. Den foelger med hertil,
+            # fordi det er HER spoergsmaalet bliver stillet.
+            print(f"  {GROEN}note{SLUT} {pre}* bliver ikke udgivet endnu: "
+                  f"{IKKE_UDGIVET_ENDNU[pre]}")
             continue
         if not any(f.startswith(pre) for f in udgivet):
             ud.append(f"release.yml udgiver {sorted(udgivet)}, og ingen af "
@@ -200,6 +261,7 @@ def main():
     rel = (ROD / ".github/workflows/release.yml").read_text(encoding="utf-8")
     fejl = tjek_praefikser(rel)
     fejl += tjek_raekkefoelgen(rel)
+    fejl += tjek_container_vaerktoej(rel)
     fejl += tjek_filnavnene(
         rel, PRAEFIKS.findall(
             (ROD / "firmware/kerne/zs_config.h").read_text(encoding="utf-8")))

@@ -218,30 +218,49 @@ jobs:
         with:
           files: zdisplay-*.bin
 
-      # ------------------------------------------------------------
-      # RAEKKEFOELGEN EFTERPROEVES, DEN ANTAGES IKKE.
-      #
-      # Skaerme paa v0.27.0 og aeldre tager den FOERSTE .bin i
-      # udgivelsen, uanset hvad den hedder - se zs_ota.c. "needs:
-      # release" goer at zScreen laegges op foerst, og hele
-      # beskyttelsen hviler derfor paa at GitHub giver filerne
-      # tilbage i den raekkefoelge de blev lagt op.
-      #
-      # DET STAAR INGEN STEDER AT DE GOER. Web-fladen sorterer efter
-      # navn, og "zdisplay-" kommer foer "zscreen-" i alfabetet.
-      # Skiftede API'et til det, ville hver gammel zScreen i marken
-      # hente ESP32-P4-firmware og afvise den for evigt - praecis det
-      # needs skulle forhindre.
-      #
-      # Derfor spoerges API'et bagefter. Er den foerste .bin ikke
-      # zScreens, stopper jobbet og siger hvad der skal goeres. Det er
-      # det eneste vi KAN: raekkefoelgen kan ikke saettes, kun maales.
+  # ------------------------------------------------------------------
+  # RAEKKEFOELGEN EFTERPROEVES, DEN ANTAGES IKKE.
+  #
+  # Skaerme paa v0.27.0 og aeldre tager den FOERSTE .bin i udgivelsen,
+  # uanset hvad den hedder - se zs_ota.c. "needs" laegger zScreen op
+  # foerst, og hele beskyttelsen hviler derfor paa at GitHub giver
+  # filerne tilbage i den raekkefoelge de blev lagt op.
+  #
+  # DET STAAR INGEN STEDER AT DE GOER. Web-fladen sorterer efter navn,
+  # og "zdisplay-" kommer foer "zscreen-" i alfabetet. Skiftede API'et
+  # til det, ville hver gammel zScreen i marken hente
+  # ESP32-P4-firmware og afvise den for evigt - praecis det needs
+  # skulle forhindre.
+  #
+  # DET HER ER ET EGET JOB, OG DET ER HELE POINTEN.
+  #
+  # Foerste udgave laa som sidste trin i release-zdisplay, som koerer i
+  # container: espressif/idf:v5.4.2. Et container-job faar sit
+  # vaerktoej fra BILLEDET og ikke fra runneren - og gh ligger paa
+  # runneren. Trinnet ville derfor doe paa "gh: command not found" ved
+  # HVER udgivelse, efter at begge binaere var lagt op, og operatoeren
+  # ville se en shell-fejl i stedet for beskeden nedenfor. Vagten der
+  # skulle bevise raekkefoelgen, maalte ingenting.
+  #
+  # Og jobbet hoerer alligevel ikke i en bygning: det handler om
+  # UDGIVELSEN, ikke om at oversaette noget. Uden container, paa
+  # runneren, hvor gh findes.
+  efterproev-raekkefoelgen:
+    needs: [release, release-zdisplay]
+    runs-on: ubuntu-24.04
+    steps:
       - name: Efterprøv at zScreen ligger først i udgivelsen
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          command -v gh >/dev/null || {
+            echo "::error::gh mangler paa runneren. Uden den kan"
+            echo "::error::raekkefoelgen ikke efterproeves, og saa ved vi"
+            echo "::error::ikke om gamle skaerme henter den rigtige fil."
+            exit 1
+          }
           FOERSTE="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" \
                       --jq '[.assets[].name | select(endswith(".bin"))][0]')"
           echo "Første .bin i udgivelsen: ${FOERSTE:-ingen}"
