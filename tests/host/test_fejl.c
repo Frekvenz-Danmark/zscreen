@@ -347,11 +347,17 @@ void test_fejl(void)
     CHECK("og en forklaring",
           zs_fejl_forklaring(ZS_FEJL_INGEN_STROEM)[0] != '\0');
     /*
-     * MEN INGEN KNAP. Der er ingenting skaermen kan goere - kablet skal
-     * i. En knap uden handling er vaerre end ingen knap.
+     * OG EN KNAP. HER STOD DET MODSATTE.
+     *
+     * Begrundelsen var "der er ingenting skaermen kan goere - kablet
+     * skal i", og saa langt er den rigtig. Men siden er alvorlig, saa
+     * appen tvinger den frem og holder den der, og den har hverken
+     * tilbagepil eller tandhjul. Uden knap var hele fladen laast saa
+     * laenge batteriet holdt, og Batteri-alarm-kontakten - det ene
+     * sted kunden kan tie den - var ikke til at naa.
      */
-    CHECK("og INGEN knap, for der er ingenting at trykke paa",
-          zs_fejl_knap(ZS_FEJL_INGEN_STROEM)[0] == '\0');
+    CHECK("og en knap, for siden er ellers en blindgyde",
+          zs_fejl_knap(ZS_FEJL_INGEN_STROEM)[0] != '\0');
 
     /*
      * ── BATTERI-ALARMEN KAN SLAAS FRA, OG KUN DEN ──
@@ -418,6 +424,68 @@ void test_fejl(void)
     CHECK("stroem OG wifi vaek med alarmen fra: wifi melder",
           ud.type == ZS_FEJL_WIFI);
     CHECK("og den blinker - kontakten er kun batteriets", ud.blink);
+
+    /*
+     * ── OG EN SOVENDE INVERTER MAA IKKE SKJULE DET ──
+     *
+     * Maalt paa et rigtigt anlaeg 17. oktober 2026: Fronius meldte
+     * "Sleeping" en oktoberaften. Med alarmen slaaet fra faldt
+     * stroemsvigtet igennem til inverter-grenen og blev
+     * INVERTER_SOVER - som ikke er alvorlig, saa zs_app sendte
+     * skaermen tilbage til forsiden. Stroemsvigtet forsvandt helt.
+     */
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    ind.alarm_fra = true;
+    ind.inverter_tilstand = 2;        /* sover */
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ind.inverter_svarer = false;
+    ind.paa_stroem = false;
+    (void)zs_fejl_tik(&v, &ind, 1000);
+    ud = zs_fejl_tik(&v, &ind, 10 * MIN_MS);
+    CHECK("stroemsvigt med alarmen fra OG en sovende inverter: "
+          "stroemmen melder", ud.type == ZS_FEJL_INGEN_STROEM);
+    CHECK("den blinker ikke - kontakten er slaaet fra", !ud.blink);
+    CHECK("men siden ER alvorlig, saa den bliver vist",
+          zs_fejl_alvorlig(ud.type));
+
+    /*
+     * ── EN NY FEJL MIDT I EN ALARM SKAL OGSAA BIPPE ──
+     *
+     * Bip-taelleren blev kun nulstillet paa en kant fra ikke-alarm til
+     * alarm. Doer inverteren foerst, er alle bippene brugt en time
+     * senere - og saa lod summeren IKKE en lyd da stroemmen rev sig
+     * loes, fordi blinket havde staaet uafbrudt hele vejen.
+     */
+    ZS_SUITE("En ny fejl midt i en alarm");
+
+    zs_fejl_init(&v);
+    ind = alt_godt();
+    (void)zs_fejl_tik(&v, &ind, 0);
+    ind.inverter_svarer = false;
+    int64_t t_ms = 1000;
+    (void)zs_fejl_tik(&v, &ind, t_ms);
+
+    int bip = 0;
+    for (int k = 0; k < 240; k++) {
+        t_ms += MIN_MS;
+        ud = zs_fejl_tik(&v, &ind, t_ms);
+        if (ud.lyd) {
+            bip++;
+        }
+    }
+    CHECK("inverterfejlen bippede", bip > 0);
+    CHECK("og den er loebet toer for bip", !ud.lyd);
+    CHECK("og den melder stadig inverterfejl", ud.type == ZS_FEJL_INVERTER);
+
+    ind.paa_stroem = false;
+    t_ms += 1000;
+    (void)zs_fejl_tik(&v, &ind, t_ms);
+    t_ms += ZS_FEJL_STROEM_GRAENSE_MS;
+    ud = zs_fejl_tik(&v, &ind, t_ms);
+    CHECK("stroemsvigtet overtager siden", ud.type == ZS_FEJL_INGEN_STROEM);
+    CHECK("og summeren lyder for DEN, selv om alarmen var loebet toer",
+          ud.lyd);
 
     /* Med alarmen SLAAET TIL vinder stroemmen stadig, som foer. */
     zs_fejl_init(&v);
@@ -925,13 +993,16 @@ void test_fejl_tekster(void)
         { ZS_FEJL_WIFI,         true,  true  },
         { ZS_FEJL_INVERTER,     true,  true  },
         /*
-         * Stroemsvigt har hverken titel eller knap, og begge er valg.
-         * Overskriften siger det hele i to linjer - hvad der er sket,
+         * Stroemsvigt har ingen titel, og det er et valg:
+         * overskriften siger det hele i to linjer - hvad der er sket,
          * og hvad man gOEr - saa en titel i sidehovedet ville vaere
-         * det samme sagt en gang mere. Og der er ingenting at trykke
-         * paa: kablet skal i.
+         * det samme sagt en gang mere.
+         *
+         * Men den HAR en knap. Den foerer til Indstillinger, for
+         * siden er alvorlig og har ingen anden vej ud. Se noten i
+         * zs_fejl_knap.
          */
-        { ZS_FEJL_INGEN_STROEM, false, false },
+        { ZS_FEJL_INGEN_STROEM, false, true  },
     };
 
     for (unsigned i = 0; i < sizeof(alle) / sizeof(alle[0]); i++) {

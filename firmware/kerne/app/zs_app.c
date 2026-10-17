@@ -976,6 +976,9 @@ static void brug_prisomraade(const char *z)
 static zs_fejl_type_t s_fejl_sendt = ZS_FEJL_INGEN;
 static bool           s_fejl_sendt_blink;
 static char           s_fejl_sendt_tid[8];
+/* Og om tallene stod stille DA siden sidst blev tegnet. Uden den var
+ * det fjerde argument laast ved fejlens foerste tik - se porten. */
+static bool           s_fejl_sendt_stille;
 static bool           s_fejl_aldrig_sendt = true;
 
 /*
@@ -1141,6 +1144,14 @@ static void fejl_tik(int64_t nu_ms)
      * ene gang det kan ske, er paa en skaerm uden netvaerk, hvor der
      * alligevel ikke er et ur at regne af.
      */
+    /* Ny fejltype, nyt tidspunkt. Stod der "fra kl." fra den forrige
+     * fejl, ville en stroemsvigt-side der har staaet i tre timer vise
+     * et klokkeslaet tre timer gammelt, naar den blev afloest af en
+     * wifi-fejl hvor den sidste gode maaling var sekunder gammel. */
+    if (!s_fejl_aldrig_sendt && ud.type != s_fejl_sendt) {
+        s_fejl_sendt_tid[0] = '\0';
+    }
+
     bool fik_tid = false;
     if (s_fejl_sendt_tid[0] == '\0') {
         sidste_maaling_tid(s_fejl_sendt_tid, sizeof(s_fejl_sendt_tid));
@@ -1159,8 +1170,21 @@ static void fejl_tik(int64_t nu_ms)
      * saettes forfra bliver tegnet om hver gang, ogsaa med det samme
      * indhold.
      */
+    /*
+     * STAAR TALLENE STILLE? Regnet FOER porten, saa den kan spoerges.
+     *
+     * Her blev den regnet nede i kaldet, og porten kendte den ikke.
+     * ZS_FEJL_INGEN_STROEM kan holde siden i timer med friske tal -
+     * skaermen koerer paa batteri og er stadig paa nettet - saa siden
+     * blev tegnet med "tallene er friske", og naar inverteren holdt op
+     * med at svare senere paa aftenen, aabnede porten aldrig igen:
+     * type og blink var uaendrede. Siden blev ved med at paastaa at
+     * tallene var levende, mens forsiden viste det modsatte.
+     */
+    const bool stille = zs_fejl_tal_staar_stille(nu_ms, s_last_good_ms);
+
     if (s_fejl_aldrig_sendt || fik_tid || ud.type != s_fejl_sendt
-        || ud.blink != s_fejl_sendt_blink) {
+        || ud.blink != s_fejl_sendt_blink || stille != s_fejl_sendt_stille) {
 
         if (ud.type != s_fejl_sendt) {
             ESP_LOGW(TAG, "fejl: %s", zs_fejl_navn(ud.type));
@@ -1168,6 +1192,7 @@ static void fejl_tik(int64_t nu_ms)
         s_fejl_aldrig_sendt = false;
         s_fejl_sendt = ud.type;
         s_fejl_sendt_blink = ud.blink;
+        s_fejl_sendt_stille = stille;
         zs_ui_set_fejl(ud.type,
                        s_fejl_sendt_tid[0] != '\0' ? s_fejl_sendt_tid : NULL,
                        ud.blink,
@@ -1178,7 +1203,7 @@ static void fejl_tik(int64_t nu_ms)
                         * meningen: de to maa ikke kunne blive uenige
                         * om det samme tal.
                         */
-                       zs_fejl_tal_staar_stille(nu_ms, s_last_good_ms));
+                       stille);
     }
 
     if (zs_ui_current() == ZS_SCREEN_HOME) {

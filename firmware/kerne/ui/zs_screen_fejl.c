@@ -377,6 +377,17 @@ static void on_fix(lv_event_t *e)
      * Oprindelsen er et argument til de to indgange herunder, saa den
      * ikke kan glemmes i den ene gren. Det var den foer.
      */
+    if (s_type == ZS_FEJL_INGEN_STROEM) {
+        /*
+         * Stroemmen kan skaermen ikke goere noget ved. Men hun skal
+         * kunne komme til Batteri-alarm og tie den, og det er den
+         * eneste vej ud af den her side - se zs_fejl_knap.
+         */
+        ESP_LOGI(TAG, "kunden trykkede paa knappen: indstillinger");
+        zs_ui_show(ZS_SCREEN_SETTINGS);
+        return;
+    }
+
     if (s_type == ZS_FEJL_WIFI) {
         /*
          * Samme kommando som "Netvaerk" i Indstillinger bruger. Appen

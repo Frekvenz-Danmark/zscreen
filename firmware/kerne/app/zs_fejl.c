@@ -176,6 +176,16 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
         && (v->inv_vaek_ms >= ZS_FEJL_INVERTER_GRAENSE_MS);
 
     /*
+     * SOVER INVERTEREN BARE?
+     *
+     * Regnet ÉT sted, fordi to steder bliver uenige. Den bruges baade
+     * til rangordenen nedenfor og til hvilken af de to inverterfejl det
+     * er.
+     */
+    bool inv_sover = sover(v->sidste_tilstand)
+        && (v->inv_vaek_ms < ZS_FEJL_SOVER_MAKS_MS);
+
+    /*
      * ALARMEN SLAAET FRA NEDPRIORITERER STROEMFEJLEN - DEN TIER IKKE
      * DE ANDRE.
      *
@@ -219,6 +229,27 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
          * goere noget ved.
          */
         ud.type = ZS_FEJL_WIFI;
+    } else if (stroem_fejl && inv_sover) {
+        /*
+         * EN SOVENDE INVERTER ER IKKE "NOGET GALT".
+         *
+         * Maalt paa et rigtigt anlaeg 17. oktober 2026: Fronius meldte
+         * "Sleeping" en oktoberaften, som den skal. Havde kunden
+         * samtidig slaaet Batteri-alarm fra, faldt stroemsvigtet
+         * igennem til inverter-grenen nedenfor og blev
+         * ZS_FEJL_INVERTER_SOVER. Den er ikke alvorlig, saa zs_app
+         * satte har_side = false og sendte skaermen TILBAGE til
+         * forsiden. Stroemsvigtet forsvandt altsaa helt: ingen side,
+         * intet blink, ingen lyd, mens batteriet blev draenet.
+         *
+         * Alarmen slaaet fra skal NEDPRIORITERE stroemfejlen, ikke
+         * skjule den - det staar i noten ved stroem_foerst ovenfor, og
+         * Avanceret-siden lover det med ord: "Beskeden bliver vist
+         * uanset hvad." Solen der er gaaet ned er ikke "noget andet
+         * galt", saa den viger for stroemmen. En inverter der er
+         * holdt op med at svare, gaar stadig foran.
+         */
+        ud.type = ZS_FEJL_INGEN_STROEM;
     } else if (inv_fejl) {
         /*
          * SOEVN HOLDER IKKE I AL EVIGHED.
@@ -230,9 +261,7 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
          *
          * Efter ZS_FEJL_SOVER_MAKS_MS er det ikke solen laengere.
          */
-        bool for_laenge = (v->inv_vaek_ms >= ZS_FEJL_SOVER_MAKS_MS);
-        ud.type = (sover(v->sidste_tilstand) && !for_laenge)
-                ? ZS_FEJL_INVERTER_SOVER : ZS_FEJL_INVERTER;
+        ud.type = inv_sover ? ZS_FEJL_INVERTER_SOVER : ZS_FEJL_INVERTER;
     } else if (stroem_fejl) {
         /*
          * Alarmen er slaaet fra, og der er ikke andet galt. Siden
@@ -245,6 +274,9 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
         ud.type = ZS_FEJL_INGEN;
     }
 
+    /* Hvad den var FOER. Bruges af lyden nedenfor: en ny fejltype skal
+     * have sine bip, ogsaa naar den afloeser en der allerede alarmerer. */
+    zs_fejl_type_t forrige = v->type;
     v->type = ud.type;
 
     /* ── blinket ── Reglen staar i zs_fejl_alvorlig, ÉT sted. ── */
@@ -284,8 +316,24 @@ zs_fejl_ud_t zs_fejl_tik(zs_fejl_vagt_t *v, const zs_fejl_ind_t *ind,
 
     if (!ud.blink) {
         v->alarm = false;
-    } else if (!v->alarm) {
-        /* Alarmen begynder nu. */
+    } else if (!v->alarm || ud.type != forrige) {
+        /*
+         * Alarmen begynder nu - ELLER den skiftede til en anden fejl.
+         *
+         * Her stod kun "!v->alarm", altsaa en kant fra ikke-alarm til
+         * alarm. Bevist ved koersel: doer inverteren klokken ét, er
+         * alle fire bip brugt en time senere (pauserne er 5, 10 og 30
+         * minutter). Rives stroemkablet ud derefter, vinder
+         * stroem_foerst og typen skifter - men blinket har staaet
+         * uafbrudt, saa v->alarm var stadig sand, lyd_nr stadig fire,
+         * og summeren lod IKKE en lyd for stroemsvigtet. Netop den
+         * fejl som hele zs_stroem-laget blev lavet for at raabe om.
+         *
+         * Typeskiftet taeller derfor som en ny alarm. De tre alvorlige
+         * typer skifter ikke frem og tilbage i sekunder - wifi laaser
+         * efter 20 sek, inverteren efter 120, og stroemmen efter 30 -
+         * saa det her kan ikke blive en summer der gaar i ring.
+         */
         v->alarm = true;
         v->lyd_nr = 0;
         v->naeste_lyd_ms = nu_ms;
@@ -402,10 +450,23 @@ const char *zs_fejl_forklaring(zs_fejl_type_t t)
 const char *zs_fejl_knap(zs_fejl_type_t t)
 {
     switch (t) {
-    /* Ingen knap: der er ingenting skaermen kan goere. Kablet skal
-     * i, og det kan kun et menneske. Knappen skjules, se
-     * zs_screen_fejl.c. */
-    case ZS_FEJL_INGEN_STROEM:    return "";
+    /*
+     * HER STOD "" - INGEN KNAP.
+     *
+     * Begrundelsen var rigtig saa langt den raekker: skaermen kan ikke
+     * saette kablet i. Men siden er alvorlig, saa appen tvinger den
+     * frem og HOLDER den der, og den har hverken tilbagepil eller
+     * tandhjul. Uden knap var hele fladen altsaa laast saa laenge
+     * batteriet holdt - timer - og det ene sted kunden kan tie den,
+     * Indstillinger -> Avancerede -> Batteri-alarm, var ikke til at
+     * naa. Kravet til den knap er skrevet ned: hun skal kunne slaa DEN
+     * fra uden at skulle ringe nogen op.
+     *
+     * Knappen foerer derfor til Indstillinger. Appen tvinger kun
+     * fejlsiden frem fra FORSIDEN, saa hun bliver ikke revet tilbage
+     * mens hun staar derinde.
+     */
+    case ZS_FEJL_INGEN_STROEM:    return "Indstillinger";
     case ZS_FEJL_WIFI:            return "Vælg netværk";
     case ZS_FEJL_INVERTER:        return "Søg efter anlægget";
     case ZS_FEJL_INVERTER_SOVER:
