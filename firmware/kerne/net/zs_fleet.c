@@ -92,6 +92,43 @@ static char  *s_cert;              /* PEM, i heapen saa laenge vi koerer */
 static char  *s_key;
 static char  *s_srv_ca;
 static int64_t s_klar_ms;          /* naar vi tidligst maa skrive       */
+
+
+/*
+ * MAA DER SKRIVES NU? ÉT STED.
+ *
+ * HER STOD UDTRYKKET FEM STEDER, OG TRE AF DEM VAR FORKERTE.
+ *
+ * De to rigtige spurgte
+ *
+ *     s_state == ZS_FLEET_READY && s_asset[0] && now >= s_klar_ms
+ *
+ * og de tre andre - energien, TILMELDINGSKODEN og inverterens tilstand -
+ * spurgte bare
+ *
+ *     s_abonneret && s_asset[0]
+ *
+ * Det er ikke det samme. s_abonneret bliver sand naar vi er abonneret,
+ * altsaa FOER serveren har svaret med asset-id'et og foer s_klar_ms er
+ * sat. Og vinduet er ikke en finesse: serveren skal opgradere
+ * forbindelsen til servicebrugeren foerst, se noten ved s_klar_ms.
+ *
+ * Det slemme var tilmeldingen. zs_tilmeld_skal_sende saetter "sagt" med
+ * det samme, og udsendelsen koerer med QoS 0 - hvor returvaerdien er 0
+ * naar beskeden blot er lagt i den LOKALE koe, uanset hvad serveren
+ * gOEr med den. Blev koden sendt inde i de to sekunder, kom den altsaa
+ * aldrig igennem, og den blev aldrig sendt igen foer en afbrydelse
+ * ryddede s_abonneret. Skaermen viste en kode serveren aldrig havde
+ * faaet, og teknikeren ledte efter fejlen i Frekvenz' app.
+ *
+ * Kalderen SKAL holde laasen.
+ */
+static bool maa_skrive_laast(void)
+{
+    return (s_state == ZS_FLEET_READY)
+        && (s_asset[0] != '\0')
+        && ((esp_timer_get_time() / 1000) >= s_klar_ms);
+}
 static bool   s_info_sendt;
 /*
  * Plads til at samle et svar der kommer i stykker, og samleren selv.
@@ -1457,8 +1494,7 @@ void zs_fleet_publish_energi(const float *wh, const bool *har, int8_t time)
     }
     char asset[sizeof(s_asset)];
     LAAS();
-    bool klar = (s_state == ZS_FLEET_READY) && (s_asset[0] != '\0')
-             && ((esp_timer_get_time() / 1000) >= s_klar_ms);
+    bool klar = maa_skrive_laast();
     snprintf(asset, sizeof(asset), "%s", s_asset);
     SLIP();
     if (!klar) {
@@ -1516,7 +1552,7 @@ void zs_fleet_publish_kvarter(const zs_kvarter_ud_t *ud)
         return;
     }
     LAAS();
-    bool klar = (s_abonneret && s_asset[0] != '\0');
+    bool klar = maa_skrive_laast();
     char asset[sizeof(s_asset)];
     snprintf(asset, sizeof(asset), "%s", s_asset);
     SLIP();
@@ -1550,7 +1586,7 @@ void zs_fleet_publish_tilmeld(const char *kode)
         return;
     }
     LAAS();
-    bool klar = (s_abonneret && s_asset[0] != '\0');
+    bool klar = maa_skrive_laast();
     char asset[sizeof(s_asset)];
     snprintf(asset, sizeof(asset), "%s", s_asset);
     SLIP();
@@ -1625,7 +1661,7 @@ void zs_fleet_publish_inverter(bool online)
         return;
     }
     LAAS();
-    bool klar = (s_abonneret && s_asset[0] != '\0');
+    bool klar = maa_skrive_laast();
     char asset[sizeof(s_asset)];
     snprintf(asset, sizeof(asset), "%s", s_asset);
     SLIP();
@@ -1725,8 +1761,7 @@ void zs_fleet_publish(const zs_fr_live_t *live, const zs_fr_info_t *info)
     char asset[sizeof(s_asset)];
     bool send_info;
     LAAS();
-    bool klar = (s_state == ZS_FLEET_READY) && (s_asset[0] != '\0')
-             && ((esp_timer_get_time() / 1000) >= s_klar_ms);
+    bool klar = maa_skrive_laast();
     snprintf(asset, sizeof(asset), "%s", s_asset);
     send_info = klar && !s_info_sendt;
     if (send_info) {
