@@ -494,11 +494,33 @@ static void lv_port_indev_init(void)
          * de fire tal, og det er det vigtigste den laver. Derfor
          * standser opstarten ikke her.
          */
+        /*
+         * RAEKKEFOELGEN STOD FORKERT HER, og det kostede en aften.
+         *
+         * Beskeden sagde "hold taend-knappen inde i 3 sekunder, traek
+         * USB ud". Maalt 17. oktober 2026 paa et rigtigt kort: med USB
+         * i sker der INGENTING. Seeeds knap-callback skriver "system
+         * power off" og slipper BSP_PWR_HOLD - hver gang, én gang i
+         * sekundet mens knappen holdes - men USB forsyner kortet
+         * videre, saa det bliver oppe. Porten forsvandt aldrig, og
+         * touch-chippen blev aldrig stroemloes.
+         *
+         * Og signalet i beskeden var ubrugeligt: et KORT tryk saetter
+         * baglyset til nul og slaar panelet fra, saa skaermen bliver
+         * sort laenge foer kortet slukker. "Hold inde til skaermen
+         * bliver sort" kan derfor ikke skelnes fra et fejltryk.
+         *
+         * USB UD FOERST. Saa koerer kortet paa batteriet alene, og naar
+         * knappen slipper stroem-grebet, slukker det rigtigt.
+         */
         ESP_LOGE(TAG, "touch svarede ikke i tre forsoeg, skaermen kan kun "
-                      "ses. Chippen er sandsynligvis laast: hold "
-                      "taend-knappen inde i 3 sekunder, traek USB ud, "
-                      "vent 10 sekunder og taend igen. En nulstilling "
-                      "alene rydder det IKKE.");
+                      "ses. Chippen er sandsynligvis laast, og KUN en "
+                      "rigtig stroemafbrydelse rydder det: TRAEK USB UD "
+                      "FOERST, hold saa taend-knappen inde i 5 sekunder, "
+                      "vent 30 sekunder, og saet USB i igen. Med USB i "
+                      "sker der ingenting - knappen slipper kortets eget "
+                      "stroem-greb, men USB forsyner det videre. En "
+                      "nulstilling rydder det heller ikke.");
         s_touch = NULL;
         return;
     }
