@@ -130,9 +130,32 @@ def main():
     ap.add_argument("--range", action="store_true",
                     help="skriv kodepunkterne som lv_font_conv vil have dem")
     ap.add_argument("--header", metavar="FIL", help="skriv C-headeren")
+    # ÉT IKONS KODEPUNKT, SAA DET IKKE SKAL SKRIVES AF ET ANDET STED.
+    #
+    # build-assets.sh byggede zs_ikon_kaempe med "0xE053" skrevet i
+    # haanden, med en note om at det var ZS_ICON_BATTERY. Aendrede eller
+    # ombyttede man ikonet her, fulgte zs_icons.h med - det haandhaeves
+    # byte for byte af tjek_genererede() i check-byg.py - mens
+    # build-assets.sh blev ved at bage den gamle glyf ind. Saa ville
+    # ZS_ICON_BATTERY blive tegnet i et skrift der ikke indeholder den,
+    # og LVGL tegner sin pladsholder-firkant som det ENESTE billede paa
+    # alarmsiden "Stroemforsyningen er fjernet".
+    ap.add_argument("--kodepunkt", metavar="NAVN",
+                    help="skriv ÉT ikons kodepunkt, fx BATTERY")
     args = ap.parse_args()
 
     if not check_unique():
+        return 1
+
+    if args.kodepunkt:
+        for navn, cp, _, _ in ICONS:
+            if navn == args.kodepunkt:
+                print("0x%04X" % cp)
+                return 0
+        kendte = ", ".join(sorted(n for n, _, _, _ in ICONS))
+        print("icons.py: kender ikke ikonet %r.\n"
+              "          Der er: %s" % (args.kodepunkt, kendte),
+              file=sys.stderr)
         return 1
 
     if args.range:

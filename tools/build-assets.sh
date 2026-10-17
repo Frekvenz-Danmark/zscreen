@@ -275,8 +275,24 @@ byg_saet() {
     build_icons zs_ikon_stor  "$(sk 28)"
     # Kun batteriet, og stort. Fejlsiden viser det naar stroemmen er
     # vaek, og dér er det sidens eneste billede - se ZS_G_FEJL_IKON_Y.
-    # 0xE053 er ZS_ICON_BATTERY, se zs_icons.h.
-    build_icons zs_ikon_kaempe "$(sk 40)" "0xE053"
+    # KODEPUNKTET SPOERGES OM, DET SKRIVES IKKE AF.
+    #
+    # Her stod "0xE053" med en note om at det var ZS_ICON_BATTERY.
+    # icons.py's egen docstring siger "listen over ikoner. ÉT sted" -
+    # og det var den ikke, for det her var en kopi.
+    #
+    # Aendrede eller ombyttede man ikonet i icons.py, fulgte
+    # zs_icons.h med (tjek_genererede() i check-byg.py haandhaever det
+    # byte for byte), mens den her linje blev ved at bage den GAMLE
+    # glyf ind i det kaempe skrift. ZS_ICON_BATTERY ville saa blive
+    # tegnet i et skrift der ikke indeholder den, og LVGL tegner sin
+    # pladsholder-firkant som det ENESTE billede paa alarmsiden
+    # "Stroemforsyningen er fjernet". Ingen vagt fangede det:
+    # check-text.py springer det private omraade over med vilje, og
+    # tjek_genererede() sammenligner kun zs_icons.h med icons.py.
+    KAEMPE_CP="$(python3 icons.py --kodepunkt BATTERY)" \
+        || fail "kunne ikke laese kodepunktet for BATTERY fra icons.py"
+    build_icons zs_ikon_kaempe "$(sk 40)" "${KAEMPE_CP}"
     # zs_icons.h er kodepunkter og ikke pixels, saa den er faelles for
     # begge saet og skrives kun én gang.
     if [ "${SAET_W}" = "${REF_W}" ]; then

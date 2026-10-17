@@ -59,7 +59,27 @@ NOEGLEORD = {"if", "for", "while", "switch", "return", "sizeof", "else"}
 
 
 def uden_kommentarer(s):
-    s = re.sub(r"/\*.*?\*/", "", s, flags=re.S)
+    """Fjerner kommentarer UDEN at flytte linjenumrene.
+
+    HER STOD DEN SAMME FEJL SOM I check-flade.py, og den blev rettet
+    DER men ikke her. Den gamle udgave slettede blokkommentarer med
+    linjeskift og alt, og saa rykkede alt nedenunder op.
+
+    Maalt 17. oktober 2026 paa de filer reglerne nedenfor skanner:
+
+        zs_app.c              2631 linjer -> 1573, afvigelse 1058
+        zs_fleet.c            1830 linjer -> 1188, afvigelse  642
+        zs_screen_settings.c  1139 linjer ->  894, afvigelse  245
+
+    Foer de to nye regler kom til, udskrev den her fil ingen
+    linjenumre, saa fejlen var harmloes. Nu melder motoren-maa-ikke-
+    kalde-lv_*-reglen "{fil}:{nr}", og en overtraeedelse naer slutningen
+    af zs_app.c ville blive meldt tusind linjer forkert. En vagt der
+    sender dig det forkerte sted hen, koster mere end den sparer.
+    """
+    def nyline(m):
+        return "\n" * m.group(0).count("\n")
+    s = re.sub(r"/\*.*?\*/", nyline, s, flags=re.S)
     return re.sub(r"//[^\n]*", "", s)
 
 

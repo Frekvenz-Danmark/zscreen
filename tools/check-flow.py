@@ -50,18 +50,44 @@ SLUT = "\033[0m"
 UNDTAGELSER = {
     "": "velkomstsiden: der er ingenting foer den, og den har "
         "\"Kom i gang\" fremad",
-    "Ingen forbindelse":
-        "netvaerkssiden: der er ikke noget at gaa tilbage TIL - siden "
-        "vises netop fordi hovedsiden ikke har noget at vise. Den har "
-        "\"Fix fejl\" fremad til netvaerkstrinnet, hvorfra tilbage "
-        "sender SETUP_CANCEL, og app'en viser hovedsiden af sig selv i "
-        "samme sekund som nettet er tilbage. Skaermen kan altsaa ikke "
-        "gaa i staa paa den",
+    # NOEGLEN ER fil:variabel, fordi titlen er et kald.
+    #
+    # Her stod noeglen "Ingen forbindelse", altsaa en titel. Fejlsidens
+    # titel kommer fra zs_fejl_titel(s_type) og skifter med fejltypen,
+    # saa den noegle ramte aldrig noget - ni linjers begrundelse der
+    # var doed kode.
+    "zs_screen_fejl.c:s_side":
+        "fejlsiden: der er ikke noget at gaa tilbage TIL - siden vises "
+        "netop fordi hovedsiden ikke har noget at vise. Hver fejltype "
+        "har en knap FREMAD: wifi til netvaerkstrinnet, inverter til "
+        "soegningen, og stroemsvigt til Indstillinger, hvor "
+        "Batteri-alarm kan slaas fra. Og app'en viser hovedsiden af sig "
+        "selv i samme sekund fejlen er vaek. Skaermen kan altsaa ikke "
+        "gaa i staa paa den - se zs_fejl_knap, hvor alle tre staar",
 }
 
-# zs_page_create(&var, "Titel", tilbage_cb, ...)
+# zs_page_create(&var, "Titel" ELLER et kald, tilbage_cb, ...)
+#
+# HER KRAEVEDE MOENSTERET EN LITTERAL TITEL, og det gjorde vagten blind
+# for den ENESTE side der var en reel blindgyde.
+#
+# zs_screen_fejl.c kalder
+#
+#     zs_page_create(&s_side, zs_fejl_titel(s_type), NULL, NULL, true)
+#
+# fordi titlen afhaenger af HVAD der er galt. Maalt 17. oktober 2026:
+# moensteret gav NUL traef i den fil. Foelgen var at regel 1 aldrig saa
+# siden, at undtagelsen skrevet til den aldrig blev slaaet op, og at
+# den groenne linje "13 sider, 12 med tilbage-knap, 1 undtaget" lod som
+# om den havde raesonneret om noget den ikke havde set - den ene var
+# velkomstsiden.
+#
+# Nu godtages begge former. Er titlen et kald, kan den ikke bruges som
+# noegle (den skifter med fejltypen), saa undtagelsen slaas op paa
+# fil:variabel i stedet.
 SIDE = re.compile(
-    r'zs_page_create\(\s*&(\w+)\s*,\s*"([^"]*)"\s*,\s*(\w+)\s*,')
+    r'zs_page_create\(\s*&(\w+)\s*,\s*'
+    r'(?:"([^"]*)"|([A-Za-z_]\w*\([^()]*\)))\s*,\s*(\w+)\s*,')
 
 
 # Hvor opsaetningen slutter, og hvad den IKKE maa pege paa.
@@ -126,12 +152,17 @@ def main():
         tekst = f.read_text(encoding="utf-8")
         for m in SIDE.finditer(tekst):
             nr = tekst[:m.start()].count("\n") + 1
+            litteral, udtryk = m.group(2), m.group(3)
             sider.append({
                 "fil": f.relative_to(ROD),
                 "linje": nr,
                 "var": m.group(1),
-                "titel": m.group(2),
-                "tilbage": m.group(3),
+                "titel": litteral if litteral is not None else udtryk,
+                # En titel der er et kald kan ikke vaere noegle: den
+                # skifter med fejltypen. Da bruges fil:variabel.
+                "noegle": (litteral if litteral is not None
+                           else f"{f.name}:{m.group(1)}"),
+                "tilbage": m.group(4),
             })
 
     if not sider:
@@ -142,15 +173,30 @@ def main():
     regel2 = tjek_opsaetningens_slutning()
     fejl = list(regel2)
     undtaget = 0
+    brugte = set()
     for s in sider:
         if s["tilbage"] != "NULL":
             continue
-        if s["titel"] in UNDTAGELSER:
+        if s["noegle"] in UNDTAGELSER:
             undtaget += 1
+            brugte.add(s["noegle"])
             continue
         fejl.append(f"{s['fil']}:{s['linje']}: siden \"{s['titel']}\" har "
                     f"ingen tilbage-knap, og staar ikke paa listen over "
                     f"undtagelser")
+
+    # REGEL 3: EN UNDTAGELSE DER IKKE BRUGES, ER ET HUL.
+    #
+    # Det var praecis det der skete med "Ingen forbindelse": noeglen
+    # ramte ingenting, saa begrundelsen raadnede uden at nogen saa det,
+    # OG den side den var skrevet til blev aldrig tjekket. check-flade.py
+    # har haft det her tjek hele tiden; her manglede det.
+    for noegle in sorted(set(UNDTAGELSER) - brugte):
+        fejl.append(f"UNDTAGELSER har \"{noegle}\", men ingen side "
+                    f"passer paa den. Enten er siden doebt om, eller "
+                    f"undtagelsen er ikke laengere noedvendig - og saa "
+                    f"skal den vaek, for en undtagelse man ikke kan se "
+                    f"er et hul.")
 
     if fejl:
         for linje in fejl:

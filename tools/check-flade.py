@@ -159,8 +159,51 @@ DEFINE = re.compile(r"^#define\s+([A-Z_][A-Z0-9_]*)\s+(-?\d+)\s*(?:/\*|//|$)",
 # mens hvert andet par kort paa enheden bruger ZS_G_GRID_GAP, som er
 # 20 paa ZDisplay. Det var den eneste af sin slags tilbage i fladen,
 # og den laa i en fil der lige var gennemgaaet.
+# ENDELSER DER IKKE ER PIXELS - OG DE SKAL STAA TIL SIDST I NAVNET.
+#
+# HER STOD "if any(o in navn for o in (...))", altsaa et DELSTRENGS-
+# tjek, og listen stod TO steder. Efterproevet 17. oktober 2026 mod
+# vagtens eget moenster:
+#
+#     KORT_MINDSTE_HEIGHT   fritaget af _MIN   (dansk _MINDSTE)
+#     FOO_VERDI             fritaget af _VER   (dansk _VERDI)
+#     BAR_MAX_W             fritaget af _MAX   (men _W ER pixels)
+#     PANEL_ID_X            fritaget af _ID    (men _X ER pixels)
+#
+# Alle fire blev sprunget over i TAVSHED: ingen UNDTAGET-post, ingen
+# skreven grund, intet uddata. I en dansk navngivet kodebase er
+# _MINDSTE, _VERDI og _MAALT naturlige navne, saa listen var praecis
+# det "sted man skriver sig fri" som filens eget hoved advarer mod.
+#
+# Som endelse betyder _MAX "et maksimum af noget der ikke er pixels",
+# fx ZS_DISCOVERY_MAX. BAR_MAX_W slutter paa _W og meldes nu.
+IKKE_PIXELS = ("_MAX", "_MIN", "_MS", "_COUNT", "_LEN", "_SEK",
+               "_ANTAL", "_BIT", "_OPA", "_ID", "_VER")
+
+
+def ikke_pixels(navn):
+    """Slutter navnet paa en endelse der ikke er pixels?"""
+    return navn.endswith(IKKE_PIXELS)
+
+
+# HER KRAEVEDE MOENSTERET AT VAERDIEN STARTEDE MED "(".
+#
+# Noten ovenfor sagde at DEFINE_UDTRYK lukkede hullet
+# "CARD_W ((ZS_CONTENT_WIDTH - 12) / 2)". Den lukkede kun den
+# PARENTETISEREDE form. Efterproevet 17. oktober 2026:
+#
+#     #define FOO 224              DEFINE ser den
+#     #define FOO ((A - 12) / 2)   UDTRYK ser den
+#     #define FOO 12 * 2           INGEN ser den
+#     #define FOO ZS_EDGE + 24     INGEN ser den
+#     #define FOO 224 + 0          INGEN ser den
+#
+# Og "#define X ZS_EDGE + 24" er netop den form der laa i
+# zs_price_page.c. Nu tages hele vaerdien. Det giver ikke dubletter med
+# DEFINE ovenfor: udtrukket nedenfor tager KUN tal der laegges til eller
+# traekkes fra og ikke selv ganger, saa et bart tal matcher ikke.
 DEFINE_UDTRYK = re.compile(
-    r"^#define\s+([A-Z_][A-Z0-9_]*)\s+(\(.*)$", re.M)
+    r"^#define\s+([A-Z_][A-Z0-9_]*)\s+(\S.*)$", re.M)
 
 # Navne hvor tallet IKKE er pixels. Hver med sin grund, for en liste
 # uden grunde bliver et sted man skriver sig fri.
@@ -292,9 +335,7 @@ def tjek_defines():
             if any(a <= m.start() < b for a, b in fri):
                 continue
             # Tal der tydeligt ikke er pixels.
-            if any(o in navn for o in ("_MAX", "_MIN", "_MS", "_COUNT",
-                                       "_LEN", "_SEK", "_ANTAL", "_BIT",
-                                       "_OPA", "_ID", "_VER")):
+            if ikke_pixels(navn):
                 continue
             nr = tekst[:m.start()].count("\n") + 1
             fejl.append(
@@ -307,13 +348,26 @@ def tjek_defines():
         # Og de samme tal, men inde i et regnestykke.
         for m in DEFINE_UDTRYK.finditer(tekst):
             navn, udtryk = m.group(1), m.group(2)
+            # KOMMENTAREN ER IKKE EN DEL AF VAERDIEN.
+            #
+            # Moensteret ovenfor tager hele resten af linjen, og det
+            # SKAL det for at se "#define X ZS_EDGE + 24". Men saa
+            # kommer en forklarende kommentar med, og tallene DER er
+            # ikke kode. Maalt da moensteret blev udvidet 17. oktober
+            # 2026, to falske fund paa én gang:
+            #
+            #   ZS_G_BAR_BADGE_HOEJDE  ZS_G_SK(22)  /* 16 px + 3 px luft */
+            #   ZS_CARD_HEIGHT         ZS_G_CARD_HEIGHT /* (408-12-12-12)/2 */
+            #
+            # Begge vaerdier er korrekt skalerede; tallene stod i
+            # noterne. En vagt der melder forkert, bliver slaaet fra.
+            udtryk = re.sub(r"/\*.*?\*/", " ", udtryk)
+            udtryk = re.sub(r"//.*$", " ", udtryk)
             if navn in UNDTAGET:
                 continue
             if any(a <= m.start() < b for a, b in fri):
                 continue
-            if any(o in navn for o in ("_MAX", "_MIN", "_MS", "_COUNT",
-                                       "_LEN", "_SEK", "_ANTAL", "_BIT",
-                                       "_OPA", "_ID", "_VER")):
+            if ikke_pixels(navn):
                 continue
             # HVAD DER ER PIXELS OG HVAD DER ER ET ANTAL.
             #

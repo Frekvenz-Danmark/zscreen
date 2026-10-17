@@ -50,7 +50,11 @@
 #define CARD_LINE_GAP ZS_G_SK(4)
 
 #define BAR_GAP      ZS_G_SK(4)
-#define BAR_MIN_H    3      /* saa en time til nul kroner stadig kan ses */
+/* Mindstehoejden skal FOELGE skaermen. Her stod et bart 3, og den
+ * gamle vagt fritog navnet fordi det indeholdt "_MIN" - et
+ * delstrengs-tjek. Paa ZDisplay var en nul-krone-time derfor 3 px hoej
+ * paa en skaerm hvor alt andet er 1,67 gange stoerre. */
+#define BAR_MIN_H    ZS_G_SK(3)   /* saa en time til nul kroner kan ses */
 
 /*
  * De to kort med luft imellem. Her stod 12 raat, og det var den samme
