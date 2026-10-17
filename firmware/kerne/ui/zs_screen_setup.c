@@ -1054,6 +1054,39 @@ void zs_setup_set_scan_progress(int done, int total, int found)
     zs_step_note(&s_scan_step, t);
 }
 
+/*
+ * "SKAERMEN ER IKKE PAA NETTET" ER IKKE "DER ER INGEN INVERTER".
+ *
+ * Foer stod de to ting samme sted: naar skaermen ikke havde nogen
+ * adresse, blev den tomme liste vist med beskeden nedenfor - altsaa
+ * "slaa Modbus TCP til i inverterens webside".
+ *
+ * Maalt paa et rigtigt anlaeg 17. oktober 2026: inverteren svarede paa
+ * 192.168.0.25 og .43, Modbus var slaaet til, og SunS-markoeren stod
+ * paa 40000. Der var INTET at rette paa inverteren. Skaermen var bare
+ * ikke paa nettet endnu. Beskeden sendte montoeren ud i inverterens
+ * menuer i stedet for tilbage til wi-fi-trinnet, og det er den dyreste
+ * slags fejl vi kan lave: en der er sikker paa sig selv og peger det
+ * forkerte sted hen.
+ *
+ * Derfor sin egen tilstand, og med vilje UDEN et ord om Modbus.
+ */
+void zs_setup_set_inverter_intet_net(void)
+{
+    clear_list(s_inv_list);
+    s_found_n = 0;
+
+    if (s_inv_hint == NULL) {
+        return;
+    }
+    lv_label_set_text(s_inv_hint,
+        "Skærmen er ikke på et netværk.\n\n"
+        "Søgningen efter inverteren går gennem netværket, så den kan "
+        "ikke begynde endnu. Gå tilbage og vælg dit wi-fi.\n\n"
+        "Står netværket allerede som forbundet, har routeren ikke givet "
+        "skærmen en adresse endnu. Vent et øjeblik og søg igen.");
+}
+
 void zs_setup_set_inverter_list(const zs_found_t *list, int n)
 {
     clear_list(s_inv_list);

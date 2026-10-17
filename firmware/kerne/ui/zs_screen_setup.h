@@ -77,6 +77,10 @@ void zs_setup_set_connect_status(const char *text, bool is_error, bool can_retry
 void zs_setup_set_scan_progress(int done, int total, int found);
 void zs_setup_set_inverter_list(const zs_found_t *list, int n);
 
+/* Skaermen har ingen adresse, saa soegningen kan ikke begynde. En
+ * anden besked end den tomme liste - se noten i zs_screen_setup.c. */
+void zs_setup_set_inverter_intet_net(void);
+
 /* Siger hvor "tilbage" foerer hen fra siden med prisomraade. */
 
 

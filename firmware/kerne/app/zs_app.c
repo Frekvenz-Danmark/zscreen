@@ -1422,7 +1422,12 @@ static void do_inverter_scan(void)
     char egen[ZS_IP_MAX];
     uint8_t praefiks = 0;
     if (!zs_wifi_get_ip(egen, sizeof(egen))) {
-        zs_ui_set_inverter_list(NULL, 0);
+        /* Uden en adresse er der ingen soegning at lave. Og det skal
+         * SIGES, ikke vises som en tom liste: den tomme liste beder om
+         * at faa Modbus TCP slaaet til paa inverteren, og det er det
+         * forkerte sted at sende nogen hen naar det er skaermen der
+         * mangler et net. Se noten i zs_screen_setup.c. */
+        zs_ui_set_inverter_intet_net();
         zs_ui_show(ZS_SCREEN_INVERTER_LIST);
         return;
     }

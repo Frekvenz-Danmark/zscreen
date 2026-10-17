@@ -77,6 +77,7 @@ void zs_ui_set_connect_status(const char *text, bool is_error, bool can_retry);
 
 void zs_ui_set_scan_progress(int done, int total, int found);
 void zs_ui_set_inverter_list(const zs_found_t *list, int n);
+void zs_ui_set_inverter_intet_net(void);
 
 void zs_ui_set_home(const zs_home_data_t *d);
 

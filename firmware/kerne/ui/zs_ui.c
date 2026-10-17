@@ -286,6 +286,14 @@ void zs_ui_set_inverter_list(const zs_found_t *list, int n)
     lv_port_sem_give();
 }
 
+void zs_ui_set_inverter_intet_net(void)
+{
+    if (!s_ready) { return; }
+    lv_port_sem_take();
+    zs_setup_set_inverter_intet_net();
+    lv_port_sem_give();
+}
+
 void zs_ui_set_home(const zs_home_data_t *d)
 {
     if (!s_ready) { return; }
