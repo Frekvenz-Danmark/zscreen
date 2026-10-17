@@ -78,6 +78,13 @@ UDENFOR = ("DESIGN.txt", "modbus_controller.py",
            # Sikkerhedskopien af enhedens fabriksflash. Den ligger i
            # ~/esp/d1001-fabrik/ og IKKE i repoet: den er 32 MB, og det
            # er Seeeds firmware og ikke vores. Se zdisplay-faseplan.md.
+           # Signeringsnoeglen. secure/ staar i .gitignore, saa filen
+           # ligger paa den maskine der udgiver og ALDRIG i et klon.
+           # Uden undtagelsen bestod vagten paa Mac'en, hvor noeglen
+           # er, og faldt i CI, hvor den ikke er. En vagt der svarer
+           # forskelligt alt efter hvilken maskine den koerer paa, er
+           # vaerre end ingen vagt: den groenne koersel beviser intet.
+           "zscreen-signing.pem",
            "SHA256.txt")
 
 
