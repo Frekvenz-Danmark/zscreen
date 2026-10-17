@@ -249,31 +249,48 @@ jobs:
     needs: [release, release-zdisplay]
     runs-on: ubuntu-24.04
     steps:
-      - name: Efterprøv at zScreen ligger først i udgivelsen
+      - name: Efterprøv at begge produkter ligger i udgivelsen
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          command -v gh >/dev/null || {
-            echo "::error::gh mangler paa runneren. Uden den kan"
-            echo "::error::raekkefoelgen ikke efterproeves, og saa ved vi"
-            echo "::error::ikke om gamle skaerme henter den rigtige fil."
-            exit 1
-          }
-          FOERSTE="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" \
-                      --jq '[.assets[].name | select(endswith(".bin"))][0]')"
-          echo "Første .bin i udgivelsen: ${FOERSTE:-ingen}"
-          case "${FOERSTE:-}" in
-            zscreen-*) echo "OK - gamle skærme henter zScreens firmware." ;;
-            *)
-              echo "::error::Den første .bin er \"${FOERSTE:-ingen}\" og ikke"
-              echo "::error::zScreens. Skærme på v0.27.0 og ældre tager den"
-              echo "::error::første fil de finder, så de ville hente forkert"
-              echo "::error::firmware og afvise den for evigt."
-              echo "::error::Fjern ZDisplay-filen fra udgivelsen NU:"
-              echo "::error::  gh release delete-asset ${GITHUB_REF_NAME} zdisplay-${GITHUB_REF_NAME}.bin"
-              echo "::error::og læg den op igen når zScreens fil ligger først."
-              exit 1
-              ;;
-          esac
+          # HER STOD "zScreens fil skal ligge FOERST".
+          #
+          # Reglen var rigtig saa laenge der stod skaerme i marken paa
+          # v0.27.0 og aeldre: de tager den foerste .bin de finder, og
+          # faar de ZDisplays, afviser de den for evigt.
+          #
+          # Den regel kunne aldrig passere. Noten ovenfor spaaede det
+          # praecis: API'et sorterer efter NAVN, og "zdisplay-" kommer
+          # foer "zscreen-" i alfabetet. Maalt 17. oktober 2026 paa
+          # v0.28.0: zscreen blev lagt op 11:42 og zdisplay 11:45, og
+          # API'et gav alligevel zdisplay foerst. Jobbet faldt, og
+          # ZDisplay-filen blev fjernet i haanden.
+          #
+          # Fra 0.28.0 vaelger firmwaren sin fil ud fra
+          # ZS_OTA_ASSET_PREFIX og ikke ud fra placeringen - se
+          # zs_version_asset_passer. Og der staar ingen skaerm i marken
+          # paa mindre end 0.28.0 (bekraeftet 17. oktober 2026). Saa
+          # raekkefoelgen betyder ingenting laengere, og det der
+          # betyder noget, er at hvert praefiks rammer PRAECIS ÉN fil.
+          # To filer med samme praefiks ville lade "den foerste der
+          # passer" afgoere hvad en skaerm henter, og saa er vi tilbage
+          # ved et held.
+          NAVNE="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" \
+                    --jq '.assets[].name | select(endswith(".bin"))')"
+          echo "Filer i udgivelsen:"; echo "${NAVNE}" | sed 's/^/  /'
+          FEJL=0
+          for PRAEFIKS in zscreen- zdisplay-; do
+            ANTAL="$(echo "${NAVNE}" | grep -c "^${PRAEFIKS}" || true)"
+            if [ "${ANTAL}" != "1" ]; then
+              echo "::error::Praefikset \"${PRAEFIKS}\" rammer ${ANTAL} filer, ikke én."
+              echo "::error::Hver skaerm vaelger sin firmware paa netop det"
+              echo "::error::praefiks. Rammer det nul, opdaterer produktet"
+              echo "::error::aldrig; rammer det flere, afgoer tilfaeldet hvad"
+              echo "::error::den henter."
+              FEJL=1
+            fi
+          done
+          [ "${FEJL}" = "0" ] || exit 1
+          echo "OK - begge produkter har praecis én fil hver."
