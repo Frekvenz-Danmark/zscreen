@@ -644,11 +644,32 @@ static esp_err_t esp_lcd_touch_gsl3670_read_ram_fw(esp_lcd_touch_handle_t tp)
     ESP_LOGI(TAG,"enter read_ram_fw");
     vTaskDelay(pdMS_TO_TICKS(30));
     ESP_RETURN_ON_ERROR(touch_gsl3670_i2c_read(tp, addr, (uint8_t *)&read_buf, 4), TAG, "gsl3670 read error!");
-    ESP_LOGI(TAG,"gsl3670 startup_chip failed read 0xb0 = %x,%x,%x,%x ",read_buf[3],read_buf[2],read_buf[1],read_buf[0]);
-    if(read_buf[3] != 0x5a || read_buf[2] != 0x5a || read_buf[1] != 0x5a || read_buf[0] != 0x5a)
-    {
+    /*
+     * LINJEN SAGDE "failed" OGSAA NAAR DET LYKKEDES.
+     *
+     * Seeeds original skriver beskeden UBETINGET, foer tjekket
+     * nedenfor. Maalt 17. oktober 2026 paa et kort hvor touch virkede:
+     *
+     *     I gsl3670: gsl3670 startup_chip failed read 0xb0 = 5a,5a,5a,5a
+     *
+     * 5a5a5a5a ER den rigtige vaerdi - chippen skriver den selv naar
+     * den koerer sin firmware. Samme morgen stod der 0,0,0,0 paa et
+     * kort hvor touch var doedt, og DA var beskeden sand.
+     *
+     * Den samme linje betoed altsaa baade succes og fejl, og det er
+     * den eneste linje der viser hvad der skete. Den sender den
+     * naeste paa jagt efter en fejl der ikke findes - eller lader ham
+     * overse den der findes.
+     */
+    bool kvitteret = (read_buf[3] == 0x5a && read_buf[2] == 0x5a
+                      && read_buf[1] == 0x5a && read_buf[0] == 0x5a);
+    if (!kvitteret) {
+        ESP_LOGE(TAG, "startup_chip FEJLEDE: 0xb0 = %x,%x,%x,%x, ventede "
+                      "5a,5a,5a,5a. Chippen tog ikke sin firmware i brug.",
+                 read_buf[3], read_buf[2], read_buf[1], read_buf[0]);
         return ESP_FAIL;
     }
+    ESP_LOGI(TAG, "startup_chip ok: 0xb0 = 5a,5a,5a,5a, firmwaren koerer");
     return ESP_OK;
 }
 
