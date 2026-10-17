@@ -254,6 +254,14 @@ void zs_ui_set_wifi_list(const zs_ap_t *aps, int n)
     lv_port_sem_give();
 }
 
+void zs_ui_set_wifi_intet_svar(void)
+{
+    if (!s_ready) { return; }
+    lv_port_sem_take();
+    zs_setup_set_wifi_intet_svar();
+    lv_port_sem_give();
+}
+
 void zs_ui_set_wifi_scanning(bool scanning)
 {
     if (!s_ready) { return; }

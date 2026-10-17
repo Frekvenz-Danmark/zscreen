@@ -415,6 +415,30 @@
 #define ZS_SCAN_MAX_BLOKKE      16
 
 /* ── Wifi ─────────────────────────────────────────────────────────── */
+/*
+ * HVOR MANGE GANGE DER SOEGES FOER DER GIVES OP.
+ *
+ * ZDisplays wifi sidder i en ESP32-C6 der snakker med P4'eren over
+ * SDIO, og den skal foerst op. Maalt paa et rigtigt kort 17. oktober
+ * 2026:
+ *
+ *     I ( 3450) lvgl_port: skaerm klar
+ *     I (23916) H_SDIO_DRV: Reset slave using GPIO[13]
+ *     I (25614) transport: Identified slave [esp32c6]
+ *     I (26217) wifi: wifi klar
+ *
+ * Skaermen er altsaa klar efter 3,5 sekunder og wifi efter 26. Naaede
+ * kunden "vaelg netvaerk" imellem, fejlede scanningen, og siden sagde
+ * "der blev ikke fundet nogen netvaerk" - og saa igen, og igen, indtil
+ * C6'en var oppe. Det saa ud som om skaermen flimrede.
+ *
+ * Fem forsoeg med fire sekunders pause daekker de 26 sekunder med
+ * margen, og imens staar der "soeger" i stedet for en paastand om at
+ * der ikke er noget.
+ */
+#define ZS_WIFI_SCAN_FORSOEG    5
+#define ZS_WIFI_SCAN_PAUSE_MS   4000
+
 #define ZS_WIFI_SCAN_MAX        20
 #define ZS_WIFI_CONNECT_TIMEOUT_MS 20000
 

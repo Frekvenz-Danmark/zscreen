@@ -72,6 +72,10 @@ void zs_setup_soeg_inverter(zs_inv_fra_t fra);
 void zs_setup_skift_netvaerk(zs_inv_fra_t fra);
 
 void zs_setup_set_wifi_list(const zs_ap_t *aps, int n);
+
+/* Der kunne ikke soeges - en anden besked end den tomme liste.
+ * Se noten i zs_screen_setup.c. */
+void zs_setup_set_wifi_intet_svar(void);
 void zs_setup_set_wifi_scanning(bool scanning);
 void zs_setup_set_connect_status(const char *text, bool is_error, bool can_retry);
 void zs_setup_set_scan_progress(int done, int total, int found);

@@ -70,6 +70,7 @@ void zs_ui_set_theme(zs_theme_mode_t m);
  * Alle tager selv laasen og maa kaldes fra app-opgaven.            */
 
 void zs_ui_set_wifi_list(const zs_ap_t *aps, int n);
+void zs_ui_set_wifi_intet_svar(void);
 void zs_ui_set_wifi_scanning(bool scanning);
 
 /* Vises paa "forbinder"-siden. is_error faerver teksten. */

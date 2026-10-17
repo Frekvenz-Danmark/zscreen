@@ -964,6 +964,32 @@ lv_obj_t *zs_setup_root_inverter(void)   { return s_inv.root; }
 static zs_ap_t s_aps[ZS_WIFI_MAX_APS];
 static int     s_aps_n;
 
+/*
+ * "NETKORTET SVAREDE IKKE" ER IKKE "DER ER INGEN NETVAERK".
+ *
+ * zs_wifi_scan skelner: -1 naar der ikke kunne soeges, 0 naar der ER
+ * soegt og intet fundet. Men zs_app gjorde "n < 0 ? 0 : n" paa alle
+ * tre kaldssteder, saa fejlen blev lavet om til et tal - og det tal
+ * havde en besked der peger det forkerte sted hen.
+ *
+ * Paa ZDisplay er wifi foerst klar efter 26 sekunder, se
+ * ZS_WIFI_SCAN_FORSOEG. Saa stod der "der blev ikke fundet nogen
+ * netvaerk" paa et sted hvor der var fem.
+ */
+void zs_setup_set_wifi_intet_svar(void)
+{
+    clear_list(s_wifi_list);
+    s_aps_n = 0;
+    if (s_wifi_hint == NULL) {
+        return;
+    }
+    lv_label_set_text(s_wifi_hint,
+        "Det trådløse er ikke klart endnu.\n\n"
+        "Skærmen søgte flere gange, men netkortet svarede ikke. Efter "
+        "en opstart kan det tage op mod et halvt minut.\n\n"
+        "Tryk \"Søg igen\" om et øjeblik.");
+}
+
 void zs_setup_set_wifi_list(const zs_ap_t *aps, int n)
 {
     clear_list(s_wifi_list);

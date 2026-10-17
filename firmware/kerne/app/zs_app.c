@@ -1433,6 +1433,49 @@ static bool genfind_inverteren(void)
 /* Kommandoer fra brugerfladen                                         */
 /* ------------------------------------------------------------------ */
 
+/*
+ * SOEG EFTER NETVAERK, OG BLIV VED MENS NETKORTET KOMMER OP.
+ *
+ * HER STOD DET SAMME TRE STEDER, og alle tre gjorde
+ *
+ *     zs_ui_set_wifi_list(s_aps, n < 0 ? 0 : n);
+ *
+ * zs_wifi_scan skelner mellem -1, altsaa "der kunne ikke soeges", og
+ * 0, altsaa "der ER soegt og der var ingenting". Linjen ovenfor lavede
+ * fejlen om til et tal, og tallet har en besked: "Der blev ikke fundet
+ * nogen netvaerk." Den peger paa stedet man staar, og ikke paa
+ * skaermen - og paa ZDisplay er det skaermen.
+ *
+ * Maalt 17. oktober 2026: wifi er foerst klar 26 sekunder inde, se
+ * ZS_WIFI_SCAN_FORSOEG. Skaermen er klar efter 3,5. Kunden saa derfor
+ * "der blev ikke fundet nogen netvaerk" paa et sted med fem netvaerk,
+ * igen og igen, og kaldte det en flimrende skaerm.
+ *
+ * Nu bliver der ved at blive soegt, og imens staar der "soeger" - ikke
+ * en paastand om at der ikke er noget. Giver den endelig op, siger
+ * siden at det er NETKORTET der ikke svarede.
+ */
+static void soeg_netvaerk(void)
+{
+    for (int forsoeg = 1; forsoeg <= ZS_WIFI_SCAN_FORSOEG; forsoeg++) {
+        zs_ui_set_wifi_scanning(true);
+        int n = zs_wifi_scan(s_aps, ZS_WIFI_MAX_APS);
+        zs_ui_set_wifi_scanning(false);
+        if (n >= 0) {
+            /* Der blev soegt. Nul netvaerk er et gyldigt svar her. */
+            zs_ui_set_wifi_list(s_aps, n);
+            return;
+        }
+        ESP_LOGW(TAG, "kunne ikke soege efter netvaerk (forsoeg %d af %d): %s",
+                 forsoeg, ZS_WIFI_SCAN_FORSOEG, zs_wifi_last_error());
+        if (forsoeg < ZS_WIFI_SCAN_FORSOEG) {
+            vTaskDelay(pdMS_TO_TICKS(ZS_WIFI_SCAN_PAUSE_MS));
+        }
+    }
+    ESP_LOGE(TAG, "netkortet svarede ikke i %d forsoeg", ZS_WIFI_SCAN_FORSOEG);
+    zs_ui_set_wifi_intet_svar();
+}
+
 static void do_inverter_scan(void)
 {
     /*
@@ -1571,20 +1614,12 @@ static void handle_cmd(const zs_cmd_t *c)
         }
         /* Ingen gemte oplysninger, eller de virkede ikke. Vis listen. */
         zs_ui_show(ZS_SCREEN_WIFI_LIST);
-        zs_ui_set_wifi_scanning(true);
-        {
-            int n = zs_wifi_scan(s_aps, ZS_WIFI_MAX_APS);
-            zs_ui_set_wifi_scanning(false);
-            zs_ui_set_wifi_list(s_aps, n < 0 ? 0 : n);
-        }
+        soeg_netvaerk();
         break;
     }
 
     case ZS_CMD_WIFI_SCAN: {
-        zs_ui_set_wifi_scanning(true);
-        int n = zs_wifi_scan(s_aps, ZS_WIFI_MAX_APS);
-        zs_ui_set_wifi_scanning(false);
-        zs_ui_set_wifi_list(s_aps, n < 0 ? 0 : n);
+        soeg_netvaerk();
         break;
     }
 
@@ -1800,12 +1835,7 @@ static void handle_cmd(const zs_cmd_t *c)
         zs_fr_disconnect(&s_fr);
         s_state = ST_SETUP;
         zs_ui_show(ZS_SCREEN_WIFI_LIST);
-        zs_ui_set_wifi_scanning(true);
-        {
-            int n = zs_wifi_scan(s_aps, ZS_WIFI_MAX_APS);
-            zs_ui_set_wifi_scanning(false);
-            zs_ui_set_wifi_list(s_aps, n < 0 ? 0 : n);
-        }
+        soeg_netvaerk();
         break;
 
     case ZS_CMD_SET_ALARM:
