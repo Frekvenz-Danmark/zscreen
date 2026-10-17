@@ -105,13 +105,22 @@ brew reinstall expat python@3.12
 source tools/env.sh
 cd firmware/boards/zscreen
 idf.py build
-ls /dev/cu.usbmodem*                      # find porten
-idf.py -p /dev/cu.usbmodemXXXX flash monitor
+../../tools/find-port.py zscreen           # find porten
+idf.py -p $(../../tools/find-port.py zscreen) flash monitor
 ```
 
-Sæt USB-C i porten mærket **USB** på bagsiden. Kommer der ingen
-`/dev/cu.usbmodem*` frem, så prøv den anden port eller et andet kabel:
-mange USB-C-kabler kan kun strøm.
+Sæt USB-C i porten mærket **USB** på bagsiden. Kommer der ingen port
+frem, så prøv den anden port eller et andet kabel: mange USB-C-kabler
+kan kun strøm.
+
+**Her stod `ls /dev/cu.usbmodem*`, og det er den forkerte chip.** Over
+én USB-C melder skærmen sig som to enheder: RP2040'en som
+`cu.usbmodem*`, og ESP32-S3'ens UART0 som `cu.usbserial*` — se linjen
+om CH340 ovenfor. De to GPIO-ben går til RP2040'en og har intet
+USB-stik, så RP2040-porten når aldrig ESP32'en. Målt 17. oktober 2026:
+`esptool read_mac` svarede på `cu.usbserial-1110` og slet ikke på
+`cu.usbmodem11201`. `find-port.py` kender forskellen og svarer med den
+port der kan flashes.
 
 Ctrl-] afslutter `monitor`.
 

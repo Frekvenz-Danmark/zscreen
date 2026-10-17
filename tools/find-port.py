@@ -17,7 +17,7 @@ Og scriptet er macOS-kun i forvejen - det laeser ioreg - saa der er
 ingenting tabt ved at pege direkte paa /usr/bin/python3.
 
     ./tools/find-port.py zdisplay   ->  /dev/cu.usbmodem31201
-    ./tools/find-port.py zscreen    ->  /dev/cu.usbmodem11201
+    ./tools/find-port.py zscreen    ->  /dev/cu.usbserial-1110
     ./tools/find-port.py --vis      ->  alt hvad der sidder i
 
 HVORFOR DEN FINDES.
@@ -55,6 +55,30 @@ import sys
 SKAERME = {
     "zdisplay": ("ZDisplay", "Espressif", "USB JTAG/serial debug unit"),
     "zscreen":  ("zScreen",  "Seeed",     "INDICATOR RP2040"),
+}
+
+
+# ZSCREENS PROGRAMMERINGSPORT ER EN ANDEN END DEN DER IDENTIFICERER DEN.
+#
+# docs/hardware.md siger det selv: "Skaermen flashes over UART0, som
+# foer - Seeed skriver selv at ESP32'en melder sig som USB-SERIAL
+# CH340." ESP32-S3'ens GPIO 19 og 20 gaar til RP2040'en og har INTET
+# USB-stik, saa den port RP2040'en melder sig paa, naar ikke ESP32'en.
+#
+# Her returnerede scriptet RP2040-porten for "zscreen". Maalt 17.
+# oktober 2026: esptool read_mac svarede paa cu.usbserial-1110 (CH340,
+# ESP32-S3) og slet ikke paa cu.usbmodem11201 (RP2040). Altsaa pegede
+# flash-firmware.sh zscreen paa den forkerte chip - og det er praecis
+# den slags den her fil findes for at forhindre.
+#
+# ZDisplay har ikke problemet: ESP32-P4's USB-serial-JTAG er baade det
+# der identificerer den og det der flashes over.
+#
+# CH340'en er en almindelig bro som enhver kan have siddende, saa den
+# ALENE beviser ingenting. Derfor kraeves begge: RP2040'en viser at der
+# ER en zScreen, og CH340'en er dens vej ind.
+PROG_PORT = {
+    "zscreen": ("", "USB Serial"),
 }
 
 
@@ -103,6 +127,11 @@ def main():
             for noegle, (produkt, vv, pp) in SKAERME.items():
                 if v == vv and p == pp:
                     hvem = f"  <- {produkt}  ({noegle})"
+                    if noegle in PROG_PORT:
+                        hvem += ", men IKKE porten der flashes"
+            for noegle, (pv, pp) in PROG_PORT.items():
+                if v == pv and p == pp:
+                    hvem = f"  <- {SKAERME[noegle][0]}s ESP32, flash her"
             print(f"  {port:28} {v or '?':12} {p or '?'}{hvem}")
         return 0
 
@@ -127,6 +156,31 @@ def main():
             print(f"        {t}", file=sys.stderr)
         print(f"      Sig hvilken i haanden.", file=sys.stderr)
         return 1
+
+    if board in PROG_PORT:
+        pv, pp = PROG_PORT[board]
+        proge = [port for port, v, p in alle if v == pv and p == pp]
+        if not proge:
+            print(f"FEJL: fandt en {navn} paa {traef[0]}, men ikke dens "
+                  f"programmeringsport.", file=sys.stderr)
+            print(f"      ESP32'en melder sig som \"{pp}\" - se "
+                  f"docs/hardware.md.", file=sys.stderr)
+            print(f"      RP2040-porten ovenfor naar IKKE ESP32'en.",
+                  file=sys.stderr)
+            print(f"      Mange USB-C-kabler kan kun stroem. Proev et andet,",
+                  file=sys.stderr)
+            print(f"      eller den anden port paa bagsiden.", file=sys.stderr)
+            return 1
+        if len(proge) > 1:
+            print(f"FEJL: der sidder {len(proge)} \"{pp}\" i, og de ser "
+                  f"ens ud udefra:", file=sys.stderr)
+            for t in sorted(proge):
+                print(f"        {t}", file=sys.stderr)
+            print(f"      Sig hvilken i haanden - der gaettes ikke paa en "
+                  f"port der flashes.", file=sys.stderr)
+            return 1
+        print(proge[0])
+        return 0
 
     print(traef[0])
     return 0
