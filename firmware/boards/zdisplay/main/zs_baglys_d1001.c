@@ -47,15 +47,6 @@ bool zs_baglys_init(uint8_t start_pct)
      * ikke er sket, saa en forkert raekkefoelge bliver opdaget her - med
      * en besked der siger hvad der er galt.
      */
-    s_klar = true;
-    esp_err_t err = bsp_display_brightness_set((int)start_pct);
-    if (err != ESP_OK) {
-        s_klar = false;
-        ESP_LOGE(TAG, "baglyset svarer ikke (%s). Er lv_port_init() kaldt "
-                      "foer zs_display_init()?", esp_err_to_name(err));
-        return false;
-    }
-
     /*
      * OG SAA SLUKKES LYSDIODEN.
      *
@@ -83,13 +74,32 @@ bool zs_baglys_init(uint8_t start_pct)
      * desuden en beslutning om PRODUKTET: skal dioden bruges til noget
      * en dag, er det det her sted der skal give den lov.
      *
-     * Svaret ses ikke efter med vilje: bsp_led_*_set returnerer void.
-     * Virker LEDC ikke, er baglyset ovenfor allerede faldet igennem med
-     * en besked.
+     * OG DEN SLUKKES FOER NOGET KAN FEJLE.
+     *
+     * Blokken laa FOER nedenfor bsp_display_brightness_set, og
+     * begrundelsen var at "virker LEDC ikke, er baglyset allerede
+     * faldet igennem med en besked". Men en besked i loggen slukker
+     * ikke en lysdiode. Faldt brightness_set igennem - netop det
+     * raekkefoelge-tilfaelde dens egen besked naevner - returnerede
+     * funktionen, og dioden blev staaende og lyste ved kameraet.
+     *
+     * Svaret ses ikke efter: bsp_led_*_set returnerer void. Kan de
+     * ikke naa LEDC, er der ingenting at gOEre - men saa er det
+     * forsoegt, og det koster ingenting at forsoege foerst.
      */
     bsp_led_red_set(false);
     bsp_led_green_set(false);
     bsp_led_blue_set(false);
+
+    s_klar = true;
+    esp_err_t err = bsp_display_brightness_set((int)start_pct);
+    if (err != ESP_OK) {
+        s_klar = false;
+        ESP_LOGE(TAG, "baglyset svarer ikke (%s). Er lv_port_init() kaldt "
+                      "foer zs_display_init()?", esp_err_to_name(err));
+        return false;
+    }
+
 
     ESP_LOGI(TAG, "baglys klar, %u %%, og lysdioden ved kameraet er slukket",
              (unsigned)start_pct);

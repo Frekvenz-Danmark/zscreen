@@ -142,8 +142,20 @@ void zs_price_page_create(zs_price_page_t *p, lv_obj_t *parent)
     struct { lv_obj_t **kort, **vaerdi, **tid; const char *tekst; lv_coord_t x; }
     k[2] = {
         { &p->low_card,  &p->low_value,  &p->low_time,  "BILLIGST", ZS_EDGE },
+        /* MELLEMRUMMET ER DET SAMME SOM CARD_W REGNER MED.
+         *
+         * Her stod et bart 12. CARD_W blev lagt om til
+         * (ZS_CONTENT_WIDTH - ZS_G_GRID_GAP) / 2, men det her tal
+         * fulgte ikke med. Paa ZDisplay er gabet 20, saa de to kort
+         * stod 12 px fra hinanden hvor der var reserveret 20, og
+         * parret endte 8 px foer indholdskanten: 20 px venstre margen
+         * mod 28 px hoejre paa en raekke der skal vaere symmetrisk.
+         * zScreen var uberoert, for der ER gabet 12.
+         *
+         * To kort plus ét gab er praecis indholdets bredde, saa det
+         * her er det ENESTE tal der kan staa her. */
         { &p->high_card, &p->high_value, &p->high_time, "DYREST",
-          ZS_EDGE + CARD_W + 12 },
+          ZS_EDGE + CARD_W + ZS_G_GRID_GAP },
     };
     /* Linjerne stables ud fra skrifttypernes egne hoejder, ikke ud fra
      * tal skrevet i haanden. Saa kan de ikke komme til at overlappe

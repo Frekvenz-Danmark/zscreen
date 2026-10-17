@@ -1145,9 +1145,17 @@ _Static_assert(ZS_G_CARD_TEXT_GAP >= 0,
  * et designvalg.
  *
  * Gaelder ikke referenceskaermen, som ikke henter headeren - der er
- * tallene skrevet i hoejre hand, og zScreens saet tjekkes i stedet af
- * tools/check-byg.py, som holder ZS_ASSET_SAET op mod ZS_G_SCR_WIDTH
- * for BEGGE produkter.
+ * tallene skrevet i hoejre hand.
+ *
+ * DEN NOTE HER LOEJ indtil 17. oktober 2026. Der stod at zScreens saet
+ * "tjekkes i stedet af tools/check-byg.py, som holder ZS_ASSET_SAET op
+ * mod ZS_G_SCR_WIDTH for BEGGE produkter". Maalt: "SCR_WIDTH" fandtes
+ * NUL gange i den fil. Der var altsaa ingen backstop, og asserten her
+ * er slaaet fra netop paa det produkt der sendes ud.
+ *
+ * Nu findes den: tjek_asset_saet_mod_bredden() i tools/check-byg.py.
+ * Efterproevet ved at saette zscreens ZS_ASSET_SAET til 800 - vagten
+ * sagde fra med exit 1.
  */
 #if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ZS_G_SCR_HEIGHT == ZS_G_REF_HEIGHT)
 _Static_assert(ZS_SKRIFT_SAET_WIDTH == ZS_G_SCR_WIDTH,

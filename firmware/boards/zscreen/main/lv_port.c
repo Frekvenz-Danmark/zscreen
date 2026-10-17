@@ -242,6 +242,8 @@ static void lv_port_disp_init(void)
 #else
     buffer_size = brd->LCD_WIDTH * LV_PORT_BUFFER_HEIGHT;
     buf1 = heap_caps_malloc(buffer_size * sizeof(lv_color_t), LV_PORT_BUFFER_MALLOC);
+#endif
+
     /*
      * HER STOD assert(buf1), OG DEN ER EN INDSTILLING.
      *
@@ -253,6 +255,22 @@ static void lv_port_disp_init(void)
      * gaar en NULL-buffer videre til lv_disp_draw_buf_init, og saa
      * tegner LVGL i adresse nul.
      *
+     * OG DEN LAA I DEN GREN zSCREEN ALDRIG OVERSAETTER.
+     *
+     * Tjekket stod inde i #else'en ovenfor. CONFIG_LCD_AVOID_TEAR=y
+     * staar i baade sdkconfig.defaults og den genererede sdkconfig for
+     * zScreen, saa den levende gren er bsp_lcd_get_frame_buffer() -
+     * uden tjek af nogen art. Beskyttelsen var altsaa doed kode paa
+     * netop det produkt der sendes ud.
+     *
+     * Og den gren kan ogsaa give NULL: Seeeds bsp_lcd.c erklaerer
+     * lcd_buf0 og lcd_buf1 som static NULL og saetter dem kun i
+     * esp_lcd_rgb_panel_get_frame_buffer. Koerer den vej ikke, bliver
+     * begge NULL og floeder lige herind.
+     *
+     * Derfor staar tjekket nu UDEN FOR #endif, lige foer det kald der
+     * ville tage skade. Begge grene kommer forbi det.
+     *
      * Og assert siger kun fil og linje. Her staar HVAD der skete og
      * hvorfor det ikke kan fortsaette.
      */
@@ -263,7 +281,7 @@ static void lv_port_disp_init(void)
                  buffer_size, (unsigned)(buffer_size * sizeof(lv_color_t)));
         abort();
     }
-#endif
+
     // initialize LVGL draw buffers
     lv_disp_draw_buf_init(&disp_buf, buf1, buf2, buffer_size);
 

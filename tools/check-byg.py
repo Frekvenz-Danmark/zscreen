@@ -346,6 +346,66 @@ def tjek_genererede():
             "cd tools && python3 icons.py --header ../firmware/kerne/ui/zs_icons.h")
 
 
+def tjek_asset_saet_mod_bredden():
+    """Peger hvert board paa det saet af skrifttyper der passer til DEN
+    skaerm det har?
+
+    HVORFOR DEN FINDES, OG HVORFOR DEN IKKE GJORDE FOER.
+
+    zs_layout.h har en _Static_assert der holder ZS_SKRIFT_SAET_WIDTH op
+    mod ZS_G_SCR_WIDTH. Men den staar i
+
+        #if !(ZS_G_SCR_WIDTH == ZS_G_REF_WIDTH && ...)
+
+    fordi referenceskaermen ikke henter zs_skrift_maal.h. Den
+    oversaettes altsaa ALDRIG for zScreen - det ene produkt der sendes
+    ud i dag. Og noten ved asserten sagde at "zScreens saet tjekkes i
+    stedet af tools/check-byg.py, som holder ZS_ASSET_SAET op mod
+    ZS_G_SCR_WIDTH for BEGGE produkter".
+
+    Det gjorde den ikke. Maalt 17. oktober 2026: "SCR_WIDTH" fandtes
+    NUL gange i den her fil. tjek_assets nedenfor sikrer kun at
+    saettene er komplette og at det valgte saet findes - ikke at det
+    passer til skaermen.
+
+    Saa "set(ZS_ASSET_SAET 800)" i zscreens CMakeLists oversatte rent,
+    passerede alle vagter, og sendte en zScreen ud med 1,67x for store
+    glyffer sat op i 480 px kasser. Maalebaandet ser det ikke: alt er
+    inden for sin kant, der er bare luft overalt. Det ville se ud som
+    et designvalg.
+
+    Nu er noten sand.
+    """
+    for board in sorted(d.name for d in (ROD / "firmware/boards").iterdir()
+                        if d.is_dir()):
+        bred_fil = ROD / "firmware/boards" / board / "CMakeLists.txt"
+        saet_fil = ROD / "firmware/boards" / board / "main" / "CMakeLists.txt"
+        if not bred_fil.exists() or not saet_fil.exists():
+            continue
+        m = re.search(r"ZS_G_SCR_WIDTH=(\d+)",
+                      bred_fil.read_text(encoding="utf-8"))
+        n = re.search(r"set\(\s*ZS_ASSET_SAET\s+(\d+)\s*\)",
+                      saet_fil.read_text(encoding="utf-8"))
+        if m is None:
+            fejl.append(f"firmware/boards/{board}/CMakeLists.txt saetter "
+                        f"ikke ZS_G_SCR_WIDTH. Uden den kan saettet af "
+                        f"skrifttyper ikke efterproeves.")
+            continue
+        if n is None:
+            fejl.append(f"firmware/boards/{board}/main/CMakeLists.txt "
+                        f"saetter ikke ZS_ASSET_SAET.")
+            continue
+        bredde, saet = m.group(1), n.group(1)
+        if bredde != saet:
+            fejl.append(
+                f"{board}: skaermen er {bredde} px bred, men "
+                f"ZS_ASSET_SAET er {saet}. Skrifterne ville vaere "
+                f"{int(saet) / int(bredde):.2f}x for store, og layoutet "
+                f"regner videre paa {bredde}. Det bygger uden en fejl og "
+                f"ser ud som et designvalg - se noten i zs_layout.h ved "
+                f"_Static_assert paa ZS_SKRIFT_SAET_WIDTH.")
+
+
 def tjek_assets():
     """Hvert saet af skrifttyper skal staa helt i listen, og hvert board
     skal vaelge et saet der findes."""
@@ -443,6 +503,7 @@ def main():
     print("Tjekker at hver bygning kan finde sine headere ...")
     tjek_cmake()
     tjek_assets()
+    tjek_asset_saet_mod_bredden()
     tjek_genererede()
     tjek_motoren()
     for navn, sti in (("enhedstestene", ROD / "tests/host/run.sh"),
