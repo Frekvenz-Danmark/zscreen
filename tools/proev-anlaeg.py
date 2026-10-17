@@ -136,10 +136,25 @@ def i16(v):
 
 
 def skala(sf):
-    """SunSpecs skalafaktor: en int16 tierpotens. 0x8000 = ikke sat."""
-    if sf == 0x8000:
+    """SunSpecs skalafaktor: en int16 tierpotens, eller None.
+
+    SAMME REGEL SOM FIRMWAREN, og det er ikke pynt. zs_ss_sf_valid i
+    zs_sunspec.c siger:
+
+        0x8000 er SunSpec' "ikke implementeret". Alt uden for -10..10
+        er uden for standarden og betyder i praksis at vi laeser i et
+        register der ikke er en skalafaktor.
+
+    Her stod kun 0x8000-tjekket, og proeven styrtede paa det rigtige
+    anlaeg 17. oktober 2026: en maalermodel svarede med en faktor der
+    gav 10**32767, og udskriften faldt med OverflowError. En proeve der
+    styrter, maaler ingenting - og paa en gammel wifi-forbindelse er
+    halve svar netop det normale.
+    """
+    v = i16(sf)
+    if sf == 0x8000 or v < -10 or v > 10:
         return None
-    return 10 ** i16(sf)
+    return 10 ** v
 
 
 # ── SunSpec-kortet ───────────────────────────────────────────────────
